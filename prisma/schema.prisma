@@ -1,0 +1,366 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String             @id @default(cuid())
+  email          String             @unique
+  backupEmail    String?            @unique
+  username       String             @unique
+  passwordHash   String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  profile        Profile?
+  posts          Post[]
+  comments       Comment[]
+  reactions      Reaction[]
+  sentRequests   FriendRequest[]    @relation("SentRequests")
+  receivedRequests FriendRequest[]  @relation("ReceivedRequests")
+  friendsA       Friendship[]       @relation("FriendshipA")
+  friendsB       Friendship[]       @relation("FriendshipB")
+  messages       Message[]
+  threadsA       MessageThread[]    @relation("ThreadUserA")
+  threadsB       MessageThread[]    @relation("ThreadUserB")
+  groupsOwned    Group[]            @relation("GroupOwner")
+  groupMemberships GroupMember[]
+  notifications  Notification[]
+  feedPreference UserFeedPreference?
+  mutedUsers     MutedUser[]        @relation("MutedByUser")
+  mutedBy        MutedUser[]        @relation("MutedTargetUser")
+  mutedTopics    MutedTopic[]
+  followedTopics FollowedTopic[]
+  albums         PhotoAlbum[]
+  passwordResetTokens PasswordResetToken[]
+  twoFactorConfig TwoFactorConfig?
+  createdGroupEvents GroupEvent[]
+  groupForumThreads  GroupForumThread[]
+  groupForumPosts    GroupForumPost[]
+  groupDocuments     GroupDocument[]
+  groupPhotos        GroupPhoto[]
+  following          UserFollow[]      @relation("UserFollowing")
+  followers          UserFollow[]      @relation("UserFollowers")
+}
+
+model Profile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  displayName       String
+  bio               String?
+  location          String?
+  interests         String?
+  relationshipStatus String?
+  avatarUrl         String?
+  bannerUrl         String?
+  themeId           String?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme             Theme?   @relation(fields: [themeId], references: [id])
+}
+
+model Theme {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  name              String   @unique
+  background        String
+  accentColor       String
+  cardStyle         String
+  headerStyle       String
+  buttonStyle       String
+  fontPairing       String
+  patternAsset      String?
+  profiles          Profile[]
+}
+
+model Post {
+  id                String   @id @default(cuid())
+  authorId          String
+  content           String
+  imageUrl          String?
+  topic             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  groupId           String?
+  parentPostId      String?
+  author            User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments          Comment[]
+  reactions         Reaction[]
+  group             Group?   @relation(fields: [groupId], references: [id])
+  @@index([createdAt, id])
+  @@index([authorId, createdAt])
+  @@index([groupId, createdAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  postId     String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  @@index([postId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model Reaction {
+  id         String   @id @default(cuid())
+  postId     String
+  userId     String
+  type       String
+  createdAt  DateTime @default(now())
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([postId, userId, type])
+}
+
+model FriendRequest {
+  id          String              @id @default(cuid())
+  senderId    String
+  receiverId  String
+  status      String              @default("PENDING")
+  createdAt   DateTime            @default(now())
+  sender      User                @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User                @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  userAId     String
+  userBId     String
+  createdAt   DateTime @default(now())
+  userA       User     @relation("FriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB       User     @relation("FriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+  @@unique([userAId, userBId])
+  @@index([userAId, createdAt])
+  @@index([userBId, createdAt])
+}
+
+model MessageThread {
+  id          String   @id @default(cuid())
+  userAId     String
+  userBId     String
+  updatedAt   DateTime @updatedAt
+  userA       User     @relation("ThreadUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB       User     @relation("ThreadUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages    Message[]
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  threadId    String
+  senderId    String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender      User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  @@index([threadId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model Group {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  visibility  String          @default("PUBLIC")
+  ownerId     String
+  createdAt   DateTime        @default(now())
+  owner       User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     GroupMember[]
+  posts       Post[]
+  events      GroupEvent[]
+  threads     GroupForumThread[]
+  documents   GroupDocument[]
+  photos      GroupPhoto[]
+  photoAlbums GroupPhotoAlbum[]
+}
+
+model GroupMember {
+  id          String   @id @default(cuid())
+  groupId     String
+  userId      String
+  createdAt   DateTime @default(now())
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String   @default("MEMBER")
+  @@unique([groupId, userId])
+}
+
+model GroupEvent {
+  id            String   @id @default(cuid())
+  groupId        String
+  creatorId      String
+  title          String
+  description    String?
+  startsAt       DateTime
+  endsAt         DateTime?
+  locationName   String?
+  latitude       Float?
+  longitude      Float?
+  googleMapsUrl  String?
+  createdAt      DateTime @default(now())
+  group          Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator        User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+}
+
+model GroupForumThread {
+  id          String   @id @default(cuid())
+  groupId      String
+  authorId     String
+  title        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  posts        GroupForumPost[]
+}
+
+model GroupForumPost {
+  id          String   @id @default(cuid())
+  threadId     String
+  authorId     String
+  content      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  thread       GroupForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model GroupDocument {
+  id          String   @id @default(cuid())
+  groupId      String
+  uploaderId   String
+  title        String
+  url          String
+  createdAt    DateTime @default(now())
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  uploader     User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+}
+
+model GroupPhoto {
+  id          String   @id @default(cuid())
+  groupId      String
+  albumId      String?
+  uploaderId   String
+  caption      String?
+  tags         String?
+  url          String
+  createdAt    DateTime @default(now())
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  album        GroupPhotoAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  uploader     User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+}
+
+model GroupPhotoAlbum {
+  id          String   @id @default(cuid())
+  groupId      String
+  title        String
+  description  String?
+  createdAt    DateTime @default(now())
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  photos       GroupPhoto[]
+  @@unique([groupId, title])
+}
+
+model UserFollow {
+  id           String   @id @default(cuid())
+  followerId   String
+  followingId  String
+  createdAt    DateTime @default(now())
+  follower     User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following    User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  @@unique([followerId, followingId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model PhotoAlbum {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos      Photo[]
+}
+
+model Photo {
+  id          String   @id @default(cuid())
+  albumId     String
+  url         String
+  caption     String?
+  createdAt   DateTime @default(now())
+  album       PhotoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+}
+
+model UserFeedPreference {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  mode           String   @default("CHRONOLOGICAL")
+  closeFriendIds String?
+  hiddenPostIds  String?
+  topicWeights   String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MutedUser {
+  id            String   @id @default(cuid())
+  userId        String
+  mutedUserId   String
+  createdAt     DateTime @default(now())
+  user          User     @relation("MutedByUser", fields: [userId], references: [id], onDelete: Cascade)
+  mutedUser     User     @relation("MutedTargetUser", fields: [mutedUserId], references: [id], onDelete: Cascade)
+  @@unique([userId, mutedUserId])
+}
+
+model MutedTopic {
+  id          String   @id @default(cuid())
+  userId      String
+  topic       String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, topic])
+}
+
+model FollowedTopic {
+  id          String   @id @default(cuid())
+  userId      String
+  topic       String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, topic])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TwoFactorConfig {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  secret      String
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

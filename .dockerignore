@@ -1,0 +1,11 @@
+node_modules
+.next
+npm-debug.log
+Dockerfile*
+docker-compose*.yml
+.git
+.gitignore
+coverage
+*.local
+prisma/dev.db
+public/uploads
