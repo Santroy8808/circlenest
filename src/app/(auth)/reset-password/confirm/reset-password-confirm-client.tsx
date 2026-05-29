@@ -23,7 +23,7 @@ export default function ResetPasswordConfirmClient({ token }: { token: string })
             setStatus(res.ok ? "Password updated. You can log in now." : "Invalid or expired reset link.");
           }}
         >
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" minLength={8} required placeholder="New password" className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" minLength={14} required placeholder="New password (14+ chars)" className="w-full rounded-lg border border-slate-300 px-3 py-2" />
           <button type="submit" className="w-full rounded-lg bg-blue-600 px-3 py-2 text-white">Update password</button>
         </form>
         {!token ? <p className="mt-3 text-sm text-red-600">Missing reset token in URL.</p> : null}

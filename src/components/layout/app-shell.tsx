@@ -1,33 +1,111 @@
+import Image from "next/image";
 import Link from "next/link";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { CommunicateLauncher } from "@/components/layout/communicate-launcher";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const [profile, counts] = userId
+    ? await Promise.all([
+        prisma.profile.findUnique({ where: { userId }, select: { displayName: true, avatarUrl: true, bannerUrl: true } }),
+        Promise.all([
+          prisma.notification.count({ where: { userId, readAt: null } }),
+          prisma.alert.count({ where: { userId, readAt: null } }),
+          prisma.message.count({ where: { thread: { OR: [{ userAId: userId }, { userBId: userId }] }, readAt: null, senderId: { not: userId } } }),
+          prisma.friendRequest.count({ where: { receiverId: userId, status: "PENDING" } }),
+        ]),
+      ])
+    : [null, [0, 0, 0, 0]];
+
+  const [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = counts;
+
   return (
-    <div className="min-h-screen pb-16 md:pb-0">
-      <div className="mx-auto hidden max-w-7xl grid-cols-[200px_minmax(0,1fr)] gap-3 p-3 min-[600px]:grid lg:grid-cols-[220px_minmax(0,1fr)_260px]">
-        <aside className="card sticky top-3 h-[calc(100vh-1.5rem)] p-3">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-semibold">CircleNest</span>
+    <div className="min-h-screen pb-14 md:pb-0">
+      <div className="mx-auto hidden max-w-[1600px] grid-cols-[260px_minmax(0,1fr)] gap-6 p-3 min-[700px]:grid xl:grid-cols-[260px_minmax(0,1fr)_320px]">
+        <aside className="card sticky top-3 h-[calc(100vh-1.5rem)] overflow-auto p-5">
+          <div className="mb-4 flex items-start gap-3">
+            <div className="relative h-[7.5rem] w-[7.5rem] overflow-hidden rounded-md border border-[var(--border)]">
+              {profile?.avatarUrl ? <Image src={profile.avatarUrl} alt="Avatar" width={160} height={160} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-[#222b3d]" />}
+            </div>
+            <div>
+              <p className="text-[16px] font-semibold text-[var(--text-strong)]">Theta-Space</p>
+              <Link href="/home" className="text-sm text-slate-300 hover:underline">My Stream</Link>
+            </div>
+          </div>
+
+          <nav className="space-y-3 text-xs">
+            <Section
+              title="Home"
+              links={[
+                ["Profile", "/profile/edit"],
+                ["My Scientology", "/profile/scientology"],
+                ["Resume", "/profile/resume"],
+                ["Gallery", "/profile/gallery"],
+                ["Theme", "/settings/theme"],
+              ]}
+            />
+            <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} />
+            <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["My Subscription", "/settings#subscription"]]} />
+          </nav>
+          <div className="mt-4 border-t border-[var(--border)] pt-3">
             <LogoutButton />
           </div>
-          <nav className="grid gap-1.5 text-xs">
-            <Link href="/home" prefetch={false}>Home</Link>
-            <Link href="/profile/edit" prefetch={false}>My Profile</Link>
-            <Link href="/profile/edit" prefetch={false}>Edit Profile</Link>
-            <Link href="/settings" prefetch={false}>Settings</Link>
-            <Link href="/settings/theme" prefetch={false}>Theme Settings</Link>
-            <Link href="/friends" prefetch={false}>Friends</Link>
-            <Link href="/messages" prefetch={false}>Messages</Link>
-            <Link href="/notifications" prefetch={false}>Notifications</Link>
-            <Link href="/groups" prefetch={false}>Groups</Link>
-          </nav>
         </aside>
-        <main>{children}</main>
-        <aside className="card sticky top-3 hidden h-[calc(100vh-1.5rem)] p-3 text-xs text-slate-600 lg:block">Quick panel</aside>
+
+        <main className="space-y-3">
+          <div className="mx-auto w-full max-w-[720px] space-y-2">
+            <div className="relative h-56 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)]">
+              {profile?.bannerUrl ? <Image src={profile.bannerUrl} alt="Banner" width={1200} height={420} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-r from-[#1b2438] to-[#0b0e15]" />}
+            </div>
+            <div className="sticky top-0 z-30 bg-[var(--bg)]/98 pb-[10px] backdrop-blur">
+              <header className="flex items-center justify-between gap-4 rounded-md bg-[var(--bg)] px-3 py-2 text-[13px] shadow-sm">
+                <div className="flex flex-wrap items-center gap-4">
+                  <Link href="/home" className="hover:underline">All</Link>
+                  <Link href="/home" className="hover:underline">My Stream</Link>
+                  <Link href="/friends" className="hover:underline">Friends</Link>
+                  <Link href="/groups" className="hover:underline">Groups</Link>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Link href="/notifications?type=messages" className="hover:underline">{`\u{1F4AC}`} {unreadMessages}</Link>
+                  <Link href="/notifications" className="hover:underline">{`\u{1F514}`} {unreadNotifications}</Link>
+                  <Link href="/alerts" className="hover:underline">{`\u{26A0}\u{FE0F}`} {unreadAlerts}</Link>
+                  <Link href="/friends#invites" className="hover:underline">{`\u{1F4E8}`} {pendingInvites}</Link>
+                  <CommunicateLauncher />
+                </div>
+              </header>
+            </div>
+            <div className="pt-1">{children}</div>
+          </div>
+        </main>
+
+        <aside className="card sticky top-3 hidden h-[calc(100vh-1.5rem)] overflow-auto p-4 text-sm xl:block">
+          {rightSidebar ?? <p className="text-slate-400">Right panel reserved for ad stream and quick tools.</p>}
+        </aside>
       </div>
-      <div className="p-3 min-[600px]:hidden">{children}</div>
+
+      <div className="space-y-2 p-2 pb-[calc(3.5rem+10px)] min-[700px]:hidden">{children}</div>
       <MobileBottomNav />
     </div>
+  );
+}
+
+function Section({ title, links }: { title: string; links: [string, string][] }) {
+  return (
+    <section className="border-t border-[var(--border)] pt-2">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
+      <div className="grid gap-1">
+        {links.map(([label, href]) => (
+          <Link key={href} href={href} className="text-[13px] text-slate-300 transition hover:translate-y-[-1px] hover:scale-[1.02] hover:text-white">
+            {label}
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }

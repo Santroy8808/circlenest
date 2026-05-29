@@ -19,13 +19,13 @@ export function createSmtpTransport() {
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@circlenest.local";
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@theta-space.local";
   const transporter = createSmtpTransport();
 
   await transporter.sendMail({
     from,
     to,
-    subject: "CircleNest password reset",
+    subject: "Theta-Space password reset",
     text: `Reset your password using this link: ${resetUrl}`,
     html: `<p>Reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
   });

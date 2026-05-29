@@ -9,10 +9,24 @@ datasource db {
 
 model User {
   id             String             @id @default(cuid())
+  fullName       String?
   email          String             @unique
+  phoneNumber    String?
   backupEmail    String?            @unique
+  recoveryPhoneNumber String?
   username       String             @unique
   passwordHash   String
+  passwordUpdatedAt DateTime @default(now())
+  sessionVersion Int @default(1)
+  city           String?
+  state          String?
+  country        String?
+  lastOnLinesAt  String?
+  lastService    String?
+  lastServiceWhen String?
+  iasStatus      String?
+  iasNumber      String?
+  subscriptionTier String @default("FREE")
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   profile        Profile?
@@ -29,6 +43,8 @@ model User {
   groupsOwned    Group[]            @relation("GroupOwner")
   groupMemberships GroupMember[]
   notifications  Notification[]
+  alerts         Alert[]
+  alertSubscriptions AlertSubscription[]
   feedPreference UserFeedPreference?
   mutedUsers     MutedUser[]        @relation("MutedByUser")
   mutedBy        MutedUser[]        @relation("MutedTargetUser")
@@ -42,20 +58,36 @@ model User {
   groupForumPosts    GroupForumPost[]
   groupDocuments     GroupDocument[]
   groupPhotos        GroupPhoto[]
+  photoComments      PhotoComment[]
   following          UserFollow[]      @relation("UserFollowing")
   followers          UserFollow[]      @relation("UserFollowers")
+  keyMaterial        UserKeyMaterial?
+  securityEvents     AuthSecurityEvent[]
+  mediaTags          UserMediaTag[]
+  uploadAssets       UserUploadAsset[]
 }
 
 model Profile {
   id                String   @id @default(cuid())
   userId            String   @unique
   displayName       String
+  headline          String?
   bio               String?
+  detailedBioJson   String?
   location          String?
   interests         String?
   relationshipStatus String?
   avatarUrl         String?
   bannerUrl         String?
+  scientologyTrainingLevel String?
+  scientologyCaseLevel String?
+  scientologySuccessStory String?
+  scientologyAchievements String?
+  scientologyGoals String?
+  scientologyProjects String?
+  scientologyVisible Boolean @default(false)
+  resumeJson         String?
+  resumeVisible      Boolean @default(false)
   themeId           String?
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   theme             Theme?   @relation(fields: [themeId], references: [id])
@@ -79,7 +111,9 @@ model Post {
   id                String   @id @default(cuid())
   authorId          String
   content           String
+  audience          String   @default("ALL")
   imageUrl          String?
+  mediaUrlsJson     String?
   topic             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -92,18 +126,21 @@ model Post {
   @@index([createdAt, id])
   @@index([authorId, createdAt])
   @@index([groupId, createdAt])
+  @@index([audience, createdAt])
 }
 
 model Comment {
   id         String   @id @default(cuid())
   postId     String
   authorId   String
+  parentCommentId String?
   content    String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   @@index([postId, createdAt])
+  @@index([postId, parentCommentId, createdAt])
   @@index([authorId, createdAt])
 }
 
@@ -289,13 +326,45 @@ model Notification {
   @@index([userId, readAt])
 }
 
+model Alert {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  sourceType  String
+  sourceId    String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model AlertSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  sourceType  String
+  sourceId    String
+  label       String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, type, sourceType, sourceId])
+  @@index([userId, isActive])
+}
+
 model PhotoAlbum {
   id          String   @id @default(cuid())
   userId      String
   title       String
+  visibility  String   @default("PUBLIC")
+  shareGroupIds String?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   photos      Photo[]
+  albumTags   PhotoAlbumTag[]
 }
 
 model Photo {
@@ -303,8 +372,66 @@ model Photo {
   albumId     String
   url         String
   caption     String?
+  tags        String?
+  visibility  String   @default("PUBLIC")
   createdAt   DateTime @default(now())
   album       PhotoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  comments    PhotoComment[]
+  photoTags   PhotoTag[]
+}
+
+model PhotoComment {
+  id         String   @id @default(cuid())
+  photoId    String
+  authorId   String
+  parentCommentId String?
+  content    String
+  createdAt  DateTime @default(now())
+  photo      Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  @@index([photoId, parentCommentId, createdAt])
+  @@index([photoId, createdAt])
+}
+
+model UserMediaTag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumTags PhotoAlbumTag[]
+  photoTags PhotoTag[]
+  @@unique([userId, name])
+  @@index([userId, createdAt])
+}
+
+model PhotoAlbumTag {
+  albumId String
+  tagId   String
+  album   PhotoAlbum  @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  tag     UserMediaTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([albumId, tagId])
+  @@index([tagId])
+}
+
+model PhotoTag {
+  photoId String
+  tagId   String
+  photo   Photo       @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  tag     UserMediaTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([photoId, tagId])
+  @@index([tagId])
+}
+
+model UserUploadAsset {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String   @unique
+  sizeBytes Int
+  mimeType  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
 }
 
 model UserFeedPreference {
@@ -365,3 +492,27 @@ model TwoFactorConfig {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model UserKeyMaterial {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  publicKeyPem        String
+  encryptedPrivateKey String
+  wrappedDekForSystem String
+  wrappedDekForAdmin  String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuthSecurityEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  eventType  String
+  ipAddress  String?
+  userAgent  String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+}

@@ -1,0 +1,337 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { FEED_MODES, type FeedMode } from "@/lib/feed/modes";
+
+const EMOJIS = [
+  "\u{1F600}",
+  "\u{1F602}",
+  "\u{1F60D}",
+  "\u{1F44D}",
+  "\u{1F525}",
+  "\u{1F389}",
+  "\u{1F64F}",
+  "\u{1F4A1}",
+  "\u{2764}\u{FE0F}",
+  "\u{1F60E}",
+  "\u{1F91D}",
+  "\u{1F31F}",
+] as const;
+
+type Comment = { id: string; content: string; author: { username: string } };
+type Reaction = { id: string; type: string };
+type FeedPost = {
+  id: string;
+  content: string;
+  topic: string | null;
+  imageUrl: string | null;
+  mediaUrlsJson?: string | null;
+  authorId: string;
+  author: { username: string };
+  comments: Comment[];
+  reactions: Reaction[];
+  explanation: string;
+};
+
+function parseMedia(raw?: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function patchPrefs(payload: Record<string, string | boolean>) {
+  await fetch("/api/feed/preferences", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function uploadImage(file: File): Promise<string | null> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/upload", { method: "POST", body: form });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { url?: string };
+  return body.url ?? null;
+}
+
+export function FeedClient({ initialPosts, initialMode, currentUserId, allowComposer = true }: { initialPosts: FeedPost[]; initialMode: FeedMode; currentUserId: string; allowComposer?: boolean }) {
+  const [posts] = useState(initialPosts);
+  const [mode, setMode] = useState<FeedMode>(initialMode);
+  const [newPost, setNewPost] = useState("");
+  const [status, setStatus] = useState("");
+  const [openComposer, setOpenComposer] = useState(false);
+  const [imageName, setImageName] = useState("");
+  const [replyPostId, setReplyPostId] = useState<string | null>(null);
+  const [draftByPost, setDraftByPost] = useState<Record<string, string>>({});
+  const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string>>({});
+  const [focusPostId, setFocusPostId] = useState<string | null>(null);
+  const commentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const modeLabel = useMemo(() => toTitleCase(mode), [mode]);
+
+  useEffect(() => {
+    const openFromEvent = () => {
+      if (allowComposer) setOpenComposer(true);
+    };
+    window.addEventListener("circlenest:open-communicate", openFromEvent);
+    return () => window.removeEventListener("circlenest:open-communicate", openFromEvent);
+  }, [allowComposer]);
+
+  useEffect(() => {
+    if (!allowComposer) return;
+    if (sessionStorage.getItem("circlenest:compose-once") !== "1") return;
+    sessionStorage.removeItem("circlenest:compose-once");
+    setOpenComposer(true);
+  }, [allowComposer]);
+
+  function insertFormat(prefix: string, suffix = "") {
+    const area = document.getElementById("communicate-editor") as HTMLTextAreaElement | null;
+    if (!area) {
+      setNewPost((v) => `${v}${prefix}${suffix}`);
+      return;
+    }
+    const start = area.selectionStart ?? area.value.length;
+    const end = area.selectionEnd ?? area.value.length;
+    const selected = area.value.slice(start, end);
+    const next = `${area.value.slice(0, start)}${prefix}${selected}${suffix}${area.value.slice(end)}`;
+    setNewPost(next);
+    requestAnimationFrame(() => {
+      area.focus();
+      const caret = start + prefix.length + selected.length + suffix.length;
+      area.setSelectionRange(caret, caret);
+    });
+  }
+
+  useEffect(() => {
+    if (!focusPostId) return;
+    const input = commentInputRefs.current[focusPostId];
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+      setFocusPostId(null);
+    }
+  }, [focusPostId, replyPostId, draftByPost]);
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-end text-[11px]">
+        <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
+          <span>Stream Type</span>
+          <select
+            value={mode}
+            className="border-0 bg-transparent p-0 pr-5 text-[12px] text-slate-200 outline-none"
+            onChange={async (e) => {
+              const nextMode = e.target.value as FeedMode;
+              setMode(nextMode);
+              await patchPrefs({ mode: nextMode });
+              window.location.reload();
+            }}
+          >
+            {FEED_MODES.map((m) => (
+              <option key={m} value={m} className="bg-[#151b28] text-slate-100">
+                {toTitleCase(m)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {allowComposer && openComposer ? (
+        <div id="communicate" className="fixed inset-0 z-40 flex items-start justify-center bg-black/55 p-4 pt-20">
+          <article className="w-full max-w-3xl rounded-md border border-[var(--border)] bg-[#0f1624] p-3 shadow-2xl">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <button type="button" className="underline" onClick={() => insertFormat("**", "**")}>B</button>
+                <button type="button" className="underline italic" onClick={() => insertFormat("_", "_")}>I</button>
+                <button type="button" className="underline" onClick={() => insertFormat("<u>", "</u>")}>U</button>
+                <button type="button" className="line-through underline-offset-2" onClick={() => insertFormat("~~", "~~")}>S</button>
+                <button type="button" className="underline" onClick={() => insertFormat("\n# ", "")}>H1</button>
+                <button type="button" className="underline" onClick={() => insertFormat("\n## ", "")}>H2</button>
+                <button type="button" className="underline" onClick={() => insertFormat("\n### ", "")}>H3</button>
+                <span className="text-slate-400">RTF-lite</span>
+              </div>
+              <button type="button" className="text-xs underline" onClick={() => setOpenComposer(false)}>Close</button>
+            </div>
+            <textarea id="communicate-editor" value={newPost} onChange={(e) => setNewPost(e.target.value)} className="w-full rounded-md border px-2 py-1.5 text-sm" placeholder="Share an update..." rows={6} />
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-1">
+                {EMOJIS.map((emoji) => (
+                  <button key={emoji} type="button" className="rounded border px-1 py-0 text-[1.1rem] leading-none" onClick={() => setNewPost((prev) => `${prev}${emoji}`)}>
+                    {emoji}
+                  </button>
+                ))}
+                <span className="self-center text-xs text-slate-400">GIFs (soon)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="postImage" className="cursor-pointer text-[13px] text-slate-200 underline underline-offset-2 hover:scale-[1.03]">Upload</label>
+                <input id="postImage" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => setImageName(e.currentTarget.files?.[0]?.name ?? "")} />
+                <span className="max-w-36 truncate text-xs text-slate-400">{imageName}</span>
+                <button
+                  className="rounded-md border border-[var(--border)] bg-[#8f7228] px-2 py-1 text-sm text-black"
+                  onClick={async () => {
+                    if (!newPost.trim()) return;
+                    setStatus("Posting...");
+                    const input = document.getElementById("postImage") as HTMLInputElement | null;
+                    const file = input?.files?.[0];
+                    const imageUrl = file ? await uploadImage(file) : null;
+                    await fetch("/api/posts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: newPost, imageUrl }) });
+                    setNewPost("");
+                    setImageName("");
+                    setOpenComposer(false);
+                    setStatus("Posted");
+                    window.location.reload();
+                  }}
+                >
+                  Post
+                </button>
+              </div>
+            </div>
+            {status ? <p className="mt-1 text-xs text-slate-300">{status}</p> : null}
+          </article>
+        </div>
+      ) : null}
+
+      <p className="text-xs text-slate-400">Current: {modeLabel}</p>
+      {posts.map((post, idx) => (
+        <article key={post.id} className={`rounded-md p-3 ${idx % 2 === 0 ? "bg-[#0f1624]" : "bg-[#111a2a]"}`}>
+          <p className="text-xs">
+            <Link href={`/profile/${post.author.username}`} className="underline-offset-2 hover:underline">
+              @{post.author.username}
+            </Link>
+          </p>
+          <p className="mt-1 text-base">{post.content}</p>
+          {(() => {
+            const media = parseMedia(post.mediaUrlsJson);
+            if (media.length > 0) {
+              return (
+                <div className="mt-1 grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {media.map((url) => (
+                    <Image key={url} src={url} alt="Post media" width={800} height={600} className="h-28 w-full rounded-md object-cover" />
+                  ))}
+                </div>
+              );
+            }
+            return post.imageUrl ? <Image src={post.imageUrl} alt="Post" width={1200} height={800} className="mt-1 max-h-72 w-full rounded-md object-cover" /> : null;
+          })()}
+          <p className="mt-1 text-[11px] text-slate-500">Why in my stream: {post.explanation}</p>
+          <div className="mt-1 flex flex-wrap gap-2 text-sm">
+            <button className="underline underline-offset-2" onClick={async () => { await fetch(`/api/posts/${post.id}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "LIKE" }) }); window.location.reload(); }}>Like ({post.reactions.length})</button>
+            <button className="underline underline-offset-2" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); window.location.reload(); }}>Repost</button>
+            <button className="underline underline-offset-2" onClick={async () => { await patchPrefs({ hidePostId: post.id }); window.location.reload(); }}>Hide</button>
+            <button
+              className="underline underline-offset-2"
+              onClick={() => {
+                setReplyPostId(post.id);
+                setDraftByPost((prev) => ({ ...prev, [post.id]: prev[post.id] ?? "" }));
+                setCommentErrorByPost((prev) => ({ ...prev, [post.id]: "" }));
+                setFocusPostId(post.id);
+              }}
+            >
+              Reply
+            </button>
+            {post.authorId === currentUserId ? (
+              <>
+                <button className="underline underline-offset-2" onClick={async () => { const content = window.prompt("Edit post", post.content); if (!content) return; await fetch(`/api/posts/${post.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }); window.location.reload(); }}>Edit</button>
+                <button className="underline text-red-300 underline-offset-2" onClick={async () => { await fetch(`/api/posts/${post.id}`, { method: "DELETE" }); window.location.reload(); }}>Delete</button>
+              </>
+            ) : null}
+          </div>
+
+          <div className="mt-1 space-y-1">
+            {post.comments.map((c) => (
+              <div key={c.id} className="rounded-md bg-[#0b1220] px-2 py-1 text-sm">
+                <Link href={`/profile/${c.author.username}`} className="mr-1 underline">@{c.author.username}</Link>
+                {c.content}
+                <button
+                  type="button"
+                  className="ml-2 text-xs underline underline-offset-2"
+                  onClick={() => {
+                    setReplyPostId(post.id);
+                    setDraftByPost((prev) => ({ ...prev, [post.id]: `@${c.author.username} ` }));
+                    setCommentErrorByPost((prev) => ({ ...prev, [post.id]: "" }));
+                    setFocusPostId(post.id);
+                  }}
+                >
+                  Reply
+                </button>
+              </div>
+            ))}
+            {replyPostId === post.id ? (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const content = (draftByPost[post.id] ?? "").trim();
+                  if (!content) return;
+                  const res = await fetch(`/api/posts/${post.id}/comments`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content }),
+                  });
+                  if (!res.ok) {
+                    let message = "Could not add comment.";
+                    try {
+                      const body = (await res.json()) as { error?: string };
+                      if (body.error) message = body.error;
+                    } catch {}
+                    setCommentErrorByPost((prev) => ({ ...prev, [post.id]: message }));
+                    return;
+                  }
+                  setDraftByPost((prev) => ({ ...prev, [post.id]: "" }));
+                  setReplyPostId(null);
+                  window.location.reload();
+                }}
+                className="space-y-1"
+              >
+                <input
+                  ref={(el) => {
+                    commentInputRefs.current[post.id] = el;
+                  }}
+                  value={draftByPost[post.id] ?? ""}
+                  onChange={(e) => setDraftByPost((prev) => ({ ...prev, [post.id]: e.target.value }))}
+                  className="w-full rounded-md border px-2 py-1 text-sm"
+                  placeholder="Write a comment"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap gap-1">
+                    {EMOJIS.slice(0, 6).map((emoji) => (
+                      <button
+                        key={`${post.id}-${emoji}`}
+                        type="button"
+                        className="rounded border px-1 py-0 text-[0.82rem]"
+                        onClick={() => setDraftByPost((prev) => ({ ...prev, [post.id]: `${prev[post.id] ?? ""}${emoji}` }))}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" className="text-xs underline" onClick={() => setReplyPostId(null)}>Cancel</button>
+                    <button className="underline text-sm" type="submit">Comment</button>
+                  </div>
+                </div>
+                {commentErrorByPost[post.id] ? <p className="text-xs text-red-300">{commentErrorByPost[post.id]}</p> : null}
+              </form>
+            ) : null}
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}

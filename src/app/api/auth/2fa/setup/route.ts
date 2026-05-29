@@ -17,6 +17,12 @@ export async function POST() {
     create: { userId: session.user.id, secret: secret.base32, enabled: false },
     update: { secret: secret.base32, enabled: false },
   });
+  await prisma.authSecurityEvent.create({
+    data: {
+      userId: session.user.id,
+      eventType: "TWO_FA_SETUP_INITIATED",
+    },
+  });
 
   const otpauth = secret.otpauth_url || "";
   const qrDataUrl = await QRCode.toDataURL(otpauth);

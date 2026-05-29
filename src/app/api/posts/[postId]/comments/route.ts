@@ -10,13 +10,22 @@ export async function POST(request: Request, context: { params: { postId: string
   const allowed = await checkRateLimitPlaceholder(`comment:${session.user.id}`);
   if (!allowed) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
-  const body = (await request.json()) as { content?: string };
+  const body = (await request.json()) as { content?: string; parentCommentId?: string | null };
   if (!body.content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 400 });
+
+  if (body.parentCommentId) {
+    const parent = await prisma.comment.findFirst({
+      where: { id: body.parentCommentId, postId: context.params.postId },
+      select: { id: true },
+    });
+    if (!parent) return NextResponse.json({ error: "Parent comment not found in this post" }, { status: 400 });
+  }
 
   const comment = await prisma.comment.create({
     data: {
       postId: context.params.postId,
       authorId: session.user.id,
+      parentCommentId: body.parentCommentId ?? null,
       content: sanitizeUserText(body.content),
     },
     include: { author: true },

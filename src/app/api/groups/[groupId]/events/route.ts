@@ -29,6 +29,12 @@ export async function POST(request: Request, context: { params: { groupId: strin
 
   if (!body.title?.trim() || !body.startsAt) return NextResponse.json({ error: "title and startsAt required" }, { status: 400 });
 
+  const group = await prisma.group.findUnique({
+    where: { id: context.params.groupId },
+    select: { name: true },
+  });
+  if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+
   const event = await prisma.groupEvent.create({
     data: {
       groupId: context.params.groupId,
@@ -43,6 +49,31 @@ export async function POST(request: Request, context: { params: { groupId: strin
       googleMapsUrl: buildGoogleMapsUrl(body.locationName, body.latitude, body.longitude),
     },
   });
+
+  const subscriptions = await prisma.alertSubscription.findMany({
+    where: {
+      type: "GROUP_EVENT",
+      isActive: true,
+      OR: [
+        { sourceType: "GROUP", sourceId: context.params.groupId },
+        { sourceType: "GROUP", sourceId: "global-events" },
+      ],
+    },
+    select: { userId: true },
+  });
+
+  const targetUserIds = Array.from(new Set(subscriptions.map((subscription) => subscription.userId)));
+  if (targetUserIds.length) {
+    await prisma.alert.createMany({
+      data: targetUserIds.map((userId) => ({
+        userId,
+        type: "GROUP_EVENT",
+        sourceType: "GROUP",
+        sourceId: context.params.groupId,
+        body: `${group.name}: ${event.title} was added to your subscribed event alerts.`,
+      })),
+    });
+  }
 
   return NextResponse.json(event);
 }

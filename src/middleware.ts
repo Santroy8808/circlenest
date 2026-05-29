@@ -4,11 +4,15 @@ import { featureFlags } from "@/lib/config/flags";
 const protectedPrefixes = [
   "/home",
   "/profile/edit",
+  "/profile/scientology",
+  "/profile/resume",
+  "/settings",
   "/settings/theme",
   "/friends",
   "/messages",
   "/groups",
   "/notifications",
+  "/alerts",
 ];
 
 export default function middleware(req: NextRequest) {
@@ -22,6 +26,9 @@ export default function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/home", req.nextUrl));
   }
   if (!featureFlags.rebuildNotifications && req.nextUrl.pathname.startsWith("/notifications")) {
+    return NextResponse.redirect(new URL("/home", req.nextUrl));
+  }
+  if (!featureFlags.rebuildAlerts && req.nextUrl.pathname.startsWith("/alerts")) {
     return NextResponse.redirect(new URL("/home", req.nextUrl));
   }
 

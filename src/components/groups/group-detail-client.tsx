@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
 
 type GroupData = {
   id: string;
@@ -19,12 +20,8 @@ type GroupData = {
 };
 
 async function uploadImage(file: File): Promise<string | null> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/upload", { method: "POST", body: form });
-  if (!res.ok) return null;
-  const body = (await res.json()) as { url?: string };
-  return body.url ?? null;
+  const result = await uploadImageWithCompression(file);
+  return result.url;
 }
 
 export function GroupDetailClient({ group, currentUserId, currentRole, canModerate }: { group: GroupData; currentUserId: string; currentRole: string | null; canModerate: boolean }) {

@@ -3,11 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f5f7fb;
-  --text: #111827;
-  --card: #ffffff;
-  --border: #e5e7eb;
-  --accent: #2563eb;
+  --bg: #0a0b10;
+  --bg-soft: #111826;
+  --text: #d8dbe2;
+  --text-strong: #f5d777;
+  --card: #111a2a;
+  --border: rgba(214, 178, 74, 0.28);
+  --accent: #d6b24a;
 }
 
 * {
@@ -18,12 +20,74 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-manrope), "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 1rem;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  border-radius: 0.65rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.24);
+}
+
+a {
+  color: var(--text-strong);
+}
+
+a,
+button,
+[role="button"],
+label[for] {
+  transition: transform 120ms ease, filter 120ms ease, text-shadow 120ms ease;
+}
+
+a:hover,
+button:hover,
+[role="button"]:hover,
+label[for]:hover {
+  transform: translateY(-1px) scale(1.03);
+  filter: brightness(1.08);
+  text-shadow: 0 0 12px rgba(214, 178, 74, 0.24);
+}
+
+a:active,
+button:active,
+[role="button"]:active,
+label[for]:active {
+  transform: translateY(0) scale(0.99);
+}
+
+input,
+textarea,
+select {
+  background: #2a3346;
+  color: #e5e7eb;
+  border-color: var(--border) !important;
+}
+
+@keyframes thetaParticleDrift {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.85);
+  }
+  16% {
+    opacity: var(--theta-max-opacity, 0.52);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--theta-drift-x, 0px), 128px, 0) scale(1.04);
+  }
+}
+
+.theta-particle {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 235, 182, 0.95) 0%, rgba(247, 200, 95, 0.88) 52%, rgba(247, 200, 95, 0) 100%);
+  box-shadow: 0 0 8px rgba(247, 200, 95, 0.5);
+  animation-name: thetaParticleDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }

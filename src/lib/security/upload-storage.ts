@@ -13,3 +13,14 @@ export async function saveUploadToLocal(file: File): Promise<string> {
   await fs.writeFile(full, bytes);
   return `/uploads/${name}`;
 }
+
+export async function deleteUploadFromLocal(url: string): Promise<void> {
+  if (!url.startsWith("/uploads/")) return;
+  const fileName = path.basename(url);
+  const full = path.join(uploadDir, fileName);
+  try {
+    await fs.unlink(full);
+  } catch {
+    // Ignore missing files and best-effort deletes.
+  }
+}

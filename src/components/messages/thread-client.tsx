@@ -44,7 +44,12 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
       </form>
       <div className="flex flex-wrap gap-1">
         {EMOJIS.map((emoji) => (
-          <button key={emoji} type="button" className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={() => setText((prev) => `${prev}${emoji}`)}>
+          <button
+            key={emoji}
+            type="button"
+            className="rounded-sm border border-transparent px-0.5 py-0 text-base leading-none hover:scale-110"
+            onClick={() => setText((prev) => `${prev}${emoji}`)}
+          >
             {emoji}
           </button>
         ))}

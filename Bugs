@@ -1,0 +1,6 @@
+# Bugs
+Generated: 2026-05-29T02:21:01.970Z
+
+- [BUG] Could not establish authenticated session for QA user on /home.
+- [BUG] Communicate button not found on home stream.
+

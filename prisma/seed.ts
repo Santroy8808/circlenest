@@ -48,6 +48,8 @@ async function resetDb() {
   await prisma.message.deleteMany();
   await prisma.messageThread.deleteMany();
   await prisma.post.deleteMany();
+  await prisma.alert.deleteMany();
+  await prisma.alertSubscription.deleteMany();
   await prisma.groupMember.deleteMany();
   await prisma.group.deleteMany();
   await prisma.friendship.deleteMany();
@@ -94,9 +96,17 @@ async function main() {
 
     const user = await prisma.user.create({
       data: {
-        email: `${username}@circlenest.dev`,
+        fullName: displayName,
+        email: `${username}@theta-space.dev`,
+        phoneNumber: `555-010${String(i).padStart(2, "0")}`,
+        backupEmail: `${username}.recovery@theta-space.dev`,
+        recoveryPhoneNumber: `555-990${String(i).padStart(2, "0")}`,
         username,
         passwordHash: defaultPasswordHash,
+        city: location.split(",")[0]?.trim() || null,
+        state: location.split(",")[1]?.trim() || null,
+        country: "United States",
+        subscriptionTier: "FREE",
         profile: {
           create: {
             displayName,
@@ -164,7 +174,7 @@ async function main() {
   const groups = await Promise.all([
     prisma.group.create({
       data: {
-        name: "CircleNest Creators",
+        name: "Theta-Space Creators",
         description: "Designers, builders, and storytellers sharing work-in-progress.",
         ownerId: userIdByUsername.get("ava")!,
         visibility: "PUBLIC",
@@ -329,6 +339,64 @@ async function main() {
         { userId: user.id, type: "NEW_REACTION", body: "Your post got a new reaction." },
         { userId: user.id, type: "NEW_MESSAGE", body: "You received a new message." },
         { userId: user.id, type: "GROUP_ACTIVITY", body: "New activity in one of your groups." },
+      ],
+    });
+  }
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+    const userGroups = await prisma.groupMember.findMany({
+      where: { userId: user.id },
+      include: { group: { select: { id: true, name: true } } },
+      take: 2,
+    });
+
+    const subscriptions = [
+      {
+        type: "GROUP_EVENT",
+        sourceType: "GROUP",
+        sourceId: userGroups[0]?.group.id ?? "global",
+        label: userGroups[0] ? `${userGroups[0].group.name} event reminders` : "General event reminders",
+      },
+      {
+        type: "WRITER_CHAPTER",
+        sourceType: "WRITER",
+        sourceId: users[(i + 1) % users.length].id,
+        label: `New chapters from @${users[(i + 1) % users.length].username}`,
+      },
+    ];
+
+    for (const sub of subscriptions) {
+      await prisma.alertSubscription.create({
+        data: {
+          userId: user.id,
+          type: sub.type,
+          sourceType: sub.sourceType,
+          sourceId: sub.sourceId,
+          label: sub.label,
+          isActive: true,
+        },
+      });
+    }
+
+    await prisma.alert.createMany({
+      data: [
+        {
+          userId: user.id,
+          type: "GROUP_EVENT",
+          sourceType: "GROUP",
+          sourceId: userGroups[0]?.group.id ?? "global",
+          body: userGroups[0]
+            ? `${userGroups[0].group.name} posted an upcoming event reminder.`
+            : "A subscribed event reminder is available.",
+        },
+        {
+          userId: user.id,
+          type: "WRITER_CHAPTER",
+          sourceType: "WRITER",
+          sourceId: users[(i + 1) % users.length].id,
+          body: `A writer you subscribed to published a new chapter update.`,
+        },
       ],
     });
   }

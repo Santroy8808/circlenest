@@ -1,8 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 
-type UserRef = { id: string; username: string };
+type UserRef = {
+  id: string;
+  username: string;
+  fullName?: string | null;
+  profile?: { displayName?: string | null; avatarUrl?: string | null } | null;
+};
 type Incoming = { id: string; sender: UserRef };
 type Outgoing = { id: string; receiver: UserRef };
 
@@ -36,6 +43,20 @@ export function FriendsClient({
 
   function toggle(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  async function quickMessage(username: string) {
+    const res = await fetch("/api/messages/threads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    if (!res.ok) {
+      setStatus("Could not open message thread.");
+      return;
+    }
+    const body = (await res.json()) as { id: string };
+    window.location.href = `/messages/${body.id}`;
   }
 
   return (
@@ -80,16 +101,39 @@ export function FriendsClient({
 
       <section className="card p-4">
         <h2 className="mb-2 text-lg font-semibold">Friends</h2>
-        <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {friends.map((f) => (
-            <div key={f.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={isSelected(f.id)} onChange={() => toggle(f.id)} />
-                <span>@{f.username}</span>
-              </label>
-              <div className="flex gap-2">
-                <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { await runBulk("FOLLOW", [f.id]); }}>Follow</button>
-                <button className="rounded border border-red-300 px-2 py-1 text-sm text-red-700" onClick={async () => { await fetch("/api/friends/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ friendUserId: f.id }) }); window.location.reload(); }}>Remove</button>
+            <div key={f.id} className="rounded-lg bg-[#111a2a] p-2">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="inline-flex items-center gap-1 text-xs text-slate-400">
+                  <input type="checkbox" checked={isSelected(f.id)} onChange={() => toggle(f.id)} />
+                  <span>Select</span>
+                </label>
+                <button className="text-xs text-red-300 underline" onClick={async () => { await fetch("/api/friends/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ friendUserId: f.id }) }); window.location.reload(); }}>Remove</button>
+              </div>
+              <Link href={`/profile/${f.username}`} className="block overflow-hidden rounded-md">
+                {f.profile?.avatarUrl ? (
+                  <Image
+                    src={f.profile.avatarUrl}
+                    alt={f.profile?.displayName || f.username}
+                    width={500}
+                    height={500}
+                    className="aspect-square w-full rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-square w-full items-center justify-center rounded-md bg-[#2a3346] text-xl text-[var(--text-strong)]">
+                    {(f.profile?.displayName || f.fullName || f.username).charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </Link>
+              <div className="mt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-medium text-slate-100">
+                    {f.profile?.displayName || f.fullName || `@${f.username}`}
+                  </p>
+                  <button className="text-xs underline" onClick={() => quickMessage(f.username)}>Message</button>
+                </div>
+                <p className="truncate text-xs text-slate-400">@{f.username}</p>
               </div>
             </div>
           ))}

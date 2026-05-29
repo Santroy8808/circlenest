@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0b10;
+  --bg-soft: #111826;
+  --text: #d8dbe2;
+  --text-strong: #f5d777;
+  --card: #10151f;
+  --border: #9f7b2f;
+  --accent: #d6b24a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+a {
+  color: var(--text-strong);
+}
+
+a,
+button,
+[role="button"],
+label[for] {
+  transition: transform 120ms ease, filter 120ms ease, text-shadow 120ms ease;
+}
+
+a:hover,
+button:hover,
+[role="button"]:hover,
+label[for]:hover {
+  transform: translateY(-1px) scale(1.03);
+  filter: brightness(1.08);
+  text-shadow: 0 0 12px rgba(214, 178, 74, 0.24);
+}
+
+a:active,
+button:active,
+[role="button"]:active,
+label[for]:active {
+  transform: translateY(0) scale(0.99);
+}
+
+input,
+textarea,
+select {
+  background: #2a3346;
+  color: #e5e7eb;
+  border-color: var(--border) !important;
+}

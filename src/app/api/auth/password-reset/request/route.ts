@@ -3,11 +3,16 @@ import { prisma } from "@/lib/db/prisma";
 import { passwordResetRequestSchema } from "@/lib/validation/auth-security";
 import { randomToken, sha256 } from "@/lib/security/tokens";
 import { sendPasswordResetEmail } from "@/lib/email/smtp";
+import { checkRateLimitPlaceholder } from "@/lib/security";
 
 export async function POST(request: Request) {
+  const ipAddress = request.headers.get("x-forwarded-for") ?? "local";
   const body = await request.json();
   const parsed = passwordResetRequestSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+
+  const allowed = await checkRateLimitPlaceholder(`pwd-reset-request:${parsed.data.email}:${ipAddress}`);
+  if (!allowed) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
   const user = await prisma.user.findFirst({
     where: {
@@ -21,11 +26,22 @@ export async function POST(request: Request) {
   const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 
   await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+  await prisma.authSecurityEvent.create({
+    data: {
+      userId: user.id,
+      eventType: "PASSWORD_RESET_REQUESTED",
+      ipAddress,
+      userAgent: request.headers.get("user-agent"),
+    },
+  });
 
   const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
   const resetUrl = `${baseUrl}/reset-password/confirm?token=${encodeURIComponent(token)}`;
 
   await sendPasswordResetEmail(user.email, resetUrl);
 
+  if (process.env.NODE_ENV !== "production") {
+    return NextResponse.json({ ok: true, resetUrl });
+  }
   return NextResponse.json({ ok: true });
 }

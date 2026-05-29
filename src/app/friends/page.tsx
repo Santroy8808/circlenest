@@ -20,7 +20,15 @@ export default async function FriendsPage() {
 
   const followingIds = follows.map((f) => f.followingId);
   const friendIds = links.map((f) => (f.userAId === me ? f.userBId : f.userAId));
-  const friends = await prisma.user.findMany({ where: { id: { in: friendIds } }, select: { id: true, username: true } });
+  const friends = await prisma.user.findMany({
+    where: { id: { in: friendIds } },
+    select: {
+      id: true,
+      username: true,
+      fullName: true,
+      profile: { select: { displayName: true, avatarUrl: true } },
+    },
+  });
 
   return (
     <AppShell>

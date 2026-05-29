@@ -8,6 +8,10 @@ export async function PATCH(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
+  const detailedBioJson =
+    body.detailedBio && typeof body.detailedBio === "object"
+      ? JSON.stringify(body.detailedBio)
+      : undefined;
   try {
     if (typeof body.backupEmail === "string") {
       await prisma.user.update({
@@ -30,7 +34,9 @@ export async function PATCH(request: Request) {
     create: {
       userId: session.user.id,
       displayName: body.displayName ?? "",
+      headline: body.headline ?? null,
       bio: body.bio ?? null,
+      detailedBioJson: detailedBioJson ?? null,
       location: body.location ?? null,
       interests: body.interests ?? null,
       relationshipStatus: body.relationshipStatus ?? null,
@@ -39,7 +45,9 @@ export async function PATCH(request: Request) {
     },
     update: {
       displayName: body.displayName ?? undefined,
+      headline: body.headline ?? undefined,
       bio: body.bio ?? undefined,
+      detailedBioJson,
       location: body.location ?? undefined,
       interests: body.interests ?? undefined,
       relationshipStatus: body.relationshipStatus ?? undefined,

@@ -1,0 +1,8 @@
+{
+  "at": "2026-05-29T02:21:44.542Z",
+  "bugCount": 2,
+  "bugs": [
+    "- [BUG] Could not establish authenticated session for QA user on /home.",
+    "- [BUG] Communicate button not found on home stream."
+  ]
+}

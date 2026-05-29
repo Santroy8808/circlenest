@@ -8,15 +8,17 @@ export default async function HomePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { mode, posts } = await getStreamForUser(session.user.id);
+  const { mode, posts, hasOlderArchive, fastWindowDays } = await getStreamForUser(session.user.id);
 
   return (
     <AppShell>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Home Stream</h1>
-        <span className="rounded bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700">Mode: {mode}</span>
-      </div>
-      <FeedClient initialPosts={posts} currentUserId={session.user.id} />
+      <FeedClient
+        initialPosts={posts}
+        initialMode={mode}
+        currentUserId={session.user.id}
+        initialHasOlderArchive={hasOlderArchive}
+        fastWindowDays={fastWindowDays}
+      />
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
-# CircleNest
+# Theta-Space
 
-CircleNest is an original, lightweight social platform with a rebuild foundation based on a modular monolith.
+Theta-Space is an original, lightweight social platform with a rebuild foundation based on a modular monolith.
 
 ## Rebuild Foundation Implemented
 
@@ -13,11 +13,11 @@ CircleNest is an original, lightweight social platform with a rebuild foundation
   - `proxy` (Caddy)
   - `minio` (S3-compatible beta storage)
 - Postgres schema profile (`prisma/schema.postgres.prisma`) while keeping local SQLite profile.
-- Runbook for non-developer operations at [`docs/RUNBOOK.md`](/C:/Users/MikeDeArmon/OneDrive%20-%20Compass%20Managed%20IT,%20Inc/Documents/YourSpace.com/circlenest/docs/RUNBOOK.md).
+- Runbook for non-developer operations at [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 ## Architecture
 
-See [`docs/architecture/modular-monolith.md`](/C:/Users/MikeDeArmon/OneDrive%20-%20Compass%20Managed%20IT,%20Inc/Documents/YourSpace.com/circlenest/docs/architecture/modular-monolith.md).
+See [`docs/architecture/modular-monolith.md`](docs/architecture/modular-monolith.md).
 
 ## Local Run (Non-Docker)
 
