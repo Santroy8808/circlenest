@@ -313,21 +313,25 @@ export async function readStoredUpload(url: string): Promise<StoredObject | null
   const key = parseManagedMediaUrl(url);
   const legacyKey = parseLocalUploadUrl(url);
   if ((key || legacyKey) && r2Client && R2_BUCKET) {
-    const result = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key ?? legacyKey! }));
-    if (!result.Body) return null;
+    try {
+      const result = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key ?? legacyKey! }));
+      if (!result.Body) return null;
 
-    const body =
-      typeof result.Body.transformToWebStream === "function"
-        ? result.Body.transformToWebStream()
-        : Buffer.from(await result.Body.transformToByteArray());
+      const body =
+        typeof result.Body.transformToWebStream === "function"
+          ? result.Body.transformToWebStream()
+          : Buffer.from(await result.Body.transformToByteArray());
 
-    return {
-      body,
-      contentLength: result.ContentLength,
-      contentType: result.ContentType || "application/octet-stream",
-      etag: result.ETag,
-      lastModified: result.LastModified,
-    };
+      return {
+        body,
+        contentLength: result.ContentLength,
+        contentType: result.ContentType || "application/octet-stream",
+        etag: result.ETag,
+        lastModified: result.LastModified,
+      };
+    } catch {
+      return null;
+    }
   }
 
   const relative = parseLocalUploadUrl(url);
