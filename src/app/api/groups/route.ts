@@ -29,7 +29,12 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json()) as { name?: string; description?: string; visibility?: "PUBLIC" | "PRIVATE" };
+  const body = (await request.json()) as {
+    name?: string;
+    description?: string;
+    visibility?: "PUBLIC" | "PRIVATE";
+    joinMode?: "OPEN" | "REQUEST";
+  };
   const result = await createGroupForUser(session.user.id, body);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 

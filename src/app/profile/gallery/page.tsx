@@ -3,10 +3,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { GalleryManagerClient } from "@/components/profile/gallery-manager-client";
+import { SecureAreaSessionClient } from "@/components/security/secure-area-session-client";
+import { requireSecureAreaPage } from "@/lib/security/secure-area-guards";
 
 export default async function GalleryPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  requireSecureAreaPage(session.user.id, "/profile/gallery");
 
   const [albums, profile, tags, joinedGroups, usage] = await Promise.all([
     prisma.photoAlbum.findMany({
@@ -51,6 +54,7 @@ export default async function GalleryPage() {
 
   return (
     <AppShell>
+      <SecureAreaSessionClient />
       <GalleryManagerClient
         initialAlbums={albums}
         initialAvatarUrl={profile?.avatarUrl ?? null}

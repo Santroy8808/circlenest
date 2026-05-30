@@ -8,7 +8,7 @@ const commonWeakPasswords = new Set([
 ]);
 
 export function validateStrongPassword(password: string) {
-  if (password.length < 14 || password.length > 72) return "Password must be 14-72 characters.";
+  if (password.length < 8 || password.length > 72) return "Password must be 8-72 characters.";
   if (!/[A-Z]/.test(password)) return "Password must include an uppercase letter.";
   if (!/[a-z]/.test(password)) return "Password must include a lowercase letter.";
   if (!/[0-9]/.test(password)) return "Password must include a number.";

@@ -10,7 +10,7 @@ import { isPasswordExpired } from "@/lib/security/password-policy";
 const loginSchema = z.object({
   identifier: z.string().min(1).optional(),
   email: z.string().min(1).optional(),
-  password: z.string().min(14).max(72).optional(),
+  password: z.string().min(8).max(72).optional(),
   otp: z.string().optional(),
   challenge: z.string().optional(),
 });
@@ -69,6 +69,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             : { OR: [{ username: identifier }, { email: loweredIdentifier }] },
         });
         if (!user) return null;
+        const pendingVerification = await prisma.emailVerificationToken.findFirst({
+          where: { userId: user.id, expiresAt: { gt: new Date() } },
+          select: { id: true },
+        });
+        if (pendingVerification) return null;
 
         const valid = await compare(parsed.data.password, user.passwordHash);
         if (!valid) return null;

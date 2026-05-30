@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { FEED_MODES } from "@/lib/feed/modes";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 const themeKeys = [
   "drakudai","classic-blue","dark-mode","neon","minimal","forest","ocean","sunset","cyber","pastel","professional","retro-web","high-contrast",
@@ -10,6 +11,8 @@ const themeKeys = [
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const body = await request.json();
   if (!themeKeys.includes(body.themeKey)) return NextResponse.json({ error: "Invalid theme" }, { status: 400 });

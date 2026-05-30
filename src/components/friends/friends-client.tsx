@@ -37,6 +37,9 @@ export function FriendsClient({
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<UserRef[]>([]);
+  const [searchStatus, setSearchStatus] = useState("");
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const isSelected = (id: string) => selectedSet.has(id);
@@ -59,8 +62,65 @@ export function FriendsClient({
     window.location.href = `/messages/${body.id}`;
   }
 
+  async function runSearch() {
+    const q = search.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchStatus("");
+      return;
+    }
+    setSearchStatus("Searching...");
+    try {
+      const res = await fetch(`/api/search/people?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      if (!res.ok) {
+        setSearchStatus("Could not search right now.");
+        return;
+      }
+      const body = (await res.json()) as { people?: UserRef[] };
+      const rows = Array.isArray(body.people) ? body.people : [];
+      setSearchResults(rows);
+      setSearchStatus(rows.length ? `Found ${rows.length}` : "No matches found.");
+    } catch {
+      setSearchStatus("Could not search right now.");
+    }
+  }
+
   return (
     <div className="space-y-4">
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Find People</h2>
+        <div className="flex gap-2">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Search by username, name, or email"
+          />
+          <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => void runSearch()}>
+            Search
+          </button>
+        </div>
+        {searchStatus ? <p className="mt-2 text-xs text-slate-500">{searchStatus}</p> : null}
+        {searchResults.length ? (
+          <div className="mt-2 space-y-2">
+            {searchResults.map((person) => (
+              <div key={person.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
+                <div>
+                  <p className="text-sm">{person.fullName || `@${person.username}`}</p>
+                  <p className="text-xs text-slate-500">@{person.username}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Link href={`/profile/${person.username}`} className="rounded border border-slate-300 px-2 py-1 text-xs">View</Link>
+                  <button className="rounded bg-blue-600 px-2 py-1 text-xs text-white" onClick={async () => { await fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
+                    Add Friend
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
       <section className="card p-4">
         <h2 className="mb-2 text-lg font-semibold">Mass Controls</h2>
         <p className="mb-3 text-sm text-slate-600">Select people below, then run one action for everyone selected.</p>

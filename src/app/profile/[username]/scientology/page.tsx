@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { prisma } from "@/lib/db/prisma";
+import { parseScientologyChecklist } from "@/lib/profile/scientology";
 
 export default async function PublicScientologyPage({ params }: { params: { username: string } }) {
   const session = await auth();
@@ -16,10 +17,8 @@ export default async function PublicScientologyPage({ params }: { params: { user
           displayName: true,
           scientologyTrainingLevel: true,
           scientologyCaseLevel: true,
-          scientologySuccessStory: true,
-          scientologyAchievements: true,
-          scientologyGoals: true,
-          scientologyProjects: true,
+          scientologyAdditionalCoursesJson: true,
+          scientologyIncludeOnResume: true,
           scientologyVisible: true,
         },
       },
@@ -32,6 +31,7 @@ export default async function PublicScientologyPage({ params }: { params: { user
   if (!isOwner && !user.profile?.scientologyVisible) notFound();
 
   const profileName = user.profile?.displayName || user.username;
+  const additionalCourses = parseScientologyChecklist(user.profile?.scientologyAdditionalCoursesJson);
   return (
     <AppShell>
       <div className="card p-3">
@@ -44,11 +44,12 @@ export default async function PublicScientologyPage({ params }: { params: { user
 
         <div className="grid gap-2 text-sm">
           <Row label="Training level" value={user.profile?.scientologyTrainingLevel} />
-          <Row label="Case level" value={user.profile?.scientologyCaseLevel} />
-          <LongRow label="Success story" value={user.profile?.scientologySuccessStory} />
-          <LongRow label="Achievements" value={user.profile?.scientologyAchievements} />
-          <LongRow label="Goals" value={user.profile?.scientologyGoals} />
-          <LongRow label="Projects" value={user.profile?.scientologyProjects} />
+          <Row label="Processing level" value={user.profile?.scientologyCaseLevel} />
+          <Row
+            label="Include on resume"
+            value={user.profile?.scientologyIncludeOnResume ? "Yes" : "No"}
+          />
+          <ChecklistRow label="Additional courses and qualifications" values={additionalCourses} />
         </div>
       </div>
     </AppShell>
@@ -63,12 +64,21 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-function LongRow({ label, value }: { label: string; value?: string | null }) {
+function ChecklistRow({ label, values }: { label: string; values: string[] }) {
   return (
     <div className="rounded-md border border-[var(--border)] p-2">
       <p className="mb-1 font-semibold text-[var(--text-strong)]">{label}</p>
-      <p className="whitespace-pre-wrap text-slate-200">{value || "Not shared yet."}</p>
+      {values.length ? (
+        <div className="flex flex-wrap gap-1">
+          {values.map((value) => (
+            <span key={value} className="rounded bg-[#1d2637] px-2 py-1 text-xs text-slate-100">
+              {value}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-slate-200">Not shared yet.</p>
+      )}
     </div>
   );
 }
-

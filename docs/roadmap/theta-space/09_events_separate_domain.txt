@@ -1,0 +1,1 @@
+Events become their own domain and routes, separate from groups ownership logic, with paid-feature boundaries ready.

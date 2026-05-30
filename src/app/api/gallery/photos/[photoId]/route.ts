@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { tryReleaseUserUploadAsset } from "@/lib/media/storage-quota";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 async function assertOwnedPhoto(userId: string, photoId: string) {
   const photo = await prisma.photo.findFirst({
@@ -14,6 +15,8 @@ async function assertOwnedPhoto(userId: string, photoId: string) {
 export async function PATCH(request: Request, context: { params: { photoId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
   const owned = await assertOwnedPhoto(session.user.id, context.params.photoId);
   if (!owned) return NextResponse.json({ error: "Photo not found" }, { status: 404 });
 
@@ -22,6 +25,7 @@ export async function PATCH(request: Request, context: { params: { photoId: stri
     tagNames?: string[];
     albumId?: string;
     visibility?: "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "GROUPS" | "PRIVATE";
+    commentsLocked?: boolean;
   };
   let nextAlbumId: string | undefined;
   if (body.albumId) {
@@ -49,6 +53,7 @@ export async function PATCH(request: Request, context: { params: { photoId: stri
       tags: tagNames !== undefined ? (tagNames.length ? JSON.stringify(tagNames) : null) : undefined,
       albumId: nextAlbumId,
       visibility,
+      commentsLocked: typeof body.commentsLocked === "boolean" ? body.commentsLocked : undefined,
     },
   });
 
@@ -87,6 +92,8 @@ export async function PATCH(request: Request, context: { params: { photoId: stri
 export async function DELETE(_request: Request, context: { params: { photoId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
   const owned = await assertOwnedPhoto(session.user.id, context.params.photoId);
   if (!owned) return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   await prisma.photo.delete({ where: { id: owned.id } });

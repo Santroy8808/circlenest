@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 
 type Visibility = "PUBLIC" | "FRIENDS_FAMILY" | "PRIVATE";
 type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "GROUPS" | "PRIVATE";
@@ -44,8 +44,8 @@ type CommentNode = GalleryComment & { children: CommentNode[] };
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
 const STORAGE_LIMIT_BYTES = 100 * 1024 * 1024;
 
-async function uploadOne(file: File): Promise<string | null> {
-  const result = await uploadImageWithCompression(file);
+async function uploadOne(file: File, options?: UploadImageOptions): Promise<string | null> {
+  const result = await uploadImageWithCompression(file, options);
   return result.url;
 }
 
@@ -322,7 +322,17 @@ export function GalleryManagerClient({
       setActiveAlbumId(targetAlbum.id);
     }
 
-    const urls = (await Promise.all(list.map((file) => uploadOne(file)))).filter((url): url is string => Boolean(url));
+    const urls = (
+      await Promise.all(
+        list.map((file) =>
+          uploadOne(file, {
+            purpose: "gallery-photo",
+            albumId: targetAlbum!.id,
+            tagNames: uploadTagNames,
+          }),
+        ),
+      )
+    ).filter((url): url is string => Boolean(url));
     if (!urls.length) {
       setBusy(false);
       setStatus("Upload failed.");
@@ -472,7 +482,7 @@ export function GalleryManagerClient({
 
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    const uploaded = await uploadOne(file);
+    const uploaded = await uploadOne(file, { purpose: type === "avatar" ? "profile-avatar" : "profile-banner" });
     if (!uploaded) {
       setStatus(`Could not upload dropped file for ${type}.`);
       return;
@@ -483,7 +493,7 @@ export function GalleryManagerClient({
 
   async function assignFromPicker(type: "avatar" | "banner", file: File | null) {
     if (!file) return;
-    const uploaded = await uploadOne(file);
+    const uploaded = await uploadOne(file, { purpose: type === "avatar" ? "profile-avatar" : "profile-banner" });
     if (!uploaded) {
       setStatus(`Could not upload selected file for ${type}.`);
       return;

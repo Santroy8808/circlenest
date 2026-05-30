@@ -92,7 +92,7 @@ export default function SignupPage() {
               setError(body.error ?? "Signup failed");
               return;
             }
-            router.push("/login");
+            router.push("/?notice=email_verification_sent");
           }}
         >
           <input name="fullName" value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} required placeholder="Full Name" className="rounded-md border px-2 py-1.5 text-sm" />
@@ -107,8 +107,8 @@ export default function SignupPage() {
           <div className="grid gap-2 md:grid-cols-2">
             <input name="username" value={form.username} onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))} required placeholder="Username" className="rounded-md border px-2 py-1.5 text-sm" />
             <div className="grid gap-2 md:grid-cols-2">
-              <input name="password" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} type="password" required minLength={14} placeholder="Password (14+ chars incl upper/lower/number/symbol)" className="rounded-md border px-2 py-1.5 text-sm" />
-              <input name="confirmPassword" value={form.confirmPassword} onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} type="password" required minLength={14} placeholder="Confirm Password" className="rounded-md border px-2 py-1.5 text-sm" />
+              <input name="password" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} type="password" required minLength={8} placeholder="Password (8+ chars incl capital/number/symbol)" className="rounded-md border px-2 py-1.5 text-sm" />
+              <input name="confirmPassword" value={form.confirmPassword} onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} type="password" required minLength={8} placeholder="Confirm Password" className="rounded-md border px-2 py-1.5 text-sm" />
             </div>
           </div>
           <div className="grid gap-2 md:grid-cols-3">
@@ -117,12 +117,52 @@ export default function SignupPage() {
             <input name="country" value={form.country} onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value }))} required placeholder="Country" className="rounded-md border px-2 py-1.5 text-sm" />
           </div>
           <div className="grid gap-2 md:grid-cols-3">
-            <input name="lastOnLinesAt" value={form.lastOnLinesAt} onChange={(e) => setForm((prev) => ({ ...prev, lastOnLinesAt: e.target.value }))} placeholder="Last on lines at" className="rounded-md border px-2 py-1.5 text-sm" />
-            <input name="lastService" value={form.lastService} onChange={(e) => setForm((prev) => ({ ...prev, lastService: e.target.value }))} placeholder="Last Service" className="rounded-md border px-2 py-1.5 text-sm" />
-            <input name="lastServiceWhen" value={form.lastServiceWhen} onChange={(e) => setForm((prev) => ({ ...prev, lastServiceWhen: e.target.value }))} placeholder="When?" className="rounded-md border px-2 py-1.5 text-sm" />
+            <label className="grid gap-1 text-xs text-slate-300">
+              <span>Current org</span>
+              <input
+                name="lastOnLinesAt"
+                value={form.lastOnLinesAt}
+                onChange={(e) => setForm((prev) => ({ ...prev, lastOnLinesAt: e.target.value }))}
+                placeholder="Current org"
+                className="rounded-md border px-2 py-1.5 text-sm text-black"
+              />
+            </label>
+            <label className="grid gap-1 text-xs text-slate-300">
+              <span>Last service done</span>
+              <input
+                name="lastService"
+                value={form.lastService}
+                onChange={(e) => setForm((prev) => ({ ...prev, lastService: e.target.value }))}
+                placeholder="Last service done"
+                className="rounded-md border px-2 py-1.5 text-sm text-black"
+              />
+            </label>
+            <label className="grid gap-1 text-xs text-slate-300">
+              <span>When was that?</span>
+              <input
+                name="lastServiceWhen"
+                value={form.lastServiceWhen}
+                onChange={(e) => setForm((prev) => ({ ...prev, lastServiceWhen: e.target.value }))}
+                placeholder="Month/year or date"
+                className="rounded-md border px-2 py-1.5 text-sm text-black"
+              />
+            </label>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
-            <input name="iasStatus" value={form.iasStatus} onChange={(e) => setForm((prev) => ({ ...prev, iasStatus: e.target.value }))} placeholder="IAS Status (optional)" className="rounded-md border px-2 py-1.5 text-sm" />
+            <label className="grid gap-1 text-xs text-slate-300">
+              <span>Are you in good standing?</span>
+              <select
+                name="iasStatus"
+                value={form.iasStatus}
+                onChange={(e) => setForm((prev) => ({ ...prev, iasStatus: e.target.value }))}
+                className="rounded-md border px-2 py-1.5 text-sm text-black"
+              >
+                <option value="">Select one</option>
+                <option value="YES">Yes</option>
+                <option value="NO">No</option>
+                <option value="UNSURE">Unsure / prefer not to say</option>
+              </select>
+            </label>
             <input name="iasNumber" value={form.iasNumber} onChange={(e) => setForm((prev) => ({ ...prev, iasNumber: e.target.value }))} placeholder="IAS Number (optional)" className="rounded-md border px-2 py-1.5 text-sm" />
           </div>
           <select name="subscriptionTier" value={form.subscriptionTier} onChange={(e) => setForm((prev) => ({ ...prev, subscriptionTier: e.target.value }))} required className="rounded-md border px-2 py-1.5 text-sm">

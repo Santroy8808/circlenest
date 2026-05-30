@@ -12,6 +12,11 @@ export default async function GroupPage({ params }: { params: { groupId: string 
     where: { id: params.groupId },
     include: {
       members: { include: { user: { select: { id: true, username: true } } } },
+      joinRequests: {
+        where: { status: "PENDING" },
+        include: { user: { select: { id: true, username: true } } },
+        orderBy: { createdAt: "asc" },
+      },
       events: { include: { creator: { select: { username: true } } }, orderBy: { startsAt: "asc" } },
       threads: {
         include: {
@@ -41,6 +46,11 @@ export default async function GroupPage({ params }: { params: { groupId: string 
           visibility: group.visibility,
           ownerId: group.ownerId,
           members: group.members.map((m) => ({ id: m.user.id, username: m.user.username, role: m.role })),
+          joinRequests: group.joinRequests.map((request) => ({
+            id: request.id,
+            userId: request.user.id,
+            username: request.user.username,
+          })),
           events: group.events.map((e) => ({
             id: e.id,
             title: e.title,

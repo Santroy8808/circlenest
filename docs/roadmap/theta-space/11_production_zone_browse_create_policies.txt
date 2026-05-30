@@ -1,0 +1,1 @@
+Production Zone policy: browse open to all; create restricted to invite-only creators. Centralize checks in policy service.

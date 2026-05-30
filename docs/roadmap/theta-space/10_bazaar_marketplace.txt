@@ -1,0 +1,1 @@
+Create Bazaar marketplace domain with listing model, search, and filters (location, price, title/category).

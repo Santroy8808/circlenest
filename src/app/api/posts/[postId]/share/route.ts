@@ -8,6 +8,7 @@ export async function POST(_request: Request, context: { params: { postId: strin
 
   const original = await prisma.post.findUnique({ where: { id: context.params.postId } });
   if (!original) return NextResponse.json({ error: "Post not found" }, { status: 404 });
+  if (!original.allowReshare) return NextResponse.json({ error: "Resharing is disabled for this post" }, { status: 403 });
 
   const repost = await prisma.post.create({
     data: {
@@ -16,6 +17,7 @@ export async function POST(_request: Request, context: { params: { postId: strin
       imageUrl: original.imageUrl,
       topic: original.topic,
       parentPostId: original.id,
+      type: "SHARE",
     },
   });
 

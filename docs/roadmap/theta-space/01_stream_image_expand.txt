@@ -1,0 +1,1 @@
+Desktop: image click opens modal/lightbox full-size view. Mobile: image click routes to dedicated discussion page for that post/photo.

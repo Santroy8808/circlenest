@@ -1,0 +1,1 @@
+Remove public-facing “saved to stream_photos” messaging. Album linkage should be shown contextually and be clickable for the poster.

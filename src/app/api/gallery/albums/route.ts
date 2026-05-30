@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "GROUPS" | "PRIVATE";
 
@@ -61,6 +62,8 @@ async function resolveTagIds(userId: string, tagNames: string[]): Promise<string
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const albums = await prisma.photoAlbum.findMany({
     where: { userId: session.user.id },
@@ -80,6 +83,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const body = (await request.json()) as {
     title?: string;
@@ -123,6 +128,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const body = (await request.json()) as {
     albumId?: string;

@@ -155,6 +155,8 @@ export async function createStreamPost(userId: string, rawBody: unknown) {
   const post = await prisma.post.create({
     data: {
       authorId: userId,
+      type: parsed.data.type ?? "TEXT",
+      allowReshare: parsed.data.allowReshare ?? true,
       content: sanitizeUserText(parsed.data.content),
       audience,
       groupId,
@@ -164,6 +166,23 @@ export async function createStreamPost(userId: string, rawBody: unknown) {
     },
     include: { author: true, comments: true, reactions: true },
   });
+
+  if (post.type === "POLL" && parsed.data.poll) {
+    const options = Array.from(new Set(parsed.data.poll.options.map((option) => option.trim()).filter(Boolean))).slice(0, 8);
+    if (options.length >= 2) {
+      await prisma.postPoll.create({
+        data: {
+          postId: post.id,
+          question: parsed.data.poll.question.trim(),
+          allowMulti: Boolean(parsed.data.poll.allowMulti),
+          closesAt: parsed.data.poll.closesAt ? new Date(parsed.data.poll.closesAt) : null,
+          options: {
+            create: options.map((label) => ({ label })),
+          },
+        },
+      });
+    }
+  }
   const mediaUrls = parseMediaUrls(post.imageUrl, post.mediaUrlsJson);
 
   // Keep stream images discoverable in Gallery under `stream_photos` without blocking post success.

@@ -7,7 +7,13 @@ export async function PATCH(request: Request, context: { params: { postId: strin
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json()) as { content?: string; topic?: string };
+  const body = (await request.json()) as {
+    content?: string;
+    topic?: string;
+    commentsLocked?: boolean;
+    allowReshare?: boolean;
+    type?: "TEXT" | "MEDIA" | "SHARE" | "POLL";
+  };
   const existing = await prisma.post.findUnique({ where: { id: context.params.postId } });
   if (!existing) return NextResponse.json({ error: "Post not found" }, { status: 404 });
   if (existing.authorId !== session.user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -17,6 +23,9 @@ export async function PATCH(request: Request, context: { params: { postId: strin
     data: {
       content: body.content ? sanitizeUserText(body.content) : existing.content,
       topic: body.topic ?? existing.topic,
+      commentsLocked: typeof body.commentsLocked === "boolean" ? body.commentsLocked : existing.commentsLocked,
+      allowReshare: typeof body.allowReshare === "boolean" ? body.allowReshare : existing.allowReshare,
+      type: body.type ?? existing.type,
     },
   });
 

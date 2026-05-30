@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { ResumePrintButton } from "@/components/profile/resume-print-button";
 import { prisma } from "@/lib/db/prisma";
+import { parseScientologyChecklist } from "@/lib/profile/scientology";
 import { parseResumeJson } from "@/lib/profile/resume";
 
 export default async function PublicResumePage({ params }: { params: { username: string } }) {
@@ -13,7 +14,17 @@ export default async function PublicResumePage({ params }: { params: { username:
     select: {
       id: true,
       username: true,
-      profile: { select: { displayName: true, resumeJson: true, resumeVisible: true } },
+      profile: {
+        select: {
+          displayName: true,
+          resumeJson: true,
+          resumeVisible: true,
+          scientologyTrainingLevel: true,
+          scientologyCaseLevel: true,
+          scientologyAdditionalCoursesJson: true,
+          scientologyIncludeOnResume: true,
+        },
+      },
     },
   });
   if (!user) notFound();
@@ -24,6 +35,11 @@ export default async function PublicResumePage({ params }: { params: { username:
   const resume = parseResumeJson(user.profile?.resumeJson);
   const name = resume.basics.fullName || user.profile?.displayName || user.username;
   const basicsLine = [resume.basics.email, resume.basics.phone, resume.basics.location, resume.basics.website].filter(Boolean).join(" | ");
+  const scientologyItems = [
+    user.profile?.scientologyTrainingLevel ? `Training: ${user.profile.scientologyTrainingLevel}` : null,
+    user.profile?.scientologyCaseLevel ? `Processing: ${user.profile.scientologyCaseLevel}` : null,
+    ...parseScientologyChecklist(user.profile?.scientologyAdditionalCoursesJson),
+  ].filter((value): value is string => Boolean(value));
 
   return (
     <AppShell>
@@ -80,6 +96,17 @@ export default async function PublicResumePage({ params }: { params: { username:
             </div>
           </Section>
         ) : null}
+        {user.profile?.scientologyIncludeOnResume && scientologyItems.length > 0 ? (
+          <Section title="Scientology">
+            <div className="flex flex-wrap gap-1">
+              {scientologyItems.map((item) => (
+                <span key={item} className="rounded bg-[#1d2637] px-2 py-1 text-xs">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </Section>
+        ) : null}
       </article>
     </AppShell>
   );
@@ -110,4 +137,3 @@ function EntryList({ entries }: { entries: { organization: string; title: string
     </div>
   );
 }
-

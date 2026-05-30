@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { deleteUploadFromLocal } from "@/lib/security/upload-storage";
+import { deleteStoredUpload, isManagedUploadUrl } from "@/lib/security/upload-storage";
 
 export const ACCOUNT_UPLOAD_LIMIT_BYTES = 100 * 1024 * 1024;
 
@@ -41,7 +41,7 @@ export async function trackUserUploadAsset(
 }
 
 export async function tryReleaseUserUploadAsset(userId: string, url: string) {
-  if (!url.startsWith("/uploads/")) return;
+  if (!isManagedUploadUrl(url)) return;
 
   const [photoRef, profileRef, postImageRef, postMediaRef, groupPhotoRef] = await Promise.all([
     prisma.photo.findFirst({ where: { url, album: { userId } }, select: { id: true } }),
@@ -63,6 +63,6 @@ export async function tryReleaseUserUploadAsset(userId: string, url: string) {
     where: { userId, url },
   });
   if (removed.count > 0) {
-    await deleteUploadFromLocal(url);
+    await deleteStoredUpload(url);
   }
 }

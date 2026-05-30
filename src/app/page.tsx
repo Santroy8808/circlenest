@@ -21,16 +21,32 @@ function mapLoginError(error?: string) {
       return "Your 2FA session expired. Please sign in again.";
     case "missing_credentials":
       return "Enter both identifier and password.";
+    case "email_not_verified":
+      return "Please validate your email by clicking validate in the email we sent you.";
+    case "invalid_verification_link":
+      return "That validation link is invalid or expired. Please create a new account or contact support.";
     default:
       return "";
   }
 }
 
-export default async function EntryPage({ searchParams }: { searchParams?: { error?: string; email?: string } }) {
+function mapLoginNotice(notice?: string) {
+  switch (notice) {
+    case "email_verification_sent":
+      return "Your account was created. Please validate your email by clicking validate in the email we sent you.";
+    case "email_verified":
+      return "Email validated successfully. You can log in now.";
+    default:
+      return "";
+  }
+}
+
+export default async function EntryPage({ searchParams }: { searchParams?: { error?: string; email?: string; notice?: string } }) {
   const session = await auth();
   if (session?.user?.id) redirect("/home");
 
   const errorText = mapLoginError(searchParams?.error);
+  const noticeText = mapLoginNotice(searchParams?.notice);
 
   return (
     <ThetaAuthShell
@@ -58,6 +74,13 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
             select: { id: true, email: true, passwordHash: true, passwordUpdatedAt: true, subscriptionTier: true },
           });
           if (!user) redirect("/?error=invalid_credentials");
+          const pendingVerification = await prisma.emailVerificationToken.findFirst({
+            where: { userId: user.id, expiresAt: { gt: new Date() } },
+            select: { id: true },
+          });
+          if (pendingVerification) {
+            redirect("/?error=email_not_verified");
+          }
 
           const valid = await compare(password, user.passwordHash);
           if (!valid) redirect("/?error=invalid_credentials");
@@ -114,7 +137,7 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
             name="password"
             type="password"
             required
-            minLength={14}
+            minLength={8}
             className="mt-1 w-full rounded-lg border border-[#9d7a2e] bg-[#0e1118]/92 px-3 py-2 text-sm text-[#fff2d1] placeholder:text-[#baa77a]"
             placeholder="Your secure password"
           />
@@ -140,6 +163,7 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
           ) : null}
         </p>
       ) : null}
+      {noticeText ? <p className="mt-3 text-sm text-[#b9e7bb]">{noticeText}</p> : null}
 
       <div className="mt-4 text-sm text-[#ccb78a]">
         <Link href="/reset-password" className="underline underline-offset-2">

@@ -1,0 +1,1 @@
+Implement hiring board with company, duties, requirements, salary range, and searchable/filterable listings.

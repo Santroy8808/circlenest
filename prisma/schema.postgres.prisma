@@ -53,12 +53,16 @@ model User {
   followedTopics FollowedTopic[]
   albums         PhotoAlbum[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   twoFactorConfig TwoFactorConfig?
   createdGroupEvents GroupEvent[]
+  createdEvents      Event[]
   groupForumThreads  GroupForumThread[]
   groupForumPosts    GroupForumPost[]
   groupDocuments     GroupDocument[]
   groupPhotos        GroupPhoto[]
+  groupJoinRequests  GroupJoinRequest[]
+  pollVotes          PostPollVote[]
   photoComments      PhotoComment[]
   following          UserFollow[]      @relation("UserFollowing")
   followers          UserFollow[]      @relation("UserFollowers")
@@ -66,6 +70,20 @@ model User {
   securityEvents     AuthSecurityEvent[]
   mediaTags          UserMediaTag[]
   uploadAssets       UserUploadAsset[]
+  bazaarListings     BazaarListing[]
+  jobListings        JobListing[]
+  auditorListings    AuditorListing[]
+  moderatorActions   ModeratorActionLog[]
+}
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
 }
 
 model Profile {
@@ -86,6 +104,8 @@ model Profile {
   scientologyAchievements String?
   scientologyGoals String?
   scientologyProjects String?
+  scientologyAdditionalCoursesJson String?
+  scientologyIncludeOnResume Boolean @default(false)
   scientologyVisible Boolean @default(false)
   resumeJson         String?
   resumeVisible      Boolean @default(false)
@@ -111,6 +131,9 @@ model Theme {
 model Post {
   id                String   @id @default(cuid())
   authorId          String
+  type              String   @default("TEXT")
+  allowReshare      Boolean  @default(true)
+  commentsLocked    Boolean  @default(false)
   content           String
   audience          String   @default("ALL")
   imageUrl          String?
@@ -124,10 +147,45 @@ model Post {
   comments          Comment[]
   reactions         Reaction[]
   group             Group?   @relation(fields: [groupId], references: [id])
+  poll              PostPoll?
   @@index([createdAt, id])
   @@index([authorId, createdAt])
   @@index([groupId, createdAt])
   @@index([audience, createdAt])
+}
+
+model PostPoll {
+  id           String   @id @default(cuid())
+  postId       String   @unique
+  question     String
+  allowMulti   Boolean  @default(false)
+  closesAt     DateTime?
+  createdAt    DateTime @default(now())
+  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options      PostPollOption[]
+  votes        PostPollVote[]
+}
+
+model PostPollOption {
+  id         String   @id @default(cuid())
+  pollId     String
+  label      String
+  createdAt  DateTime @default(now())
+  poll       PostPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes      PostPollVote[]
+}
+
+model PostPollVote {
+  id         String   @id @default(cuid())
+  pollId     String
+  optionId   String
+  voterId    String
+  createdAt  DateTime @default(now())
+  poll       PostPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option     PostPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  voter      User     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  @@unique([optionId, voterId])
+  @@index([pollId, voterId])
 }
 
 model Comment {
@@ -206,16 +264,68 @@ model Group {
   name        String
   description String?
   visibility  String          @default("PUBLIC")
+  joinMode    String          @default("OPEN")
   ownerId     String
   createdAt   DateTime        @default(now())
   owner       User            @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members     GroupMember[]
+  joinRequests GroupJoinRequest[]
   posts       Post[]
   events      GroupEvent[]
   threads     GroupForumThread[]
   documents   GroupDocument[]
   photos      GroupPhoto[]
   photoAlbums GroupPhotoAlbum[]
+}
+
+model GroupJoinRequest {
+  id          String   @id @default(cuid())
+  groupId     String
+  userId      String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewedById String?
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([groupId, userId])
+  @@index([groupId, status, createdAt])
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  creatorId     String
+  title         String
+  description   String?
+  startsAt      DateTime
+  endsAt        DateTime?
+  locationName  String?
+  latitude      Float?
+  longitude     Float?
+  googleMapsUrl String?
+  visibility    String   @default("PUBLIC")
+  createdAt     DateTime @default(now())
+  creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  @@index([startsAt, createdAt])
+  @@index([creatorId, createdAt])
+}
+
+model BazaarListing {
+  id          String   @id @default(cuid())
+  sellerId    String
+  title       String
+  description String?
+  price       Float
+  currency    String   @default("USD")
+  location    String?
+  category    String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+  @@index([location, createdAt])
+  @@index([category, createdAt])
 }
 
 model GroupMember {
@@ -374,6 +484,7 @@ model Photo {
   url         String
   caption     String?
   tags        String?
+  commentsLocked Boolean @default(false)
   visibility  String   @default("PUBLIC")
   createdAt   DateTime @default(now())
   album       PhotoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
@@ -439,6 +550,7 @@ model UserFeedPreference {
   id             String   @id @default(cuid())
   userId         String   @unique
   mode           String   @default("CHRONOLOGICAL")
+  mobileNavSwipeSide String @default("RIGHT")
   closeFriendIds String?
   hiddenPostIds  String?
   topicWeights   String?
@@ -516,4 +628,65 @@ model AuthSecurityEvent {
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   @@index([userId, createdAt])
   @@index([eventType, createdAt])
+}
+
+model JobListing {
+  id            String   @id @default(cuid())
+  creatorId     String
+  companyName   String
+  title         String
+  duties        String
+  requirements  String?
+  salaryMin     Float?
+  salaryMax     Float?
+  location      String?
+  employmentType String?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+  @@index([location, createdAt])
+}
+
+model AuditorListing {
+  id            String   @id @default(cuid())
+  userId        String
+  displayName   String
+  classLevel    String
+  location      String?
+  travels       Boolean  @default(false)
+  services      String?
+  successStories String?
+  textStream    String?
+  proEnabled    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media         AuditorMedia[]
+  @@index([classLevel, createdAt])
+  @@index([location, createdAt])
+}
+
+model AuditorMedia {
+  id              String   @id @default(cuid())
+  auditorListingId String
+  url             String
+  caption         String?
+  createdAt       DateTime @default(now())
+  auditorListing  AuditorListing @relation(fields: [auditorListingId], references: [id], onDelete: Cascade)
+  @@index([auditorListingId, createdAt])
+}
+
+model ModeratorActionLog {
+  id           String   @id @default(cuid())
+  actorUserId  String
+  action       String
+  targetType   String
+  targetId     String
+  note         String?
+  createdAt    DateTime @default(now())
+  actor        User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
 }

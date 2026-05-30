@@ -1,0 +1,1 @@
+Friends page gets people search with partial matching and clear not-found handling.

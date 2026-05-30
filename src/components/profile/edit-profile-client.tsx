@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 
 type InitialProfile = {
   displayName: string;
@@ -36,8 +36,8 @@ const INTEREST_OPTIONS = [
   "Community",
 ];
 
-async function uploadImage(file: File): Promise<string | null> {
-  const result = await uploadImageWithCompression(file);
+async function uploadImage(file: File, options?: UploadImageOptions): Promise<string | null> {
+  const result = await uploadImageWithCompression(file, options);
   return result.url;
 }
 
@@ -99,8 +99,12 @@ export function EditProfileClient({ initial }: { initial: InitialProfile }) {
 
           const avatarFile = form.get("avatar") as File | null;
           const bannerFile = form.get("banner") as File | null;
-          const avatarUrl = avatarFile && avatarFile.size > 0 ? await uploadImage(avatarFile) : undefined;
-          const bannerUrl = bannerFile && bannerFile.size > 0 ? await uploadImage(bannerFile) : undefined;
+          const avatarUrl = avatarFile && avatarFile.size > 0
+            ? await uploadImage(avatarFile, { purpose: "profile-avatar" })
+            : undefined;
+          const bannerUrl = bannerFile && bannerFile.size > 0
+            ? await uploadImage(bannerFile, { purpose: "profile-banner" })
+            : undefined;
 
           const fullInterests = [...selectedInterests, customInterest.trim()].filter(Boolean);
           const payload: Record<string, unknown> = {

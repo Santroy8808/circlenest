@@ -2,10 +2,13 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const body = await request.json();
   const detailedBioJson =

@@ -1,0 +1,1 @@
+Clicking a photo routes to its discussion/forum destination for comments and replies. Use a stable deep-link route pattern.

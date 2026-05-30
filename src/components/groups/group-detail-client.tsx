@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
 
 type GroupData = {
   id: string;
@@ -12,6 +12,7 @@ type GroupData = {
   visibility: string;
   ownerId: string;
   members: Array<{ id: string; username: string; role: string }>;
+  joinRequests: Array<{ id: string; userId: string; username: string }>;
   events: Array<{ id: string; title: string; description: string | null; startsAt: string; endsAt: string | null; locationName: string | null; googleMapsUrl: string | null; creatorUsername: string }>;
   threads: Array<{ id: string; title: string; authorUsername: string; posts: Array<{ id: string; content: string; authorUsername: string }> }>;
   documents: Array<{ id: string; title: string; url: string; uploaderUsername: string }>;
@@ -19,8 +20,21 @@ type GroupData = {
   photoAlbums: Array<{ id: string; title: string; description: string | null }>;
 };
 
-async function uploadImage(file: File): Promise<string | null> {
-  const result = await uploadImageWithCompression(file);
+async function uploadImage(file: File, groupId: string, albumId?: string, tags?: string[]): Promise<string | null> {
+  const result = await uploadImageWithCompression(file, {
+    purpose: "group-photo",
+    groupId,
+    albumId,
+    tagNames: tags,
+  });
+  return result.url;
+}
+
+async function uploadDocument(file: File, groupId: string): Promise<string | null> {
+  const result = await uploadFile(file, {
+    purpose: "group-document",
+    groupId,
+  });
   return result.url;
 }
 
@@ -29,7 +43,7 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
   const [dragActive, setDragActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<"events" | "forum" | "documents" | "photos" | "members">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "forum" | "documents" | "photos" | "members">("forum");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [bulkAlbumId, setBulkAlbumId] = useState<string>("");
   const [bulkAddTags, setBulkAddTags] = useState("");
@@ -63,7 +77,12 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
   }
 
   async function uploadGroupPhoto(file: File, caption = "", albumId = "", tags = "") {
-    const url = await uploadImage(file);
+    const normalizedTags = tags
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 12);
+    const url = await uploadImage(file, group.id, albumId || undefined, normalizedTags);
     if (!url) return;
     await fetch(`/api/groups/${group.id}/photos`, {
       method: "POST",
@@ -71,7 +90,7 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
       body: JSON.stringify({
         caption,
         albumId: albumId || null,
-        tags,
+        tags: normalizedTags.join(", "),
         url,
       }),
     });
@@ -106,40 +125,8 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
 
       {activeTab === "events" ? <section className="card p-4">
         <h2 className="mb-2 text-lg font-semibold">Events</h2>
-        {isMember ? (
-          <form className="grid gap-2 md:grid-cols-2" onSubmit={(e) => run(async () => {
-            e.preventDefault();
-            const form = new FormData(e.currentTarget);
-            await fetch(`/api/groups/${group.id}/events`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title: form.get("title"),
-                description: form.get("description"),
-                startsAt: form.get("startsAt"),
-                endsAt: form.get("endsAt"),
-                locationName: form.get("locationName"),
-              }),
-            });
-          }, "Event created") }>
-            <input name="title" placeholder="Event title" className="rounded border border-slate-300 px-3 py-2" required />
-            <input name="locationName" placeholder="Location (for Google Maps)" className="rounded border border-slate-300 px-3 py-2" />
-            <input name="startsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2" required />
-            <input name="endsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2" />
-            <input name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 md:col-span-2" />
-            <button className="rounded bg-slate-900 px-3 py-2 text-white md:col-span-2" type="submit">Create Event</button>
-          </form>
-        ) : <p className="text-sm text-slate-600">Join group to create events.</p>}
-        <div className="mt-3 space-y-2">
-          {group.events.map((e) => (
-            <article key={e.id} className="rounded border border-slate-200 p-3 text-sm">
-              <p className="font-medium">{e.title}</p>
-              <p className="text-slate-600">{new Date(e.startsAt).toLocaleString()}</p>
-              {e.locationName ? <p className="text-slate-600">{e.locationName}</p> : null}
-              {e.googleMapsUrl ? <a href={e.googleMapsUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">Open in Google Maps</a> : null}
-            </article>
-          ))}
-        </div>
+        <p className="text-sm text-slate-600">Events are now managed in the standalone Events section.</p>
+        <Link href="/events" className="mt-3 inline-block rounded border border-slate-300 px-3 py-2 text-sm">Open Events</Link>
       </section> : null}
 
       {activeTab === "forum" ? <section className="card p-4">
@@ -193,15 +180,29 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
             <form className="grid gap-2" onSubmit={(e) => run(async () => {
               e.preventDefault();
               const form = new FormData(e.currentTarget);
+              const file = form.get("document") as File | null;
+              if (!file || file.size === 0) return;
+              const url = await uploadDocument(file, group.id);
+              if (!url) return;
               await fetch(`/api/groups/${group.id}/documents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: form.get("title"), url: form.get("url") }),
+                body: JSON.stringify({
+                  title: String(form.get("title") ?? "").trim() || file.name,
+                  url,
+                }),
               });
-            }, "Document added") }>
-              <input name="title" placeholder="Document title" className="rounded border border-slate-300 px-3 py-2" required />
-              <input name="url" placeholder="Document URL" className="rounded border border-slate-300 px-3 py-2" required />
-              <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Add Document</button>
+            }, "Document uploaded") }>
+              <input name="title" placeholder="Document title" className="rounded border border-slate-300 px-3 py-2" />
+              <input
+                name="document"
+                type="file"
+                accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                className="rounded border border-slate-300 px-3 py-2"
+                required
+              />
+              <p className="text-xs text-slate-500">Accepted: PDF, Word, Excel, PowerPoint, and text files up to 20MB.</p>
+              <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Upload Document</button>
             </form>
           ) : null}
           <div className="mt-3 space-y-2">
@@ -449,6 +450,32 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
 
       {activeTab === "members" ? <section className="card p-4">
         <h2 className="mb-2 text-lg font-semibold">Members</h2>
+        {canModerate && group.joinRequests.length ? (
+          <div className="mb-3 space-y-2 rounded border border-slate-200 p-2">
+            <p className="text-sm font-medium">Pending Join Requests</p>
+            {group.joinRequests.map((request) => (
+              <div key={request.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">
+                <span>@{request.username}</span>
+                <div className="flex gap-2">
+                  <button className="rounded border border-emerald-400 px-2 py-1 text-xs" onClick={() => run(async () => {
+                    await fetch(`/api/groups/${group.id}/join-requests/${request.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "APPROVE" }),
+                    });
+                  }, "Join request approved")}>Approve</button>
+                  <button className="rounded border border-red-400 px-2 py-1 text-xs" onClick={() => run(async () => {
+                    await fetch(`/api/groups/${group.id}/join-requests/${request.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "DENY" }),
+                    });
+                  }, "Join request denied")}>Deny</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="space-y-2">
           {group.members.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">

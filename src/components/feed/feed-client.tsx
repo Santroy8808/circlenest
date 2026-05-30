@@ -3,8 +3,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FEED_MODES, type FeedMode } from "@/lib/feed/modes";
-import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { CommunicateLauncher } from "@/components/layout/communicate-launcher";
+import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 
 const EMOJIS = [
   "\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F44D}", "\u{1F525}", "\u{1F389}",
@@ -37,6 +39,9 @@ type Reaction = { id: string; type: string };
 
 type FeedPost = {
   id: string;
+  type?: string;
+  allowReshare?: boolean;
+  commentsLocked?: boolean;
   content: string;
   topic: string | null;
   imageUrl: string | null;
@@ -46,6 +51,12 @@ type FeedPost = {
   author: { username: string };
   comments: Comment[];
   reactions: Reaction[];
+  poll?: {
+    id: string;
+    question: string;
+    allowMulti: boolean;
+    options: Array<{ id: string; label: string; _count?: { votes: number } }>;
+  } | null;
   explanation: string;
 };
 
@@ -56,6 +67,17 @@ function parseMedia(raw?: string | null): string[] {
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
   } catch {
     return [];
+  }
+}
+
+function parseGalleryTopic(rawTopic?: string | null): { albumId: string; albumTitle: string } | null {
+  if (!rawTopic || !rawTopic.startsWith("gallery_upload|")) return null;
+  const [, albumId = "", encodedTitle = ""] = rawTopic.split("|");
+  if (!albumId) return null;
+  try {
+    return { albumId, albumTitle: decodeURIComponent(encodedTitle || "Album") };
+  } catch {
+    return { albumId, albumTitle: "Album" };
   }
 }
 
@@ -87,8 +109,8 @@ async function patchPrefs(payload: Record<string, string | boolean>) {
   });
 }
 
-async function uploadImage(file: File): Promise<string | null> {
-  const result = await uploadImageWithCompression(file);
+async function uploadImage(file: File, options?: UploadImageOptions): Promise<string | null> {
+  const result = await uploadImageWithCompression(file, options);
   return result.url;
 }
 
@@ -96,6 +118,8 @@ export function FeedClient({
   initialPosts,
   initialMode,
   currentUserId,
+  currentUserAvatarUrl,
+  currentUserDisplayName,
   initialHasOlderArchive = false,
   fastWindowDays = 14,
   allowComposer = true,
@@ -103,10 +127,13 @@ export function FeedClient({
   initialPosts: FeedPost[];
   initialMode: FeedMode;
   currentUserId: string;
+  currentUserAvatarUrl?: string | null;
+  currentUserDisplayName?: string | null;
   initialHasOlderArchive?: boolean;
   fastWindowDays?: number;
   allowComposer?: boolean;
 }) {
+  const router = useRouter();
   const audienceRadioGroupName = `${useId()}-audience`;
   const [posts, setPosts] = useState(initialPosts);
   const [mode, setMode] = useState<FeedMode>(initialMode);
@@ -117,6 +144,9 @@ export function FeedClient({
   const [composerAudience, setComposerAudience] = useState<Audience>("ALL");
   const [composerGroupId, setComposerGroupId] = useState("");
   const [composerGroups, setComposerGroups] = useState<ComposerGroup[]>([]);
+  const [composerType, setComposerType] = useState<"TEXT" | "POLL">("TEXT");
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
 
   const [replyPostId, setReplyPostId] = useState<string | null>(null);
   const [replyParentByPost, setReplyParentByPost] = useState<Record<string, string | null>>({});
@@ -127,6 +157,8 @@ export function FeedClient({
   const [hasOlderArchive, setHasOlderArchive] = useState(initialHasOlderArchive);
   const [loadingOlderArchive, setLoadingOlderArchive] = useState(false);
   const [archiveStatus, setArchiveStatus] = useState("");
+  const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
+  const [pollStatusByPost, setPollStatusByPost] = useState<Record<string, string>>({});
   const commentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const modeLabel = useMemo(() => toTitleCase(mode), [mode]);
@@ -135,6 +167,7 @@ export function FeedClient({
     const openFromEvent = () => {
       if (allowComposer) {
         setComposerAudience("ALL");
+        setComposerType("TEXT");
         setOpenComposer(true);
       }
     };
@@ -147,6 +180,7 @@ export function FeedClient({
     if (sessionStorage.getItem("theta-space:compose-once") !== "1") return;
     sessionStorage.removeItem("theta-space:compose-once");
     setComposerAudience("ALL");
+    setComposerType("TEXT");
     setOpenComposer(true);
   }, [allowComposer]);
 
@@ -204,6 +238,29 @@ export function FeedClient({
     });
   }
 
+  function openMedia(postId: string, url: string) {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      router.push(`/posts/${postId}`);
+      return;
+    }
+    setExpandedMediaUrl(url);
+  }
+
+  async function votePoll(postId: string, optionId: string) {
+    setPollStatusByPost((prev) => ({ ...prev, [postId]: "Saving vote..." }));
+    const res = await fetch(`/api/posts/${postId}/poll/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ optionIds: [optionId] }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setPollStatusByPost((prev) => ({ ...prev, [postId]: body.error ?? "Could not save vote." }));
+      return;
+    }
+    window.location.reload();
+  }
+
   function openReply(postId: string, parentCommentId: string | null, mention = "") {
     setReplyPostId(postId);
     setReplyParentByPost((prev) => ({ ...prev, [postId]: parentCommentId }));
@@ -256,6 +313,8 @@ export function FeedClient({
 
   return (
     <section className="space-y-6">
+      {allowComposer ? <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} /> : null}
+
       <div className="flex items-center justify-end text-[11px]">
         <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
           <span>Stream type</span>
@@ -307,6 +366,13 @@ export function FeedClient({
               </div>
 
               <fieldset className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                <label className="inline-flex items-center gap-1">
+                  <span>Type</span>
+                  <select value={composerType} onChange={(event) => setComposerType(event.target.value === "POLL" ? "POLL" : "TEXT")} className="rounded border px-1 py-0 text-[11px]">
+                    <option value="TEXT">Text</option>
+                    <option value="POLL">Poll</option>
+                  </select>
+                </label>
                 {AUDIENCE_OPTIONS.map((option) => {
                   const inputId = `${audienceRadioGroupName}-${option.value.toLowerCase()}`;
                   return (
@@ -337,6 +403,21 @@ export function FeedClient({
                   </select>
                 ) : null}
               </fieldset>
+              {composerType === "POLL" ? (
+                <div className="w-full space-y-2 rounded border border-[var(--border)] p-2 text-xs">
+                  <input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} className="w-full rounded border px-2 py-1 text-sm" placeholder="Poll question" />
+                  {pollOptions.map((value, index) => (
+                    <input
+                      key={`poll-option-${index}`}
+                      value={value}
+                      onChange={(event) => setPollOptions((prev) => prev.map((current, currentIndex) => (currentIndex === index ? event.target.value : current)))}
+                      className="w-full rounded border px-2 py-1 text-sm"
+                      placeholder={`Option ${index + 1}`}
+                    />
+                  ))}
+                  <button type="button" className="rounded border px-2 py-1" onClick={() => setPollOptions((prev) => [...prev, ""])}>Add option</button>
+                </div>
+              ) : null}
 
               <div className="ml-auto flex items-center gap-2">
                 <label htmlFor="postImage" className="cursor-pointer text-[13px] text-slate-200 underline underline-offset-2">Upload</label>
@@ -364,17 +445,33 @@ export function FeedClient({
                     setStatus("Posting...");
                     const input = document.getElementById("postImage") as HTMLInputElement | null;
                     const file = input?.files?.[0];
-                    const imageUrl = file ? await uploadImage(file) : null;
+                    const imageUrl = file
+                      ? await uploadImage(file, {
+                          purpose: selectedAudience === "GROUPS" ? "group-post-media" : "post-media",
+                          groupId: selectedAudience === "GROUPS" ? composerGroupId : undefined,
+                        })
+                      : null;
                     const payload: {
                       content: string;
                       audience: Audience;
+                      type?: "TEXT" | "POLL";
+                      poll?: { question: string; options: string[] };
                       groupId?: string;
                       imageUrl?: string;
                     } = {
                       content: newPost,
                       audience: selectedAudience,
+                      type: composerType,
                       ...(selectedAudience === "GROUPS" ? { groupId: composerGroupId } : {}),
                     };
+                    if (composerType === "POLL") {
+                      const options = pollOptions.map((option) => option.trim()).filter(Boolean);
+                      if (!pollQuestion.trim() || options.length < 2) {
+                        setStatus("Poll needs a question and at least 2 options.");
+                        return;
+                      }
+                      payload.poll = { question: pollQuestion.trim(), options };
+                    }
                     if (imageUrl) {
                       payload.imageUrl = imageUrl;
                     }
@@ -397,6 +494,9 @@ export function FeedClient({
                     setNewPost("");
                     setImageName("");
                     setComposerAudience("ALL");
+                    setComposerType("TEXT");
+                    setPollQuestion("");
+                    setPollOptions(["", ""]);
                     setOpenComposer(false);
                     setStatus("Posted");
                     window.location.reload();
@@ -459,6 +559,19 @@ export function FeedClient({
               <Link href={`/profile/${post.author.username}`} className="text-slate-100 hover:underline">@{post.author.username}</Link>
             </p>
             <p className="mt-2 max-w-[65ch] text-[18px] leading-[1.55]">{post.content}</p>
+            {(() => {
+              const galleryMeta = parseGalleryTopic(post.topic);
+              if (!galleryMeta) return null;
+              if (post.authorId !== currentUserId) return null;
+              return (
+                <p className="mt-1 text-xs text-slate-400">
+                  Album:{" "}
+                  <Link href={`/profile/gallery?album=${galleryMeta.albumId}`} className="underline hover:text-slate-200">
+                    {galleryMeta.albumTitle}
+                  </Link>
+                </p>
+              );
+            })()}
 
             {(() => {
               const media = parseMedia(post.mediaUrlsJson);
@@ -466,18 +579,65 @@ export function FeedClient({
                 return (
                   <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
                     {media.map((url) => (
-                      <Image key={url} src={url} alt="Post media" width={800} height={600} className="h-32 w-full rounded-md object-cover" />
+                      <button key={url} type="button" className="text-left" onClick={() => openMedia(post.id, url)}>
+                        <Image src={url} alt="Post media" width={800} height={600} className="h-32 w-full rounded-md object-cover" />
+                      </button>
                     ))}
                   </div>
                 );
               }
-              return post.imageUrl ? <Image src={post.imageUrl} alt="Post" width={1200} height={800} className="mt-3 max-h-80 w-full rounded-md object-cover" /> : null;
+              return post.imageUrl ? (
+                <button type="button" className="mt-3 w-full text-left" onClick={() => openMedia(post.id, post.imageUrl as string)}>
+                  <Image src={post.imageUrl} alt="Post" width={1200} height={800} className="max-h-80 w-full rounded-md object-cover" />
+                </button>
+              ) : null;
             })()}
+            {post.type === "POLL" && post.poll ? (
+              <div className="mt-3 rounded-md border border-[var(--border)] bg-[#0b1220] p-3">
+                <p className="mb-2 text-sm font-semibold text-slate-100">{post.poll.question}</p>
+                <div className="space-y-2">
+                  {post.poll.options.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className="flex w-full items-center justify-between rounded border border-slate-600 px-2 py-1.5 text-sm hover:border-slate-300"
+                      onClick={() => void votePoll(post.id, option.id)}
+                    >
+                      <span>{option.label}</span>
+                      <span className="text-xs text-slate-400">{option._count?.votes ?? 0} votes</span>
+                    </button>
+                  ))}
+                </div>
+                {pollStatusByPost[post.id] ? <p className="mt-2 text-xs text-slate-400">{pollStatusByPost[post.id]}</p> : null}
+              </div>
+            ) : null}
 
             <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-slate-300">
               <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "LIKE" }) }); window.location.reload(); }}>{`\u{2764}\u{FE0F}`} Like {post.reactions.length}</button>
-              <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); window.location.reload(); }}>{`\u{1F501}`} Repost</button>
-              <button className="inline-flex items-center gap-1 hover:text-white" onClick={() => openReply(post.id, null, "")}>{`\u{1F4AC}`} Reply</button>
+              {post.allowReshare !== false ? (
+                <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); window.location.reload(); }}>{`\u{1F501}`} Repost</button>
+              ) : null}
+              <button
+                className="inline-flex items-center gap-1 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => openReply(post.id, null, "")}
+                disabled={Boolean(post.commentsLocked && post.authorId !== currentUserId)}
+              >{`\u{1F4AC}`} Reply</button>
+              <Link href={`/posts/${post.id}`} className="inline-flex items-center gap-1 hover:text-white">{`\u{1F5E8}\u{FE0F}`} Discussion</Link>
+              {post.authorId === currentUserId ? (
+                <button
+                  className="inline-flex items-center gap-1 hover:text-white"
+                  onClick={async () => {
+                    await fetch(`/api/posts/${post.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ commentsLocked: !post.commentsLocked }),
+                    });
+                    window.location.reload();
+                  }}
+                >
+                  {post.commentsLocked ? "\u{1F512}" : "\u{1F513}"} {post.commentsLocked ? "Locked" : "Unlocked"}
+                </button>
+              ) : null}
               <details className="relative">
                 <summary className="cursor-pointer list-none text-slate-400 hover:text-white">{`\u{22EF}`}</summary>
                 <div className="absolute right-0 top-5 rounded-md bg-[#0b1220] p-2 shadow-lg">
@@ -489,7 +649,9 @@ export function FeedClient({
             <div className="mt-4 space-y-2">
               {roots.map((root) => renderThread(root, 0, root.id))}
 
-              {replyPostId === post.id ? (
+              {post.commentsLocked && post.authorId !== currentUserId ? (
+                <p className="text-xs text-slate-400">Comments are locked by the post owner.</p>
+              ) : replyPostId === post.id ? (
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -550,6 +712,15 @@ export function FeedClient({
           </article>
         );
       })}
+
+      {expandedMediaUrl ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" onClick={() => setExpandedMediaUrl(null)}>
+          <div className="relative max-h-[92vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="absolute -top-9 right-0 text-sm text-slate-100 underline" onClick={() => setExpandedMediaUrl(null)}>Close</button>
+            <Image src={expandedMediaUrl} alt="Expanded media" width={1800} height={1800} className="max-h-[90vh] w-auto rounded-md object-contain" />
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-between text-[11px] text-slate-500">
         <p>Mode: {modeLabel}. Fast stream window: {fastWindowDays} days.</p>

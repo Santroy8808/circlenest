@@ -3,6 +3,10 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { signupSchema } from "@/lib/validation/schemas";
 import { createAccountCryptoMaterial } from "@/lib/security/account-crypto";
+import { ensureUserStorageRoot } from "@/lib/security/upload-storage";
+import { randomToken, sha256 } from "@/lib/security/tokens";
+import { sendEmailVerificationEmail } from "@/lib/email/smtp";
+import { getPublicBaseUrl } from "@/lib/config/public-base-url";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -76,5 +80,35 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ id: user.id, email: user.email, username: user.username });
+  void ensureUserStorageRoot(user.id).catch((error) => {
+    console.error("Failed to initialize user storage root", error);
+  });
+
+  const verificationToken = randomToken(24);
+  const tokenHash = sha256(verificationToken);
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+  await prisma.emailVerificationToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+  const baseUrl = getPublicBaseUrl(request);
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
+
+  let emailSent = false;
+  try {
+    await sendEmailVerificationEmail(user.email, verifyUrl);
+    emailSent = true;
+  } catch (error) {
+    console.error("Email verification send failed", {
+      userId: user.id,
+      email: user.email,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return NextResponse.json({ id: user.id, email: user.email, username: user.username, emailSent });
 }

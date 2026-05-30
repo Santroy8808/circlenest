@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const tags = await prisma.userMediaTag.findMany({
     where: { userId: session.user.id },
@@ -17,6 +20,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const body = (await request.json()) as { name?: string };
   const name = String(body.name ?? "").trim();

@@ -1,0 +1,50 @@
+Theta-Space Program Plan (Architecture + Implementation)
+
+Summary
+- Delivery model: phased rollout, MVP-first.
+- Existing foundations leveraged: stream, gallery, groups, auth, secure-area.
+- Production Zone launch policy: browse open, create invite-only.
+
+Phases
+1) Stream/Gallery UX + Comment Controls (MVP)
+- Desktop image click opens modal/full-size view.
+- Mobile image click goes to dedicated discussion page.
+- Unified photo/post discussion destination.
+- Remove public stream_photos notation from user-facing copy.
+- Add comments lock controls and API enforcement.
+- Ensure mobile Communicate action is present in stream and groups surfaces.
+
+2) Core Social Extensions
+- Typed posts: TEXT, MEDIA, SHARE, POLL.
+- allowReshare permission on original post.
+- Poll model + vote/result endpoints.
+- Friends page people search.
+- Groups index with creator/member count/join model/join CTA.
+
+3) Domain Separation + Production Zone
+- Events as standalone domain (not group-owned feature logic).
+- Policy framework for browse/create gating.
+
+4) Marketplace + Hiring + Auditor Vertical
+- Bazaar listings with search/filter.
+- Hiring board with job metadata and filters.
+- Find an Auditor directory, filters, media, text stream; pro add-ons.
+
+5) Admin/Moderator Portal
+- Moderator CRUD/delete scope across platform entities.
+- No deployment/code controls.
+- Audit log for destructive actions.
+
+API/Type Additions
+- Post.type, Post.allowReshare, Post.commentsLocked
+- Photo.commentsLocked
+- Group.joinMode + join requests
+- Event domain entities
+- MarketplaceListing, JobListing, AuditorListing, AuditorMedia
+- ProductionZoneAccessPolicy
+
+Testing
+- Unit: share permissions, comment locks, gating, join modes.
+- Integration: share/poll flows, people search, join requests, events CRUD, filters.
+- E2E: desktop/mobile behavior splits, lock UX, gate UX, admin audit trails.
+- Security/regression: authorization, rate limits, gate correctness at UI+API.

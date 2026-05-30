@@ -1,0 +1,1 @@
+Post/photo owners can lock or unlock comments using a lock control. API rejects comment creation when locked for non-owner actors.

@@ -1,0 +1,1 @@
+Groups index lists groups, creator, member counts, and join model (OPEN vs REQUEST) with join/request CTA and moderation flow.

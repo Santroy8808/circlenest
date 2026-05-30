@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { createEmptyResumeData, sanitizeResumeData, type ResumeData } from "@/lib/profile/resume";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 const resumeEntrySchema = z.object({
   organization: z.string().optional().default(""),
@@ -41,6 +42,8 @@ const resumeSchema = z.object({
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const parsed = resumeSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid resume data." }, { status: 400 });
@@ -74,4 +77,3 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json(profile);
 }
-

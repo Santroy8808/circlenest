@@ -1,0 +1,72 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+
+type GroupIndexRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  visibility: string;
+  joinMode: "OPEN" | "REQUEST";
+  ownerUsername: string;
+  memberCount: number;
+  isMember: boolean;
+  hasPendingRequest: boolean;
+};
+
+export function GroupsIndexClient({ groups }: { groups: GroupIndexRow[] }) {
+  const [statusByGroup, setStatusByGroup] = useState<Record<string, string>>({});
+
+  async function join(groupId: string) {
+    setStatusByGroup((prev) => ({ ...prev, [groupId]: "Working..." }));
+    const res = await fetch(`/api/groups/${groupId}/join`, { method: "POST" });
+    const body = (await res.json().catch(() => ({}))) as { status?: string; error?: string };
+    if (!res.ok) {
+      setStatusByGroup((prev) => ({ ...prev, [groupId]: body.error ?? "Could not process join." }));
+      return;
+    }
+    setStatusByGroup((prev) => ({
+      ...prev,
+      [groupId]: body.status === "REQUESTED" ? "Join request sent." : "You joined this group.",
+    }));
+    window.location.reload();
+  }
+
+  return (
+    <section className="grid gap-3">
+      {groups.map((g) => (
+        <article key={g.id} className="card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">{g.name}</h2>
+              <p className="text-sm text-slate-600">{g.description || "No description"}</p>
+            </div>
+            <Link href={`/groups/${g.id}`} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">
+              Open Group
+            </Link>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
+            <span>{g.visibility}</span>
+            <span>{g.memberCount} members</span>
+            <span>Creator: @{g.ownerUsername}</span>
+            <span>{g.joinMode === "OPEN" ? "Open join" : "Request to join"}</span>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            {g.isMember ? (
+              <span className="text-xs text-emerald-700">You are a member.</span>
+            ) : g.hasPendingRequest ? (
+              <span className="text-xs text-amber-700">Join request pending.</span>
+            ) : (
+              <button className="rounded border border-slate-300 px-3 py-1.5 text-sm" onClick={() => void join(g.id)}>
+                {g.joinMode === "OPEN" ? "Join Group" : "Request to Join"}
+              </button>
+            )}
+            {statusByGroup[g.id] ? <span className="text-xs text-slate-600">{statusByGroup[g.id]}</span> : null}
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+

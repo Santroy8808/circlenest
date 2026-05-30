@@ -2,15 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { MobileSwipeNav } from "@/components/layout/mobile-swipe-nav";
 import { LogoutButton } from "@/components/layout/logout-button";
-import { CommunicateLauncher } from "@/components/layout/communicate-launcher";
 
 export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [profile, counts] = userId
+  const [profile, counts, pref] = userId
     ? await Promise.all([
         prisma.profile.findUnique({ where: { userId }, select: { displayName: true, avatarUrl: true, bannerUrl: true } }),
         Promise.all([
@@ -19,13 +18,14 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
           prisma.message.count({ where: { thread: { OR: [{ userAId: userId }, { userBId: userId }] }, readAt: null, senderId: { not: userId } } }),
           prisma.friendRequest.count({ where: { receiverId: userId, status: "PENDING" } }),
         ]),
+        prisma.userFeedPreference.findUnique({ where: { userId }, select: { mobileNavSwipeSide: true } }),
       ])
-    : [null, [0, 0, 0, 0]];
+    : [null, [0, 0, 0, 0], null];
 
   const [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = counts;
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0">
+    <div className="min-h-screen">
       <div className="mx-auto hidden max-w-[1600px] grid-cols-[260px_minmax(0,1fr)] gap-6 p-3 min-[700px]:grid xl:grid-cols-[260px_minmax(0,1fr)_320px]">
         <aside className="card sticky top-3 h-[calc(100vh-1.5rem)] overflow-auto p-5">
           <div className="mb-4 flex items-start gap-3">
@@ -50,7 +50,9 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
               ]}
             />
             <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["Events", "/events"], ["My Groups", "/groups?mine=1"]]} />
+            <Section title="Production" links={[["Production Zone", "/production-zone"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"]]} />
+            <Section title="Admin" links={[["Admin Portal", "/admin"]]} />
             <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["My Subscription", "/settings#subscription"]]} />
           </nav>
           <div className="mt-4 border-t border-[var(--border)] pt-3">
@@ -76,7 +78,6 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
                   <Link href="/notifications" className="hover:underline">{`\u{1F514}`} {unreadNotifications}</Link>
                   <Link href="/alerts" className="hover:underline">{`\u{26A0}\u{FE0F}`} {unreadAlerts}</Link>
                   <Link href="/friends#invites" className="hover:underline">{`\u{1F4E8}`} {pendingInvites}</Link>
-                  <CommunicateLauncher />
                 </div>
               </header>
             </div>
@@ -89,8 +90,8 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
         </aside>
       </div>
 
-      <div className="space-y-2 p-2 pb-[calc(3.5rem+10px)] min-[700px]:hidden">{children}</div>
-      <MobileBottomNav />
+      <div className="space-y-2 p-2 min-[700px]:hidden">{children}</div>
+      <MobileSwipeNav side={pref?.mobileNavSwipeSide === "LEFT" ? "LEFT" : "RIGHT"} />
     </div>
   );
 }

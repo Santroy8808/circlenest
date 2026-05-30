@@ -114,7 +114,14 @@ export default async function ProfilePage({ params }: { params: { username: stri
         <div className="mb-2 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{isOwner ? "Your Stream" : `${profile?.displayName || user.username}'s Stream`}</h2>
         </div>
-        <FeedClient initialPosts={streamPosts} initialMode="CHRONOLOGICAL" currentUserId={session?.user?.id ?? ""} allowComposer={isOwner} />
+        <FeedClient
+          initialPosts={streamPosts}
+          initialMode="CHRONOLOGICAL"
+          currentUserId={session?.user?.id ?? ""}
+          currentUserAvatarUrl={profile?.avatarUrl ?? null}
+          currentUserDisplayName={profile?.displayName ?? user.username}
+          allowComposer={isOwner}
+        />
         {streamPosts.length === 0 ? <div className="card p-4 text-sm text-slate-600">No activity yet.</div> : null}
       </section>
     </AppShell>

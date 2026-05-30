@@ -20,6 +20,14 @@ export async function POST(request: Request, context: { params: { postId: string
     });
     if (!parent) return NextResponse.json({ error: "Parent comment not found in this post" }, { status: 400 });
   }
+  const post = await prisma.post.findUnique({
+    where: { id: context.params.postId },
+    select: { authorId: true, commentsLocked: true },
+  });
+  if (!post) return NextResponse.json({ error: "Post not found" }, { status: 404 });
+  if (post.commentsLocked && post.authorId !== session.user.id) {
+    return NextResponse.json({ error: "Comments are locked for this post" }, { status: 403 });
+  }
 
   const comment = await prisma.comment.create({
     data: {

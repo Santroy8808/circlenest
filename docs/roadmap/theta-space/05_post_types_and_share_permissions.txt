@@ -1,0 +1,1 @@
+Introduce post types (TEXT, MEDIA, SHARE, POLL). Add allowReshare permission on origin posts. Build poll vote/results endpoints.

@@ -1,0 +1,1 @@
+Gate premium features at both UI and API with consistent entitlement checks and fallback messages.

@@ -15,6 +15,20 @@ export type CompressionStats = {
   outputType: string;
 };
 
+export type UploadImageOptions = {
+  purpose?:
+    | "profile-avatar"
+    | "profile-banner"
+    | "gallery-photo"
+    | "post-media"
+    | "group-photo"
+    | "group-post-media"
+    | "group-document";
+  groupId?: string;
+  albumId?: string;
+  tagNames?: string[];
+};
+
 const DEFAULT_OPTIONS: Required<CompressionOptions> = {
   maxEdgePx: 2048,
   quality: 0.82,
@@ -156,12 +170,43 @@ export async function compressImageOnDevice(file: File, options?: CompressionOpt
   };
 }
 
-export async function uploadImageWithCompression(file: File): Promise<{ url: string | null; stats: CompressionStats }> {
+export async function uploadImageWithCompression(
+  file: File,
+  options?: UploadImageOptions,
+): Promise<{ url: string | null; stats: CompressionStats }> {
   const compressed = await compressImageOnDevice(file);
   const form = new FormData();
   form.append("file", compressed.file);
+  if (options?.purpose) form.append("purpose", options.purpose);
+  if (options?.groupId) form.append("groupId", options.groupId);
+  if (options?.albumId) form.append("albumId", options.albumId);
+  if (options?.tagNames?.length) form.append("tagNames", options.tagNames.join(","));
   const response = await fetch("/api/upload", { method: "POST", body: form });
-  if (!response.ok) return { url: null, stats: compressed.stats };
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    console.error("Image upload failed", body?.error ?? response.statusText);
+    return { url: null, stats: compressed.stats };
+  }
   const body = (await response.json()) as { url?: string };
   return { url: body.url ?? null, stats: compressed.stats };
+}
+
+export async function uploadFile(
+  file: File,
+  options?: UploadImageOptions,
+): Promise<{ url: string | null }> {
+  const form = new FormData();
+  form.append("file", file);
+  if (options?.purpose) form.append("purpose", options.purpose);
+  if (options?.groupId) form.append("groupId", options.groupId);
+  if (options?.albumId) form.append("albumId", options.albumId);
+  if (options?.tagNames?.length) form.append("tagNames", options.tagNames.join(","));
+  const response = await fetch("/api/upload", { method: "POST", body: form });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    console.error("File upload failed", body?.error ?? response.statusText);
+    return { url: null };
+  }
+  const body = (await response.json()) as { url?: string };
+  return { url: body.url ?? null };
 }
