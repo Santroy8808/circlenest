@@ -67,6 +67,12 @@ select {
   border-color: var(--border) !important;
 }
 
+/* Contrast lift for dark-blue UI surfaces */
+.text-slate-700 { color: #e5e7eb !important; }
+.text-slate-600 { color: #d1d5db !important; }
+.text-slate-500 { color: #cbd5e1 !important; }
+.text-slate-400 { color: #d1d5db !important; }
+
 @keyframes thetaParticleDrift {
   0% {
     opacity: 0;

@@ -114,6 +114,9 @@ export function FriendsClient({
                   <button className="rounded bg-blue-600 px-2 py-1 text-xs text-white" onClick={async () => { await fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
                     Add Friend
                   </button>
+                  <button className="rounded border border-red-400 px-2 py-1 text-xs text-red-300" onClick={async () => { await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
+                    Block
+                  </button>
                 </div>
               </div>
             ))}
@@ -191,7 +194,10 @@ export function FriendsClient({
                   <p className="truncate text-sm font-medium text-slate-100">
                     {f.profile?.displayName || f.fullName || `@${f.username}`}
                   </p>
-                  <button className="text-xs underline" onClick={() => quickMessage(f.username)}>Message</button>
+                  <div className="flex items-center gap-2">
+                    <button className="text-xs underline" onClick={() => quickMessage(f.username)}>Message</button>
+                    <button className="text-xs text-red-300 underline" onClick={async () => { await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: f.id }) }); window.location.reload(); }}>Block</button>
+                  </div>
                 </div>
                 <p className="truncate text-xs text-slate-400">@{f.username}</p>
               </div>

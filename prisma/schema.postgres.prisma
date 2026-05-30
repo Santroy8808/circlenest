@@ -28,10 +28,12 @@ model User {
   iasStatus      String?
   iasNumber      String?
   subscriptionTier String @default("FREE")
+  role           String @default("MEMBER")
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   profile        Profile?
   posts          Post[]
+  streamPosts    Post[]             @relation("ProfileStreamOwner")
   comments       Comment[]
   reactions      Reaction[]
   sentRequests   FriendRequest[]    @relation("SentRequests")
@@ -49,6 +51,8 @@ model User {
   feedPreference UserFeedPreference?
   mutedUsers     MutedUser[]        @relation("MutedByUser")
   mutedBy        MutedUser[]        @relation("MutedTargetUser")
+  blockedUsers   UserBlock[]        @relation("UserBlocks")
+  blockedBy      UserBlock[]        @relation("UserBlockedBy")
   mutedTopics    MutedTopic[]
   followedTopics FollowedTopic[]
   albums         PhotoAlbum[]
@@ -57,6 +61,7 @@ model User {
   twoFactorConfig TwoFactorConfig?
   createdGroupEvents GroupEvent[]
   createdEvents      Event[]
+  eventInvitations   EventInvitation[]
   groupForumThreads  GroupForumThread[]
   groupForumPosts    GroupForumPost[]
   groupDocuments     GroupDocument[]
@@ -74,6 +79,7 @@ model User {
   jobListings        JobListing[]
   auditorListings    AuditorListing[]
   moderatorActions   ModeratorActionLog[]
+  petitions          AdminPetition[]
 }
 
 model EmailVerificationToken {
@@ -131,6 +137,8 @@ model Theme {
 model Post {
   id                String   @id @default(cuid())
   authorId          String
+  streamOwnerId     String?
+  approvalStatus    String   @default("APPROVED")
   type              String   @default("TEXT")
   allowReshare      Boolean  @default(true)
   commentsLocked    Boolean  @default(false)
@@ -144,6 +152,7 @@ model Post {
   groupId           String?
   parentPostId      String?
   author            User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  streamOwner       User?    @relation("ProfileStreamOwner", fields: [streamOwnerId], references: [id], onDelete: SetNull)
   comments          Comment[]
   reactions         Reaction[]
   group             Group?   @relation(fields: [groupId], references: [id])
@@ -306,8 +315,21 @@ model Event {
   visibility    String   @default("PUBLIC")
   createdAt     DateTime @default(now())
   creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  invitations   EventInvitation[]
   @@index([startsAt, createdAt])
   @@index([creatorId, createdAt])
+}
+
+model EventInvitation {
+  id         String   @id @default(cuid())
+  eventId    String
+  inviteeId  String
+  status     String   @default("INVITED")
+  createdAt  DateTime @default(now())
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  invitee    User     @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
+  @@unique([eventId, inviteeId])
+  @@index([inviteeId, status, createdAt])
 }
 
 model BazaarListing {
@@ -551,6 +573,8 @@ model UserFeedPreference {
   userId         String   @unique
   mode           String   @default("CHRONOLOGICAL")
   mobileNavSwipeSide String @default("RIGHT")
+  allowFriendFamilyStreamPosts Boolean @default(true)
+  requireApprovalForFriendFamilyStreamPosts Boolean @default(false)
   closeFriendIds String?
   hiddenPostIds  String?
   topicWeights   String?
@@ -565,6 +589,17 @@ model MutedUser {
   user          User     @relation("MutedByUser", fields: [userId], references: [id], onDelete: Cascade)
   mutedUser     User     @relation("MutedTargetUser", fields: [mutedUserId], references: [id], onDelete: Cascade)
   @@unique([userId, mutedUserId])
+}
+
+model UserBlock {
+  id            String   @id @default(cuid())
+  userId        String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+  user          User     @relation("UserBlocks", fields: [userId], references: [id], onDelete: Cascade)
+  blockedUser   User     @relation("UserBlockedBy", fields: [blockedUserId], references: [id], onDelete: Cascade)
+  @@unique([userId, blockedUserId])
+  @@index([userId, createdAt])
 }
 
 model MutedTopic {
@@ -655,17 +690,29 @@ model AuditorListing {
   displayName   String
   classLevel    String
   location      String?
+  country       String?
+  state         String?
+  city          String?
   travels       Boolean  @default(false)
+  lookingForPcs Boolean  @default(false)
+  trainedAt     String?
+  credentials   String?
+  specialtyCourses String?
+  bio           String?
   services      String?
   successStories String?
+  successStoriesJson String?
   textStream    String?
   proEnabled    Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   media         AuditorMedia[]
+  @@unique([userId])
   @@index([classLevel, createdAt])
   @@index([location, createdAt])
+  @@index([country, state, city, createdAt])
+  @@index([lookingForPcs, createdAt])
 }
 
 model AuditorMedia {
@@ -689,4 +736,17 @@ model ModeratorActionLog {
   actor        User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
   @@index([actorUserId, createdAt])
   @@index([targetType, targetId, createdAt])
+}
+
+model AdminPetition {
+  id          String   @id @default(cuid())
+  requesterId String
+  subject     String
+  details     String
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  requester   User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+  @@index([requesterId, createdAt])
 }

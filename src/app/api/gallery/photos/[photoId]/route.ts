@@ -97,6 +97,47 @@ export async function DELETE(_request: Request, context: { params: { photoId: st
   const owned = await assertOwnedPhoto(session.user.id, context.params.photoId);
   if (!owned) return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   await prisma.photo.delete({ where: { id: owned.id } });
+
+  // If this photo URL is still referenced by auto-generated gallery stream posts,
+  // remove those references so storage cleanup can proceed.
+  const posts = await prisma.post.findMany({
+    where: {
+      authorId: session.user.id,
+      topic: { startsWith: "gallery_upload|" },
+      OR: [{ imageUrl: owned.url }, { mediaUrlsJson: { contains: owned.url } }],
+    },
+    select: { id: true, imageUrl: true, mediaUrlsJson: true },
+  });
+
+  await Promise.all(
+    posts.map(async (post) => {
+      const currentMedia = (() => {
+        if (!post.mediaUrlsJson) return [] as string[];
+        try {
+          const parsed = JSON.parse(post.mediaUrlsJson) as unknown;
+          if (!Array.isArray(parsed)) return [] as string[];
+          return parsed.map((value) => String(value)).filter(Boolean);
+        } catch {
+          return [] as string[];
+        }
+      })();
+
+      const nextMedia = currentMedia.filter((url) => url !== owned.url);
+      const nextImageUrl =
+        post.imageUrl === owned.url
+          ? (nextMedia[0] ?? null)
+          : post.imageUrl;
+
+      await prisma.post.update({
+        where: { id: post.id },
+        data: {
+          imageUrl: nextImageUrl,
+          mediaUrlsJson: nextMedia.length ? JSON.stringify(nextMedia) : null,
+        },
+      });
+    }),
+  );
+
   await tryReleaseUserUploadAsset(session.user.id, owned.url);
   return NextResponse.json({ ok: true });
 }

@@ -72,6 +72,7 @@ export type UploadPurpose =
   | "profile-banner"
   | "gallery-photo"
   | "post-media"
+  | "auditor-attachment"
   | "group-photo"
   | "group-post-media"
   | "group-document"
@@ -155,6 +156,9 @@ function buildStorageKey(context: UploadContext, file: FileLike): string {
   }
   if (context.purpose === "post-media") {
     return ["users", context.ownerId, "posts", fileName].join("/");
+  }
+  if (context.purpose === "auditor-attachment") {
+    return ["users", context.ownerId, "auditor", "attachments", fileName].join("/");
   }
   return ["users", context.ownerId, "uploads", fileName].join("/");
 }
@@ -292,9 +296,10 @@ export async function saveUploadBuffer(
 
 export async function deleteStoredUpload(url: string): Promise<void> {
   const key = parseManagedMediaUrl(url);
-  if (key && r2Client && R2_BUCKET) {
+  const legacyKey = parseLocalUploadUrl(url);
+  if ((key || legacyKey) && r2Client && R2_BUCKET) {
     try {
-      await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+      await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key ?? legacyKey! }));
     } catch {
       // Ignore best-effort delete failures.
     }
@@ -306,8 +311,9 @@ export async function deleteStoredUpload(url: string): Promise<void> {
 
 export async function readStoredUpload(url: string): Promise<StoredObject | null> {
   const key = parseManagedMediaUrl(url);
-  if (key && r2Client && R2_BUCKET) {
-    const result = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+  const legacyKey = parseLocalUploadUrl(url);
+  if ((key || legacyKey) && r2Client && R2_BUCKET) {
+    const result = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key ?? legacyKey! }));
     if (!result.Body) return null;
 
     const body =
@@ -354,9 +360,10 @@ export async function readStoredUpload(url: string): Promise<StoredObject | null
 
 export async function storedUploadExists(url: string): Promise<boolean> {
   const key = parseManagedMediaUrl(url);
-  if (key && r2Client && R2_BUCKET) {
+  const legacyKey = parseLocalUploadUrl(url);
+  if ((key || legacyKey) && r2Client && R2_BUCKET) {
     try {
-      await r2Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+      await r2Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key ?? legacyKey! }));
       return true;
     } catch {
       return false;

@@ -55,13 +55,13 @@ export function ScientologyProfileClient({ initial }: { initial: ScientologyInit
           setStatus(response.ok ? "Saved." : "Could not save.");
         }}
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 md:items-start">
           <label className="grid gap-1 text-sm">
-            <span className="font-medium text-[var(--text-strong)]">Primary training level</span>
+            <span className="font-medium text-[var(--text-strong)]">Training Level</span>
             <select
               name="trainingLevel"
               defaultValue={initial.trainingLevel}
-              className="rounded-md border px-2 py-1.5 text-sm"
+              className="min-w-0 rounded-md border px-2 py-1.5 text-sm"
             >
               <option value="">Not listed / prefer not to say</option>
               {SCIENTOLOGY_TRAINING_LEVELS.map((option) => (
@@ -73,11 +73,11 @@ export function ScientologyProfileClient({ initial }: { initial: ScientologyInit
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span className="font-medium text-[var(--text-strong)]">Primary processing level</span>
+            <span className="font-medium text-[var(--text-strong)]">Processing Level</span>
             <select
               name="processingLevel"
               defaultValue={initial.processingLevel}
-              className="rounded-md border px-2 py-1.5 text-sm"
+              className="min-w-0 rounded-md border px-2 py-1.5 text-sm"
             >
               <option value="">Not listed / prefer not to say</option>
               {SCIENTOLOGY_PROCESSING_LEVELS.map((option) => (
@@ -105,20 +105,34 @@ export function ScientologyProfileClient({ initial }: { initial: ScientologyInit
           </div>
         </section>
 
-        <div className="grid gap-2">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} />
-            <span>Do you want to make this public?</span>
-          </label>
+        <div className="grid gap-3">
+          <fieldset className="rounded-md border border-[var(--border)] p-2 text-sm">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-strong)]">My Scientology Visibility</legend>
+            <div className="mt-1 flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2">
+                <input type="radio" name="scientology-visibility" checked={visible} onChange={() => setVisible(true)} />
+                <span>Public</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input type="radio" name="scientology-visibility" checked={!visible} onChange={() => setVisible(false)} />
+                <span>Private</span>
+              </label>
+            </div>
+          </fieldset>
 
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={includeOnResume}
-              onChange={(event) => setIncludeOnResume(event.target.checked)}
-            />
-            <span>Do you want this to be put on your resume?</span>
-          </label>
+          <fieldset className="rounded-md border border-[var(--border)] p-2 text-sm">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-strong)]">Show On Resume</legend>
+            <div className="mt-1 flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2">
+                <input type="radio" name="scientology-resume-visibility" checked={includeOnResume} onChange={() => setIncludeOnResume(true)} />
+                <span>Public</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input type="radio" name="scientology-resume-visibility" checked={!includeOnResume} onChange={() => setIncludeOnResume(false)} />
+                <span>Private</span>
+              </label>
+            </div>
+          </fieldset>
         </div>
 
         <button type="submit" className="w-fit rounded-md border border-[var(--border)] bg-[#8f7228] px-3 py-1.5 text-sm text-black">

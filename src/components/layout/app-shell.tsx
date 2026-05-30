@@ -4,12 +4,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { MobileSwipeNav } from "@/components/layout/mobile-swipe-nav";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { ensureBootstrapAdmins, isAdminUser } from "@/lib/auth/admin";
 
 export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
   const session = await auth();
   const userId = session?.user?.id;
+  await ensureBootstrapAdmins();
 
-  const [profile, counts, pref] = userId
+  const [profile, counts, pref, adminAccess] = userId
     ? await Promise.all([
         prisma.profile.findUnique({ where: { userId }, select: { displayName: true, avatarUrl: true, bannerUrl: true } }),
         Promise.all([
@@ -19,8 +21,9 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
           prisma.friendRequest.count({ where: { receiverId: userId, status: "PENDING" } }),
         ]),
         prisma.userFeedPreference.findUnique({ where: { userId }, select: { mobileNavSwipeSide: true } }),
+        isAdminUser(userId),
       ])
-    : [null, [0, 0, 0, 0], null];
+    : [null, [0, 0, 0, 0], null, false];
 
   const [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = counts;
 
@@ -46,14 +49,13 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
                 ["My Scientology", "/profile/scientology"],
                 ["Resume", "/profile/resume"],
                 ["Gallery", "/profile/gallery"],
-                ["Theme", "/settings/theme"],
               ]}
             />
             <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["Events", "/events"], ["My Groups", "/groups?mine=1"]]} />
-            <Section title="Production" links={[["Production Zone", "/production-zone"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"]]} />
-            <Section title="Admin" links={[["Admin Portal", "/admin"]]} />
-            <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["My Subscription", "/settings#subscription"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} />
+            <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"]]} />
+            {adminAccess ? <Section title="Admin" links={[["Admin Portal", "/admin"]]} /> : null}
+            <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["Blocked Users", "/blocked-users"], ["My Subscription", "/settings#subscription"]]} />
           </nav>
           <div className="mt-4 border-t border-[var(--border)] pt-3">
             <LogoutButton />
@@ -91,7 +93,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
       </div>
 
       <div className="space-y-2 p-2 min-[700px]:hidden">{children}</div>
-      <MobileSwipeNav side={pref?.mobileNavSwipeSide === "LEFT" ? "LEFT" : "RIGHT"} />
+      <MobileSwipeNav side={pref?.mobileNavSwipeSide === "LEFT" ? "LEFT" : "RIGHT"} includeAdmin={adminAccess} />
     </div>
   );
 }

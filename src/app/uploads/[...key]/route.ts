@@ -19,14 +19,15 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const headers = new Headers();
+  headers.set("Content-Type", stored.contentType ?? "application/octet-stream");
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  if (stored.contentLength) headers.set("Content-Length", String(stored.contentLength));
+  if (stored.etag) headers.set("ETag", stored.etag);
+  if (stored.lastModified) headers.set("Last-Modified", stored.lastModified.toUTCString());
+
   return new NextResponse(stored.body, {
     status: 200,
-    headers: {
-      "Content-Type": stored.contentType ?? "application/octet-stream",
-      "Content-Length": stored.contentLength ? String(stored.contentLength) : undefined,
-      "Cache-Control": "public, max-age=31536000, immutable",
-      ETag: stored.etag ?? undefined,
-      "Last-Modified": stored.lastModified ? stored.lastModified.toUTCString() : undefined,
-    },
+    headers,
   });
 }

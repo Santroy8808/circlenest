@@ -498,6 +498,9 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
                       body: JSON.stringify({ userId: m.id, role: "MEMBER" }),
                     });
                   }, "Role updated")}>Make Member</button>
+                  <button className="rounded border border-red-400 px-2 py-1 text-red-300" onClick={() => run(async () => {
+                    await fetch(`/api/groups/${group.id}/members/${m.id}`, { method: "DELETE" });
+                  }, "Member removed from group")}>Kick</button>
                 </div>
               ) : null}
             </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { FeedClient } from "@/components/feed/feed-client";
+import { FriendStreamPostComposer } from "@/components/profile/friend-stream-post-composer";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
@@ -12,15 +13,6 @@ export default async function ProfilePage({ params }: { params: { username: stri
     where: { username: params.username },
     include: {
       profile: { include: { theme: true } },
-      posts: {
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        include: {
-          author: { select: { username: true } },
-          comments: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
-          reactions: true,
-        },
-      },
       friendsA: true,
       friendsB: true,
     },
@@ -38,7 +30,34 @@ export default async function ProfilePage({ params }: { params: { username: stri
   const theme = profile?.theme;
   const friendCount = user.friendsA.length + user.friendsB.length;
   const isOwner = session?.user?.id === user.id;
-  const streamPosts = user.posts.map((post) => ({
+  const isFriendOrFamily = Boolean(
+    session?.user?.id &&
+      (user.friendsA.some((f) => f.userBId === session.user?.id) || user.friendsB.some((f) => f.userAId === session.user?.id)),
+  );
+
+  const streamPostsRaw = await prisma.post.findMany({
+    where: {
+      OR: [{ authorId: user.id }, { streamOwnerId: user.id }],
+      approvalStatus: "APPROVED",
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+    include: {
+      author: { select: { username: true } },
+      comments: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
+      reactions: true,
+    },
+  });
+
+  const pendingStreamPosts = isOwner
+    ? await prisma.post.findMany({
+        where: { streamOwnerId: user.id, approvalStatus: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        include: { author: { select: { username: true } } },
+      })
+    : [];
+
+  const streamPosts = streamPostsRaw.map((post) => ({
     id: post.id,
     content: post.content,
     topic: post.topic,
@@ -114,6 +133,40 @@ export default async function ProfilePage({ params }: { params: { username: stri
         <div className="mb-2 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{isOwner ? "Your Stream" : `${profile?.displayName || user.username}'s Stream`}</h2>
         </div>
+        {!isOwner && isFriendOrFamily ? <FriendStreamPostComposer username={user.username} /> : null}
+        {isOwner && pendingStreamPosts.length ? (
+          <section className="card p-3">
+            <p className="mb-2 text-sm font-semibold text-[var(--text-strong)]">Pending Friend/Family Stream Posts</p>
+            <div className="space-y-2">
+              {pendingStreamPosts.map((post) => (
+                <form
+                  key={post.id}
+                  action={async () => {
+                    "use server";
+                    const { auth } = await import("@/auth");
+                    const { prisma } = await import("@/lib/db/prisma");
+                    const current = await auth();
+                    if (!current?.user?.id || current.user.id !== user.id) return;
+                    await prisma.post.update({ where: { id: post.id }, data: { approvalStatus: "APPROVED" } });
+                    await prisma.notification.create({
+                      data: {
+                        userId: post.authorId,
+                        type: "STREAM_POST_APPROVED",
+                        body: "Your post on a friend/family stream was approved.",
+                      },
+                    });
+                  }}
+                  className="rounded border border-[var(--border)] p-2"
+                >
+                  <p className="text-sm text-slate-200">
+                    <span className="font-medium">@{post.author.username}</span> {post.content}
+                  </p>
+                  <button type="submit" className="mt-2 rounded border px-2 py-1 text-xs">Approve</button>
+                </form>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <FeedClient
           initialPosts={streamPosts}
           initialMode="CHRONOLOGICAL"

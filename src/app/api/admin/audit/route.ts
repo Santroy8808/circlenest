@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-
-async function requireAdmin(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { subscriptionTier: true } });
-  return user?.subscriptionTier === "DIAMOND";
-}
+import { ensureBootstrapAdmins, isAdminUser } from "@/lib/auth/admin";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await requireAdmin(session.user.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  await ensureBootstrapAdmins();
+  if (!(await isAdminUser(session.user.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const rows = await prisma.moderatorActionLog.findMany({
     include: { actor: { select: { username: true } } },
@@ -23,7 +20,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await requireAdmin(session.user.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  await ensureBootstrapAdmins();
+  if (!(await isAdminUser(session.user.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = (await request.json()) as { action?: string; targetType?: string; targetId?: string; note?: string };
   const action = String(body.action ?? "").trim();
@@ -45,4 +43,3 @@ export async function POST(request: Request) {
   });
   return NextResponse.json(row);
 }
-

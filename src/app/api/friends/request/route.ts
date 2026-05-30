@@ -13,6 +13,17 @@ export async function POST(request: Request) {
   if (!receiver) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (receiver.id === session.user.id) return NextResponse.json({ error: "Cannot friend yourself" }, { status: 400 });
 
+  const blocked = await prisma.userBlock.findFirst({
+    where: {
+      OR: [
+        { userId: session.user.id, blockedUserId: receiver.id },
+        { userId: receiver.id, blockedUserId: session.user.id },
+      ],
+    },
+    select: { id: true },
+  });
+  if (blocked) return NextResponse.json({ error: "Friend request blocked by user settings." }, { status: 403 });
+
   const existsFriend = await prisma.friendship.findFirst({
     where: {
       OR: [

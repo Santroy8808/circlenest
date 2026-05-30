@@ -159,7 +159,9 @@ export function FeedClient({
   const [archiveStatus, setArchiveStatus] = useState("");
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
   const [pollStatusByPost, setPollStatusByPost] = useState<Record<string, string>>({});
+  const [showFloatingLauncher, setShowFloatingLauncher] = useState(true);
   const commentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const lastScrollYRef = useRef(0);
 
   const modeLabel = useMemo(() => toTitleCase(mode), [mode]);
 
@@ -182,6 +184,34 @@ export function FeedClient({
     setComposerAudience("ALL");
     setComposerType("TEXT");
     setOpenComposer(true);
+  }, [allowComposer]);
+
+  useEffect(() => {
+    if (!allowComposer) return;
+    lastScrollYRef.current = window.scrollY || 0;
+    let ticking = false;
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        const currentY = window.scrollY || 0;
+        const delta = currentY - lastScrollYRef.current;
+        if (Math.abs(delta) >= 6) {
+          if (delta > 0 && currentY > 80) {
+            setShowFloatingLauncher(false);
+          } else if (delta < 0) {
+            setShowFloatingLauncher(true);
+          }
+          lastScrollYRef.current = currentY;
+        }
+        if (currentY <= 8) setShowFloatingLauncher(true);
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [allowComposer]);
 
   useEffect(() => {
@@ -313,7 +343,19 @@ export function FeedClient({
 
   return (
     <section className="space-y-6">
-      {allowComposer ? <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} /> : null}
+      {allowComposer ? (
+        <div
+          className={`pointer-events-none fixed left-1/2 z-30 w-[min(720px,calc(100vw-1rem))] -translate-x-1/2 px-1 transition-transform duration-200 ${
+            showFloatingLauncher ? "translate-y-2 opacity-100" : "-translate-y-16 opacity-0"
+          }`}
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 56px)" }}
+          aria-hidden={!showFloatingLauncher}
+        >
+          <div className="pointer-events-auto">
+            <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-end text-[11px]">
         <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
@@ -424,7 +466,7 @@ export function FeedClient({
                 <input id="postImage" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => setImageName(e.currentTarget.files?.[0]?.name ?? "")} />
                 <span className="max-w-36 truncate text-xs text-slate-400">{imageName}</span>
                 <button
-                  className="rounded-md border border-[var(--border)] bg-[#8f7228] px-2 py-1 text-sm text-black"
+                  className="relative rounded-md border border-[#f7d77a] bg-gradient-to-b from-[#f5cf62] via-[#d7a93d] to-[#9f7722] px-3 py-1 text-sm font-semibold text-[#1f1400] shadow-[0_3px_0_#6b4d14,0_10px_18px_rgba(0,0,0,0.38)] transition will-change-transform hover:brightness-110 hover:shadow-[0_3px_0_#6b4d14,0_12px_20px_rgba(0,0,0,0.42)] active:translate-y-[2px] active:shadow-[0_1px_0_#6b4d14,0_6px_12px_rgba(0,0,0,0.3)]"
                   onClick={async () => {
                     if (!newPost.trim()) return;
                     const selectedAudience = normalizeAudience(composerAudience);

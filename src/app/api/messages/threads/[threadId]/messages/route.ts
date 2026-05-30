@@ -16,7 +16,20 @@ export async function GET(_request: Request, context: { params: { threadId: stri
     data: { readAt: new Date() },
   });
 
-  const messages = await prisma.message.findMany({ where: { threadId: thread.id }, orderBy: { createdAt: "asc" } });
+  const messages = await prisma.message.findMany({
+    where: { threadId: thread.id },
+    orderBy: { createdAt: "asc" },
+    include: {
+      sender: {
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          profile: { select: { avatarUrl: true, displayName: true } },
+        },
+      },
+    },
+  });
   return NextResponse.json(messages);
 }
 

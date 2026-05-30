@@ -21,6 +21,7 @@ export type UploadImageOptions = {
     | "profile-banner"
     | "gallery-photo"
     | "post-media"
+    | "auditor-attachment"
     | "group-photo"
     | "group-post-media"
     | "group-document";

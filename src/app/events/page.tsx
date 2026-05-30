@@ -2,26 +2,32 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { resolveProductionZoneAccess } from "@/lib/policy/production-zone";
+import { canCreateEvent } from "@/lib/policy/events";
 
 export default async function EventsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const events = await prisma.event.findMany({
+    where: {
+      OR: [
+        { creatorId: session.user.id },
+        { invitations: { some: { inviteeId: session.user.id } } },
+      ],
+    },
     include: { creator: { select: { username: true } } },
     orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { subscriptionTier: true, iasStatus: true } });
-  const access = resolveProductionZoneAccess(user?.subscriptionTier, user?.iasStatus === "INVITED_CREATOR");
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { subscriptionTier: true } });
+  const canCreate = canCreateEvent(user?.subscriptionTier);
 
   return (
     <AppShell>
       <section className="card space-y-4 p-4">
         <div>
           <h1 className="text-xl font-semibold">Events</h1>
-          <p className="text-sm text-slate-500">Events are now a standalone domain, separate from groups.</p>
+          <p className="text-sm text-slate-500">Events are invite-based. You can access events you create or are invited to.</p>
         </div>
         <form
           action={async (formData) => {
@@ -30,12 +36,18 @@ export default async function EventsPage() {
             const { prisma } = await import("@/lib/db/prisma");
             const current = await auth();
             if (!current?.user?.id) return;
-            const user = await prisma.user.findUnique({ where: { id: current.user.id }, select: { subscriptionTier: true, iasStatus: true } });
-            const access = resolveProductionZoneAccess(user?.subscriptionTier, user?.iasStatus === "INVITED_CREATOR");
-            if (!access.canCreate) return;
+            const user = await prisma.user.findUnique({ where: { id: current.user.id }, select: { subscriptionTier: true } });
+            if (!canCreateEvent(user?.subscriptionTier)) return;
             const title = String(formData.get("title") ?? "").trim();
             const startsAt = String(formData.get("startsAt") ?? "").trim();
             if (!title || !startsAt) return;
+            const inviteUsernames = String(formData.get("inviteUsernames") ?? "")
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean);
+            const invitees = inviteUsernames.length
+              ? await prisma.user.findMany({ where: { username: { in: inviteUsernames } }, select: { id: true } })
+              : [];
             await prisma.event.create({
               data: {
                 creatorId: current.user.id,
@@ -44,7 +56,8 @@ export default async function EventsPage() {
                 endsAt: String(formData.get("endsAt") ?? "").trim() ? new Date(String(formData.get("endsAt"))) : null,
                 locationName: String(formData.get("locationName") ?? "").trim() || null,
                 description: String(formData.get("description") ?? "").trim() || null,
-                visibility: String(formData.get("visibility") ?? "PUBLIC") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
+                visibility: "PRIVATE",
+                invitations: invitees.length ? { create: invitees.map((invitee) => ({ inviteeId: invitee.id })) } : undefined,
               },
             });
           }}
@@ -54,14 +67,11 @@ export default async function EventsPage() {
           <input name="locationName" placeholder="Location" className="rounded border border-slate-300 px-3 py-2" />
           <input name="startsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2" required />
           <input name="endsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2" />
-          <select name="visibility" className="rounded border border-slate-300 px-3 py-2">
-            <option value="PUBLIC">Public</option>
-            <option value="PRIVATE">Private</option>
-          </select>
+          <input name="inviteUsernames" placeholder="Invite usernames (comma-separated)" className="rounded border border-slate-300 px-3 py-2" />
           <input name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2" />
-          <button type="submit" disabled={!access.canCreate} className="rounded bg-slate-900 px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2">Create Event</button>
+          <button type="submit" disabled={!canCreate} className="rounded bg-slate-900 px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2">Create Event</button>
         </form>
-        {!access.canCreate ? <p className="text-xs text-amber-300">{access.reason}</p> : null}
+        {!canCreate ? <p className="text-xs text-amber-300">Event creation is for paid members.</p> : null}
         <div className="space-y-2">
           {events.map((event) => (
             <article key={event.id} className="rounded border border-[var(--border)] p-3 text-sm">

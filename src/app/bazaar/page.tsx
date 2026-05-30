@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { BazaarClient } from "@/components/bazaar/bazaar-client";
+import { canCreateBazaarListing } from "@/lib/policy/bazaar";
 
 export default async function BazaarPage() {
   const session = await auth();
@@ -14,6 +15,11 @@ export default async function BazaarPage() {
     orderBy: { createdAt: "desc" },
     take: 60,
   });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { subscriptionTier: true },
+  });
+  const canCreate = canCreateBazaarListing(user?.subscriptionTier);
 
   return (
     <AppShell>
@@ -22,36 +28,48 @@ export default async function BazaarPage() {
           <h1 className="text-xl font-semibold">Bazaar</h1>
           <p className="text-sm text-slate-500">Marketplace listings with search and filters.</p>
         </div>
-        <form
-          action={async (formData) => {
-            "use server";
-            const { auth } = await import("@/auth");
-            const { prisma } = await import("@/lib/db/prisma");
-            const current = await auth();
-            if (!current?.user?.id) return;
-            const title = String(formData.get("title") ?? "").trim();
-            const price = Number(formData.get("price"));
-            if (!title || Number.isNaN(price) || price < 0) return;
-            await prisma.bazaarListing.create({
-              data: {
-                sellerId: current.user.id,
-                title,
-                price,
-                description: String(formData.get("description") ?? "").trim() || null,
-                location: String(formData.get("location") ?? "").trim() || null,
-                category: String(formData.get("category") ?? "").trim() || null,
-              },
-            });
-          }}
-          className="grid gap-2 md:grid-cols-2"
-        >
-          <input name="title" required placeholder="Listing title" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="price" required placeholder="Price" type="number" min="0" step="0.01" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="location" placeholder="Location" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="category" placeholder="Category" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 md:col-span-2" />
-          <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-white md:col-span-2">Create Listing</button>
-        </form>
+        {canCreate ? (
+          <form
+            action={async (formData) => {
+              "use server";
+              const { auth } = await import("@/auth");
+              const { prisma } = await import("@/lib/db/prisma");
+              const { canCreateBazaarListing } = await import("@/lib/policy/bazaar");
+              const current = await auth();
+              if (!current?.user?.id) return;
+              const currentUser = await prisma.user.findUnique({
+                where: { id: current.user.id },
+                select: { subscriptionTier: true },
+              });
+              if (!canCreateBazaarListing(currentUser?.subscriptionTier)) return;
+              const title = String(formData.get("title") ?? "").trim();
+              const price = Number(formData.get("price"));
+              if (!title || Number.isNaN(price) || price < 0) return;
+              await prisma.bazaarListing.create({
+                data: {
+                  sellerId: current.user.id,
+                  title,
+                  price,
+                  description: String(formData.get("description") ?? "").trim() || null,
+                  location: String(formData.get("location") ?? "").trim() || null,
+                  category: String(formData.get("category") ?? "").trim() || null,
+                },
+              });
+            }}
+            className="grid gap-2 md:grid-cols-2"
+          >
+            <input name="title" required placeholder="Listing title" className="rounded border border-slate-300 px-3 py-2" />
+            <input name="price" required placeholder="Price" type="number" min="0" step="0.01" className="rounded border border-slate-300 px-3 py-2" />
+            <input name="location" placeholder="Location" className="rounded border border-slate-300 px-3 py-2" />
+            <input name="category" placeholder="Category" className="rounded border border-slate-300 px-3 py-2" />
+            <input name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 md:col-span-2" />
+            <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-white md:col-span-2">Create Listing</button>
+          </form>
+        ) : (
+          <p className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-sm text-amber-200">
+            Browsing is open to everyone. Creating Bazaar listings is for Business tier and above.
+          </p>
+        )}
         <BazaarClient currentUserId={session.user.id} initialListings={listings.map((listing) => ({
           id: listing.id,
           title: listing.title,

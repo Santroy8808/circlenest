@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canCreateBazaarListing } from "@/lib/policy/bazaar";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -39,6 +40,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { subscriptionTier: true },
+  });
+  if (!canCreateBazaarListing(user?.subscriptionTier)) {
+    return NextResponse.json({ error: "Bazaar listing creation is for Business tier and above." }, { status: 403 });
+  }
 
   const body = (await request.json()) as {
     title?: string;

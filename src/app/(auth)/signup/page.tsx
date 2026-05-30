@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 
 const INTEREST_OPTIONS = ["Technology", "Science", "Gaming", "Music", "Movies", "Books", "Travel", "Fitness", "Art", "Business", "Family", "News", "Sports", "Health", "Education", "Spirituality"];
 const SUBSCRIPTION_OPTIONS = [
@@ -17,6 +18,9 @@ const SUBSCRIPTION_OPTIONS = [
 export default function SignupPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [formStartedAt] = useState(() => Date.now());
+  const turnstileSiteKey = useMemo(() => process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? "", []);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -40,7 +44,21 @@ export default function SignupPage() {
     interest3: "",
     interest4: "",
     interest5: "",
+    website: "",
   });
+
+  useEffect(() => {
+    (window as typeof window & { onTurnstileSuccess?: (token: string) => void; onTurnstileExpired?: () => void }).onTurnstileSuccess = (token: string) => {
+      setTurnstileToken(token);
+    };
+    (window as typeof window & { onTurnstileSuccess?: (token: string) => void; onTurnstileExpired?: () => void }).onTurnstileExpired = () => {
+      setTurnstileToken("");
+    };
+    return () => {
+      (window as typeof window & { onTurnstileSuccess?: (token: string) => void; onTurnstileExpired?: () => void }).onTurnstileSuccess = undefined;
+      (window as typeof window & { onTurnstileSuccess?: (token: string) => void; onTurnstileExpired?: () => void }).onTurnstileExpired = undefined;
+    };
+  }, []);
 
   return (
     <main className="mx-auto max-w-2xl p-4">
@@ -61,6 +79,10 @@ export default function SignupPage() {
 
             if (form.password !== form.confirmPassword) {
               setError("Passwords do not match.");
+              return;
+            }
+            if (turnstileSiteKey && !turnstileToken) {
+              setError("Please complete human verification.");
               return;
             }
 
@@ -85,6 +107,9 @@ export default function SignupPage() {
                 iasNumber: form.iasNumber,
                 subscriptionTier: form.subscriptionTier,
                 interests,
+                turnstileToken,
+                website: form.website,
+                formStartedAt,
               }),
             });
             if (!res.ok) {
@@ -193,10 +218,25 @@ export default function SignupPage() {
               </select>
             </label>
           ))}
+          <input
+            type="text"
+            autoComplete="off"
+            tabIndex={-1}
+            value={form.website}
+            onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
+            className="absolute left-[-9999px] top-[-9999px] h-0 w-0 opacity-0"
+            aria-hidden="true"
+          />
+          {turnstileSiteKey ? (
+            <div className="mt-1 flex justify-center">
+              <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" />
+            </div>
+          ) : null}
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <button type="submit" className="w-full rounded-md border border-[var(--border)] bg-[#8f7228] px-3 py-1.5 text-sm text-black">Create account</button>
         </form>
       </div>
+      {turnstileSiteKey ? <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" /> : null}
     </main>
   );
 }

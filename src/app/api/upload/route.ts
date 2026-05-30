@@ -14,6 +14,7 @@ function normalizePurpose(raw: FormDataEntryValue | null): UploadPurpose {
     value === "profile-banner" ||
     value === "gallery-photo" ||
     value === "post-media" ||
+    value === "auditor-attachment" ||
     value === "group-photo" ||
     value === "group-post-media" ||
     value === "group-document"
@@ -87,13 +88,18 @@ export async function POST(request: Request) {
     if (locked) return locked;
   }
 
-  const isValidFile =
-    uploadContext.purpose === "group-document"
-      ? isSafeDocumentUpload({ size: file.size, type: file.type })
-      : isSafeImageUpload({ size: file.size, type: file.type });
+  const isValidFile = (() => {
+    if (uploadContext.purpose === "group-document") {
+      return isSafeDocumentUpload({ size: file.size, type: file.type });
+    }
+    if (uploadContext.purpose === "auditor-attachment") {
+      return isSafeImageUpload({ size: file.size, type: file.type }) || isSafeDocumentUpload({ size: file.size, type: file.type });
+    }
+    return isSafeImageUpload({ size: file.size, type: file.type });
+  })();
   if (!isValidFile) {
     const message =
-      uploadContext.purpose === "group-document"
+      uploadContext.purpose === "group-document" || uploadContext.purpose === "auditor-attachment"
         ? "Invalid document type or size"
         : "Invalid file type or size";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -113,7 +119,7 @@ export async function POST(request: Request) {
   let contentTypeToStore: string = file.type || "application/octet-stream";
   let sizeToStore = file.size;
 
-  if (uploadContext.purpose !== "group-document") {
+  if (uploadContext.purpose !== "group-document" && uploadContext.purpose !== "auditor-attachment") {
     const compressed = await compressImageOnServer(file);
     if (compressed && compressed.uploadBytes > 0) {
       bufferToStore = compressed.buffer;

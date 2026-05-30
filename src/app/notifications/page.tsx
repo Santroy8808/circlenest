@@ -55,10 +55,10 @@ export default async function NotificationsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-medium">{n.type}</p>
-                  <p className="text-slate-700">{n.body}</p>
+                  <p className="text-slate-100">{n.body}</p>
                 </div>
                 {n.readAt ? (
-                  <span className="text-[11px] text-slate-500">Read</span>
+                  <span className="text-[11px] text-slate-300">Read</span>
                 ) : (
                   <form action={markNotificationRead}>
                     <input type="hidden" name="id" value={n.id} />
@@ -68,7 +68,7 @@ export default async function NotificationsPage() {
               </div>
             </div>
           ))}
-          {notifications.length === 0 ? <p className="text-sm text-slate-600">No notifications yet.</p> : null}
+          {notifications.length === 0 ? <p className="text-sm text-slate-300">No notifications yet.</p> : null}
         </div>
       </div>
     </AppShell>
