@@ -13,6 +13,17 @@ export async function POST(request: Request) {
   if (!other) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (other.id === session.user.id) return NextResponse.json({ error: "Invalid target" }, { status: 400 });
 
+  const blocked = await prisma.userBlock.findFirst({
+    where: {
+      OR: [
+        { userId: session.user.id, blockedUserId: other.id },
+        { userId: other.id, blockedUserId: session.user.id },
+      ],
+    },
+    select: { id: true },
+  });
+  if (blocked) return NextResponse.json({ error: "Messaging blocked by user settings." }, { status: 403 });
+
   let thread = await prisma.messageThread.findFirst({
     where: {
       OR: [
@@ -45,7 +56,17 @@ export async function GET() {
   const [others, unreadRows] = await Promise.all([
     prisma.user.findMany({
       where: { id: { in: otherIds } },
-      select: { id: true, username: true },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
     }),
     prisma.message.groupBy({
       by: ["threadId"],
@@ -58,14 +79,26 @@ export async function GET() {
     }),
   ]);
 
-  const otherMap = new Map(others.map((o) => [o.id, o.username]));
+  const otherMap = new Map(
+    others.map((o) => [
+      o.id,
+      {
+        username: o.username,
+        displayName: o.profile?.displayName ?? o.fullName ?? o.username,
+        avatarUrl: o.profile?.avatarUrl ?? null,
+      },
+    ]),
+  );
   const unreadMap = new Map(unreadRows.map((r) => [r.threadId, r._count._all]));
 
   const enriched = threads.map((t) => {
     const otherId = t.userAId === session.user.id ? t.userBId : t.userAId;
+    const other = otherMap.get(otherId);
     return {
       ...t,
-      otherUsername: otherMap.get(otherId) ?? "unknown",
+      otherUsername: other?.username ?? "unknown",
+      otherDisplayName: other?.displayName ?? "unknown",
+      otherAvatarUrl: other?.avatarUrl ?? null,
       unread: unreadMap.get(t.id) ?? 0,
     };
   });
