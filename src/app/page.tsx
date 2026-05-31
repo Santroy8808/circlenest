@@ -56,8 +56,8 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
       subtitle="Come on in and get some Theta-Space!"
       footer={<p>This is a private-membership platform. New users can create an account in seconds.</p>}
     >
-      <h2 className="text-2xl font-semibold text-[#f6e2af]">Log In</h2>
-      <p className="mb-4 mt-1 text-sm text-[#d3c39a]">Use your account credentials to continue.</p>
+      <h2 className="text-xl font-semibold text-[#f6e2af] md:text-2xl">Log In</h2>
+      <p className="mb-3 mt-1 text-sm text-[#d3c39a] md:mb-4">Use your account credentials to continue.</p>
 
       <form
         action={async (formData) => {
@@ -120,7 +120,7 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
             throw error;
           }
         }}
-        className="space-y-3"
+        className="space-y-2.5"
       >
         <label className="block text-xs uppercase tracking-[0.16em] text-[#e6d39f]">
           Email or Username
@@ -129,7 +129,7 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
             type="text"
             required
             defaultValue={searchParams?.email ?? ""}
-            className="mt-1 w-full rounded-lg border border-[#9d7a2e] bg-[#0e1118]/92 px-3 py-2 text-sm text-[#fff2d1] placeholder:text-[#baa77a]"
+            className="mt-1 w-full rounded-lg border border-[#9d7a2e] bg-[#0e1118]/92 px-3 py-1.5 text-sm text-[#fff2d1] placeholder:text-[#baa77a]"
             placeholder="you@example.com or username"
           />
         </label>
@@ -140,16 +140,16 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
             type="password"
             required
             minLength={8}
-            className="mt-1 w-full rounded-lg border border-[#9d7a2e] bg-[#0e1118]/92 px-3 py-2 text-sm text-[#fff2d1] placeholder:text-[#baa77a]"
+            className="mt-1 w-full rounded-lg border border-[#9d7a2e] bg-[#0e1118]/92 px-3 py-1.5 text-sm text-[#fff2d1] placeholder:text-[#baa77a]"
             placeholder="Your secure password"
           />
         </label>
 
         <div className="flex items-center justify-between pt-1">
-          <Link href="/signup" className="rounded-md border border-[#9d7a2e] bg-[#101828] px-3 py-1.5 text-sm text-[#f4d786]">
+          <Link href="/signup" className="rounded-md border border-[#9d7a2e] bg-[#101828] px-3 py-1 text-sm text-[#f4d786]">
             Create!
           </Link>
-          <button type="submit" className="rounded-md border border-[#b89033] bg-gradient-to-r from-[#8e6f2c] via-[#e4bd53] to-[#8e6f2c] px-4 py-1.5 text-sm font-semibold text-[#1f1306] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+          <button type="submit" className="rounded-md border border-[#b89033] bg-gradient-to-r from-[#8e6f2c] via-[#e4bd53] to-[#8e6f2c] px-4 py-1 text-sm font-semibold text-[#1f1306] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
             Submit
           </button>
         </div>
@@ -167,7 +167,7 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
       ) : null}
       {noticeText ? <p className="mt-3 text-sm text-[#b9e7bb]">{noticeText}</p> : null}
 
-      <div className="mt-4 text-sm text-[#ccb78a]">
+      <div className="mt-3 text-sm text-[#ccb78a] md:mt-4">
         <Link href="/reset-password" className="underline underline-offset-2">
           Forgot password?
         </Link>

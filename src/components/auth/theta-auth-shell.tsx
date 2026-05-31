@@ -44,16 +44,16 @@ export function ThetaAuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050608]">
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[#050608]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,194,56,0.1)_0%,transparent_34%),radial-gradient(circle_at_86%_82%,rgba(255,194,56,0.06)_0%,transparent_40%),linear-gradient(160deg,#030406_0%,#090d14_45%,#030406_100%)]" />
       <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(to_bottom,rgba(255,255,255,0.07),transparent_28%),linear-gradient(115deg,rgba(255,255,255,0.04),transparent_42%)]" />
 
-      <section className="relative mx-auto flex min-h-screen max-w-6xl items-center px-4 py-10 md:px-8">
+      <section className="relative mx-auto flex min-h-[100dvh] max-w-6xl items-start px-2 py-2 md:items-center md:px-8 md:py-10">
         <div className="relative grid w-full gap-0 overflow-hidden rounded-3xl border border-[#b48a2c]/70 bg-[#07090f]/82 shadow-[0_34px_90px_rgba(0,0,0,0.72),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-lg md:grid-cols-[1.05fr_1fr]">
           <div className="pointer-events-none absolute inset-y-10 left-[51.2%] hidden w-px bg-gradient-to-b from-transparent via-[#d4ab4c]/60 to-transparent md:block" />
           <div className="pointer-events-none absolute inset-y-20 left-[51.2%] hidden w-10 -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(226,178,62,0.24),transparent_74%)] blur-md md:block" />
 
-          <div className="relative isolate min-h-[520px] overflow-hidden border-b border-[#b48a2c]/20 p-8 md:min-h-[560px] md:border-b-0 md:p-12">
+          <div className="relative isolate hidden min-h-[520px] overflow-hidden border-b border-[#b48a2c]/20 p-8 md:block md:min-h-[560px] md:border-b-0 md:p-12">
             <LeftPanelAtmosphere />
             <div className="relative z-20">
               <p className="text-xs uppercase tracking-[0.22em] text-[#f0cb71]">Theta-Space</p>
@@ -62,11 +62,11 @@ export function ThetaAuthShell({
             </div>
           </div>
 
-          <div className="relative isolate p-8 md:p-12">
+          <div className="relative isolate p-3 sm:p-5 md:p-12">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,transparent_26%)]" />
             <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-[radial-gradient(ellipse_at_left,rgba(239,189,70,0.12)_0%,transparent_72%)]" />
-            <div className="relative z-20">{children}</div>
-            <div className="relative z-20 mt-6 border-t border-[#b48a2c]/30 pt-4 text-xs text-[#ccb78a]">
+            <div className="relative z-20 mx-auto w-full max-w-sm">{children}</div>
+            <div className="relative z-20 mt-4 hidden border-t border-[#b48a2c]/30 pt-4 text-xs text-[#ccb78a] md:block">
               {footer ?? (
                 <p>
                   New here?{" "}
