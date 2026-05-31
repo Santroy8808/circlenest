@@ -64,25 +64,40 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
     };
   }, [side, open]);
 
-  if (!open) return null;
+  const triggerSideClass = side === "RIGHT" ? "right-3" : "left-3";
 
   return (
-    <div className="fixed inset-0 z-50 min-[700px]:hidden">
-      <button className="absolute inset-0 bg-black/55" type="button" onClick={() => setOpen(false)} aria-label="Close menu overlay" />
-      <aside className={`absolute top-0 h-full w-[50vw] max-w-[280px] min-w-[220px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
-        <nav className="space-y-3 text-xs">
-          <Section title="Home" links={[["Home", "/home"], ["Profile", "/profile/edit"], ["My Scientology", "/profile/scientology"], ["Resume", "/profile/resume"], ["Gallery", "/profile/gallery"]]} onNavigate={() => setOpen(false)} />
-          <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} onNavigate={() => setOpen(false)} />
-          <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} onNavigate={() => setOpen(false)} />
-          <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"]]} onNavigate={() => setOpen(false)} />
-          {includeAdmin ? <Section title="Admin" links={[["Admin Portal", "/admin"]]} onNavigate={() => setOpen(false)} /> : null}
-          <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["Blocked Users", "/blocked-users"], ["My Subscription", "/settings#subscription"]]} onNavigate={() => setOpen(false)} />
-        </nav>
-        <div className="mt-4 border-t border-[var(--border)] pt-3 text-sm">
-          <LogoutButton />
+    <>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`fixed top-[calc(env(safe-area-inset-top,0px)+10px)] ${triggerSideClass} z-[52] rounded-md border border-[var(--border)] bg-[#0f1624]/95 px-3 py-1.5 text-xs font-semibold text-[var(--text-strong)] shadow-lg min-[700px]:hidden`}
+          aria-label="Open menu"
+        >
+          Menu
+        </button>
+      ) : null}
+
+      {open ? (
+        <div className="fixed inset-0 z-50 min-[700px]:hidden">
+          <button className="absolute inset-0 bg-black/55" type="button" onClick={() => setOpen(false)} aria-label="Close menu overlay" />
+          <aside className={`absolute top-0 h-full w-[50vw] max-w-[280px] min-w-[220px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
+            <nav className="space-y-3 text-xs">
+              <Section title="Home" links={[["Home", "/home"], ["Profile", "/profile/edit"], ["My Scientology", "/profile/scientology"], ["Resume", "/profile/resume"], ["Gallery", "/profile/gallery"]]} onNavigate={() => setOpen(false)} />
+              <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} onNavigate={() => setOpen(false)} />
+              <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} onNavigate={() => setOpen(false)} />
+              <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"]]} onNavigate={() => setOpen(false)} />
+              {includeAdmin ? <Section title="Admin" links={[["Admin Portal", "/admin"]]} onNavigate={() => setOpen(false)} /> : null}
+              <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["Blocked Users", "/blocked-users"], ["My Subscription", "/settings#subscription"]]} onNavigate={() => setOpen(false)} />
+            </nav>
+            <div className="mt-4 border-t border-[var(--border)] pt-3 text-sm">
+              <LogoutButton />
+            </div>
+          </aside>
         </div>
-      </aside>
-    </div>
+      ) : null}
+    </>
   );
 }
 

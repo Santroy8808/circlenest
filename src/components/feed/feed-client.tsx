@@ -661,7 +661,7 @@ export function FeedClient({
                 <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); window.location.reload(); }}>{`\u{1F501}`} Repost</button>
               ) : null}
               <button
-                className="inline-flex items-center gap-1 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-[#3d4e6d] bg-[#1a2335] px-3 py-1.5 text-[15px] font-medium text-white hover:border-[#5f769f] hover:bg-[#243149] disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => openReply(post.id, null, "")}
                 disabled={Boolean(post.commentsLocked && post.authorId !== currentUserId)}
               >{`\u{1F4AC}`} Reply</button>
