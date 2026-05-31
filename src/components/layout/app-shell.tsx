@@ -9,10 +9,19 @@ import { ensureBootstrapAdmins, isAdminUser } from "@/lib/auth/admin";
 export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
   const session = await auth();
   const userId = session?.user?.id;
-  await ensureBootstrapAdmins();
+  let profile: { displayName: string | null; avatarUrl: string | null; bannerUrl: string | null } | null = null;
+  let unreadNotifications = 0;
+  let unreadAlerts = 0;
+  let unreadMessages = 0;
+  let pendingInvites = 0;
+  let pref: { mobileNavSwipeSide: string | null } | null = null;
+  let adminAccess = false;
 
-  const [profile, counts, pref, adminAccess] = userId
-    ? await Promise.all([
+  try {
+    await ensureBootstrapAdmins();
+
+    if (userId) {
+      const [loadedProfile, loadedCounts, loadedPref, loadedAdminAccess] = await Promise.all([
         prisma.profile.findUnique({ where: { userId }, select: { displayName: true, avatarUrl: true, bannerUrl: true } }),
         Promise.all([
           prisma.notification.count({ where: { userId, readAt: null } }),
@@ -22,10 +31,16 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
         ]),
         prisma.userFeedPreference.findUnique({ where: { userId }, select: { mobileNavSwipeSide: true } }),
         isAdminUser(userId),
-      ])
-    : [null, [0, 0, 0, 0], null, false];
+      ]);
 
-  const [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = counts;
+      profile = loadedProfile;
+      [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = loadedCounts;
+      pref = loadedPref;
+      adminAccess = loadedAdminAccess;
+    }
+  } catch (error) {
+    console.error("[AppShell] fallback render", error);
+  }
 
   return (
     <div className="min-h-screen">
