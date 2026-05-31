@@ -16,6 +16,7 @@ const loginSchema = z.object({
 });
 
 const tiersRequiringTwoFa = new Set(["BUSINESS", "SILVER", "GOLD", "DIAMOND"]);
+const requireTierTwoFa = process.env.REQUIRE_2FA_BY_TIER === "true";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -81,7 +82,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (isPasswordExpired(user.passwordUpdatedAt)) return null;
 
         const twoFa = await prisma.twoFactorConfig.findUnique({ where: { userId: user.id } });
-        if (tiersRequiringTwoFa.has(user.subscriptionTier) && !twoFa?.enabled) return null;
+        if (requireTierTwoFa && tiersRequiringTwoFa.has(user.subscriptionTier) && !twoFa?.enabled) return null;
         if (twoFa?.enabled) {
           const otp = parsed.data.otp?.trim();
           if (!otp) return null;

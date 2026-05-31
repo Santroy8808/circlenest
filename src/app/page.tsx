@@ -9,6 +9,8 @@ import { LOGIN_CHALLENGE_COOKIE, createLoginChallenge } from "@/lib/auth/login-c
 import { prisma } from "@/lib/db/prisma";
 import { isPasswordExpired } from "@/lib/security/password-policy";
 
+const requireTierTwoFa = process.env.REQUIRE_2FA_BY_TIER === "true";
+
 function mapLoginError(error?: string) {
   switch (error) {
     case "invalid_credentials":
@@ -93,7 +95,7 @@ export default async function EntryPage({ searchParams }: { searchParams?: { err
             select: { enabled: true },
           });
 
-          if (["BUSINESS", "SILVER", "GOLD", "DIAMOND"].includes(user.subscriptionTier) && !twoFa?.enabled) {
+          if (requireTierTwoFa && ["BUSINESS", "SILVER", "GOLD", "DIAMOND"].includes(user.subscriptionTier) && !twoFa?.enabled) {
             redirect("/?error=twofa_required");
           }
 
