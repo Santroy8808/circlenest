@@ -19,7 +19,13 @@ export default async function PostDiscussionPage({ params }: { params: { postId:
         },
       },
       comments: {
-        include: { author: { select: { username: true } } },
+        select: {
+          id: true,
+          content: true,
+          parentCommentId: true,
+          createdAt: true,
+          author: { select: { username: true } },
+        },
         orderBy: { createdAt: "asc" },
       },
     },

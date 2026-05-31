@@ -44,7 +44,16 @@ export default async function ProfilePage({ params }: { params: { username: stri
     take: 30,
     include: {
       author: { select: { username: true } },
-      comments: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
+      comments: {
+        select: {
+          id: true,
+          content: true,
+          parentCommentId: true,
+          createdAt: true,
+          author: { select: { username: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       reactions: true,
     },
   });
@@ -69,7 +78,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
     comments: post.comments.map((comment) => ({
       id: comment.id,
       content: comment.content,
-      mediaUrlsJson: comment.mediaUrlsJson,
+      mediaUrlsJson: null,
       parentCommentId: comment.parentCommentId,
       author: { username: comment.author.username },
     })),

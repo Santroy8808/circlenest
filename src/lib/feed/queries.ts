@@ -127,7 +127,16 @@ export async function getFeedPosts(userId: string, mode: FeedMode) {
     },
     include: {
       author: { select: { username: true } },
-      comments: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
+      comments: {
+        select: {
+          id: true,
+          content: true,
+          parentCommentId: true,
+          createdAt: true,
+          author: { select: { username: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       reactions: true,
       poll: { include: { options: { include: { _count: { select: { votes: true } } } } } },
     },
@@ -166,7 +175,16 @@ export async function getArchiveFeedPosts(userId: string, mode: FeedMode, before
     },
     include: {
       author: { select: { username: true } },
-      comments: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
+      comments: {
+        select: {
+          id: true,
+          content: true,
+          parentCommentId: true,
+          createdAt: true,
+          author: { select: { username: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       reactions: true,
       poll: { include: { options: { include: { _count: { select: { votes: true } } } } } },
     },

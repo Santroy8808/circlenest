@@ -33,7 +33,13 @@ export default async function HomePage() {
       include: {
         author: { select: { username: true } },
         comments: {
-          include: { author: { select: { username: true } } },
+          select: {
+            id: true,
+            content: true,
+            parentCommentId: true,
+            createdAt: true,
+            author: { select: { username: true } },
+          },
           orderBy: { createdAt: "asc" },
         },
         reactions: true,

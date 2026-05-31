@@ -20,7 +20,13 @@ export default async function GalleryPage() {
           include: {
             photoTags: { include: { tag: true } },
             comments: {
-              include: { author: { select: { username: true, fullName: true } } },
+              select: {
+                id: true,
+                content: true,
+                parentCommentId: true,
+                createdAt: true,
+                author: { select: { username: true, fullName: true } },
+              },
               orderBy: { createdAt: "asc" },
             },
           },

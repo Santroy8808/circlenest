@@ -80,7 +80,13 @@ export async function PATCH(request: Request, context: { params: { photoId: stri
     where: { id: updatedCore.id },
     include: {
       comments: {
-        include: { author: { select: { username: true, fullName: true } } },
+        select: {
+          id: true,
+          content: true,
+          parentCommentId: true,
+          createdAt: true,
+          author: { select: { username: true, fullName: true } },
+        },
         orderBy: { createdAt: "asc" },
       },
       photoTags: { include: { tag: true } },
