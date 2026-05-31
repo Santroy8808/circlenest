@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FEED_MODES, type FeedMode } from "@/lib/feed/modes";
 import { CommunicateLauncher } from "@/components/layout/communicate-launcher";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
@@ -135,6 +135,9 @@ export function FeedClient({
   allowComposer?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const audienceRadioGroupName = `${useId()}-audience`;
   const [posts, setPosts] = useState(initialPosts);
   const [mode, setMode] = useState<FeedMode>(initialMode);
@@ -700,7 +703,7 @@ export function FeedClient({
                 onClick={() => openReply(post.id, null, "")}
                 disabled={Boolean(post.commentsLocked && post.authorId !== currentUserId)}
               >{`\u{1F4AC}`} Reply</button>
-              <Link href={`/posts/${post.id}`} className="inline-flex items-center gap-1 hover:text-white">{`\u{1F5E8}\u{FE0F}`} Discussion</Link>
+              <Link href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`} className="inline-flex items-center gap-1 hover:text-white">{`\u{1F5E8}\u{FE0F}`} Thread</Link>
               {post.authorId === currentUserId ? (
                 <button
                   className="inline-flex items-center gap-1 hover:text-white"

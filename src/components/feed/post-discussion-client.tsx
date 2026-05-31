@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
 
 type PostDiscussionComment = {
@@ -33,15 +34,21 @@ type PostDiscussion = {
 export function PostDiscussionClient({
   post,
   currentUserId,
+  returnTo = "/home",
 }: {
   post: PostDiscussion;
   currentUserId: string;
+  returnTo?: string;
 }) {
+  const router = useRouter();
+  const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/home";
   const [content, setContent] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [error, setError] = useState("");
   const [pollStatus, setPollStatus] = useState("");
+  const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   function parseMedia(raw?: string | null): string[] {
     if (!raw) return [];
@@ -89,7 +96,26 @@ export function PostDiscussionClient({
       setError(body.error ?? "Could not add comment");
       return;
     }
-    window.location.reload();
+    router.push(safeReturnTo);
+    router.refresh();
+  }
+
+  function insertFormat(prefix: string, suffix = "") {
+    const el = inputRef.current;
+    if (!el) {
+      setContent((previous) => `${previous}${prefix}${suffix}`);
+      return;
+    }
+    const start = el.selectionStart ?? content.length;
+    const end = el.selectionEnd ?? content.length;
+    const selected = content.slice(start, end);
+    const next = `${content.slice(0, start)}${prefix}${selected}${suffix}${content.slice(end)}`;
+    setContent(next);
+    window.requestAnimationFrame(() => {
+      el.focus();
+      const cursor = start + prefix.length + selected.length + suffix.length;
+      el.setSelectionRange(cursor, cursor);
+    });
   }
 
   async function vote(optionId: string) {
@@ -110,12 +136,31 @@ export function PostDiscussionClient({
   return (
     <section className="space-y-4 rounded-[10px] bg-[#121a2a] px-6 py-5">
       <div className="text-sm text-slate-300">
-        <Link href="/home" className="underline">Back to stream</Link>
+        <Link href={safeReturnTo} className="underline">Back</Link>
       </div>
       <p className="text-[14px] font-semibold text-slate-100">
         <Link href={`/profile/${post.author.username}`} className="hover:underline">@{post.author.username}</Link>
       </p>
       <p className="text-[18px] leading-[1.55]">{post.content}</p>
+      {(() => {
+        const media = parseMedia(post.mediaUrlsJson);
+        if (media.length) {
+          return (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              {media.map((url) => (
+                <button key={url} type="button" className="text-left" onClick={() => setExpandedMediaUrl(url)}>
+                  <Image src={url} alt="Post media" width={900} height={700} unoptimized className="h-32 w-full rounded-md object-cover" />
+                </button>
+              ))}
+            </div>
+          );
+        }
+        return post.imageUrl ? (
+          <button type="button" className="w-full text-left" onClick={() => setExpandedMediaUrl(post.imageUrl as string)}>
+            <Image src={post.imageUrl} alt="Post image" width={1200} height={900} unoptimized className="max-h-80 w-full rounded-md object-cover" />
+          </button>
+        ) : null;
+      })()}
       {post.poll ? (
         <div className="rounded-md border border-[var(--border)] bg-[#0b1220] p-3">
           <p className="mb-2 text-sm font-semibold text-slate-100">{post.poll.question}</p>
@@ -146,9 +191,9 @@ export function PostDiscussionClient({
             {parseMedia(comment.mediaUrlsJson).length ? (
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
                 {parseMedia(comment.mediaUrlsJson).map((url) => (
-                  <a key={`${comment.id}-${url}`} href={url} target="_blank" rel="noreferrer" className="block">
+                  <button key={`${comment.id}-${url}`} type="button" className="block text-left" onClick={() => setExpandedMediaUrl(url)}>
                     <Image src={url} alt="Comment media" width={560} height={420} unoptimized className="h-24 w-full rounded-md object-cover" />
-                  </a>
+                  </button>
                 ))}
               </div>
             ) : null}
@@ -159,10 +204,17 @@ export function PostDiscussionClient({
         <p className="text-xs text-slate-400">Comments are locked by the post owner.</p>
       ) : (
         <div className="space-y-2">
-          <input
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button type="button" className="underline" onClick={() => insertFormat("**", "**")}>B</button>
+            <button type="button" className="italic underline" onClick={() => insertFormat("_", "_")}>I</button>
+            <button type="button" className="underline" onClick={() => insertFormat("<u>", "</u>")}>U</button>
+            <button type="button" className="line-through underline-offset-2" onClick={() => insertFormat("~~", "~~")}>S</button>
+          </div>
+          <textarea
+            ref={inputRef}
             value={content}
             onChange={(event) => setContent(event.target.value)}
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className="h-24 w-full rounded-md border px-3 py-2 text-sm"
             placeholder="Write a comment"
           />
           <div className="flex items-center justify-between">
@@ -208,6 +260,14 @@ export function PostDiscussionClient({
           {error ? <p className="text-xs text-red-300">{error}</p> : null}
         </div>
       )}
+      {expandedMediaUrl ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" onClick={() => setExpandedMediaUrl(null)}>
+          <div className="relative max-h-[92vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="absolute -top-9 right-0 text-sm text-slate-100 underline" onClick={() => setExpandedMediaUrl(null)}>Close</button>
+            <Image src={expandedMediaUrl} alt="Expanded media" width={1800} height={1800} unoptimized className="max-h-[90vh] w-auto rounded-md object-contain" />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

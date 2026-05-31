@@ -4,7 +4,13 @@ import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { PostDiscussionClient } from "@/components/feed/post-discussion-client";
 
-export default async function PostDiscussionPage({ params }: { params: { postId: string } }) {
+export default async function PostDiscussionPage({
+  params,
+  searchParams,
+}: {
+  params: { postId: string };
+  searchParams?: { returnTo?: string };
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -34,7 +40,7 @@ export default async function PostDiscussionPage({ params }: { params: { postId:
 
   return (
     <AppShell>
-      <PostDiscussionClient post={post} currentUserId={session.user.id} />
+      <PostDiscussionClient post={post} currentUserId={session.user.id} returnTo={searchParams?.returnTo ?? "/home"} />
     </AppShell>
   );
 }
