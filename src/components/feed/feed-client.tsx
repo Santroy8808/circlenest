@@ -160,6 +160,7 @@ export function FeedClient({
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
   const [pollStatusByPost, setPollStatusByPost] = useState<Record<string, string>>({});
   const [showFloatingLauncher, setShowFloatingLauncher] = useState(true);
+  const showLauncher = showFloatingLauncher && !openComposer;
   const commentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const lastScrollYRef = useRef(0);
 
@@ -346,10 +347,10 @@ export function FeedClient({
       {allowComposer ? (
         <div
           className={`pointer-events-none fixed left-1/2 z-30 w-[min(720px,calc(100vw-1rem))] -translate-x-1/2 px-1 transition-transform duration-200 ${
-            showFloatingLauncher ? "translate-y-2 opacity-100" : "-translate-y-16 opacity-0"
+            showLauncher ? "translate-y-2 opacity-100" : "-translate-y-16 opacity-0"
           }`}
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 56px)" }}
-          aria-hidden={!showFloatingLauncher}
+          aria-hidden={!showLauncher}
         >
           <div className="pointer-events-auto">
             <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} />
