@@ -147,7 +147,7 @@ export function PostDiscussionClient({
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
                 {parseMedia(comment.mediaUrlsJson).map((url) => (
                   <a key={`${comment.id}-${url}`} href={url} target="_blank" rel="noreferrer" className="block">
-                    <Image src={url} alt="Comment media" width={560} height={420} className="h-24 w-full rounded-md object-cover" />
+                    <Image src={url} alt="Comment media" width={560} height={420} unoptimized className="h-24 w-full rounded-md object-cover" />
                   </a>
                 ))}
               </div>
@@ -190,7 +190,7 @@ export function PostDiscussionClient({
             <div className="grid grid-cols-4 gap-2">
               {mediaUrls.map((url, index) => (
                 <div key={`${url}-${index}`} className="relative">
-                  <Image src={url} alt="Comment upload" width={240} height={240} className="h-16 w-full rounded-md object-cover" />
+                  <Image src={url} alt="Comment upload" width={240} height={240} unoptimized className="h-16 w-full rounded-md object-cover" />
                   <button
                     type="button"
                     className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"

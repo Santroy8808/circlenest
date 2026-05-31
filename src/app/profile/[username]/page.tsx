@@ -84,14 +84,14 @@ export default async function ProfilePage({ params }: { params: { username: stri
       >
         <div className="relative h-44 w-full bg-slate-200">
           {profile?.bannerUrl ? (
-            <Image src={profile.bannerUrl} alt="Profile banner" fill className="object-cover" />
+            <Image src={profile.bannerUrl} alt="Profile banner" fill unoptimized className="object-cover" />
           ) : null}
         </div>
         <div className="p-3">
           <div className="mb-2 flex items-center gap-3">
             <div className="relative h-16 w-16 overflow-hidden rounded-md border border-[var(--border)] bg-slate-100">
               {profile?.avatarUrl ? (
-                <Image src={profile.avatarUrl} alt="Profile avatar" fill className="object-cover" />
+                <Image src={profile.avatarUrl} alt="Profile avatar" fill unoptimized className="object-cover" />
               ) : null}
             </div>
             <div>

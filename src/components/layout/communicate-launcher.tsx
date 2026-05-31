@@ -35,7 +35,7 @@ export function CommunicateLauncher({
       {fullWidth ? (
         <span className="flex items-center gap-3">
           <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[#1f2937]">
-            {avatarUrl ? <Image src={avatarUrl} alt="Your avatar" fill className="object-cover" /> : null}
+            {avatarUrl ? <Image src={avatarUrl} alt="Your avatar" fill unoptimized className="object-cover" /> : null}
           </span>
           <span className="flex-1 rounded-full bg-[#2a2d34] px-4 py-2 text-[clamp(14px,3.6vw,17px)] text-slate-400">
             {prompt}

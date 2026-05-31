@@ -47,7 +47,7 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
               {m.senderId !== myUserId ? (
                 <Link href={`/profile/${m.sender.username}`} className="relative h-7 w-7 overflow-hidden rounded-full border border-[var(--border)]">
                   {m.sender.profile?.avatarUrl ? (
-                    <Image src={m.sender.profile.avatarUrl} alt={m.sender.username} fill className="object-cover" />
+                    <Image src={m.sender.profile.avatarUrl} alt={m.sender.username} fill unoptimized className="object-cover" />
                   ) : (
                     <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-[11px] text-slate-200">
                       {m.sender.username.charAt(0).toUpperCase()}
@@ -95,7 +95,7 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
               ) : (
                 <Link href={`/profile/${m.sender.username}`} className="relative h-7 w-7 overflow-hidden rounded-full border border-[var(--border)]">
                   {m.sender.profile?.avatarUrl ? (
-                    <Image src={m.sender.profile.avatarUrl} alt={m.sender.username} fill className="object-cover" />
+                    <Image src={m.sender.profile.avatarUrl} alt={m.sender.username} fill unoptimized className="object-cover" />
                   ) : (
                     <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-[11px] text-slate-200">
                       {m.sender.username.charAt(0).toUpperCase()}

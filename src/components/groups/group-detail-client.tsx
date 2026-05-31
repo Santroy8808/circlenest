@@ -407,7 +407,7 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
                     Select
                   </label>
                 ) : null}
-                <Image src={p.url} alt={p.caption || "Group photo"} width={300} height={200} className="h-32 w-full rounded object-cover" />
+                <Image src={p.url} alt={p.caption || "Group photo"} width={300} height={200} unoptimized className="h-32 w-full rounded object-cover" />
                 <figcaption className="mt-1 text-xs text-slate-600">
                   {p.caption || "Photo"} • @{p.uploaderUsername}
                   <br />

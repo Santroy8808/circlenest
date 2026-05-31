@@ -49,7 +49,7 @@ export function ThemeSettingsClient() {
             if (res.ok) { setQr(body.qrDataUrl || null); setSecret(body.secret || null); }
           }}>Generate 2FA Setup</button>
         </div>
-        {qr ? <Image src={qr} alt="2FA QR code" width={176} height={176} className="mt-3 rounded border border-slate-200" /> : null}
+        {qr ? <Image src={qr} alt="2FA QR code" width={176} height={176} unoptimized className="mt-3 rounded border border-slate-200" /> : null}
         {secret ? <p className="mt-2 text-xs text-slate-600">Secret: <code>{secret}</code></p> : null}
         <form className="mt-3 flex gap-2" onSubmit={async (e) => {
           e.preventDefault();

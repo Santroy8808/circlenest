@@ -69,6 +69,7 @@ export function MessagesClient() {
                   alt={`${t.otherDisplayName ?? t.otherUsername} avatar`}
                   width={40}
                   height={40}
+                  unoptimized
                   className="h-10 w-10 rounded-full object-cover"
                 />
               ) : (

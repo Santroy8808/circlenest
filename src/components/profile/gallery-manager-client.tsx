@@ -648,7 +648,7 @@ export function GalleryManagerClient({
             <div className="mt-2 grid grid-cols-2 gap-2">
               {parseCommentMedia(node.mediaUrlsJson).map((url) => (
                 <a key={`${node.id}-${url}`} href={url} target="_blank" rel="noreferrer" className="block">
-                  <Image src={url} alt="Comment media" width={420} height={320} className="h-24 w-full rounded-md object-cover" />
+                  <Image src={url} alt="Comment media" width={420} height={320} unoptimized className="h-24 w-full rounded-md object-cover" />
                 </a>
               ))}
             </div>
@@ -714,7 +714,7 @@ export function GalleryManagerClient({
           className="group relative overflow-hidden rounded-md bg-[#111a2a]"
         >
           {avatarUrl ? (
-            <Image src={avatarUrl} alt="Avatar" width={420} height={420} className="aspect-square h-full w-full object-cover" />
+            <Image src={avatarUrl} alt="Avatar" width={420} height={420} unoptimized className="aspect-square h-full w-full object-cover" />
           ) : (
             <div className="flex aspect-square items-center justify-center text-xs text-slate-400">Drop image for avatar</div>
           )}
@@ -737,7 +737,7 @@ export function GalleryManagerClient({
           className="group relative overflow-hidden rounded-md bg-[#111a2a]"
         >
           {bannerUrl ? (
-            <Image src={bannerUrl} alt="Banner" width={1400} height={560} className="h-full min-h-[220px] w-full object-cover" />
+            <Image src={bannerUrl} alt="Banner" width={1400} height={560} unoptimized className="h-full min-h-[220px] w-full object-cover" />
           ) : (
             <div className="flex min-h-[220px] items-center justify-center text-xs text-slate-400">Drop image for banner</div>
           )}
@@ -917,7 +917,7 @@ export function GalleryManagerClient({
                         event.dataTransfer.setData("text/plain", photo.url);
                       }}
                     >
-                      <Image src={photo.url} alt={photo.caption || "Gallery photo"} width={700} height={700} className="h-full w-full object-cover" />
+                      <Image src={photo.url} alt={photo.caption || "Gallery photo"} width={700} height={700} unoptimized className="h-full w-full object-cover" />
 
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent opacity-0 transition group-hover:opacity-100" />
 
@@ -1115,7 +1115,7 @@ export function GalleryManagerClient({
                     <div className="grid grid-cols-4 gap-2">
                       {modalCommentMediaUrls.map((url, index) => (
                         <div key={`${url}-${index}`} className="relative">
-                          <Image src={url} alt="Reply upload" width={180} height={180} className="h-14 w-full rounded object-cover" />
+                          <Image src={url} alt="Reply upload" width={180} height={180} unoptimized className="h-14 w-full rounded object-cover" />
                           <button
                             type="button"
                             className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"

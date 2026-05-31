@@ -181,6 +181,7 @@ export function FriendsClient({
                     alt={f.profile?.displayName || f.username}
                     width={500}
                     height={500}
+                    unoptimized
                     className="aspect-square w-full rounded-md object-cover"
                   />
                 ) : (
