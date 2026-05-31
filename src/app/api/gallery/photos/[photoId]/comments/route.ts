@@ -22,9 +22,17 @@ export async function POST(request: Request, context: { params: { photoId: strin
   if (photo.commentsLocked && photo.album.userId !== session.user.id) {
     return NextResponse.json({ error: "Comments are locked for this photo" }, { status: 403 });
   }
-  const body = (await request.json()) as { content?: string; parentCommentId?: string | null };
+  const body = (await request.json()) as { content?: string; parentCommentId?: string | null; mediaUrls?: string[] };
   const content = sanitizeUserText(String(body.content ?? "").trim());
-  if (!content) return NextResponse.json({ error: "Comment required" }, { status: 400 });
+  const mediaUrls = Array.isArray(body.mediaUrls)
+    ? body.mediaUrls
+        .map((value) => String(value).trim())
+        .filter((value) => value.length > 0)
+        .slice(0, 8)
+    : [];
+  if (!content && mediaUrls.length === 0) {
+    return NextResponse.json({ error: "Add text or media to comment" }, { status: 400 });
+  }
   if (body.parentCommentId) {
     const parent = await prisma.photoComment.findFirst({
       where: { id: body.parentCommentId, photoId: photo.id },
@@ -38,6 +46,7 @@ export async function POST(request: Request, context: { params: { photoId: strin
       photoId: photo.id,
       authorId: session.user.id,
       content,
+      mediaUrlsJson: mediaUrls.length ? JSON.stringify(mediaUrls) : null,
       parentCommentId: body.parentCommentId ?? null,
     },
     include: { author: { select: { username: true, fullName: true } } },

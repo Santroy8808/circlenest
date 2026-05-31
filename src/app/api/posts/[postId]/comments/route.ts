@@ -10,8 +10,17 @@ export async function POST(request: Request, context: { params: { postId: string
   const allowed = await checkRateLimitPlaceholder(`comment:${session.user.id}`);
   if (!allowed) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
-  const body = (await request.json()) as { content?: string; parentCommentId?: string | null };
-  if (!body.content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 400 });
+  const body = (await request.json()) as { content?: string; parentCommentId?: string | null; mediaUrls?: string[] };
+  const mediaUrls = Array.isArray(body.mediaUrls)
+    ? body.mediaUrls
+        .map((value) => String(value).trim())
+        .filter((value) => value.length > 0)
+        .slice(0, 8)
+    : [];
+  const content = sanitizeUserText(String(body.content ?? "").trim());
+  if (!content && mediaUrls.length === 0) {
+    return NextResponse.json({ error: "Add text or media to comment" }, { status: 400 });
+  }
 
   if (body.parentCommentId) {
     const parent = await prisma.comment.findFirst({
@@ -34,7 +43,8 @@ export async function POST(request: Request, context: { params: { postId: string
       postId: context.params.postId,
       authorId: session.user.id,
       parentCommentId: body.parentCommentId ?? null,
-      content: sanitizeUserText(body.content),
+      content,
+      mediaUrlsJson: mediaUrls.length ? JSON.stringify(mediaUrls) : null,
     },
     include: { author: true },
   });

@@ -31,6 +31,7 @@ type ComposerGroup = {
 type Comment = {
   id: string;
   content: string;
+  mediaUrlsJson?: string | null;
   parentCommentId?: string | null;
   author: { username: string };
 };
@@ -151,6 +152,8 @@ export function FeedClient({
   const [replyPostId, setReplyPostId] = useState<string | null>(null);
   const [replyParentByPost, setReplyParentByPost] = useState<Record<string, string | null>>({});
   const [draftByPost, setDraftByPost] = useState<Record<string, string>>({});
+  const [commentMediaByPost, setCommentMediaByPost] = useState<Record<string, string[]>>({});
+  const [commentMediaBusyByPost, setCommentMediaBusyByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string>>({});
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({});
@@ -298,6 +301,29 @@ export function FeedClient({
     setDraftByPost((prev) => ({ ...prev, [postId]: mention || prev[postId] || "" }));
     setCommentErrorByPost((prev) => ({ ...prev, [postId]: "" }));
     setFocusPostId(postId);
+  }
+
+  async function uploadCommentMedia(postId: string, files: FileList | null) {
+    if (!files?.length) return;
+    setCommentMediaBusyByPost((prev) => ({ ...prev, [postId]: true }));
+    setCommentErrorByPost((prev) => ({ ...prev, [postId]: "" }));
+    try {
+      const uploaded = (
+        await Promise.all(
+          Array.from(files).map((file) => uploadImage(file, { purpose: "post-media" })),
+        )
+      ).filter((url): url is string => Boolean(url));
+      if (!uploaded.length) {
+        setCommentErrorByPost((prev) => ({ ...prev, [postId]: "Could not upload media." }));
+        return;
+      }
+      setCommentMediaByPost((prev) => {
+        const existing = prev[postId] ?? [];
+        return { ...prev, [postId]: [...existing, ...uploaded].slice(0, 8) };
+      });
+    } finally {
+      setCommentMediaBusyByPost((prev) => ({ ...prev, [postId]: false }));
+    }
   }
 
   async function loadOlderArchive() {
@@ -567,7 +593,16 @@ export function FeedClient({
             <div key={comment.id} style={{ marginLeft: `${Math.min(depth, 3) * 14}px` }} className="space-y-1">
               <div className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
                 <Link href={`/profile/${comment.author.username}`} className="mr-1 text-slate-300 hover:underline">@{comment.author.username}</Link>
-                <span className="text-slate-200">{comment.content}</span>
+                {comment.content ? <span className="text-slate-200">{comment.content}</span> : null}
+                {parseMedia(comment.mediaUrlsJson).length > 0 ? (
+                  <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
+                    {parseMedia(comment.mediaUrlsJson).map((url) => (
+                      <button key={`${comment.id}-${url}`} type="button" className="text-left" onClick={() => openMedia(post.id, url)}>
+                        <Image src={url} alt="Comment media" width={560} height={420} className="h-24 w-full rounded-md object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className="ml-2 text-xs text-slate-400 hover:text-slate-100"
@@ -699,11 +734,12 @@ export function FeedClient({
                   onSubmit={async (e) => {
                     e.preventDefault();
                     const content = (draftByPost[post.id] ?? "").trim();
-                    if (!content) return;
+                    const mediaUrls = commentMediaByPost[post.id] ?? [];
+                    if (!content && mediaUrls.length === 0) return;
                     const res = await fetch(`/api/posts/${post.id}/comments`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ content, parentCommentId: replyParentByPost[post.id] ?? null }),
+                      body: JSON.stringify({ content, parentCommentId: replyParentByPost[post.id] ?? null, mediaUrls }),
                     });
                     if (!res.ok) {
                       let message = "Could not add comment.";
@@ -717,6 +753,7 @@ export function FeedClient({
                       return;
                     }
                     setDraftByPost((prev) => ({ ...prev, [post.id]: "" }));
+                    setCommentMediaByPost((prev) => ({ ...prev, [post.id]: [] }));
                     setReplyPostId(null);
                     setReplyParentByPost((prev) => ({ ...prev, [post.id]: null }));
                     window.location.reload();
@@ -753,6 +790,52 @@ export function FeedClient({
                       </button>
                     </div>
                   </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="inline-flex cursor-pointer items-center rounded-md border border-[#3d4e6d] bg-[#1a2335] px-2 py-1 text-xs text-slate-200 hover:bg-[#243149]">
+                      {commentMediaBusyByPost[post.id] ? "Uploading..." : "Add photo"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        className="hidden"
+                        disabled={Boolean(commentMediaBusyByPost[post.id])}
+                        onChange={(event) => {
+                          void uploadCommentMedia(post.id, event.currentTarget.files);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                    {(commentMediaByPost[post.id]?.length ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        className="text-xs text-slate-300 underline"
+                        onClick={() => setCommentMediaByPost((prev) => ({ ...prev, [post.id]: [] }))}
+                      >
+                        Clear media
+                      </button>
+                    ) : null}
+                  </div>
+                  {(commentMediaByPost[post.id]?.length ?? 0) > 0 ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {(commentMediaByPost[post.id] ?? []).map((url, mediaIndex) => (
+                        <div key={`${post.id}-reply-media-${mediaIndex}`} className="relative">
+                          <Image src={url} alt="Reply upload" width={240} height={240} className="h-16 w-full rounded-md object-cover" />
+                          <button
+                            type="button"
+                            className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"
+                            onClick={() =>
+                              setCommentMediaByPost((prev) => ({
+                                ...prev,
+                                [post.id]: (prev[post.id] ?? []).filter((_, idx) => idx !== mediaIndex),
+                              }))
+                            }
+                          >
+                            x
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   {commentErrorByPost[post.id] ? <p className="text-xs text-red-300">{commentErrorByPost[post.id]}</p> : null}
                 </form>
               ) : null}

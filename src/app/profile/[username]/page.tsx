@@ -69,6 +69,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
     comments: post.comments.map((comment) => ({
       id: comment.id,
       content: comment.content,
+      mediaUrlsJson: comment.mediaUrlsJson,
       parentCommentId: comment.parentCommentId,
       author: { username: comment.author.username },
     })),

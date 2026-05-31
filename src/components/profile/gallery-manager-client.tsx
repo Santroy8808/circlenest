@@ -13,6 +13,7 @@ type GalleryComment = {
   id: string;
   parentCommentId: string | null;
   content: string;
+  mediaUrlsJson?: string | null;
   createdAt: string | Date;
   author: { username: string; fullName?: string | null };
 };
@@ -82,6 +83,16 @@ function parseTags(raw: string | null): string[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseCommentMedia(raw?: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
   } catch {
     return [];
   }
@@ -194,6 +205,8 @@ export function GalleryManagerClient({
   const [modalAlbumId, setModalAlbumId] = useState("");
   const [modalVisibility, setModalVisibility] = useState<Visibility>("PUBLIC");
   const [modalComment, setModalComment] = useState("");
+  const [modalCommentMediaUrls, setModalCommentMediaUrls] = useState<string[]>([]);
+  const [modalCommentUploading, setModalCommentUploading] = useState(false);
   const [modalReplyToId, setModalReplyToId] = useState<string | null>(null);
   const [commentReactions, setCommentReactions] = useState<Record<string, Record<string, number>>>({});
   const [collapsedCommentIds, setCollapsedCommentIds] = useState<Record<string, boolean>>({});
@@ -256,6 +269,7 @@ export function GalleryManagerClient({
     setModalAlbumId(openPhoto.albumId);
     setModalVisibility(normalizeVisibility(openPhoto.visibility));
     setModalComment("");
+    setModalCommentMediaUrls([]);
     setModalReplyToId(null);
     setZoomed(false);
   }, [openPhoto]);
@@ -556,12 +570,12 @@ export function GalleryManagerClient({
   async function submitComment() {
     if (!openPhoto) return;
     const content = modalComment.trim();
-    if (!content) return;
+    if (!content && modalCommentMediaUrls.length === 0) return;
 
     const res = await fetch(`/api/gallery/photos/${openPhoto.id}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, parentCommentId: modalReplyToId }),
+      body: JSON.stringify({ content, parentCommentId: modalReplyToId, mediaUrls: modalCommentMediaUrls }),
     });
 
     if (!res.ok) {
@@ -573,8 +587,29 @@ export function GalleryManagerClient({
     updatePhotoLocally(openPhoto.id, (photo) => ({ ...photo, comments: [...photo.comments, created] }));
 
     setModalComment("");
+    setModalCommentMediaUrls([]);
     setModalReplyToId(null);
     setStatus("Comment posted.");
+  }
+
+  async function uploadCommentMedia(files: FileList | null) {
+    if (!files?.length) return;
+    setModalCommentUploading(true);
+    try {
+      const uploaded = (
+        await Promise.all(
+          Array.from(files).map((file) => uploadOne(file, { purpose: "post-media" })),
+        )
+      ).filter((url): url is string => Boolean(url));
+
+      if (!uploaded.length) {
+        setStatus("Could not upload comment media.");
+        return;
+      }
+      setModalCommentMediaUrls((previous) => [...previous, ...uploaded].slice(0, 8));
+    } finally {
+      setModalCommentUploading(false);
+    }
   }
 
   async function shareAlbum() {
@@ -608,7 +643,16 @@ export function GalleryManagerClient({
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-[12px] text-slate-200">{node.content}</p>
+          {node.content ? <p className="mt-1 text-[12px] text-slate-200">{node.content}</p> : null}
+          {parseCommentMedia(node.mediaUrlsJson).length ? (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {parseCommentMedia(node.mediaUrlsJson).map((url) => (
+                <a key={`${node.id}-${url}`} href={url} target="_blank" rel="noreferrer" className="block">
+                  <Image src={url} alt="Comment media" width={420} height={320} className="h-24 w-full rounded-md object-cover" />
+                </a>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-300">
             <button
               type="button"
@@ -1046,6 +1090,43 @@ export function GalleryManagerClient({
                     placeholder="Write reply... Use @username to mention"
                     className="h-16 w-full rounded border px-2 py-1 text-[12px]"
                   />
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="inline-flex cursor-pointer items-center rounded border border-[#3d4e6d] bg-[#1a2335] px-2 py-1 text-[11px] text-slate-200 hover:bg-[#243149]">
+                      {modalCommentUploading ? "Uploading..." : "Add photo"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        className="hidden"
+                        disabled={modalCommentUploading}
+                        onChange={(event) => {
+                          void uploadCommentMedia(event.currentTarget.files);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                    {modalCommentMediaUrls.length ? (
+                      <button type="button" className="text-[11px] text-slate-300 hover:underline" onClick={() => setModalCommentMediaUrls([])}>
+                        Clear media
+                      </button>
+                    ) : null}
+                  </div>
+                  {modalCommentMediaUrls.length ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {modalCommentMediaUrls.map((url, index) => (
+                        <div key={`${url}-${index}`} className="relative">
+                          <Image src={url} alt="Reply upload" width={180} height={180} className="h-14 w-full rounded object-cover" />
+                          <button
+                            type="button"
+                            className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"
+                            onClick={() => setModalCommentMediaUrls((previous) => previous.filter((_, itemIndex) => itemIndex !== index))}
+                          >
+                            x
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   <button type="button" className="text-[12px] hover:underline" onClick={() => void submitComment()}>
                     Post Reply
                   </button>

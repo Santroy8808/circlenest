@@ -203,6 +203,7 @@ model Comment {
   authorId   String
   parentCommentId String?
   content    String
+  mediaUrlsJson String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -520,6 +521,7 @@ model PhotoComment {
   authorId   String
   parentCommentId String?
   content    String
+  mediaUrlsJson String?
   createdAt  DateTime @default(now())
   photo      Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
   author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
