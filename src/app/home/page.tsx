@@ -23,6 +23,31 @@ export default async function HomePage() {
     fastWindowDays = stream.fastWindowDays;
   } catch (error) {
     console.error("[home] stream fallback triggered", error);
+    const fallbackRows = await prisma.post.findMany({
+      where: {
+        OR: [
+          { authorId: session.user.id },
+          { audience: "ALL" },
+        ],
+      },
+      include: {
+        author: { select: { username: true } },
+        comments: {
+          include: { author: { select: { username: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        reactions: true,
+        poll: { include: { options: { include: { _count: { select: { votes: true } } } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    posts = fallbackRows.map((row) => ({
+      ...row,
+      explanation: "Showing fallback stream while feed rebuilds.",
+    }));
+    mode = "CHRONOLOGICAL";
+    hasOlderArchive = false;
   }
 
   const profile = await prisma.profile.findUnique({
