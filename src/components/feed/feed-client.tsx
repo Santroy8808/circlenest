@@ -745,7 +745,12 @@ export function FeedClient({
                     </div>
                     <div className="flex items-center gap-3">
                       <button type="button" className="text-xs underline" onClick={() => setReplyPostId(null)}>Cancel</button>
-                      <button className="text-sm font-medium" type="submit">Comment</button>
+                      <button
+                        className="inline-flex min-h-9 items-center rounded-md border border-[#6a5420] bg-[#b89033] px-3 py-1.5 text-sm font-semibold text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:bg-[#c59a36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b25a]"
+                        type="submit"
+                      >
+                        Comment
+                      </button>
                     </div>
                   </div>
                   {commentErrorByPost[post.id] ? <p className="text-xs text-red-300">{commentErrorByPost[post.id]}</p> : null}
