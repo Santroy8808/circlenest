@@ -131,6 +131,15 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
     return null;
   }, [messages, myUserId]);
 
+  const orderedMessages = useMemo(() => {
+    return [...messages].sort((a, b) => {
+      const aTime = Date.parse(a.createdAt);
+      const bTime = Date.parse(b.createdAt);
+      if (aTime !== bTime) return aTime - bTime;
+      return a.id.localeCompare(b.id);
+    });
+  }, [messages]);
+
   useEffect(() => {
     void load();
     void loadMeta();
@@ -190,7 +199,7 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
 
       {messages.length > 0 ? (
         <div className="max-h-[62vh] space-y-3 overflow-y-auto rounded border border-[var(--border)] bg-gradient-to-b from-[#0d1626] to-[#0b1422] p-3">
-          {messages.map((m) => (
+          {orderedMessages.map((m) => (
             <article key={m.id} className="space-y-1">
               <div className={`flex items-end gap-2 ${m.senderId === myUserId ? "justify-end" : "justify-start"}`}>
                 {m.senderId !== myUserId ? (

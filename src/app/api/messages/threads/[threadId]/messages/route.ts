@@ -47,7 +47,7 @@ export async function GET(_request: Request, context: { params: { threadId: stri
 
   const messages = await prisma.message.findMany({
     where: { threadId: thread.id },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     include: {
       sender: {
         select: {
