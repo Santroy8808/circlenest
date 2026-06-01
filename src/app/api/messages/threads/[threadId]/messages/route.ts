@@ -103,7 +103,13 @@ export async function POST(request: Request, context: { params: { threadId: stri
         lastSeenAt: new Date(),
       },
     });
-    await tx.notification.create({ data: { userId: receiverId, type: "NEW_MESSAGE", body: "You received a new message" } });
+    await tx.notification.create({
+      data: {
+        userId: receiverId,
+        type: "INBOX_MESSAGE",
+        body: `New inbox message from @${session.user.name ?? "member"}`,
+      },
+    });
     return created;
   });
 

@@ -22,12 +22,14 @@ export async function POST(request: Request, context: { params: { postId: string
     return NextResponse.json({ error: "Add text or media to comment" }, { status: 400 });
   }
 
+  let parentAuthorId: string | null = null;
   if (body.parentCommentId) {
     const parent = await prisma.comment.findFirst({
       where: { id: body.parentCommentId, postId: context.params.postId },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
     if (!parent) return NextResponse.json({ error: "Parent comment not found in this post" }, { status: 400 });
+    parentAuthorId = parent.authorId;
   }
   const post = await prisma.post.findUnique({
     where: { id: context.params.postId },
@@ -48,6 +50,29 @@ export async function POST(request: Request, context: { params: { postId: string
     },
     include: { author: true },
   });
+
+  const actor = `@${comment.author.username}`;
+  const notifications: Array<{ userId: string; type: string; body: string }> = [];
+
+  if (post.authorId !== session.user.id) {
+    notifications.push({
+      userId: post.authorId,
+      type: "POST_COMMENT",
+      body: `${actor} commented on your post`,
+    });
+  }
+
+  if (parentAuthorId && parentAuthorId !== session.user.id && parentAuthorId !== post.authorId) {
+    notifications.push({
+      userId: parentAuthorId,
+      type: "POST_REPLY",
+      body: `${actor} replied to your comment`,
+    });
+  }
+
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({ data: notifications });
+  }
 
   return NextResponse.json(comment);
 }

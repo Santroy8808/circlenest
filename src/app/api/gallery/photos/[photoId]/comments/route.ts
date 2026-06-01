@@ -33,12 +33,14 @@ export async function POST(request: Request, context: { params: { photoId: strin
   if (!content && mediaUrls.length === 0) {
     return NextResponse.json({ error: "Add text or media to comment" }, { status: 400 });
   }
+  let parentAuthorId: string | null = null;
   if (body.parentCommentId) {
     const parent = await prisma.photoComment.findFirst({
       where: { id: body.parentCommentId, photoId: photo.id },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
     if (!parent) return NextResponse.json({ error: "Parent comment not found in this photo" }, { status: 400 });
+    parentAuthorId = parent.authorId;
   }
 
   const created = await prisma.photoComment.create({
@@ -51,5 +53,28 @@ export async function POST(request: Request, context: { params: { photoId: strin
     },
     include: { author: { select: { username: true, fullName: true } } },
   });
+
+  const actor = `@${created.author.username}`;
+  const notifications: Array<{ userId: string; type: string; body: string }> = [];
+
+  if (photo.album.userId !== session.user.id) {
+    notifications.push({
+      userId: photo.album.userId,
+      type: "PHOTO_COMMENT",
+      body: `${actor} commented on your photo`,
+    });
+  }
+
+  if (parentAuthorId && parentAuthorId !== session.user.id && parentAuthorId !== photo.album.userId) {
+    notifications.push({
+      userId: parentAuthorId,
+      type: "PHOTO_REPLY",
+      body: `${actor} replied to your photo comment`,
+    });
+  }
+
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({ data: notifications });
+  }
   return NextResponse.json(created);
 }

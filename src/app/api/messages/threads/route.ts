@@ -64,8 +64,8 @@ export async function POST(request: Request) {
       prisma.notification.create({
         data: {
           userId: other.id,
-          type: "NEW_MESSAGE",
-          body: "You received a new message",
+          type: "INBOX_MESSAGE",
+          body: `New inbox message from @${session.user.name ?? "member"}`,
         },
       }),
     ]);
