@@ -71,6 +71,26 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
     if (res.ok) setPresence((await res.json()) as PresenceRow[]);
   }, [threadId]);
 
+  async function readApiError(res: Response, fallback: string) {
+    const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+    return payload?.error?.trim() || fallback;
+  }
+
+  async function sendMessageToThread(body: string, clientMessageId: string) {
+    const res = await fetch(`/api/messages/threads/${threadId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body, clientMessageId }),
+    });
+    if (!res.ok) {
+      return {
+        ok: false as const,
+        error: await readApiError(res, "Message failed to send. Please retry."),
+      };
+    }
+    return { ok: true as const };
+  }
+
   async function updateTyping(typing: boolean) {
     await fetch(`/api/messages/threads/${threadId}/presence`, {
       method: "PATCH",
@@ -294,19 +314,27 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
                     type="button"
                     className="rounded border border-red-400 px-2 py-1 text-[11px] text-red-200"
                     onClick={async () => {
-                      const clientMessageId = m.clientMessageId?.trim();
-                      if (!clientMessageId) return;
-                      setMessages((previous) => previous.map((row) => (row.id === m.id ? { ...row, localStatus: "sending" } : row)));
-                      const res = await fetch(`/api/messages/threads/${threadId}/messages`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ body: m.body, clientMessageId }),
-                      });
-                      if (!res.ok) {
-                        setMessages((previous) => previous.map((row) => (row.id === m.id ? { ...row, localStatus: "failed" } : row)));
+                      const retryClientMessageId = m.clientMessageId?.trim() || `retry-${Date.now()}-${sendCounter.current++}`;
+                      setMessages((previous) =>
+                        previous.map((row) =>
+                          row.id === m.id
+                            ? { ...row, localStatus: "sending", clientMessageId: retryClientMessageId }
+                            : row,
+                        ),
+                      );
+                      const sendResult = await sendMessageToThread(m.body, retryClientMessageId);
+                      if (!sendResult.ok) {
+                        setMessages((previous) =>
+                          previous.map((row) =>
+                            row.id === m.id ? { ...row, localStatus: "failed" } : row,
+                          ),
+                        );
+                        setStatus(sendResult.error);
                         return;
                       }
+                      setStatus("");
                       await load();
+                      await loadPresence();
                     }}
                   >
                     Retry send
@@ -356,19 +384,17 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
           setText("");
           await updateTyping(false);
 
-          const res = await fetch(`/api/messages/threads/${threadId}/messages`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ body: outgoing, clientMessageId }),
-          });
-          if (!res.ok) {
+          const sendResult = await sendMessageToThread(outgoing, clientMessageId);
+          if (!sendResult.ok) {
             setMessages((previous) =>
               previous.map((row) =>
                 row.clientMessageId === clientMessageId ? { ...row, localStatus: "failed" } : row,
               ),
             );
+            setStatus(sendResult.error);
             return;
           }
+          setStatus("");
           await load();
           await loadPresence();
         }}
