@@ -171,11 +171,14 @@ export function AuditorListingFormClient({ initialListing }: { initialListing: I
         <p className="text-xs text-slate-400">{galleryUrls.length}/10 uploaded</p>
       </div>
 
-      <button type="button" onClick={() => void saveProfile()} className="rounded bg-slate-900 px-3 py-2 text-white">
+      <button
+        type="button"
+        onClick={() => void saveProfile()}
+        className="rounded border border-[#d6b24a] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(0,0,0,0.35)] transition hover:brightness-110 active:translate-y-[1px]"
+      >
         Save auditor profile
       </button>
       {status ? <p className="text-sm text-slate-300">{status}</p> : null}
     </section>
   );
 }
-
