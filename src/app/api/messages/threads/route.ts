@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { sanitizeUserText } from "@/lib/security";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json()) as { username?: string };
-  if (!body.username) return NextResponse.json({ error: "username required" }, { status: 400 });
+  const body = (await request.json()) as { username?: string; userId?: string; initialMessage?: string };
+  const normalizedUsername = body.username?.trim().replace(/^@+/, "") ?? "";
+  const normalizedUserId = body.userId?.trim() ?? "";
+  if (!normalizedUsername && !normalizedUserId) {
+    return NextResponse.json({ error: "username or userId required" }, { status: 400 });
+  }
 
-  const other = await prisma.user.findUnique({ where: { username: body.username } });
+  const other = normalizedUserId
+    ? await prisma.user.findUnique({ where: { id: normalizedUserId } })
+    : await prisma.user.findFirst({
+        where: { username: { equals: normalizedUsername, mode: "insensitive" } },
+      });
   if (!other) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (other.id === session.user.id) return NextResponse.json({ error: "Invalid target" }, { status: 400 });
 
@@ -35,6 +45,35 @@ export async function POST(request: Request) {
 
   if (!thread) {
     thread = await prisma.messageThread.create({ data: { userAId: session.user.id, userBId: other.id } });
+  }
+
+  const initialMessage = body.initialMessage?.trim();
+  if (initialMessage) {
+    await prisma.$transaction([
+      prisma.message.create({
+        data: {
+          threadId: thread.id,
+          senderId: session.user.id,
+          body: sanitizeUserText(initialMessage),
+        },
+      }),
+      prisma.messageThread.update({
+        where: { id: thread.id },
+        data: { updatedAt: new Date() },
+      }),
+      prisma.notification.create({
+        data: {
+          userId: other.id,
+          type: "NEW_MESSAGE",
+          body: "You received a new message",
+        },
+      }),
+    ]);
+    await deliverPushNotification(other.id, {
+      title: "New message",
+      body: "You received a new direct message.",
+      url: `/messages/${thread.id}`,
+    });
   }
 
   return NextResponse.json(thread);
@@ -100,6 +139,8 @@ export async function GET() {
       otherDisplayName: other?.displayName ?? "unknown",
       otherAvatarUrl: other?.avatarUrl ?? null,
       unread: unreadMap.get(t.id) ?? 0,
+      lastMessageBody: t.messages[0]?.body ?? "",
+      lastMessageAt: t.messages[0]?.createdAt ?? t.updatedAt,
     };
   });
 

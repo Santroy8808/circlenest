@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { FeedClient } from "@/components/feed/feed-client";
 import { FriendStreamPostComposer } from "@/components/profile/friend-stream-post-composer";
+import { DirectMessageButton } from "@/components/messages/direct-message-button";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
@@ -107,6 +108,11 @@ export default async function ProfilePage({ params }: { params: { username: stri
               <h1 className="text-lg font-bold">{profile?.displayName || user.username}</h1>
               <p className="text-xs text-slate-300">@{user.username}</p>
               <p className="text-xs text-slate-300">{friendCount} friends</p>
+              {!isOwner && session?.user?.id ? (
+                <div className="mt-2">
+                  <DirectMessageButton username={user.username} label="Direct Message" />
+                </div>
+              ) : null}
             </div>
           </div>
           {isOwner ? (

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { DirectMessageButton } from "@/components/messages/direct-message-button";
 
 type PostDiscussionComment = {
   id: string;
@@ -138,9 +139,18 @@ export function PostDiscussionClient({
       <div className="text-sm text-slate-300">
         <Link href={safeReturnTo} className="underline">Back</Link>
       </div>
-      <p className="text-[14px] font-semibold text-slate-100">
-        <Link href={`/profile/${post.author.username}`} className="hover:underline">@{post.author.username}</Link>
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[14px] font-semibold text-slate-100">
+          <Link href={`/profile/${post.author.username}`} className="hover:underline">@{post.author.username}</Link>
+        </p>
+        {post.author.id !== currentUserId ? (
+          <DirectMessageButton
+            username={post.author.username}
+            label="DM"
+            className="inline-flex min-h-8 items-center rounded-md border border-[#6a5420] bg-[#b89033] px-2.5 py-1 text-xs font-semibold text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:bg-[#c59a36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b25a] disabled:opacity-60"
+          />
+        ) : null}
+      </div>
       <p className="text-[18px] leading-[1.55]">{post.content}</p>
       {(() => {
         const media = parseMedia(post.mediaUrlsJson);

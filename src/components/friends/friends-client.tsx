@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { DirectMessageButton } from "@/components/messages/direct-message-button";
 
 type UserRef = {
   id: string;
@@ -46,20 +47,6 @@ export function FriendsClient({
 
   function toggle(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
-
-  async function quickMessage(username: string) {
-    const res = await fetch("/api/messages/threads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username }),
-    });
-    if (!res.ok) {
-      setStatus("Could not open message thread.");
-      return;
-    }
-    const body = (await res.json()) as { id: string };
-    window.location.href = `/messages/${body.id}`;
   }
 
   async function runSearch() {
@@ -111,6 +98,7 @@ export function FriendsClient({
                 </div>
                 <div className="flex gap-2">
                   <Link href={`/profile/${person.username}`} className="rounded border border-slate-300 px-2 py-1 text-xs">View</Link>
+                  <DirectMessageButton username={person.username} className="rounded border border-[var(--border)] px-2 py-1 text-xs" />
                   <button className="rounded bg-blue-600 px-2 py-1 text-xs text-white" onClick={async () => { await fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
                     Add Friend
                   </button>
@@ -195,8 +183,8 @@ export function FriendsClient({
                   <p className="truncate text-sm font-medium text-slate-100">
                     {f.profile?.displayName || f.fullName || `@${f.username}`}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <button className="text-xs underline" onClick={() => quickMessage(f.username)}>Message</button>
+                <div className="flex items-center gap-2">
+                    <DirectMessageButton username={f.username} className="text-xs underline" />
                     <button className="text-xs text-red-300 underline" onClick={async () => { await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: f.id }) }); window.location.reload(); }}>Block</button>
                   </div>
                 </div>
@@ -220,6 +208,7 @@ export function FriendsClient({
                   <span>@{s.username}</span>
                 </label>
                 <div className="flex gap-2">
+                  <DirectMessageButton username={s.username} className="rounded border border-[var(--border)] px-2 py-1 text-sm" />
                   <button className="rounded bg-blue-600 px-2 py-1 text-sm text-white" onClick={async () => { await fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: s.username }) }); window.location.reload(); }}>Add Friend</button>
                   <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { await runBulk(following ? "UNFOLLOW" : "FOLLOW", [s.id]); }}>{following ? "Unfollow" : "Follow"}</button>
                 </div>

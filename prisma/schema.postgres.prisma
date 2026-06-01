@@ -43,6 +43,8 @@ model User {
   messages       Message[]
   threadsA       MessageThread[]    @relation("ThreadUserA")
   threadsB       MessageThread[]    @relation("ThreadUserB")
+  messagePresence MessageThreadPresence[]
+  pushSubscriptions PushSubscription[]
   groupsOwned    Group[]            @relation("GroupOwner")
   groupMemberships GroupMember[]
   notifications  Notification[]
@@ -79,6 +81,7 @@ model User {
   jobListings        JobListing[]
   auditorListings    AuditorListing[]
   moderatorActions   ModeratorActionLog[]
+  messageModerationEvents MessageModerationEvent[]
   petitions          AdminPetition[]
 }
 
@@ -254,19 +257,74 @@ model MessageThread {
   userA       User     @relation("ThreadUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB       User     @relation("ThreadUserB", fields: [userBId], references: [id], onDelete: Cascade)
   messages    Message[]
+  presences   MessageThreadPresence[]
+  moderationEvents MessageModerationEvent[]
 }
 
 model Message {
   id          String   @id @default(cuid())
   threadId    String
   senderId    String
+  clientMessageId String?
   body        String
+  editedAt    DateTime?
+  hiddenBySenderAt DateTime?
   readAt      DateTime?
   createdAt   DateTime @default(now())
   thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender      User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  moderationEvents MessageModerationEvent[]
   @@index([threadId, createdAt])
   @@index([senderId, createdAt])
+  @@unique([threadId, senderId, clientMessageId])
+}
+
+model MessageThreadPresence {
+  id          String   @id @default(cuid())
+  threadId    String
+  userId      String
+  isTyping    Boolean  @default(false)
+  lastTypedAt DateTime?
+  lastSeenAt  DateTime?
+  updatedAt   DateTime @updatedAt
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([threadId, userId])
+  @@index([threadId, updatedAt])
+  @@index([userId, updatedAt])
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    String
+  deviceId    String?
+  endpoint    String
+  p256dh      String?
+  auth        String?
+  enabled     Boolean  @default(true)
+  lastSentAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, endpoint])
+  @@index([userId, enabled, updatedAt])
+}
+
+model MessageModerationEvent {
+  id          String   @id @default(cuid())
+  threadId    String
+  messageId   String
+  actorUserId String
+  action      String
+  reason      String?
+  createdAt   DateTime @default(now())
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  actor       User    @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  @@index([threadId, createdAt])
+  @@index([messageId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model Group {

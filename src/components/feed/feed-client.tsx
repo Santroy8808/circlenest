@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FEED_MODES, type FeedMode } from "@/lib/feed/modes";
 import { CommunicateLauncher } from "@/components/layout/communicate-launcher";
+import { DirectMessageButton } from "@/components/messages/direct-message-button";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 
 const EMOJIS = [
@@ -703,6 +704,13 @@ export function FeedClient({
                 onClick={() => openReply(post.id, null, "")}
                 disabled={Boolean(post.commentsLocked && post.authorId !== currentUserId)}
               >{`\u{1F4AC}`} Reply</button>
+              {Boolean(currentUserId) && post.authorId !== currentUserId ? (
+                <DirectMessageButton
+                  username={post.author.username}
+                  label="DM"
+                  className="inline-flex min-h-10 items-center rounded-md border border-[#6a5420] bg-[#b89033] px-3 py-1.5 text-[15px] font-semibold text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:bg-[#c59a36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b25a] disabled:opacity-60"
+                />
+              ) : null}
               <Link href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`} className="inline-flex items-center gap-1 hover:text-white">{`\u{1F5E8}\u{FE0F}`} Thread</Link>
               {post.authorId === currentUserId ? (
                 <button

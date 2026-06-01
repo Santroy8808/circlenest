@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Thread = {
   id: string;
@@ -9,12 +10,18 @@ type Thread = {
   otherDisplayName?: string;
   otherAvatarUrl?: string | null;
   unread: number;
+  lastMessageBody?: string;
+  lastMessageAt?: string;
 };
 
 export function MessagesClient() {
+  const router = useRouter();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [username, setUsername] = useState("");
+  const [initialMessage, setInitialMessage] = useState("");
   const [threadSearch, setThreadSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function load() {
     const res = await fetch("/api/messages/threads", { cache: "no-store" });
@@ -25,31 +32,58 @@ export function MessagesClient() {
     load();
   }, []);
 
-  const filteredThreads = threads.filter((thread) => {
+  const filteredThreads = useMemo(() => threads.filter((thread) => {
     const query = threadSearch.trim().toLowerCase();
     if (!query) return true;
     return (
       thread.otherUsername.toLowerCase().includes(query) ||
       (thread.otherDisplayName ?? "").toLowerCase().includes(query)
     );
-  });
+  }), [threadSearch, threads]);
 
   return (
     <div>
       <form
-        className="flex gap-2"
+        className="rounded border border-[var(--border)] bg-[#0e1728] p-3"
         onSubmit={async (e) => {
           e.preventDefault();
           if (!username.trim()) return;
-          const res = await fetch("/api/messages/threads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username }) });
+          setLoading(true);
+          setStatus("");
+          const normalizedUsername = username.trim().replace(/^@+/, "");
+          const res = await fetch("/api/messages/threads", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: normalizedUsername, initialMessage: initialMessage.trim() || undefined }),
+          });
           if (res.ok) {
             const body = (await res.json()) as { id: string };
-            window.location.href = `/messages/${body.id}`;
+            setInitialMessage("");
+            setUsername("");
+            router.push(`/messages/${body.id}`);
+            router.refresh();
+          } else {
+            const body = (await res.json().catch(() => ({}))) as { error?: string };
+            setStatus(body.error ?? "Could not start message thread.");
           }
+          setLoading(false);
         }}
       >
-        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Start thread by username" className="flex-1 rounded border px-3 py-2" />
-        <button className="rounded border border-[var(--border)] bg-[#8f7228] px-3 py-2 text-black" type="submit">Start</button>
+        <h2 className="text-sm font-semibold text-[var(--text-strong)]">Start a Direct Message</h2>
+        <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username (example: @maverick)" className="rounded border px-3 py-2" />
+          <button className="rounded border border-[#6a5420] bg-[#c49a35] px-3 py-2 text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] disabled:opacity-60" type="submit" disabled={loading}>
+            {loading ? "Opening..." : "Open DM"}
+          </button>
+        </div>
+        <textarea
+          value={initialMessage}
+          onChange={(event) => setInitialMessage(event.target.value)}
+          placeholder="Optional: send first message now"
+          className="mt-2 w-full rounded border px-3 py-2 text-sm"
+          rows={2}
+        />
+        {status ? <p className="mt-2 text-xs text-red-300">{status}</p> : null}
       </form>
       <div className="mt-3">
         <input
@@ -80,9 +114,15 @@ export function MessagesClient() {
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">{t.otherDisplayName ?? t.otherUsername}</p>
                 <p className="truncate text-xs text-slate-300">@{t.otherUsername}</p>
+                <p className="truncate text-xs text-slate-400">
+                  {t.lastMessageBody?.trim() ? t.lastMessageBody : "No messages yet"}
+                </p>
               </div>
             </div>
-            {t.unread > 0 ? <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{t.unread}</span> : null}
+            <div className="ml-2 flex flex-col items-end gap-1">
+              {t.lastMessageAt ? <span className="text-[10px] text-slate-400">{new Date(t.lastMessageAt).toLocaleString()}</span> : null}
+              {t.unread > 0 ? <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{t.unread}</span> : null}
+            </div>
           </a>
         ))}
         {threads.length === 0 ? <p className="text-sm text-slate-300">No threads yet.</p> : null}

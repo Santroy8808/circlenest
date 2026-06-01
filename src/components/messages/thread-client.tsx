@@ -1,14 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type Msg = {
   id: string;
+  clientMessageId?: string | null;
   body: string;
   senderId: string;
+  readAt?: string | null;
   createdAt: string;
+  editedAt?: string | null;
+  hiddenBySenderAt?: string | null;
+  localStatus?: "sending" | "failed";
   sender: {
     id: string;
     username: string;
@@ -17,29 +23,132 @@ type Msg = {
   };
 };
 
-const EMOJIS = ["??", "??", "??", "??", "??", "??", "??", "??", "??", "??", "??", "??"] as const;
+type PresenceRow = {
+  userId: string;
+  isTyping: boolean;
+  lastTypedAt?: string | null;
+  lastSeenAt?: string | null;
+  updatedAt: string;
+};
+
+type ThreadMeta = {
+  id: string;
+  other: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+};
+
+const EMOJIS = [":)", ":D", "<3", ":(", ":P", ";)", ":o", ":-|"] as const;
 
 export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserId: string }) {
+  const router = useRouter();
+  const sendCounter = useRef(0);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [meta, setMeta] = useState<ThreadMeta | null>(null);
+  const [presence, setPresence] = useState<PresenceRow[]>([]);
   const [text, setText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [status, setStatus] = useState("");
+  const typingOffTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/messages/threads/${threadId}/messages`, { cache: "no-store" });
     if (res.ok) setMessages((await res.json()) as Msg[]);
   }, [threadId]);
 
+  const loadMeta = useCallback(async () => {
+    const res = await fetch(`/api/messages/threads/${threadId}`, { cache: "no-store" });
+    if (res.ok) setMeta((await res.json()) as ThreadMeta);
+  }, [threadId]);
+
+  const loadPresence = useCallback(async () => {
+    const res = await fetch(`/api/messages/threads/${threadId}/presence`, { cache: "no-store" });
+    if (res.ok) setPresence((await res.json()) as PresenceRow[]);
+  }, [threadId]);
+
+  async function updateTyping(typing: boolean) {
+    await fetch(`/api/messages/threads/${threadId}/presence`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ typing }),
+    }).catch(() => null);
+  }
+
+  const otherPresence = useMemo(() => presence.find((row) => row.userId !== myUserId) ?? null, [myUserId, presence]);
+  const otherTyping = Boolean(
+    otherPresence?.isTyping &&
+      otherPresence.lastTypedAt &&
+      Date.now() - new Date(otherPresence.lastTypedAt).getTime() < 15_000,
+  );
+
+  const lastOwnMessage = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].senderId === myUserId) return messages[index];
+    }
+    return null;
+  }, [messages, myUserId]);
+
   useEffect(() => {
     void load();
+    void loadMeta();
+    void loadPresence();
     const id = setInterval(() => {
       void load();
+      void loadPresence();
     }, 6000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, loadMeta, loadPresence]);
 
   return (
     <div className="space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--border)] bg-[#0e1728] p-2">
+        <div className="flex items-center gap-2">
+          <Link href={meta ? `/profile/${meta.other.username}` : "/messages"} className="relative h-9 w-9 overflow-hidden rounded-full border border-[var(--border)]">
+            {meta?.other.avatarUrl ? (
+              <Image src={meta.other.avatarUrl} alt={meta.other.username} fill unoptimized className="object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-xs text-slate-100">
+                {(meta?.other.displayName ?? "?").charAt(0).toUpperCase()}
+              </span>
+            )}
+          </Link>
+          <div>
+            <Link href={meta ? `/profile/${meta.other.username}` : "/messages"} className="text-sm font-semibold text-[var(--text-strong)] hover:underline">
+              {meta?.other.displayName ?? "Direct Message"}
+            </Link>
+            <p className="text-xs text-slate-400">
+              {otherTyping ? "Typing..." : "Direct message thread"}
+            </p>
+          </div>
+        </div>
+        {meta ? (
+          <button
+            type="button"
+            className="rounded border border-red-400 px-2 py-1 text-xs text-red-200"
+            onClick={async () => {
+              const res = await fetch("/api/blocks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: meta.other.id }),
+              });
+              if (!res.ok) {
+                setStatus("Could not block user.");
+                return;
+              }
+              setStatus("User blocked. Thread closed.");
+              router.push("/messages");
+              router.refresh();
+            }}
+          >
+            Block user
+          </button>
+        ) : null}
+      </header>
+
       <div className="max-h-[60vh] space-y-3 overflow-y-auto rounded border border-[var(--border)] bg-[#0d1626] p-3">
         {messages.map((m) => (
           <article key={m.id} className="space-y-1">
@@ -61,10 +170,13 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
               </Link>
 
               <span className="text-[11px] text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
+              {m.editedAt ? <span className="text-[10px] text-slate-500">(edited)</span> : null}
+              {m.localStatus === "sending" ? <span className="text-[10px] text-slate-400">sending...</span> : null}
+              {m.localStatus === "failed" ? <span className="text-[10px] text-red-300">failed</span> : null}
 
               {m.senderId === myUserId ? (
                 <details className="relative">
-                  <summary className="cursor-pointer list-none text-xs text-slate-300">?</summary>
+                  <summary className="cursor-pointer list-none text-xs text-slate-300">v</summary>
                   <div className="absolute right-0 z-20 mt-1 min-w-[90px] rounded border border-[var(--border)] bg-[#111a2a] p-1 text-xs shadow-lg">
                     <button
                       type="button"
@@ -89,6 +201,20 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
                       }}
                     >
                       Hide
+                    </button>
+                    <button
+                      type="button"
+                      className="block w-full rounded px-2 py-1 text-left hover:bg-[#1c2a42]"
+                      onClick={async () => {
+                        await fetch(`/api/messages/threads/${threadId}/messages/${m.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "REPORT", reason: "Reported by conversation participant." }),
+                        });
+                        setStatus("Message reported for moderator review.");
+                      }}
+                    >
+                      Report
                     </button>
                   </div>
                 </details>
@@ -142,26 +268,105 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
                 m.body
               )}
             </div>
+            {m.localStatus === "failed" ? (
+              <div className="ml-auto w-fit">
+                <button
+                  type="button"
+                  className="rounded border border-red-400 px-2 py-1 text-[11px] text-red-200"
+                  onClick={async () => {
+                    const clientMessageId = m.clientMessageId?.trim();
+                    if (!clientMessageId) return;
+                    setMessages((previous) => previous.map((row) => (row.id === m.id ? { ...row, localStatus: "sending" } : row)));
+                    const res = await fetch(`/api/messages/threads/${threadId}/messages`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ body: m.body, clientMessageId }),
+                    });
+                    if (!res.ok) {
+                      setMessages((previous) => previous.map((row) => (row.id === m.id ? { ...row, localStatus: "failed" } : row)));
+                      return;
+                    }
+                    await load();
+                  }}
+                >
+                  Retry send
+                </button>
+              </div>
+            ) : null}
           </article>
         ))}
       </div>
+
+      {lastOwnMessage ? (
+        <p className="text-xs text-slate-400">
+          {lastOwnMessage.readAt ? `Read ${new Date(lastOwnMessage.readAt).toLocaleString()}` : "Sent"}
+        </p>
+      ) : null}
 
       <form
         className="flex gap-2"
         onSubmit={async (e) => {
           e.preventDefault();
           if (!text.trim()) return;
-          await fetch(`/api/messages/threads/${threadId}/messages`, {
+          const outgoing = text.trim();
+          const clientMessageId = `${Date.now()}-${sendCounter.current}`;
+          sendCounter.current += 1;
+
+          const optimistic: Msg = {
+            id: `local-${clientMessageId}`,
+            clientMessageId,
+            body: outgoing,
+            senderId: myUserId,
+            readAt: null,
+            createdAt: new Date().toISOString(),
+            localStatus: "sending",
+            sender: {
+              id: myUserId,
+              username: "you",
+              fullName: "You",
+              profile: null,
+            },
+          };
+          setMessages((previous) => [...previous, optimistic]);
+          setText("");
+          await updateTyping(false);
+
+          const res = await fetch(`/api/messages/threads/${threadId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ body: text }),
+            body: JSON.stringify({ body: outgoing, clientMessageId }),
           });
-          setText("");
+          if (!res.ok) {
+            setMessages((previous) =>
+              previous.map((row) =>
+                row.clientMessageId === clientMessageId ? { ...row, localStatus: "failed" } : row,
+              ),
+            );
+            return;
+          }
           await load();
+          await loadPresence();
         }}
       >
-        <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 rounded border px-3 py-2" placeholder="Type a message" />
-        <button className="rounded border border-[var(--border)] bg-[#8f7228] px-3 py-2 text-black" type="submit">Send</button>
+        <textarea
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            void updateTyping(true);
+            if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
+            typingOffTimer.current = setTimeout(() => {
+              void updateTyping(false);
+            }, 3000);
+          }}
+          onBlur={() => {
+            if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
+            void updateTyping(false);
+          }}
+          className="flex-1 rounded border px-3 py-2 text-sm"
+          placeholder="Type a message"
+          rows={2}
+        />
+        <button className="rounded border border-[var(--border)] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)]" type="submit">Send</button>
       </form>
 
       <div className="flex flex-wrap gap-1">
@@ -176,6 +381,7 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
           </button>
         ))}
       </div>
+      {status ? <p className="text-xs text-slate-300">{status}</p> : null}
     </div>
   );
 }
