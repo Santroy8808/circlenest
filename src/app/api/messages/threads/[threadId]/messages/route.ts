@@ -13,6 +13,11 @@ function isSchemaDriftError(error: unknown) {
   );
 }
 
+function knownPrismaCode(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) return error.code;
+  return null;
+}
+
 export async function GET(_request: Request, context: { params: { threadId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -109,13 +114,6 @@ export async function POST(request: Request, context: { params: { threadId: stri
           where: { id: thread.id },
           data: { updatedAt: new Date() },
         });
-        await tx.notification.create({
-          data: {
-            userId: receiverId,
-            type: "INBOX_MESSAGE",
-            body: `New inbox message from @${session.user.name ?? "member"}`,
-          },
-        });
         return created;
       });
     } catch (error) {
@@ -132,17 +130,46 @@ export async function POST(request: Request, context: { params: { threadId: stri
             where: { id: thread.id },
             data: { updatedAt: new Date() },
           });
-          await tx.notification.create({
-            data: {
-              userId: receiverId,
-              type: "NEW_MESSAGE",
-              body: "You received a new message",
-            },
-          });
           return created;
         });
       } else {
+        console.error("DM transaction failed", {
+          code: knownPrismaCode(error),
+          threadId: thread.id,
+          senderId: session.user.id,
+        });
         throw error;
+      }
+    }
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: receiverId,
+          type: "INBOX_MESSAGE",
+          body: `New inbox message from @${session.user.name ?? "member"}`,
+        },
+      });
+    } catch (error) {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: receiverId,
+            type: "NEW_MESSAGE",
+            body: "You received a new message",
+          },
+        });
+      } catch (fallbackError) {
+        console.warn("DM notification creation failed; message still delivered", {
+          code: knownPrismaCode(fallbackError),
+          receiverId,
+        });
+      }
+      if (!isSchemaDriftError(error)) {
+        console.warn("Primary DM notification type failed; attempted fallback type.", {
+          code: knownPrismaCode(error),
+          receiverId,
+        });
       }
     }
 
@@ -170,7 +197,7 @@ export async function POST(request: Request, context: { params: { threadId: stri
 
     return NextResponse.json(msg);
   } catch (error) {
-    console.error("Message send failed", error);
+    console.error("Message send failed", { code: knownPrismaCode(error), error });
     return NextResponse.json({ error: "Message send failed on server. Please retry." }, { status: 500 });
   }
 }
