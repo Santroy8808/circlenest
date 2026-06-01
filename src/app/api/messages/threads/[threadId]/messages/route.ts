@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeUserText, checkRateLimitPlaceholder } from "@/lib/security";
 import { getAuthorizedThread } from "@/lib/messages/thread-access";
 import { deliverPushNotification } from "@/lib/notifications/push";
+
+function isSchemaDriftError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
+}
 
 export async function GET(_request: Request, context: { params: { threadId: string } }) {
   const session = await auth();
@@ -50,74 +58,119 @@ export async function GET(_request: Request, context: { params: { threadId: stri
 }
 
 export async function POST(request: Request, context: { params: { threadId: string } }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const allowed = await checkRateLimitPlaceholder(`message:${session.user.id}`);
-  if (!allowed) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+    const allowed = await checkRateLimitPlaceholder(`message:${session.user.id}`);
+    if (!allowed) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
 
-  const body = (await request.json()) as { body?: string; clientMessageId?: string };
-  const messageText = body.body?.trim();
-  if (!messageText) return NextResponse.json({ error: "Message body required" }, { status: 400 });
+    const body = (await request.json()) as { body?: string; clientMessageId?: string };
+    const messageText = body.body?.trim();
+    if (!messageText) return NextResponse.json({ error: "Message body required" }, { status: 400 });
 
-  const access = await getAuthorizedThread(context.params.threadId, session.user.id);
-  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
-  const thread = access.thread;
+    const access = await getAuthorizedThread(context.params.threadId, session.user.id);
+    if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+    const thread = access.thread;
 
-  const normalizedClientMessageId = body.clientMessageId?.trim() || null;
-  if (normalizedClientMessageId) {
-    const existing = await prisma.message.findFirst({
-      where: {
-        threadId: thread.id,
-        senderId: session.user.id,
-        clientMessageId: normalizedClientMessageId,
-      },
-    });
-    if (existing) return NextResponse.json(existing);
+    let normalizedClientMessageId = body.clientMessageId?.trim() || null;
+    if (normalizedClientMessageId) {
+      try {
+        const existing = await prisma.message.findFirst({
+          where: {
+            threadId: thread.id,
+            senderId: session.user.id,
+            clientMessageId: normalizedClientMessageId,
+          },
+        });
+        if (existing) return NextResponse.json(existing);
+      } catch (error) {
+        if (isSchemaDriftError(error)) {
+          normalizedClientMessageId = null;
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    const receiverId = thread.userAId === session.user.id ? thread.userBId : thread.userAId;
+    let msg;
+    try {
+      msg = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            threadId: thread.id,
+            senderId: session.user.id,
+            ...(normalizedClientMessageId ? { clientMessageId: normalizedClientMessageId } : {}),
+            body: sanitizeUserText(messageText),
+          },
+        });
+        await tx.messageThread.update({
+          where: { id: thread.id },
+          data: { updatedAt: new Date() },
+        });
+        await tx.notification.create({
+          data: {
+            userId: receiverId,
+            type: "INBOX_MESSAGE",
+            body: `New inbox message from @${session.user.name ?? "member"}`,
+          },
+        });
+        return created;
+      });
+    } catch (error) {
+      if (isSchemaDriftError(error)) {
+        msg = await prisma.$transaction(async (tx) => {
+          const created = await tx.message.create({
+            data: {
+              threadId: thread.id,
+              senderId: session.user.id,
+              body: sanitizeUserText(messageText),
+            },
+          });
+          await tx.messageThread.update({
+            where: { id: thread.id },
+            data: { updatedAt: new Date() },
+          });
+          await tx.notification.create({
+            data: {
+              userId: receiverId,
+              type: "NEW_MESSAGE",
+              body: "You received a new message",
+            },
+          });
+          return created;
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    await prisma.messageThreadPresence
+      .upsert({
+        where: { threadId_userId: { threadId: thread.id, userId: session.user.id } },
+        create: {
+          threadId: thread.id,
+          userId: session.user.id,
+          isTyping: false,
+          lastSeenAt: new Date(),
+        },
+        update: {
+          isTyping: false,
+          lastSeenAt: new Date(),
+        },
+      })
+      .catch(() => null);
+
+    await deliverPushNotification(receiverId, {
+      title: "New message",
+      body: "You received a new direct message.",
+      url: `/messages/${thread.id}`,
+    }).catch(() => null);
+
+    return NextResponse.json(msg);
+  } catch (error) {
+    console.error("Message send failed", error);
+    return NextResponse.json({ error: "Message send failed on server. Please retry." }, { status: 500 });
   }
-
-  const receiverId = thread.userAId === session.user.id ? thread.userBId : thread.userAId;
-  const msg = await prisma.$transaction(async (tx) => {
-    const created = await tx.message.create({
-      data: {
-        threadId: thread.id,
-        senderId: session.user.id,
-        clientMessageId: normalizedClientMessageId,
-        body: sanitizeUserText(messageText),
-      },
-    });
-    await tx.messageThread.update({
-      where: { id: thread.id },
-      data: { updatedAt: new Date() },
-    });
-    await tx.messageThreadPresence.upsert({
-      where: { threadId_userId: { threadId: thread.id, userId: session.user.id } },
-      create: {
-        threadId: thread.id,
-        userId: session.user.id,
-        isTyping: false,
-        lastSeenAt: new Date(),
-      },
-      update: {
-        isTyping: false,
-        lastSeenAt: new Date(),
-      },
-    });
-    await tx.notification.create({
-      data: {
-        userId: receiverId,
-        type: "INBOX_MESSAGE",
-        body: `New inbox message from @${session.user.name ?? "member"}`,
-      },
-    });
-    return created;
-  });
-
-  await deliverPushNotification(receiverId, {
-    title: "New message",
-    body: "You received a new direct message.",
-    url: `/messages/${thread.id}`,
-  });
-
-  return NextResponse.json(msg);
 }
