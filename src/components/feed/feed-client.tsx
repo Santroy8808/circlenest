@@ -637,7 +637,7 @@ export function FeedClient({
                 ) : null}
                 <button
                   type="button"
-                  className="ml-2 text-xs text-slate-400 hover:text-slate-100"
+                  className="ml-2 inline-flex min-h-7 min-w-7 items-center justify-center text-lg leading-none text-slate-400 hover:text-slate-100"
                   onClick={() => openReply(post.id, comment.id, `@${comment.author.username} `)}
                 >
                   {`\u{21A9}`}
