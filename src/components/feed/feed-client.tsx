@@ -167,7 +167,8 @@ export function FeedClient({
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
   const [pollStatusByPost, setPollStatusByPost] = useState<Record<string, string>>({});
   const [showFloatingLauncher, setShowFloatingLauncher] = useState(true);
-  const showLauncher = showFloatingLauncher && !openComposer;
+  const showMobileLauncher = showFloatingLauncher && !openComposer;
+  const showDesktopLauncher = !openComposer;
   const commentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const lastScrollYRef = useRef(0);
 
@@ -376,11 +377,11 @@ export function FeedClient({
     <section className="space-y-6">
       {allowComposer ? (
         <div
-          className={`pointer-events-none fixed left-1/2 z-30 w-[min(720px,calc(100vw-1rem))] -translate-x-1/2 px-1 transition-transform duration-200 ${
-            showLauncher ? "translate-y-2 opacity-100" : "-translate-y-16 opacity-0"
+          className={`pointer-events-none fixed left-1/2 z-30 w-[min(720px,calc(100vw-1rem))] -translate-x-1/2 px-1 transition-transform duration-200 min-[700px]:hidden ${
+            showMobileLauncher ? "translate-y-2 opacity-100" : "-translate-y-16 opacity-0"
           }`}
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 56px)" }}
-          aria-hidden={!showLauncher}
+          aria-hidden={!showMobileLauncher}
         >
           <div className="pointer-events-auto">
             <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} />
@@ -388,7 +389,34 @@ export function FeedClient({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-end text-[11px]">
+      <div className="hidden min-[700px]:sticky min-[700px]:top-[52px] min-[700px]:z-20 min-[700px]:space-y-2 min-[700px]:bg-[var(--bg)]/96 min-[700px]:py-1 min-[700px]:backdrop-blur">
+        {allowComposer && showDesktopLauncher ? (
+          <div className="pointer-events-auto px-1">
+            <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} />
+          </div>
+        ) : null}
+        <div className="flex items-center justify-end rounded-md bg-[var(--bg)] px-2 py-1 text-[11px] shadow-sm">
+          <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
+            <span>Stream type</span>
+            <select
+              value={mode}
+              className="border-0 bg-transparent p-0 pr-5 text-[11px] text-slate-300 outline-none"
+              onChange={async (e) => {
+                const nextMode = e.target.value as FeedMode;
+                setMode(nextMode);
+                await patchPrefs({ mode: nextMode });
+                window.location.reload();
+              }}
+            >
+              {FEED_MODES.map((m) => (
+                <option key={m} value={m} className="bg-[#151b28] text-slate-100">{toTitleCase(m)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end text-[11px] min-[700px]:hidden">
         <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
           <span>Stream type</span>
           <select
@@ -596,8 +624,8 @@ export function FeedClient({
           return (
             <div key={comment.id} style={{ marginLeft: `${Math.min(depth, 3) * 14}px` }} className="space-y-1">
               <div className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
-                <Link href={`/profile/${comment.author.username}`} className="mr-1 text-slate-300 hover:underline">@{comment.author.username}</Link>
-                {comment.content ? <span className="text-slate-200">{comment.content}</span> : null}
+                <Link href={`/profile/${comment.author.username}`} className="mr-1 text-[var(--text-strong)] hover:underline">@{comment.author.username}</Link>
+                {comment.content ? <span className="text-slate-200">{`"${comment.content}"`}</span> : null}
                 {parseMedia(comment.mediaUrlsJson).length > 0 ? (
                   <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
                     {parseMedia(comment.mediaUrlsJson).map((url) => (

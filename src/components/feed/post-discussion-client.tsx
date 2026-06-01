@@ -197,7 +197,7 @@ export function PostDiscussionClient({
         {post.comments.map((comment) => (
           <div key={comment.id} className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
             <Link href={`/profile/${comment.author.username}`} className="mr-1 text-slate-300 hover:underline">@{comment.author.username}</Link>
-            {comment.content ? <span>{comment.content}</span> : null}
+            {comment.content ? <span>{`"${comment.content}"`}</span> : null}
             {parseMedia(comment.mediaUrlsJson).length ? (
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
                 {parseMedia(comment.mediaUrlsJson).map((url) => (
