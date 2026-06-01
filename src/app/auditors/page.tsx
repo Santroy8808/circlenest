@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { AuditorHubClient } from "@/components/auditors/auditor-hub-client";
+import { AuditorSearchClient } from "@/components/auditors/auditor-search-client";
 
 export default async function AuditorsPage() {
   const session = await auth();
@@ -16,7 +16,7 @@ export default async function AuditorsPage() {
 
   return (
     <AppShell>
-      <AuditorHubClient initialListings={listings} />
+      <AuditorSearchClient initialListings={listings} />
     </AppShell>
   );
 }

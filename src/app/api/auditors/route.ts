@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const classLevel = (searchParams.get("classLevel") ?? "").trim();
+  const q = (searchParams.get("q") ?? "").trim();
   const location = (searchParams.get("location") ?? "").trim();
   const country = (searchParams.get("country") ?? "").trim();
   const state = (searchParams.get("state") ?? "").trim();
@@ -21,6 +22,23 @@ export async function GET(request: Request) {
       ...(country ? { country: { contains: country, mode: "insensitive" } } : {}),
       ...(state ? { state: { contains: state, mode: "insensitive" } } : {}),
       ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
+      ...(q
+        ? {
+            OR: [
+              { displayName: { contains: q, mode: "insensitive" } },
+              { classLevel: { contains: q, mode: "insensitive" } },
+              { location: { contains: q, mode: "insensitive" } },
+              { country: { contains: q, mode: "insensitive" } },
+              { state: { contains: q, mode: "insensitive" } },
+              { city: { contains: q, mode: "insensitive" } },
+              { services: { contains: q, mode: "insensitive" } },
+              { bio: { contains: q, mode: "insensitive" } },
+              { credentials: { contains: q, mode: "insensitive" } },
+              { trainedAt: { contains: q, mode: "insensitive" } },
+              { user: { is: { username: { contains: q, mode: "insensitive" } } } },
+            ],
+          }
+        : {}),
     },
     include: { user: { select: { id: true, username: true } }, media: true },
     orderBy: { createdAt: "desc" },

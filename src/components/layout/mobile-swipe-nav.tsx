@@ -87,7 +87,7 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
               <Section title="Home" links={[["Home", "/home"], ["Profile", "/profile/edit"], ["My Scientology", "/profile/scientology"], ["Resume", "/profile/resume"], ["Gallery", "/profile/gallery"]]} onNavigate={() => setOpen(false)} />
               <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} onNavigate={() => setOpen(false)} />
               <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} onNavigate={() => setOpen(false)} />
-              <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"]]} onNavigate={() => setOpen(false)} />
+              <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"], ["I'm an Auditor", "/auditors/im-an-auditor"]]} onNavigate={() => setOpen(false)} />
               {includeAdmin ? <Section title="Admin" links={[["Admin Portal", "/admin"]]} onNavigate={() => setOpen(false)} /> : null}
               <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["Blocked Users", "/blocked-users"], ["My Subscription", "/settings#subscription"]]} onNavigate={() => setOpen(false)} />
             </nav>

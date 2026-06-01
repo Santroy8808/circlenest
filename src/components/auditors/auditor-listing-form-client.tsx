@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
 
-type Listing = {
+type Story = { title: string; body: string; attachments: string[] };
+
+type InitialListing = {
   id: string;
   displayName: string;
   classLevel: string;
@@ -19,13 +20,9 @@ type Listing = {
   specialtyCourses: string | null;
   bio: string | null;
   services: string | null;
-  successStories: string | null;
   successStoriesJson: string | null;
   media: Array<{ id: string; url: string; caption: string | null }>;
-  user: { id: string; username: string };
 };
-
-type Story = { title: string; body: string; attachments: string[] };
 
 function parseStories(raw: string | null | undefined): Story[] {
   if (!raw) return [];
@@ -46,42 +43,32 @@ function parseStories(raw: string | null | undefined): Story[] {
   }
 }
 
-export function AuditorHubClient({ initialListings }: { initialListings: Listing[] }) {
-  const [listings, setListings] = useState(initialListings);
+export function AuditorListingFormClient({ initialListing }: { initialListing: InitialListing | null }) {
   const [status, setStatus] = useState("");
-  const [search, setSearch] = useState({ classLevel: "", country: "", state: "", city: "", lookingForPcs: true });
   const [profile, setProfile] = useState({
-    displayName: "",
-    classLevel: "",
-    country: "",
-    state: "",
-    city: "",
-    location: "",
-    trainedAt: "",
-    credentials: "",
-    specialtyCourses: "",
-    services: "",
-    bio: "",
-    travels: false,
-    lookingForPcs: true,
+    displayName: initialListing?.displayName ?? "",
+    classLevel: initialListing?.classLevel ?? "",
+    country: initialListing?.country ?? "",
+    state: initialListing?.state ?? "",
+    city: initialListing?.city ?? "",
+    location: initialListing?.location ?? "",
+    trainedAt: initialListing?.trainedAt ?? "",
+    credentials: initialListing?.credentials ?? "",
+    specialtyCourses: initialListing?.specialtyCourses ?? "",
+    services: initialListing?.services ?? "",
+    bio: initialListing?.bio ?? "",
+    travels: initialListing?.travels ?? false,
+    lookingForPcs: initialListing?.lookingForPcs ?? true,
   });
   const [storyTitle, setStoryTitle] = useState("");
   const [storyBody, setStoryBody] = useState("");
   const [storyAttachments, setStoryAttachments] = useState<string[]>([]);
-  const [stories, setStories] = useState<Story[]>([]);
-  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [stories, setStories] = useState<Story[]>(parseStories(initialListing?.successStoriesJson));
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(
+    (initialListing?.media ?? []).map((item) => item.url).slice(0, 10),
+  );
 
-  async function runSearch() {
-    const query = new URLSearchParams();
-    if (search.classLevel) query.set("classLevel", search.classLevel);
-    if (search.country) query.set("country", search.country);
-    if (search.state) query.set("state", search.state);
-    if (search.city) query.set("city", search.city);
-    if (search.lookingForPcs) query.set("lookingForPcs", "1");
-    const res = await fetch(`/api/auditors?${query.toString()}`, { cache: "no-store" });
-    const body = (await res.json().catch(() => null)) as Listing[] | null;
-    if (Array.isArray(body)) setListings(body);
-  }
+  const storyCount = useMemo(() => stories.length, [stories]);
 
   async function uploadStoryFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -100,12 +87,14 @@ export function AuditorHubClient({ initialListings }: { initialListings: Listing
 
   async function uploadListingMedia(files: FileList | null) {
     if (!files?.length) return;
+    setStatus("Uploading listing media...");
     const urls: string[] = [];
     for (const file of Array.from(files).slice(0, 10)) {
       const uploaded = await uploadImageWithCompression(file, { purpose: "auditor-attachment" });
       if (uploaded.url) urls.push(uploaded.url);
     }
     setGalleryUrls((prev) => [...prev, ...urls].slice(0, 10));
+    setStatus(urls.length ? `Uploaded ${urls.length} image(s).` : "Could not upload listing media.");
   }
 
   async function saveProfile() {
@@ -113,7 +102,7 @@ export function AuditorHubClient({ initialListings }: { initialListings: Listing
       setStatus("Display name and class level are required.");
       return;
     }
-    setStatus("Saving auditor profile...");
+    setStatus("Saving auditor listing...");
     const res = await fetch("/api/auditors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -125,43 +114,17 @@ export function AuditorHubClient({ initialListings }: { initialListings: Listing
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      setStatus(body?.error ?? "Could not save profile.");
+      setStatus(body?.error ?? "Could not save listing.");
       return;
     }
-    setStatus("Auditor profile saved.");
-    await runSearch();
+    setStatus("Auditor listing saved.");
   }
-
-  const searchable = useMemo(
-    () => listings.filter((item) => item.lookingForPcs),
-    [listings],
-  );
 
   return (
     <section className="card space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Find an Auditor</h1>
-      <p className="text-sm text-slate-300">Two functions: create your auditor profile/listing, and search auditors looking for PCs.</p>
+      <h1 className="text-xl font-semibold">I&apos;m an Auditor</h1>
+      <p className="text-sm text-slate-300">Post your auditor listing so people can find you.</p>
 
-      <div className="grid gap-2 md:grid-cols-5">
-        <input value={search.classLevel} onChange={(e) => setSearch((p) => ({ ...p, classLevel: e.target.value }))} placeholder="Class level" className="rounded border px-3 py-2" />
-        <input value={search.country} onChange={(e) => setSearch((p) => ({ ...p, country: e.target.value }))} placeholder="Country" className="rounded border px-3 py-2" />
-        <input value={search.state} onChange={(e) => setSearch((p) => ({ ...p, state: e.target.value }))} placeholder="State" className="rounded border px-3 py-2" />
-        <input value={search.city} onChange={(e) => setSearch((p) => ({ ...p, city: e.target.value }))} placeholder="City" className="rounded border px-3 py-2" />
-        <button type="button" onClick={() => void runSearch()} className="rounded bg-slate-900 px-3 py-2 text-white">Search</button>
-      </div>
-
-      <div className="space-y-2">
-        {searchable.map((listing) => (
-          <article key={listing.id} className="rounded border border-[var(--border)] p-3">
-            <p className="font-medium">{listing.displayName}</p>
-            <p className="text-sm text-slate-400">{listing.classLevel} • {listing.city || ""} {listing.state || ""} {listing.country || ""} • @{listing.user.username}</p>
-            <p className="text-sm text-slate-300">{listing.bio || listing.services || "No bio yet."}</p>
-            <Link href={`/auditors/${listing.id}`} className="text-sm underline">View auditor profile</Link>
-          </article>
-        ))}
-      </div>
-
-      <hr className="border-[var(--border)]" />
       <h2 className="text-lg font-semibold">Post a Listing as an Auditor</h2>
       <div className="grid gap-2 md:grid-cols-2">
         <input value={profile.displayName} onChange={(e) => setProfile((p) => ({ ...p, displayName: e.target.value }))} placeholder="Display name" className="rounded border px-3 py-2" />
@@ -199,6 +162,7 @@ export function AuditorHubClient({ initialListings }: { initialListings: Listing
         >
           Add success story
         </button>
+        <p className="text-xs text-slate-400">{storyCount} stories added</p>
       </div>
 
       <div className="space-y-2 rounded border border-[var(--border)] p-3">
@@ -207,7 +171,9 @@ export function AuditorHubClient({ initialListings }: { initialListings: Listing
         <p className="text-xs text-slate-400">{galleryUrls.length}/10 uploaded</p>
       </div>
 
-      <button type="button" onClick={() => void saveProfile()} className="rounded bg-slate-900 px-3 py-2 text-white">Save auditor profile</button>
+      <button type="button" onClick={() => void saveProfile()} className="rounded bg-slate-900 px-3 py-2 text-white">
+        Save auditor profile
+      </button>
       {status ? <p className="text-sm text-slate-300">{status}</p> : null}
     </section>
   );
