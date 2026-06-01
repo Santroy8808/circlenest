@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       userId: receiver.id,
       type: "FRIEND_REQUEST",
       body: "You received a friend request",
+      targetUrl: "/friends#invites",
     },
   });
 

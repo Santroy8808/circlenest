@@ -169,6 +169,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
                         userId: post.authorId,
                         type: "STREAM_POST_APPROVED",
                         body: "Your post on a friend/family stream was approved.",
+                        targetUrl: `/posts/${post.id}`,
                       },
                     });
                   }}

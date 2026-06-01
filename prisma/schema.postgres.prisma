@@ -511,6 +511,7 @@ model Notification {
   userId      String
   type        String
   body        String
+  targetUrl   String?
   readAt      DateTime?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

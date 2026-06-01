@@ -1,22 +1,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-
-async function markNotificationRead(formData: FormData) {
-  "use server";
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  const id = String(formData.get("id") ?? "").trim();
-  if (!id) return;
-
-  await prisma.notification.updateMany({
-    where: { id, userId: session.user.id, readAt: null },
-    data: { readAt: new Date() },
-  });
-  revalidatePath("/notifications");
-}
 
 async function markAllNotificationsRead() {
   "use server";
@@ -34,7 +21,11 @@ export default async function NotificationsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const notifications = await prisma.notification.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" }, take: 50 });
+  const notifications = await prisma.notification.findMany({
+    where: { userId: session.user.id, readAt: null },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
 
   return (
     <AppShell>
@@ -46,29 +37,21 @@ export default async function NotificationsPage() {
           </form>
         </div>
         <p className="mb-3 text-sm text-slate-300">
-          Notifications are activity from others or the platform: mentions, messages, tags, friend requests, and reactions.
-          Opt-in reminders you requested are in Alerts.
+          Tap any notification to open it. Opening a notification marks it as read automatically.
         </p>
         <div className="space-y-2">
           {notifications.map((n) => (
-            <div key={n.id} className="rounded border border-slate-200 p-2 text-sm">
+            <div key={n.id} className="rounded border border-slate-200 p-2 text-sm hover:bg-[#13233a]">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <Link href={`/notifications/open?id=${encodeURIComponent(n.id)}`} className="min-w-0 flex-1">
                   <p className="font-medium">{n.type}</p>
                   <p className="text-slate-100">{n.body}</p>
-                </div>
-                {n.readAt ? (
-                  <span className="text-[11px] text-slate-300">Read</span>
-                ) : (
-                  <form action={markNotificationRead}>
-                    <input type="hidden" name="id" value={n.id} />
-                    <button type="submit" className="text-xs underline">Mark read</button>
-                  </form>
-                )}
+                  <p className="mt-1 text-[11px] text-slate-400">{new Date(n.createdAt).toLocaleString()}</p>
+                </Link>
               </div>
             </div>
           ))}
-          {notifications.length === 0 ? <p className="text-sm text-slate-300">No notifications yet.</p> : null}
+          {notifications.length === 0 ? <p className="text-sm text-slate-300">No unread notifications.</p> : null}
         </div>
       </div>
     </AppShell>

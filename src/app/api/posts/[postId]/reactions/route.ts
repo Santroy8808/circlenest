@@ -24,6 +24,7 @@ export async function POST(request: Request, context: { params: { postId: string
         userId: post.authorId,
         type: "POST_REACTION",
         body: `@${session.user.name ?? "member"} reacted (${type}) to your post`,
+        targetUrl: `/posts/${post.id}`,
       },
     });
   }

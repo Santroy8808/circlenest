@@ -24,9 +24,9 @@ export async function POST(_request: Request, context: { params: { postId: strin
       userId: post.authorId,
       type: "STREAM_POST_APPROVED",
       body: "Your post on a friend/family stream was approved.",
+      targetUrl: `/posts/${post.id}`,
     },
   });
 
   return NextResponse.json({ ok: true });
 }
-

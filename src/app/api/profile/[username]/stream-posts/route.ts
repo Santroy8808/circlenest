@@ -71,6 +71,7 @@ export async function POST(request: Request, context: { params: { username: stri
       body: pending
         ? "A friend/family stream post is waiting for your approval."
         : "A friend/family member posted on your stream.",
+      targetUrl: pending ? `/profile/${owner.username}` : `/posts/${post.id}`,
     },
   });
 

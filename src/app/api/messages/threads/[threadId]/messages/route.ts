@@ -148,6 +148,7 @@ export async function POST(request: Request, context: { params: { threadId: stri
           userId: receiverId,
           type: "INBOX_MESSAGE",
           body: `New inbox message from @${session.user.name ?? "member"}`,
+          targetUrl: `/messages/${thread.id}`,
         },
       });
     } catch (error) {
@@ -157,6 +158,7 @@ export async function POST(request: Request, context: { params: { threadId: stri
             userId: receiverId,
             type: "NEW_MESSAGE",
             body: "You received a new message",
+            targetUrl: `/messages/${thread.id}`,
           },
         });
       } catch (fallbackError) {

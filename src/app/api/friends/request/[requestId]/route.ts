@@ -20,7 +20,14 @@ export async function PATCH(request: Request, context: { params: { requestId: st
   if (status === "ACCEPTED") {
     const [userAId, userBId] = [reqRow.senderId, reqRow.receiverId].sort();
     await prisma.friendship.create({ data: { userAId, userBId } });
-    await prisma.notification.create({ data: { userId: reqRow.senderId, type: "FRIEND_ACCEPTED", body: "Your friend request was accepted" } });
+    await prisma.notification.create({
+      data: {
+        userId: reqRow.senderId,
+        type: "FRIEND_ACCEPTED",
+        body: "Your friend request was accepted",
+        targetUrl: "/friends",
+      },
+    });
   }
 
   return NextResponse.json({ ok: true, status });

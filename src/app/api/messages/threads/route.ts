@@ -66,6 +66,7 @@ export async function POST(request: Request) {
           userId: other.id,
           type: "INBOX_MESSAGE",
           body: `New inbox message from @${session.user.name ?? "member"}`,
+          targetUrl: `/messages/${thread.id}`,
         },
       }),
     ]);

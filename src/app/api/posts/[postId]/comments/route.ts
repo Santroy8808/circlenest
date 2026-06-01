@@ -52,13 +52,14 @@ export async function POST(request: Request, context: { params: { postId: string
   });
 
   const actor = `@${comment.author.username}`;
-  const notifications: Array<{ userId: string; type: string; body: string }> = [];
+  const notifications: Array<{ userId: string; type: string; body: string; targetUrl: string }> = [];
 
   if (post.authorId !== session.user.id) {
     notifications.push({
       userId: post.authorId,
       type: "POST_COMMENT",
       body: `${actor} commented on your post`,
+      targetUrl: `/posts/${context.params.postId}`,
     });
   }
 
@@ -67,6 +68,7 @@ export async function POST(request: Request, context: { params: { postId: string
       userId: parentAuthorId,
       type: "POST_REPLY",
       body: `${actor} replied to your comment`,
+      targetUrl: `/posts/${context.params.postId}`,
     });
   }
 

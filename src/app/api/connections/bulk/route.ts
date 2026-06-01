@@ -79,7 +79,12 @@ export async function PATCH(request: Request) {
         data: { senderId: session.user.id, receiverId: targetId, status: "PENDING" },
       });
       await prisma.notification.create({
-        data: { userId: targetId, type: "FRIEND_REQUEST", body: "You received a friend request" },
+        data: {
+          userId: targetId,
+          type: "FRIEND_REQUEST",
+          body: "You received a friend request",
+          targetUrl: "/friends#invites",
+        },
       });
       changed++;
     }

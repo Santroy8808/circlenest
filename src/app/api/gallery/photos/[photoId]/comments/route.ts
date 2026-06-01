@@ -55,13 +55,14 @@ export async function POST(request: Request, context: { params: { photoId: strin
   });
 
   const actor = `@${created.author.username}`;
-  const notifications: Array<{ userId: string; type: string; body: string }> = [];
+  const notifications: Array<{ userId: string; type: string; body: string; targetUrl: string }> = [];
 
   if (photo.album.userId !== session.user.id) {
     notifications.push({
       userId: photo.album.userId,
       type: "PHOTO_COMMENT",
       body: `${actor} commented on your photo`,
+      targetUrl: `/profile/gallery`,
     });
   }
 
@@ -70,6 +71,7 @@ export async function POST(request: Request, context: { params: { photoId: strin
       userId: parentAuthorId,
       type: "PHOTO_REPLY",
       body: `${actor} replied to your photo comment`,
+      targetUrl: `/profile/gallery`,
     });
   }
 
