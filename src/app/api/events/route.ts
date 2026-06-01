@@ -64,5 +64,17 @@ export async function POST(request: Request) {
     },
   });
 
+  const inviteNotifications = invitees
+    .filter((invitee) => invitee.id !== session.user.id)
+    .map((invitee) => ({
+      userId: invitee.id,
+      type: "EVENT_INVITE",
+      body: `You were invited to event: ${title}`,
+      targetUrl: "/events",
+    }));
+  if (inviteNotifications.length > 0) {
+    await prisma.notification.createMany({ data: inviteNotifications });
+  }
+
   return NextResponse.json(event);
 }

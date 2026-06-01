@@ -60,6 +60,17 @@ export default async function EventsPage() {
                 invitations: invitees.length ? { create: invitees.map((invitee) => ({ inviteeId: invitee.id })) } : undefined,
               },
             });
+            const inviteNotifications = invitees
+              .filter((invitee) => invitee.id !== current.user.id)
+              .map((invitee) => ({
+                userId: invitee.id,
+                type: "EVENT_INVITE",
+                body: `You were invited to event: ${title}`,
+                targetUrl: "/events",
+              }));
+            if (inviteNotifications.length > 0) {
+              await prisma.notification.createMany({ data: inviteNotifications });
+            }
           }}
           className="grid gap-2 md:grid-cols-2"
         >

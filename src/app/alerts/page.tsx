@@ -115,7 +115,7 @@ export default async function AlertsPage() {
         <div className="card p-4">
           <h1 className="text-xl font-semibold">Alerts</h1>
           <p className="mt-2 text-sm text-slate-300">
-            Alerts are opt-in updates you requested. Notifications are social activity from others, such as messages, mentions, tags, and friend requests.
+            Alerts are opt-in updates you explicitly subscribed to. Invites, messages, comments, and other social activity are handled in Notifications.
           </p>
         </div>
 
