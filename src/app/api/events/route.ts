@@ -12,9 +12,13 @@ export async function GET() {
       OR: [
         { creatorId: session.user.id },
         { invitations: { some: { inviteeId: session.user.id } } },
+        { moderators: { some: { userId: session.user.id } } },
       ],
     },
-    include: { creator: { select: { username: true } } },
+    include: {
+      creator: { select: { username: true } },
+      moderators: { include: { user: { select: { username: true } } } },
+    },
     orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
@@ -61,6 +65,14 @@ export async function POST(request: Request) {
       invitations: invitees.length
         ? { create: invitees.map((invitee) => ({ inviteeId: invitee.id })) }
         : undefined,
+    },
+  });
+
+  await prisma.eventModerator.create({
+    data: {
+      eventId: event.id,
+      userId: session.user.id,
+      grantedById: session.user.id,
     },
   });
 

@@ -1,8 +1,10 @@
-﻿import { notFound, redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { isAdminUser } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { GroupDetailClient } from "@/components/groups/group-detail-client";
+import { canModerateGroup } from "@/lib/auth/scoped-moderation";
 
 export default async function GroupPage({ params }: { params: { groupId: string } }) {
   const session = await auth();
@@ -33,8 +35,9 @@ export default async function GroupPage({ params }: { params: { groupId: string 
 
   if (!group) notFound();
 
+  const isAdmin = await isAdminUser(session.user.id);
   const myMember = group.members.find((m) => m.userId === session.user.id);
-  const canModerate = group.ownerId === session.user.id || myMember?.role === "MODERATOR" || myMember?.role === "CREATOR";
+  const canModerate = await canModerateGroup(session.user.id, group.id);
 
   return (
     <AppShell>
@@ -79,7 +82,7 @@ export default async function GroupPage({ params }: { params: { groupId: string 
           photoAlbums: group.photoAlbums.map((a) => ({ id: a.id, title: a.title, description: a.description })),
         }}
         currentUserId={session.user.id}
-        currentRole={myMember?.role || null}
+        currentRole={myMember?.role || (isAdmin ? "ADMIN" : null)}
         canModerate={Boolean(canModerate)}
       />
     </AppShell>

@@ -50,7 +50,11 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
   const [bulkRemoveTags, setBulkRemoveTags] = useState("");
 
   const isMember = Boolean(currentRole);
-  const isCreator = group.ownerId === currentUserId || currentRole === "CREATOR";
+  const isOwner = group.ownerId === currentUserId;
+  const displayRole = (role: string) => {
+    if (role === "CREATOR" || role === "MODERATOR") return "Moderator";
+    return role;
+  };
   const parsedTags = (raw: string | null): string[] => {
     if (!raw) return [];
     try {
@@ -107,7 +111,7 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
           </div>
           <div className="flex gap-2">
             {!isMember ? <button className="rounded bg-blue-600 px-3 py-2 text-sm text-white" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
-            {isMember && !isCreator ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
+            {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
           </div>
         </div>
         {status ? <p className="mt-2 text-sm text-slate-600">{status}</p> : null}
@@ -480,7 +484,7 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
           {group.members.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">
               <span>
-                <Link href={`/profile/${m.username}`} className="underline">@{m.username}</Link> • {m.role}
+                <Link href={`/profile/${m.username}`} className="underline">@{m.username}</Link> • {displayRole(m.role)}
               </span>
               {canModerate && m.id !== group.ownerId ? (
                 <div className="flex gap-2">
