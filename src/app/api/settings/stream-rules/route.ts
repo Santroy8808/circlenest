@@ -13,7 +13,7 @@ export async function GET() {
     },
   });
   return NextResponse.json({
-    allowFriendFamilyStreamPosts: pref?.allowFriendFamilyStreamPosts ?? true,
+    allowFriendFamilyStreamPosts: pref?.requireApprovalForFriendFamilyStreamPosts ? false : (pref?.allowFriendFamilyStreamPosts ?? true),
     requireApprovalForFriendFamilyStreamPosts: pref?.requireApprovalForFriendFamilyStreamPosts ?? false,
   });
 }
@@ -25,16 +25,17 @@ export async function PATCH(request: Request) {
     allowFriendFamilyStreamPosts?: boolean;
     requireApprovalForFriendFamilyStreamPosts?: boolean;
   };
+  const approval = Boolean(body.requireApprovalForFriendFamilyStreamPosts);
   const pref = await prisma.userFeedPreference.upsert({
     where: { userId: session.user.id },
     create: {
       userId: session.user.id,
-      allowFriendFamilyStreamPosts: body.allowFriendFamilyStreamPosts ?? true,
-      requireApprovalForFriendFamilyStreamPosts: body.requireApprovalForFriendFamilyStreamPosts ?? false,
+      allowFriendFamilyStreamPosts: !approval,
+      requireApprovalForFriendFamilyStreamPosts: approval,
     },
     update: {
-      allowFriendFamilyStreamPosts: body.allowFriendFamilyStreamPosts,
-      requireApprovalForFriendFamilyStreamPosts: body.requireApprovalForFriendFamilyStreamPosts,
+      allowFriendFamilyStreamPosts: !approval,
+      requireApprovalForFriendFamilyStreamPosts: approval,
     },
     select: {
       allowFriendFamilyStreamPosts: true,

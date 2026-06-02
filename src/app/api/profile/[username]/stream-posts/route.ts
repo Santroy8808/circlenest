@@ -44,7 +44,9 @@ export async function POST(request: Request, context: { params: { username: stri
       requireApprovalForFriendFamilyStreamPosts: true,
     },
   });
-  if (rules && rules.allowFriendFamilyStreamPosts === false) {
+  const approvalMode = Boolean(rules?.requireApprovalForFriendFamilyStreamPosts);
+  const allowDirectPosting = approvalMode ? false : (rules?.allowFriendFamilyStreamPosts ?? true);
+  if (!allowDirectPosting && !approvalMode) {
     return NextResponse.json({ error: "This user does not allow friend/family stream posts." }, { status: 403 });
   }
 
@@ -52,7 +54,7 @@ export async function POST(request: Request, context: { params: { username: stri
   const content = String(body.content ?? "").trim();
   if (!content) return NextResponse.json({ error: "Content is required" }, { status: 400 });
 
-  const pending = Boolean(rules?.requireApprovalForFriendFamilyStreamPosts);
+  const pending = approvalMode;
   const post = await prisma.post.create({
     data: {
       authorId: session.user.id,
