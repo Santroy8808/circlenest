@@ -20,6 +20,11 @@ Promotion flow
 4. Push `main` from the production repo.
 5. Let Railway auto-deploy, then smoke test production.
 
+Operating rule
+- Edit in Dev: all feature work, fixes, and experiments happen in `circlenest-dev`.
+- Backup Prod: before promotion, create a stable point and keep the production bundle backup current.
+- Push Dev to Prod: only approved changes move from `circlenest-dev` into `circlenest`.
+
 Rollback and backup flow
 - Before risky production changes, create a stable point tag:
   - `npm run stable:create -- -Name <name> -Note "reason" -Push`
