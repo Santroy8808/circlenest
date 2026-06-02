@@ -5,7 +5,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/layout/logout-button";
 
 type SwipeSide = "LEFT" | "RIGHT";
-type MenuSection = { title: string; items: [string, string][] };
+type MenuSection = { title: string; items: [string, string, boolean?][] };
 
 const EDGE_SIZE = 44;
 const OPEN_DELTA = 44;
@@ -24,12 +24,12 @@ const mobileSections: MenuSection[] = [
   {
     title: "Production Zone",
     items: [
-      ["Production Zone", "/production-zone"],
-      ["Events", "/events"],
-      ["Bazaar", "/bazaar"],
-      ["Hiring Board", "/jobs"],
-      ["Find an Auditor", "/auditors"],
-      ["I'm an Auditor", "/auditors/im-an-auditor"],
+      ["Production Zone", "/production-zone", true],
+      ["Events", "/events", true],
+      ["Bazaar", "/bazaar", true],
+      ["Hiring Board", "/jobs", true],
+      ["Find an Auditor", "/auditors", true],
+      ["I'm an Auditor", "/auditors/im-an-auditor", true],
     ],
   },
   {
@@ -197,16 +197,21 @@ function Section({
   onNavigate,
 }: {
   title: string;
-  links: [string, string][];
+  links: [string, string, boolean?][];
   onNavigate: () => void;
 }) {
   return (
     <section className="border border-[var(--border)] bg-[#101a2c] p-3">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
       <div className="grid gap-1">
-        {links.map(([label, href]) => (
-          <Link key={href} href={href} className="text-[13px] text-slate-300 transition hover:text-white" onClick={onNavigate}>
-            {label}
+        {links.map(([label, href, comingSoon]) => (
+          <Link key={href} href={href} className="flex items-center gap-2 text-[13px] text-slate-300 transition hover:text-white" onClick={onNavigate}>
+            <span>{label}</span>
+            {comingSoon ? (
+              <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
+                Coming soon!
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>
