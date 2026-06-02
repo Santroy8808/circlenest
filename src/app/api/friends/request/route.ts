@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -60,6 +61,15 @@ export async function POST(request: Request) {
       targetUrl: "/friends#invites",
     },
   });
+  await deliverPushNotification(
+    receiver.id,
+    {
+      title: "Friend request",
+      body: "You received a friend request",
+      url: "/friends#invites",
+    },
+    "notification",
+  );
 
   return NextResponse.json(requestRow);
 }

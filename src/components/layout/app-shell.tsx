@@ -58,19 +58,29 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
 
           <nav className="space-y-3 text-xs">
             <Section
-              title="Home"
+              title="Profile"
               links={[
+                ["Home", "/home"],
                 ["Profile", "/profile/edit"],
                 ["My Scientology", "/profile/scientology"],
                 ["Resume", "/profile/resume"],
                 ["Gallery", "/profile/gallery"],
               ]}
             />
-            <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} />
-            <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"], ["I'm an Auditor", "/auditors/im-an-auditor"]]} />
-            {adminAccess ? <Section title="Admin" links={[["Admin Portal", "/admin"]]} /> : null}
-            <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["Blocked Users", "/blocked-users"], ["My Subscription", "/settings#subscription"]]} />
+            <Section title="Production Zone" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"], ["I'm an Auditor", "/auditors/im-an-auditor"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"], ["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
+            <Section
+              title="Settings"
+              links={[
+                ["Security", "/settings"],
+                ["Theme", "/settings/theme"],
+                ["My Rules", "/settings#rules"],
+                ["Notification Dings", "/settings#notifications"],
+                ...(adminAccess ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
+                ["Blocked Users", "/blocked-users"],
+                ["My Subscription", "/settings#subscription"],
+              ]}
+            />
           </nav>
           <div className="mt-4 border-t border-[var(--border)] pt-3">
             <LogoutButton />

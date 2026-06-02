@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function POST(request: Request, context: { params: { postId: string } }) {
   const session = await auth();
@@ -27,6 +28,15 @@ export async function POST(request: Request, context: { params: { postId: string
         targetUrl: `/posts/${post.id}`,
       },
     });
+    await deliverPushNotification(
+      post.authorId,
+      {
+        title: "Post reaction",
+        body: `@${session.user.name ?? "member"} reacted (${type}) to your post`,
+        url: `/posts/${post.id}`,
+      },
+      "notification",
+    );
   }
 
   return NextResponse.json(reaction);

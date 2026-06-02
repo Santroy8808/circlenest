@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeUserText } from "@/lib/security";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function POST(request: Request, context: { params: { username: string } }) {
   const session = await auth();
@@ -74,6 +75,17 @@ export async function POST(request: Request, context: { params: { username: stri
       targetUrl: pending ? `/profile/${owner.username}` : `/posts/${post.id}`,
     },
   });
+  await deliverPushNotification(
+    owner.id,
+    {
+      title: pending ? "Stream post pending" : "New stream post",
+      body: pending
+        ? "A friend/family stream post is waiting for your approval."
+        : "A friend/family member posted on your stream.",
+      url: pending ? `/profile/${owner.username}` : `/posts/${post.id}`,
+    },
+    "notification",
+  );
 
   return NextResponse.json({ ok: true, pending, postId: post.id });
 }

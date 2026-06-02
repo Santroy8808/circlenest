@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { SecureAreaSessionClient } from "@/components/security/secure-area-session-client";
 import { MobileNavigationSettings } from "@/components/settings/mobile-navigation-settings";
+import { NotificationDingsSettings } from "@/components/settings/notification-dings-settings";
 import { StreamRulesSettings } from "@/components/settings/stream-rules-settings";
 import { PetitionForm } from "@/components/settings/petition-form";
 import { requireSecureAreaPage } from "@/lib/security/secure-area-guards";
@@ -27,6 +28,7 @@ export default async function SettingsPage() {
           <Link href="/settings#subscription" className="underline underline-offset-2 hover:scale-[1.02]">My Subscription</Link>
         </div>
         <MobileNavigationSettings />
+        <NotificationDingsSettings />
         <StreamRulesSettings />
         <PetitionForm />
       </div>

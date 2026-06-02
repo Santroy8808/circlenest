@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function POST(_request: Request, context: { params: { postId: string } }) {
   const session = await auth();
@@ -27,6 +28,15 @@ export async function POST(_request: Request, context: { params: { postId: strin
       targetUrl: `/posts/${post.id}`,
     },
   });
+  await deliverPushNotification(
+    post.authorId,
+    {
+      title: "Stream post approved",
+      body: "Your post on a friend/family stream was approved.",
+      url: `/posts/${post.id}`,
+    },
+    "notification",
+  );
 
   return NextResponse.json({ ok: true });
 }

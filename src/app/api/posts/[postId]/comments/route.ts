@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeUserText, checkRateLimitPlaceholder } from "@/lib/security";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function POST(request: Request, context: { params: { postId: string } }) {
   const session = await auth();
@@ -74,6 +75,19 @@ export async function POST(request: Request, context: { params: { postId: string
 
   if (notifications.length > 0) {
     await prisma.notification.createMany({ data: notifications });
+    await Promise.all(
+      notifications.map((notification) =>
+        deliverPushNotification(
+          notification.userId,
+          {
+            title: "New notification",
+            body: notification.body,
+            url: notification.targetUrl,
+          },
+          "notification",
+        ),
+      ),
+    );
   }
 
   return NextResponse.json(comment);

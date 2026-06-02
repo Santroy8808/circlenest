@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
+import { validateStrongPassword } from "@/lib/security/password-policy";
 
 const INTEREST_OPTIONS = ["Technology", "Science", "Gaming", "Music", "Movies", "Books", "Travel", "Fitness", "Art", "Business", "Family", "News", "Sports", "Health", "Education", "Spirituality"];
 const SUBSCRIPTION_OPTIONS = [
@@ -77,6 +78,12 @@ export default function SignupPage() {
               return;
             }
 
+            const passwordError = validateStrongPassword(form.password);
+            if (passwordError) {
+              setError(passwordError);
+              return;
+            }
+
             if (form.password !== form.confirmPassword) {
               setError("Passwords do not match.");
               return;
@@ -113,8 +120,11 @@ export default function SignupPage() {
               }),
             });
             if (!res.ok) {
-              const body = (await res.json()) as { error?: string };
-              setError(body.error ?? "Signup failed");
+              const body = (await res.json()) as { error?: string; fieldErrors?: Record<string, string[] | undefined> };
+              const firstFieldError = body.fieldErrors
+                ? Object.values(body.fieldErrors).flat().find((message): message is string => typeof message === "string" && message.trim().length > 0)
+                : undefined;
+              setError(firstFieldError ?? body.error ?? "Signup failed");
               return;
             }
             router.push("/?notice=email_verification_sent");
@@ -149,7 +159,7 @@ export default function SignupPage() {
                 value={form.lastOnLinesAt}
                 onChange={(e) => setForm((prev) => ({ ...prev, lastOnLinesAt: e.target.value }))}
                 placeholder="Current org"
-                className="rounded-md border px-2 py-1.5 text-sm text-black"
+                className="rounded-md border px-2 py-1.5 text-sm"
               />
             </label>
             <label className="grid gap-1 text-xs text-slate-300">
@@ -159,7 +169,7 @@ export default function SignupPage() {
                 value={form.lastService}
                 onChange={(e) => setForm((prev) => ({ ...prev, lastService: e.target.value }))}
                 placeholder="Last service done"
-                className="rounded-md border px-2 py-1.5 text-sm text-black"
+                className="rounded-md border px-2 py-1.5 text-sm"
               />
             </label>
             <label className="grid gap-1 text-xs text-slate-300">
@@ -169,7 +179,7 @@ export default function SignupPage() {
                 value={form.lastServiceWhen}
                 onChange={(e) => setForm((prev) => ({ ...prev, lastServiceWhen: e.target.value }))}
                 placeholder="Month/year or date"
-                className="rounded-md border px-2 py-1.5 text-sm text-black"
+                className="rounded-md border px-2 py-1.5 text-sm"
               />
             </label>
           </div>
@@ -180,7 +190,7 @@ export default function SignupPage() {
                 name="iasStatus"
                 value={form.iasStatus}
                 onChange={(e) => setForm((prev) => ({ ...prev, iasStatus: e.target.value }))}
-                className="rounded-md border px-2 py-1.5 text-sm text-black"
+                className="rounded-md border px-2 py-1.5 text-sm"
               >
                 <option value="">Select one</option>
                 <option value="YES">Yes</option>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 type BulkAction = "FOLLOW" | "UNFOLLOW" | "SEND_REQUEST" | "UNFRIEND";
 
@@ -86,6 +87,15 @@ export async function PATCH(request: Request) {
           targetUrl: "/friends#invites",
         },
       });
+      await deliverPushNotification(
+        targetId,
+        {
+          title: "Friend request",
+          body: "You received a friend request",
+          url: "/friends#invites",
+        },
+        "notification",
+      );
       changed++;
     }
   }

@@ -15,13 +15,13 @@ export async function GET(request: Request) {
       ...(q
         ? {
             OR: [
-              { companyName: { contains: q, mode: "insensitive" } },
-              { title: { contains: q, mode: "insensitive" } },
-              { duties: { contains: q, mode: "insensitive" } },
+              { companyName: { contains: q } },
+              { title: { contains: q } },
+              { duties: { contains: q } },
             ],
           }
         : {}),
-      ...(location ? { location: { contains: location, mode: "insensitive" } } : {}),
+      ...(location ? { location: { contains: location } } : {}),
     },
     include: { creator: { select: { id: true, username: true } } },
     orderBy: { createdAt: "desc" },
@@ -65,4 +65,5 @@ export async function POST(request: Request) {
   });
   return NextResponse.json(created);
 }
+
 

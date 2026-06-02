@@ -20,7 +20,22 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = signupSchema.safeParse(body);
 
-  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (!parsed.success) {
+    const flattened = parsed.error.flatten();
+    const firstFieldMessage =
+      Object.values(flattened.fieldErrors)
+        .flat()
+        .find((message): message is string => typeof message === "string" && message.trim().length > 0) ??
+      parsed.error.issues[0]?.message;
+
+    return NextResponse.json(
+      {
+        error: firstFieldMessage ?? "Invalid input",
+        fieldErrors: flattened.fieldErrors,
+      },
+      { status: 400 },
+    );
+  }
 
   const normalizedEmail = parsed.data.email.trim().toLowerCase();
   const normalizedBackupEmail = parsed.data.backupEmail?.trim().toLowerCase() || undefined;

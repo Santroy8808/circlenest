@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const other = normalizedUserId
     ? await prisma.user.findUnique({ where: { id: normalizedUserId } })
     : await prisma.user.findFirst({
-        where: { username: { equals: normalizedUsername, mode: "insensitive" } },
+        where: { username: { equals: normalizedUsername } },
       });
   if (!other) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (other.id === session.user.id) return NextResponse.json({ error: "Invalid target" }, { status: 400 });
@@ -147,3 +147,4 @@ export async function GET() {
 
   return NextResponse.json(enriched);
 }
+

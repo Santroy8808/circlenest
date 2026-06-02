@@ -31,7 +31,7 @@ export const signupSchema = z.object({
   phoneNumber: z.string().min(7).max(30),
   backupEmail: z.preprocess(nullOrEmptyToUndefined, z.string().email().optional()),
   recoveryPhoneNumber: z.preprocess(nullOrEmptyToUndefined, z.string().min(7).max(30).optional()),
-  username: z.string().min(3).max(24).regex(/^[a-zA-Z0-9_]+$/),
+  username: z.string().min(3).max(24).regex(/^[a-zA-Z0-9_]+$/, "Username can only use letters, numbers, and underscores."),
   password: z.string().min(8).max(72),
   city: z.string().min(2).max(80),
   state: z.string().min(2).max(80),

@@ -59,12 +59,35 @@ label[for]:active {
   transform: translateY(0) scale(0.99);
 }
 
-input,
+input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 textarea,
 select {
-  background: #2a3346;
-  color: #e5e7eb;
-  border-color: var(--border) !important;
+  width: 100%;
+  background: #23324a;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.7rem;
+  line-height: 1.35;
+}
+
+input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])::placeholder,
+textarea::placeholder {
+  color: #bfc8d9;
+  opacity: 1;
+}
+
+input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(214, 178, 74, 0.72);
+  box-shadow: 0 0 0 2px rgba(214, 178, 74, 0.24);
+}
+
+select option {
+  background: #0f1a2b;
+  color: var(--text);
 }
 
 /* Contrast lift for dark-blue UI surfaces */

@@ -1,6 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 function buildGoogleMapsUrl(locationName?: string, latitude?: number, longitude?: number): string | null {
   if (typeof latitude === "number" && typeof longitude === "number") {
@@ -64,17 +65,35 @@ export async function POST(request: Request, context: { params: { groupId: strin
 
   const targetUserIds = Array.from(new Set(subscriptions.map((subscription) => subscription.userId)));
   if (targetUserIds.length) {
+    const alertBody = `${group.name}: ${event.title} was added to your subscribed event alerts.`;
     await prisma.alert.createMany({
       data: targetUserIds.map((userId) => ({
         userId,
         type: "GROUP_EVENT",
         sourceType: "GROUP",
         sourceId: context.params.groupId,
-        body: `${group.name}: ${event.title} was added to your subscribed event alerts.`,
+        body: alertBody,
       })),
     });
+
+    await Promise.allSettled(
+      targetUserIds.map((userId) =>
+        deliverPushNotification(
+          userId,
+          {
+            title: "New alert",
+            body: alertBody,
+            url: "/alerts",
+            kind: "alert",
+          },
+          "alert",
+        ),
+      ),
+    );
   }
 
   return NextResponse.json(event);
 }
+
+
 

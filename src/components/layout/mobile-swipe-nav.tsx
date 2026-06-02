@@ -5,12 +5,61 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/layout/logout-button";
 
 type SwipeSide = "LEFT" | "RIGHT";
+type MenuSection = { title: string; items: [string, string][] };
 
 const EDGE_SIZE = 44;
 const OPEN_DELTA = 44;
 
+const mobileSections: MenuSection[] = [
+  {
+    title: "Profile",
+    items: [
+      ["Home", "/home"],
+      ["Profile", "/profile/edit"],
+      ["My Scientology", "/profile/scientology"],
+      ["Resume", "/profile/resume"],
+      ["Gallery", "/profile/gallery"],
+    ],
+  },
+  {
+    title: "Production Zone",
+    items: [
+      ["Production Zone", "/production-zone"],
+      ["Events", "/events"],
+      ["Bazaar", "/bazaar"],
+      ["Hiring Board", "/jobs"],
+      ["Find an Auditor", "/auditors"],
+      ["I'm an Auditor", "/auditors/im-an-auditor"],
+    ],
+  },
+  {
+    title: "People",
+    items: [
+      ["Friends", "/friends"],
+      ["Groups", "/groups"],
+      ["My Groups", "/groups?mine=1"],
+      ["Messages", "/messages"],
+      ["Notifications", "/notifications"],
+      ["Alerts", "/alerts"],
+      ["Invites", "/friends#invites"],
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
+      ["Security", "/settings"],
+      ["Theme", "/settings/theme"],
+      ["My Rules", "/settings#rules"],
+      ["Notification Dings", "/settings#notifications"],
+      ["Blocked Users", "/blocked-users"],
+      ["My Subscription", "/settings#subscription"],
+    ],
+  },
+];
+
 export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?: SwipeSide; includeAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [activeSectionTitle, setActiveSectionTitle] = useState<string | null>(null);
 
   useEffect(() => {
     let startX = 0;
@@ -82,14 +131,42 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
       {open ? (
         <div className="fixed inset-0 z-50 min-[700px]:hidden">
           <button className="absolute inset-0 bg-black/55" type="button" onClick={() => setOpen(false)} aria-label="Close menu overlay" />
-          <aside className={`absolute top-0 h-full w-[50vw] max-w-[280px] min-w-[220px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
-            <nav className="space-y-3 text-xs">
-              <Section title="Home" links={[["Home", "/home"], ["Profile", "/profile/edit"], ["My Scientology", "/profile/scientology"], ["Resume", "/profile/resume"], ["Gallery", "/profile/gallery"]]} onNavigate={() => setOpen(false)} />
-              <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} onNavigate={() => setOpen(false)} />
-              <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"]]} onNavigate={() => setOpen(false)} />
-              <Section title="Production" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"], ["I'm an Auditor", "/auditors/im-an-auditor"]]} onNavigate={() => setOpen(false)} />
-              {includeAdmin ? <Section title="Admin" links={[["Admin Portal", "/admin"]]} onNavigate={() => setOpen(false)} /> : null}
-              <Section title="Settings" links={[["Security", "/settings"], ["Theme", "/settings/theme"], ["My Rules", "/settings#rules"], ["Blocked Users", "/blocked-users"], ["My Subscription", "/settings#subscription"]]} onNavigate={() => setOpen(false)} />
+          <aside className={`absolute top-0 h-full w-[44vw] max-w-[250px] min-w-[208px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
+            <nav className="space-y-2 text-xs">
+              {activeSectionTitle == null ? (
+                <>
+                  <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Menu</p>
+                  {mobileSections.map((section) => (
+                    <PrimaryRow
+                      key={section.title}
+                      label={section.title}
+                      onTap={() => setActiveSectionTitle(section.title)}
+                    />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]"
+                    onClick={() => setActiveSectionTitle(null)}
+                  >
+                    Back
+                  </button>
+                  <Section
+                    title={activeSectionTitle}
+                    links={
+                      activeSectionTitle === "Settings" && includeAdmin
+                        ? [
+                            ...((mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? []) as [string, string][]),
+                            ["Admin Portal", "/admin"],
+                          ]
+                        : (mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? [])
+                    }
+                    onNavigate={() => setOpen(false)}
+                  />
+                </>
+              )}
             </nav>
             <div className="mt-4 border-t border-[var(--border)] pt-3 text-sm">
               <LogoutButton />
@@ -98,6 +175,19 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
         </div>
       ) : null}
     </>
+  );
+}
+
+function PrimaryRow({ label, onTap }: { label: string; onTap: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      className="flex w-full items-center justify-between rounded-md border border-[var(--border)] bg-[#111c30] px-3 py-3 text-left text-[16px] font-semibold text-[#f4f7ff]"
+    >
+      <span>{label}</span>
+      <span className="text-[#f2d78d]">{"\u203A"}</span>
+    </button>
   );
 }
 
@@ -111,8 +201,8 @@ function Section({
   onNavigate: () => void;
 }) {
   return (
-    <section className="border-t border-[var(--border)] pt-2">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
+    <section className="border border-[var(--border)] bg-[#101a2c] p-3">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
       <div className="grid gap-1">
         {links.map(([label, href]) => (
           <Link key={href} href={href} className="text-[13px] text-slate-300 transition hover:text-white" onClick={onNavigate}>

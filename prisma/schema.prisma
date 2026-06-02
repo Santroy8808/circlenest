@@ -577,6 +577,8 @@ model UserFeedPreference {
   mobileNavSwipeSide String @default("RIGHT")
   allowFriendFamilyStreamPosts Boolean @default(true)
   requireApprovalForFriendFamilyStreamPosts Boolean @default(false)
+  notificationDingsEnabled Boolean @default(true)
+  alertDingsEnabled Boolean @default(true)
   closeFriendIds String?
   hiddenPostIds  String?
   topicWeights   String?

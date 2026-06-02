@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeUserText } from "@/lib/security";
 import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 async function canViewPhoto(userId: string, photoId: string) {
   const photo = await prisma.photo.findUnique({
@@ -77,6 +78,19 @@ export async function POST(request: Request, context: { params: { photoId: strin
 
   if (notifications.length > 0) {
     await prisma.notification.createMany({ data: notifications });
+    await Promise.all(
+      notifications.map((notification) =>
+        deliverPushNotification(
+          notification.userId,
+          {
+            title: "New notification",
+            body: notification.body,
+            url: notification.targetUrl,
+          },
+          "notification",
+        ),
+      ),
+    );
   }
   return NextResponse.json(created);
 }

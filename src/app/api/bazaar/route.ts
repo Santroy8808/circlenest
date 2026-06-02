@@ -19,13 +19,13 @@ export async function GET(request: Request) {
       ...(q
         ? {
             OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
-              { category: { contains: q, mode: "insensitive" } },
+              { title: { contains: q } },
+              { description: { contains: q } },
+              { category: { contains: q } },
             ],
           }
         : {}),
-      ...(location ? { location: { contains: location, mode: "insensitive" } } : {}),
+      ...(location ? { location: { contains: location } } : {}),
       ...(!Number.isNaN(minPrice) ? { price: { gte: minPrice } } : {}),
       ...(!Number.isNaN(maxPrice) ? { price: { lte: maxPrice } } : {}),
     },
@@ -73,3 +73,4 @@ export async function POST(request: Request) {
   });
   return NextResponse.json(listing);
 }
+

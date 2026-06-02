@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { deliverPushNotification } from "@/lib/notifications/push";
 
 export async function PATCH(request: Request, context: { params: { requestId: string } }) {
   const session = await auth();
@@ -28,6 +29,15 @@ export async function PATCH(request: Request, context: { params: { requestId: st
         targetUrl: "/friends",
       },
     });
+    await deliverPushNotification(
+      reqRow.senderId,
+      {
+        title: "Friend request accepted",
+        body: "Your friend request was accepted",
+        url: "/friends",
+      },
+      "notification",
+    );
   }
 
   return NextResponse.json({ ok: true, status });

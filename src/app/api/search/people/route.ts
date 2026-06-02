@@ -14,9 +14,9 @@ export async function GET(request: Request) {
     where: {
       id: { not: session.user.id },
       OR: [
-        { username: { contains: q, mode: "insensitive" } },
-        { fullName: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
+        { username: { contains: q } },
+        { fullName: { contains: q } },
+        { email: { contains: q } },
       ],
     },
     select: { id: true, username: true, fullName: true },
@@ -26,4 +26,5 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ people });
 }
+
 
