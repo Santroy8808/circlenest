@@ -67,7 +67,17 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
                 ["Gallery", "/profile/gallery"],
               ]}
             />
-            <Section title="Production Zone" links={[["Production Zone", "/production-zone"], ["Events", "/events"], ["Bazaar", "/bazaar"], ["Hiring Board", "/jobs"], ["Find an Auditor", "/auditors"], ["I'm an Auditor", "/auditors/im-an-auditor"]]} />
+            <Section
+              title="Production Zone"
+              links={[
+                ["Production Zone", "/production-zone", true],
+                ["Events", "/events", true],
+                ["Bazaar", "/bazaar", true],
+                ["Hiring Board", "/jobs", true],
+                ["Find an Auditor", "/auditors", true],
+                ["I'm an Auditor", "/auditors/im-an-auditor", true],
+              ]}
+            />
             <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"], ["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
             <Section
               title="Settings"
@@ -123,14 +133,19 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
   );
 }
 
-function Section({ title, links }: { title: string; links: [string, string][] }) {
+function Section({ title, links }: { title: string; links: [string, string, boolean?][] }) {
   return (
     <section className="border-t border-[var(--border)] pt-2">
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
       <div className="grid gap-1">
-        {links.map(([label, href]) => (
-          <Link key={href} href={href} className="text-[13px] text-slate-300 transition hover:translate-y-[-1px] hover:scale-[1.02] hover:text-white">
-            {label}
+        {links.map(([label, href, comingSoon]) => (
+          <Link key={href} href={href} className="flex items-center gap-2 text-[13px] text-slate-300 transition hover:translate-y-[-1px] hover:scale-[1.02] hover:text-white">
+            <span>{label}</span>
+            {comingSoon ? (
+              <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
+                Coming soon!
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>
