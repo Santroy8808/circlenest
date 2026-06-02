@@ -61,6 +61,8 @@ model User {
   createdGroupEvents GroupEvent[]
   createdEvents      Event[]
   eventInvitations   EventInvitation[]
+  eventModerators    EventModerator[]   @relation("EventModerators")
+  eventModeratorGrants EventModerator[] @relation("EventModeratorGrants")
   groupForumThreads  GroupForumThread[]
   groupForumPosts    GroupForumPost[]
   groupDocuments     GroupDocument[]
@@ -316,6 +318,7 @@ model Event {
   createdAt     DateTime @default(now())
   creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   invitations   EventInvitation[]
+  moderators    EventModerator[]
   @@index([startsAt, createdAt])
   @@index([creatorId, createdAt])
 }
@@ -330,6 +333,20 @@ model EventInvitation {
   invitee    User     @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
   @@unique([eventId, inviteeId])
   @@index([inviteeId, status, createdAt])
+}
+
+model EventModerator {
+  id          String   @id @default(cuid())
+  eventId     String
+  userId      String
+  grantedById String
+  createdAt   DateTime @default(now())
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User     @relation("EventModerators", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User     @relation("EventModeratorGrants", fields: [grantedById], references: [id], onDelete: Cascade)
+  @@unique([eventId, userId])
+  @@index([eventId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model BazaarListing {

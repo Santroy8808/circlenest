@@ -72,7 +72,7 @@ function CreateGroupCard() {
           });
 
           await prisma.groupMember.create({
-            data: { groupId: group.id, userId: session.user.id, role: "CREATOR" },
+            data: { groupId: group.id, userId: session.user.id, role: "MODERATOR" },
           });
         }}
         className="grid gap-2 md:grid-cols-[1fr_2fr_auto_auto_auto]"

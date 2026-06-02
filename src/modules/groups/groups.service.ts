@@ -22,7 +22,7 @@ export async function createGroupForUser(userId: string, body: CreateGroupInput)
   });
 
   await prisma.groupMember.create({
-    data: { groupId: group.id, userId, role: "CREATOR" },
+    data: { groupId: group.id, userId, role: "MODERATOR" },
   });
 
   void ensureGroupStorageRoot(group.id).catch((error) => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { deliverPushNotification } from "@/lib/notifications/push";
+import { canModerateGroup } from "@/lib/auth/scoped-moderation";
 
 function buildGoogleMapsUrl(locationName?: string, latitude?: number, longitude?: number): string | null {
   if (typeof latitude === "number" && typeof longitude === "number") {
@@ -16,7 +17,7 @@ export async function POST(request: Request, context: { params: { groupId: strin
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId: context.params.groupId, userId: session.user.id } } });
-  if (!membership) return NextResponse.json({ error: "Join group first" }, { status: 403 });
+  if (!membership && !(await canModerateGroup(session.user.id, context.params.groupId))) return NextResponse.json({ error: "Join group first" }, { status: 403 });
 
   const body = (await request.json()) as {
     title?: string;

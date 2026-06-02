@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { canModerateGroup } from "@/lib/auth/scoped-moderation";
 
 export async function PATCH(request: Request, context: { params: { groupId: string; requestId: string } }) {
   const session = await auth();
@@ -8,10 +9,10 @@ export async function PATCH(request: Request, context: { params: { groupId: stri
 
   const group = await prisma.group.findUnique({
     where: { id: context.params.groupId },
-    select: { id: true, ownerId: true },
+    select: { id: true },
   });
   if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
-  if (group.ownerId !== session.user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canModerateGroup(session.user.id, context.params.groupId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = (await request.json()) as { action?: "APPROVE" | "DENY" };
   const action = body.action === "APPROVE" ? "APPROVE" : "DENY";
