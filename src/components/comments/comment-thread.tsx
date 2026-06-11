@@ -53,10 +53,21 @@ function parseMedia(raw?: string | null): string[] {
   }
 }
 
+function uniqueComments<T extends CommentThreadItem>(comments: T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const comment of comments) {
+    if (seen.has(comment.id)) continue;
+    seen.add(comment.id);
+    unique.push(comment);
+  }
+  return unique;
+}
+
 function buildCommentTree<T extends CommentThreadItem>(comments: T[]): CommentNode<T>[] {
   const byId = new Map<string, CommentNode<T>>();
   const roots: CommentNode<T>[] = [];
-  const sorted = [...comments].sort((a, b) => toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime());
+  const sorted = uniqueComments(comments).sort((a, b) => toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime());
 
   for (const comment of sorted) {
     byId.set(comment.id, { ...comment, children: [] });

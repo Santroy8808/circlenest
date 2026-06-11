@@ -165,6 +165,7 @@ export function FeedClient({
   const [commentMediaByPost, setCommentMediaByPost] = useState<Record<string, string[]>>({});
   const [commentMediaBusyByPost, setCommentMediaBusyByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string>>({});
+  const [commentSubmittingByPost, setCommentSubmittingByPost] = useState<Record<string, boolean>>({});
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [hasOlderArchive, setHasOlderArchive] = useState(initialHasOlderArchive);
   const [loadingOlderArchive, setLoadingOlderArchive] = useState(false);
@@ -175,6 +176,7 @@ export function FeedClient({
   const showMobileLauncher = showFloatingLauncher && !openComposer;
   const showDesktopLauncher = !openComposer;
   const commentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const commentSubmittingRefs = useRef<Record<string, boolean>>({});
   const lastScrollYRef = useRef(0);
 
   const modeLabel = useMemo(() => toTitleCase(mode), [mode]);
@@ -746,30 +748,38 @@ export function FeedClient({
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
+                    if (commentSubmittingRefs.current[post.id]) return;
                     const content = (draftByPost[post.id] ?? "").trim();
                     const mediaUrls = commentMediaByPost[post.id] ?? [];
                     if (!content && mediaUrls.length === 0) return;
-                    const res = await fetch(`/api/posts/${post.id}/comments`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ content, parentCommentId: replyParentByPost[post.id] ?? null, mediaUrls }),
-                    });
-                    if (!res.ok) {
-                      let message = "Could not add comment.";
-                      try {
-                        const body = (await res.json()) as { error?: string };
-                        if (body.error) message = body.error;
-                      } catch {
-                        // no-op
+                    commentSubmittingRefs.current[post.id] = true;
+                    setCommentSubmittingByPost((prev) => ({ ...prev, [post.id]: true }));
+                    try {
+                      const res = await fetch(`/api/posts/${post.id}/comments`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ content, parentCommentId: replyParentByPost[post.id] ?? null, mediaUrls }),
+                      });
+                      if (!res.ok) {
+                        let message = "Could not add comment.";
+                        try {
+                          const body = (await res.json()) as { error?: string };
+                          if (body.error) message = body.error;
+                        } catch {
+                          // no-op
+                        }
+                        setCommentErrorByPost((prev) => ({ ...prev, [post.id]: message }));
+                        return;
                       }
-                      setCommentErrorByPost((prev) => ({ ...prev, [post.id]: message }));
-                      return;
+                      setDraftByPost((prev) => ({ ...prev, [post.id]: "" }));
+                      setCommentMediaByPost((prev) => ({ ...prev, [post.id]: [] }));
+                      setReplyPostId(null);
+                      setReplyParentByPost((prev) => ({ ...prev, [post.id]: null }));
+                      window.location.reload();
+                    } finally {
+                      commentSubmittingRefs.current[post.id] = false;
+                      setCommentSubmittingByPost((prev) => ({ ...prev, [post.id]: false }));
                     }
-                    setDraftByPost((prev) => ({ ...prev, [post.id]: "" }));
-                    setCommentMediaByPost((prev) => ({ ...prev, [post.id]: [] }));
-                    setReplyPostId(null);
-                    setReplyParentByPost((prev) => ({ ...prev, [post.id]: null }));
-                    window.location.reload();
                   }}
                   className="space-y-1"
                 >
@@ -798,8 +808,9 @@ export function FeedClient({
                       <button
                         className="inline-flex min-h-9 items-center rounded-md border border-[#6a5420] bg-[#b89033] px-3 py-1.5 text-sm font-semibold text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:bg-[#c59a36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b25a]"
                         type="submit"
+                        disabled={Boolean(commentSubmittingByPost[post.id])}
                       >
-                        Comment
+                        {commentSubmittingByPost[post.id] ? "Commenting..." : "Comment"}
                       </button>
                     </div>
                   </div>
