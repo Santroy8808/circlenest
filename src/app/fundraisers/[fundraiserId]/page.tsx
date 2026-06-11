@@ -70,6 +70,7 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
       content: comment.content,
       mediaUrlsJson: comment.mediaUrlsJson,
       createdAt: comment.createdAt.toISOString(),
+      parentCommentId: comment.parentCommentId,
       author: {
         id: comment.author.id,
         username: comment.author.username,

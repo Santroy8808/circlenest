@@ -7,12 +7,14 @@ import { useRouter } from "next/navigation";
 import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
 import { ReportControl } from "@/components/reports/report-control";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 type PostDiscussionComment = {
   id: string;
   content: string;
   mediaUrlsJson?: string | null;
   parentCommentId: string | null;
+  createdAt: string | Date;
   author: { username: string };
 };
 
@@ -50,6 +52,8 @@ export function PostDiscussionClient({
   const [error, setError] = useState("");
   const [pollStatus, setPollStatus] = useState("");
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
+  const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   function parseMedia(raw?: string | null): string[] {
@@ -91,13 +95,17 @@ export function PostDiscussionClient({
     const res = await fetch(`/api/posts/${post.id}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: value, mediaUrls }),
+      body: JSON.stringify({ content: value, parentCommentId: replyToCommentId, mediaUrls }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       setError(body.error ?? "Could not add comment");
       return;
     }
+    setReplyToCommentId(null);
+    setReplyToUsername(null);
+    setContent("");
+    setMediaUrls([]);
     router.push(safeReturnTo);
     router.refresh();
   }
@@ -197,30 +205,37 @@ export function PostDiscussionClient({
           {pollStatus ? <p className="mt-2 text-xs text-slate-400">{pollStatus}</p> : null}
         </div>
       ) : null}
-      <div className="space-y-2">
-        {post.comments.map((comment) => (
-          <div key={comment.id} className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
-            <Link href={`/profile/${comment.author.username}`} className="mr-1 text-slate-300 hover:underline">@{comment.author.username}</Link>
-            {comment.content ? <span>{`"${comment.content}"`}</span> : null}
-            {parseMedia(comment.mediaUrlsJson).length ? (
-              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
-                {parseMedia(comment.mediaUrlsJson).map((url) => (
-                  <button key={`${comment.id}-${url}`} type="button" className="block text-left" onClick={() => setExpandedMediaUrl(url)}>
-                    <Image src={url} alt="Comment media" width={560} height={420} unoptimized className="h-24 w-full rounded-md object-cover" />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <div className="mt-2 max-w-sm">
-              <ReportControl targetType="COMMENT" targetId={comment.id} label="Report comment" compact />
-            </div>
-          </div>
-        ))}
-      </div>
+      <CommentThread
+        comments={post.comments}
+        onReply={(comment) => {
+          setReplyToCommentId(comment.id);
+          setReplyToUsername(comment.author.username);
+          setContent((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
+          inputRef.current?.focus();
+        }}
+        renderActions={(comment) => <ReportControl targetType="COMMENT" targetId={comment.id} label="Report comment" compact />}
+        onOpenMedia={(url) => setExpandedMediaUrl(url)}
+        emptyText="No comments yet."
+      />
       {post.commentsLocked && post.author.id !== currentUserId ? (
         <p className="text-xs text-slate-400">Comments are locked by the post owner.</p>
       ) : (
         <div className="space-y-2">
+          {replyToUsername ? (
+            <div className="flex items-center justify-between rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+              <span>Replying to @{replyToUsername}</span>
+              <button
+                type="button"
+                className="text-amber-100 underline"
+                onClick={() => {
+                  setReplyToCommentId(null);
+                  setReplyToUsername(null);
+                }}
+              >
+                Cancel reply
+              </button>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <button type="button" className="underline" onClick={() => insertFormat("**", "**")}>B</button>
             <button type="button" className="italic underline" onClick={() => insertFormat("_", "_")}>I</button>
@@ -232,7 +247,7 @@ export function PostDiscussionClient({
             value={content}
             onChange={(event) => setContent(event.target.value)}
             className="h-24 w-full rounded-md border px-3 py-2 text-sm"
-            placeholder="Write a comment"
+            placeholder={replyToUsername ? `Reply to @${replyToUsername}` : "Write a comment"}
           />
           <div className="flex items-center justify-between">
             <label className="inline-flex cursor-pointer items-center rounded-md border border-[#3d4e6d] bg-[#1a2335] px-2 py-1 text-xs text-slate-200 hover:bg-[#243149]">

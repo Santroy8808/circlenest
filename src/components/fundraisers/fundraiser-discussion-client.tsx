@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 const FUNDRAISER_FIELD_CLASS =
   "w-full rounded-lg border border-[#52647f] bg-[#253145] px-3 py-2 font-sans text-sm leading-5 text-[#f3f6fb] shadow-inner shadow-black/10 placeholder:text-slate-400 focus:border-amber-300/60 focus:outline-none focus:ring-2 focus:ring-amber-300/25";
@@ -15,6 +16,7 @@ type FundraiserComment = {
   content: string;
   mediaUrlsJson: string | null;
   createdAt: string;
+  parentCommentId: string | null;
   author: {
     id: string;
     username: string;
@@ -52,16 +54,6 @@ type FundraiserDiscussionClientProps = {
   currentUserId: string;
 };
 
-function parseMedia(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
 export function FundraiserDiscussionClient({ fundraiser, currentUserId }: FundraiserDiscussionClientProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -70,6 +62,8 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [error, setError] = useState("");
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
+  const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
 
   async function uploadCommentMedia(files: FileList | null) {
     if (!files?.length) return;
@@ -100,7 +94,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
     const res = await fetch(`/api/fundraisers/${fundraiser.id}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: value, mediaUrls }),
+      body: JSON.stringify({ content: value, parentCommentId: replyToCommentId, mediaUrls }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -109,6 +103,8 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
     }
     setContent("");
     setMediaUrls([]);
+    setReplyToCommentId(null);
+    setReplyToUsername(null);
     router.refresh();
   }
 
@@ -152,34 +148,34 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
         )}
       </div>
 
-      <div className="space-y-3">
-        {fundraiser.comments.length ? (
-          fundraiser.comments.map((comment) => (
-            <article key={comment.id} className="rounded border border-[var(--border)] bg-[#11192a] px-3 py-2 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <Link href={`/profile/${comment.author.username}`} className="font-semibold text-amber-200 hover:underline">
-                  @{comment.author.username}
-                </Link>
-                <span className="text-[11px] text-slate-500">{new Date(comment.createdAt).toLocaleString()}</span>
-              </div>
-              {comment.content ? <p className="mt-2 whitespace-pre-wrap text-slate-100">{`"${comment.content}"`}</p> : null}
-              {parseMedia(comment.mediaUrlsJson).length ? (
-                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
-                  {parseMedia(comment.mediaUrlsJson).map((url) => (
-                    <button key={`${comment.id}-${url}`} type="button" className="text-left" onClick={() => setExpandedMediaUrl(url)}>
-                      <Image src={url} alt="Fund raiser comment media" width={560} height={420} unoptimized className="h-24 w-full rounded-md object-cover" />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </article>
-          ))
-        ) : (
-          <p className="rounded border border-[var(--border)] bg-[#11192a] px-3 py-3 text-sm text-slate-400">No comments yet.</p>
-        )}
-      </div>
+      <CommentThread
+        comments={fundraiser.comments}
+        onReply={(comment) => {
+          setReplyToCommentId(comment.id);
+          setReplyToUsername(comment.author.username);
+          setContent((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
+          inputRef.current?.focus();
+        }}
+        onOpenMedia={(url) => setExpandedMediaUrl(url)}
+        emptyText="No comments yet."
+      />
 
       <div className="space-y-2 rounded border border-[var(--border)] bg-[#11192a] p-3">
+        {replyToUsername ? (
+          <div className="flex items-center justify-between rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+            <span>Replying to @{replyToUsername}</span>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                setReplyToCommentId(null);
+                setReplyToUsername(null);
+              }}
+            >
+              Cancel reply
+            </button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button type="button" className="underline" onClick={() => insertFormat("**", "**")}>
             B
@@ -199,7 +195,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
           value={content}
           onChange={(event) => setContent(event.target.value)}
           className={`${FUNDRAISER_FIELD_CLASS} h-28`}
-          placeholder="Write a comment"
+          placeholder={replyToUsername ? `Reply to @${replyToUsername}` : "Write a comment"}
         />
         <div className="flex items-center justify-between gap-3">
           <label className="inline-flex cursor-pointer items-center rounded-md border border-[#3d4e6d] bg-[#1a2335] px-3 py-2 text-xs text-slate-200 hover:bg-[#243149]">

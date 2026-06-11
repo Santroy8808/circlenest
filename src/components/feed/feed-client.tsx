@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -8,6 +8,7 @@ import { FEED_MODES, type FeedMode } from "@/lib/feed/modes";
 import { CommunicateLauncher } from "@/components/layout/communicate-launcher";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 const EMOJIS = [
   "\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F44D}", "\u{1F525}", "\u{1F389}",
@@ -104,15 +105,6 @@ function getThreadPreviewComments(comments: Comment[]) {
     .filter((comment) => parseMedia(comment.mediaUrlsJson).length === 0)
     .sort((a, b) => toTimeValue(b.createdAt) - toTimeValue(a.createdAt))
     .slice(0, 3);
-}
-
-function clampRowsStyle(rows: number): CSSProperties {
-  return {
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: rows,
-    overflow: "hidden",
-  };
 }
 
 async function patchPrefs(payload: Record<string, string | boolean>) {
@@ -639,7 +631,6 @@ export function FeedClient({
 
       {posts.map((post, idx) => {
         const previewComments = getThreadPreviewComments(post.comments);
-        const previewRows = Math.max(1, Math.floor(6 / Math.max(previewComments.length || 1, 1)));
 
         return (
           <article key={post.id} className={`rounded-[10px] px-6 py-5 shadow-sm ${idx % 2 === 0 ? "bg-[#121a2a]" : "bg-[#0f1726]"}`}>
@@ -744,21 +735,7 @@ export function FeedClient({
             <div className="mt-4 space-y-2">
               <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Latest text in thread</div>
               {previewComments.length > 0 ? (
-                <div className="space-y-2">
-                  {previewComments.map((comment) => (
-                    <div key={comment.id} className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
-                      <p
-                        className="text-slate-200"
-                        style={clampRowsStyle(previewRows)}
-                      >
-                        <Link href={`/profile/${comment.author.username}`} className="mr-1 text-[var(--text-strong)] hover:underline">
-                          @{comment.author.username}
-                        </Link>
-                        {comment.content ? <span>{`"${comment.content}"`}</span> : null}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <CommentThread comments={previewComments} compact className="space-y-2" emptyText="No text-only thread posts yet." />
               ) : (
                 <p className="text-xs text-slate-500">No text-only thread posts yet.</p>
               )}

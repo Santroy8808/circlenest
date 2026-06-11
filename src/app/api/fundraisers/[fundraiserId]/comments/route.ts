@@ -21,7 +21,7 @@ export async function POST(request: Request, context: { params: { fundraiserId: 
   });
   if (!fundraiser) return NextResponse.json({ error: "Fund raiser not found" }, { status: 404 });
 
-  const body = (await request.json().catch(() => ({}))) as { content?: string; mediaUrls?: string[] };
+  const body = (await request.json().catch(() => ({}))) as { content?: string; parentCommentId?: string | null; mediaUrls?: string[] };
   const content = sanitizeUserText(String(body.content ?? "").trim());
   const mediaUrls = Array.isArray(body.mediaUrls)
     ? body.mediaUrls
@@ -34,10 +34,21 @@ export async function POST(request: Request, context: { params: { fundraiserId: 
     return NextResponse.json({ error: "Add text or media to comment" }, { status: 400 });
   }
 
+  let parentAuthorId: string | null = null;
+  if (body.parentCommentId) {
+    const parent = await prisma.fundraiserComment.findFirst({
+      where: { id: body.parentCommentId, fundraiserId: fundraiser.id },
+      select: { id: true, authorId: true },
+    });
+    if (!parent) return NextResponse.json({ error: "Parent comment not found in this fund raiser" }, { status: 400 });
+    parentAuthorId = parent.authorId;
+  }
+
   const comment = await prisma.fundraiserComment.create({
     data: {
       fundraiserId: fundraiser.id,
       authorId: session.user.id,
+      parentCommentId: body.parentCommentId ?? null,
       content,
       mediaUrlsJson: mediaUrls.length ? JSON.stringify(mediaUrls) : null,
     },
@@ -60,6 +71,26 @@ export async function POST(request: Request, context: { params: { fundraiserId: 
       {
         title: "New notification",
         body: `@${comment.author.username} commented on ${fundraiser.title}`,
+        url: `/fundraisers/${fundraiser.id}`,
+      },
+      "notification",
+    );
+  }
+
+  if (parentAuthorId && parentAuthorId !== session.user.id && parentAuthorId !== fundraiser.creatorId) {
+    await prisma.notification.create({
+      data: {
+        userId: parentAuthorId,
+        type: "FUNDRAISER_REPLY",
+        body: `@${comment.author.username} replied to your comment`,
+        targetUrl: `/fundraisers/${fundraiser.id}`,
+      },
+    });
+    await deliverPushNotification(
+      parentAuthorId,
+      {
+        title: "New notification",
+        body: `@${comment.author.username} replied to your comment`,
         url: `/fundraisers/${fundraiser.id}`,
       },
       "notification",

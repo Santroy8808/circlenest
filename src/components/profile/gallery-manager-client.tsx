@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 type Visibility = "PUBLIC" | "FRIENDS_FAMILY" | "PRIVATE";
 type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "GROUPS" | "PRIVATE";
@@ -39,8 +40,6 @@ type GalleryAlbum = {
   photos: GalleryPhoto[];
   albumTags?: { tag: { id: string; name: string } }[];
 };
-
-type CommentNode = GalleryComment & { children: CommentNode[] };
 
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
 
@@ -85,41 +84,6 @@ function parseTags(raw: string | null): string[] {
   } catch {
     return [];
   }
-}
-
-function parseCommentMedia(raw?: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function buildCommentTree(comments: GalleryComment[]): CommentNode[] {
-  const byId = new Map<string, CommentNode>();
-  const roots: CommentNode[] = [];
-
-  const sorted = [...comments].sort((a, b) => toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime());
-  for (const comment of sorted) {
-    byId.set(comment.id, { ...comment, children: [] });
-  }
-
-  for (const comment of sorted) {
-    const node = byId.get(comment.id);
-    if (!node) continue;
-    if (comment.parentCommentId) {
-      const parent = byId.get(comment.parentCommentId);
-      if (parent) {
-        parent.children.push(node);
-        continue;
-      }
-    }
-    roots.push(node);
-  }
-
-  return roots;
 }
 
 function flattenPhotos(albums: GalleryAlbum[]): GalleryPhoto[] {
@@ -211,7 +175,6 @@ export function GalleryManagerClient({
   const [modalCommentUploading, setModalCommentUploading] = useState(false);
   const [modalReplyToId, setModalReplyToId] = useState<string | null>(null);
   const [commentReactions, setCommentReactions] = useState<Record<string, Record<string, number>>>({});
-  const [collapsedCommentIds, setCollapsedCommentIds] = useState<Record<string, boolean>>({});
   const [zoomed, setZoomed] = useState(false);
 
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
@@ -240,8 +203,6 @@ export function GalleryManagerClient({
     if (!openPhoto) return -1;
     return visiblePhotos.findIndex((photo) => photo.id === openPhoto.id);
   }, [openPhoto, visiblePhotos]);
-
-  const openPhotoCommentTree = useMemo(() => (openPhoto ? buildCommentTree(openPhoto.comments) : []), [openPhoto]);
 
   const selectedCount = useMemo(
     () => Object.values(selectedPhotoIds).filter(Boolean).length,
@@ -631,79 +592,6 @@ export function GalleryManagerClient({
     }
   }
 
-  function renderCommentNode(node: CommentNode, depth = 0): JSX.Element {
-    const collapsed = Boolean(collapsedCommentIds[node.id]);
-    const reactions = commentReactions[node.id] ?? {};
-
-    return (
-      <div key={node.id} className="space-y-1" style={{ marginLeft: `${Math.min(depth, 3) * 14}px` }}>
-        <div className="rounded-md bg-[#141d2d] px-2 py-1.5">
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
-            <span className="font-semibold text-[var(--text-strong)]">@{node.author.username}</span>
-            <span>{formatRelativeDate(node.createdAt)}</span>
-            {node.children.length > 0 ? (
-              <button
-                type="button"
-                className="ml-auto text-[10px] text-slate-300 hover:underline"
-                onClick={() => setCollapsedCommentIds((previous) => ({ ...previous, [node.id]: !previous[node.id] }))}
-              >
-                {collapsed ? `Show ${node.children.length} repl${node.children.length === 1 ? "y" : "ies"}` : "Hide replies"}
-              </button>
-            ) : null}
-          </div>
-          {node.content ? <p className="mt-1 text-[12px] text-slate-200">{node.content}</p> : null}
-          {parseCommentMedia(node.mediaUrlsJson).length ? (
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {parseCommentMedia(node.mediaUrlsJson).map((url) => (
-                <a key={`${node.id}-${url}`} href={url} target="_blank" rel="noreferrer" className="block">
-                  <Image src={url} alt="Comment media" width={420} height={320} unoptimized className="h-24 w-full rounded-md object-cover" />
-                </a>
-              ))}
-            </div>
-          ) : null}
-          <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-300">
-            <button
-              type="button"
-              className="hover:underline"
-              onClick={() => {
-                setModalReplyToId(node.id);
-                setModalComment(`@${node.author.username} `);
-                commentInputRef.current?.focus();
-              }}
-            >
-              Reply
-            </button>
-            <button
-              type="button"
-              className="hover:underline"
-              onClick={() =>
-                setCommentReactions((previous) => ({
-                  ...previous,
-                  [node.id]: { ...previous[node.id], "👍": (previous[node.id]?.["👍"] ?? 0) + 1 },
-                }))
-              }
-            >
-              👍 {reactions["👍"] ?? 0}
-            </button>
-            <button
-              type="button"
-              className="hover:underline"
-              onClick={() =>
-                setCommentReactions((previous) => ({
-                  ...previous,
-                  [node.id]: { ...previous[node.id], "❤️": (previous[node.id]?.["❤️"] ?? 0) + 1 },
-                }))
-              }
-            >
-              ❤️ {reactions["❤️"] ?? 0}
-            </button>
-          </div>
-        </div>
-        {!collapsed ? node.children.map((child) => renderCommentNode(child, depth + 1)) : null}
-      </div>
-    );
-  }
-
   const updatedAt = activeAlbum
     ? activeAlbum.photos.reduce((latest, photo) => {
         const stamp = toDate(photo.createdAt).getTime();
@@ -1078,8 +966,51 @@ export function GalleryManagerClient({
 
               <div className="mt-3 border-t border-[var(--border)] pt-2">
                 <h3 className="text-[12px] font-semibold text-[var(--text-strong)]">Comments</h3>
-                <div className="mt-2 space-y-2">{openPhotoCommentTree.map((node) => renderCommentNode(node))}</div>
-                {!openPhotoCommentTree.length ? <p className="mt-2 text-[11px] text-slate-400">No comments yet.</p> : null}
+                <div className="mt-2">
+                  <CommentThread
+                    comments={openPhoto?.comments ?? []}
+                    compact
+                    emptyText="No comments yet."
+                    renderMeta={(comment) => formatRelativeDate(comment.createdAt)}
+                    onReply={(comment) => {
+                      setModalReplyToId(comment.id);
+                      setModalComment((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
+                      commentInputRef.current?.focus();
+                    }}
+                    onOpenMedia={(url) => setExpandedMediaUrl(url)}
+                    renderActions={(comment) => {
+                      const reactions = commentReactions[comment.id] ?? {};
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            className="hover:underline"
+                            onClick={() =>
+                              setCommentReactions((previous) => ({
+                                ...previous,
+                                [comment.id]: { ...previous[comment.id], "👍": (previous[comment.id]?.["👍"] ?? 0) + 1 },
+                              }))
+                            }
+                          >
+                            👍 {reactions["👍"] ?? 0}
+                          </button>
+                          <button
+                            type="button"
+                            className="hover:underline"
+                            onClick={() =>
+                              setCommentReactions((previous) => ({
+                                ...previous,
+                                [comment.id]: { ...previous[comment.id], "❤️": (previous[comment.id]?.["❤️"] ?? 0) + 1 },
+                              }))
+                            }
+                          >
+                            ❤️ {reactions["❤️"] ?? 0}
+                          </button>
+                        </>
+                      );
+                    }}
+                  />
+                </div>
 
                 {modalReplyToId ? (
                   <p className="mt-2 text-[11px] text-slate-300">
