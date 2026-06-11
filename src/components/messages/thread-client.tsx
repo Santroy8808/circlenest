@@ -145,7 +145,8 @@ export function ThreadClient({
         error: await readApiError(res, "Message failed to send. Please retry."),
       };
     }
-    return { ok: true as const };
+    const message = (await res.json().catch(() => null)) as Partial<Msg> | null;
+    return { ok: true as const, message };
   }
 
   async function updateTyping(typing: boolean) {
@@ -524,9 +525,28 @@ export function ThreadClient({
               setStatus(sendResult.error);
               return;
             }
+            if (sendResult.message) {
+              setMessages((previous) =>
+                previous.map((row) =>
+                  row.clientMessageId === clientMessageId
+                    ? {
+                        ...row,
+                        ...sendResult.message,
+                        localStatus: undefined,
+                        sender: row.sender,
+                      }
+                    : row,
+                ),
+              );
+            } else {
+              setMessages((previous) =>
+                previous.map((row) =>
+                  row.clientMessageId === clientMessageId ? { ...row, localStatus: undefined } : row,
+                ),
+              );
+            }
             setStatus("");
-            await load();
-            await loadPresence();
+            void loadPresence();
           }}
         >
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
