@@ -38,13 +38,14 @@ export default async function SettingsSecurityPage() {
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {links.map((link) => (
-            <article key={link.href} className="rounded border border-[var(--border)] p-4">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+            >
               <h2 className="text-base font-semibold text-[var(--text-strong)]">{link.title}</h2>
               <p className="mt-1 text-sm text-slate-400">{link.description}</p>
-              <Link href={link.href} className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">
-                Open
-              </Link>
-            </article>
+            </Link>
           ))}
         </div>
       </section>

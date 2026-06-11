@@ -30,21 +30,21 @@ export default async function ProductionZoneAuditorsPage() {
           <p className="text-sm text-slate-400">Use the directory to search, filter, and open auditor listings.</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <article className="rounded border border-[var(--border)] p-4">
+          <Link
+            href="/auditors"
+            className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+          >
             <h2 className="text-base font-semibold text-[var(--text-strong)]">View auditor listings</h2>
             <p className="mt-1 text-sm text-slate-400">Browse the public directory and filter auditors by details that matter to you.</p>
-            <Link href="/auditors" className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">
-              Open directory
-            </Link>
-          </article>
+          </Link>
           {hasAuditorAccount ? (
-            <article className="rounded border border-[var(--border)] p-4">
+            <Link
+              href="/auditors/im-an-auditor"
+              className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+            >
               <h2 className="text-base font-semibold text-[var(--text-strong)]">I&apos;m an Auditor</h2>
               <p className="mt-1 text-sm text-slate-400">Maintain your own auditor profile from its dedicated page.</p>
-              <Link href="/auditors/im-an-auditor" className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">
-                Open my auditor profile
-              </Link>
-            </article>
+            </Link>
           ) : null}
         </div>
       </section>

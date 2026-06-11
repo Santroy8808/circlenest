@@ -25,22 +25,25 @@ export default async function ProductionZoneJobsPage() {
           <p className="text-sm text-slate-400">Browse the board first, then open the dedicated job-listing creator if your tier supports it.</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <article className="rounded border border-[var(--border)] p-4">
+          <Link
+            href="/jobs"
+            className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+          >
             <h2 className="text-base font-semibold text-[var(--text-strong)]">View job listings</h2>
             <p className="mt-1 text-sm text-slate-400">Search and filter the current job board.</p>
-            <Link href="/jobs" className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">
-              Open job board
-            </Link>
-          </article>
-          <article className="rounded border border-[var(--border)] p-4">
+          </Link>
+          <Link
+            href={canCreate ? "/jobs/new" : "/settings/subscription"}
+            className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+          >
             <h2 className="text-base font-semibold text-[var(--text-strong)]">Create job listing</h2>
             <p className="mt-1 text-sm text-slate-400">
               {canCreate ? "Your tier can post job listings." : "Your tier cannot create job listings yet."}
             </p>
-            <Link href={canCreate ? "/jobs/new" : "/settings/subscription"} className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">
-              {canCreate ? "Open job creator" : "Open subscription"}
-            </Link>
-          </article>
+            <span className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-slate-400">
+              {canCreate ? "Job creator is available on the main page." : "Job creation unlocks on the right tier."}
+            </span>
+          </Link>
         </div>
       </section>
     </AppShell>
