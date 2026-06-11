@@ -89,7 +89,7 @@ export function AdPlacementPanel({
       <p className="mt-2 text-xs text-slate-400">Use this panel to place an ad on the listing itself.</p>
 
       {!canCreate ? (
-        <p className="mt-2 text-xs text-amber-200">Upgrade to Pro or Auditor to create ads.</p>
+        <p className="mt-2 text-xs text-amber-200">Upgrade to Biz or Auditor to create ads.</p>
       ) : !ownsTarget ? (
         <p className="mt-2 text-xs text-slate-400">Only the owner can create ads here.</p>
       ) : null}

@@ -19,6 +19,7 @@ function normalizePurpose(raw: FormDataEntryValue | null): UploadPurpose {
     value === "group-post-media" ||
     value === "group-document" ||
     value === "job-listing-photo" ||
+    value === "bazaar-listing-photo" ||
     value === "fundraiser-banner" ||
     value === "fundraiser-comment-media"
   ) {

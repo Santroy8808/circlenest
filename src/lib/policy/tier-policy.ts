@@ -27,6 +27,11 @@ const PLUS_STORAGE_LIMIT_BYTES = 250 * 1024 * 1024; // Placeholder until the tie
 const PRO_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024; // Placeholder until the tier quota is finalized.
 const AUDITOR_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024; // Same as Pro until a separate quota is defined.
 const ADMIN_STORAGE_LIMIT_BYTES = Number.MAX_SAFE_INTEGER;
+const ACTIVIST_BAZAAR_WEEKLY_LIMIT = 3;
+const ACTIVIST_BAZAAR_ROLLING_LIMIT = 6;
+const ACTIVIST_BAZAAR_MAX_IMAGES = 3;
+const ACTIVIST_BAZAAR_LIFETIME_DAYS = 14;
+const ACTIVIST_FUNDRAISER_MONTHLY_LIMIT = 1;
 
 const PLUS_MONTHLY_AD_CREDITS = 0;
 const PRO_MONTHLY_AD_CREDITS = 25; // Placeholder until ad-credit policy is finalized.
@@ -55,7 +60,7 @@ const TIER_POLICY_MATRIX: Record<MembershipTier, TierPolicy> = {
     isAdmin: false,
     canCreateEvent: true,
     canCreateBazaarListing: true,
-    canCreateHiringPost: true,
+    canCreateHiringPost: false,
     canCreateFundRaiser: true,
     canChangeFeedType: true,
     canCreateGroup: true,
@@ -199,4 +204,33 @@ export function getMonthlyAdCredits(policy: TierPolicy) {
 
 export function getStorageLimitBytes(policy: TierPolicy) {
   return policy.storageLimitBytes;
+}
+
+export function getDisplayMembershipTierName(tier: MembershipTier | string | null | undefined) {
+  const normalized = normalizeMembershipTier(tier);
+  if (normalized === "FREE") return "Free";
+  if (normalized === "PLUS") return "Activist";
+  if (normalized === "PRO") return "Biz";
+  if (normalized === "AUDITOR") return "Auditor";
+  return "Admin";
+}
+
+export function getBazaarListingWeeklyLimit(policy: TierPolicy) {
+  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_WEEKLY_LIMIT : null;
+}
+
+export function getBazaarListingRollingLimit(policy: TierPolicy) {
+  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_ROLLING_LIMIT : null;
+}
+
+export function getBazaarListingMaxImageCount(policy: TierPolicy) {
+  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_MAX_IMAGES : null;
+}
+
+export function getBazaarListingLifetimeDays(policy: TierPolicy) {
+  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_LIFETIME_DAYS : null;
+}
+
+export function getMonthlyFundraiserLimit(policy: TierPolicy) {
+  return policy.tier === "PLUS" ? ACTIVIST_FUNDRAISER_MONTHLY_LIMIT : null;
 }

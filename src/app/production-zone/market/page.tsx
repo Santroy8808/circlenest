@@ -42,7 +42,7 @@ export default async function ProductionZoneMarketPage() {
               {canCreateListing ? "Your tier can create Market listings on the main Market page." : "Your tier cannot create Market listings yet."}
             </p>
             <span className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-slate-400">
-              {canCreateListingAds ? "Create ad option is available after listing creation." : "Listing ads unlock on Pro, Auditor, or Admin."}
+              {canCreateListingAds ? "Create ad option is available after listing creation." : "Listing ads unlock on Biz, Auditor, or Admin."}
             </span>
           </Link>
         </div>

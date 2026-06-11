@@ -265,7 +265,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Site moderators</h2>
-              <p className="text-xs text-slate-500">Invite Activist, Pro, or Auditor users, then grant or revoke moderator status.</p>
+              <p className="text-xs text-slate-500">Invite Activist, Biz, or Auditor users, then grant or revoke moderator status.</p>
             </div>
             <form action="/api/admin/site-moderators" method="post" className="flex flex-wrap items-center gap-2">
               <input
@@ -535,7 +535,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         <section className="space-y-3 rounded border border-[var(--border)] p-3">
           <div>
             <h2 className="text-lg font-semibold">Ad credit ledger</h2>
-          <p className="text-xs text-slate-500">Recent Pro and Auditor monthly grants and ad spends.</p>
+          <p className="text-xs text-slate-500">Recent Biz and Auditor monthly grants and ad spends.</p>
           </div>
           <div className="grid gap-2">
             {adLedgerRows.map((entry) => (

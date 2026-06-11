@@ -41,14 +41,14 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
   const adCreditBalance = policy.tier === "PRO" || policy.tier === "AUDITOR" ? await getProAdCreditBalance(session.user.id, policy) : null;
   const adCreditLabel =
     policy.tier === "PRO"
-      ? `Pro ad credits: ${adCreditBalance ?? 0}`
+      ? `Biz ad credits: ${adCreditBalance ?? 0}`
       : policy.tier === "AUDITOR"
         ? `Auditor ad credits: ${adCreditBalance ?? 0}`
       : policy.tier === "PLUS"
-        ? "Activist members need Pro or Auditor for ads."
+        ? "Activist members need Biz or Auditor for ads."
         : policy.tier === "ADMIN"
           ? "Admin ad access: unlimited."
-          : "Upgrade to Pro or Auditor to create ads.";
+          : "Upgrade to Biz or Auditor to create ads.";
 
   return (
     <AppShell>

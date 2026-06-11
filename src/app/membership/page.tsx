@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
-import { getTierPolicy, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
+import { getDisplayMembershipTierName, getTierPolicy, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 import { prisma } from "@/lib/db/prisma";
 
 function yesNo(value: boolean) {
@@ -30,91 +30,91 @@ export default async function MembershipPage() {
   const currentPolicy = resolveUserAccessPolicy(currentUser);
   const free = getTierPolicy("FREE");
   const plus = getTierPolicy("PLUS");
-  const pro = getTierPolicy("PRO");
+  const biz = getTierPolicy("PRO");
   const auditor = getTierPolicy("AUDITOR");
   const rows = [
     {
       label: "Create groups",
       free: yesNo(free.canCreateGroup),
       plus: yesNo(plus.canCreateGroup),
-      pro: yesNo(pro.canCreateGroup),
+      biz: yesNo(biz.canCreateGroup),
       auditor: yesNo(auditor.canCreateGroup),
     },
     {
       label: "Group member cap",
       free: free.maxCreatedGroupMembers ? `Up to ${free.maxCreatedGroupMembers}` : "Unlimited",
       plus: plus.maxCreatedGroupMembers ? `Up to ${plus.maxCreatedGroupMembers}` : "Unlimited",
-      pro: pro.maxCreatedGroupMembers ? `Up to ${pro.maxCreatedGroupMembers}` : "Unlimited",
+      biz: biz.maxCreatedGroupMembers ? `Up to ${biz.maxCreatedGroupMembers}` : "Unlimited",
       auditor: auditor.maxCreatedGroupMembers ? `Up to ${auditor.maxCreatedGroupMembers}` : "Unlimited",
     },
     {
       label: "Create events",
       free: yesNo(free.canCreateEvent),
       plus: yesNo(plus.canCreateEvent),
-      pro: yesNo(pro.canCreateEvent),
+      biz: yesNo(biz.canCreateEvent),
       auditor: yesNo(auditor.canCreateEvent),
     },
     {
       label: "Market listings",
       free: yesNo(free.canCreateBazaarListing),
       plus: yesNo(plus.canCreateBazaarListing),
-      pro: yesNo(pro.canCreateBazaarListing),
+      biz: yesNo(biz.canCreateBazaarListing),
       auditor: yesNo(auditor.canCreateBazaarListing),
     },
     {
       label: "Hiring posts",
       free: yesNo(free.canCreateHiringPost),
       plus: yesNo(plus.canCreateHiringPost),
-      pro: yesNo(pro.canCreateHiringPost),
+      biz: yesNo(biz.canCreateHiringPost),
       auditor: yesNo(auditor.canCreateHiringPost),
     },
     {
       label: "Fund raisers",
       free: yesNo(free.canCreateFundRaiser),
       plus: yesNo(plus.canCreateFundRaiser),
-      pro: yesNo(pro.canCreateFundRaiser),
+      biz: yesNo(biz.canCreateFundRaiser),
       auditor: yesNo(auditor.canCreateFundRaiser),
     },
     {
       label: "Change feed type",
       free: yesNo(free.canChangeFeedType),
       plus: yesNo(plus.canChangeFeedType),
-      pro: yesNo(pro.canChangeFeedType),
+      biz: yesNo(biz.canChangeFeedType),
       auditor: yesNo(auditor.canChangeFeedType),
     },
     {
       label: "Create ads",
       free: yesNo(free.canCreateAds),
       plus: yesNo(plus.canCreateAds),
-      pro: yesNo(pro.canCreateAds),
+      biz: yesNo(biz.canCreateAds),
       auditor: yesNo(auditor.canCreateAds),
     },
     {
       label: "Monthly ad credits",
       free: String(free.monthlyAdCredits),
       plus: String(plus.monthlyAdCredits),
-      pro: String(pro.monthlyAdCredits),
+      biz: String(biz.monthlyAdCredits),
       auditor: String(auditor.monthlyAdCredits),
     },
     {
       label: "Storage limit",
       free: formatBytes(free.storageLimitBytes),
       plus: formatBytes(plus.storageLimitBytes),
-      pro: formatBytes(pro.storageLimitBytes),
+      biz: formatBytes(biz.storageLimitBytes),
       auditor: formatBytes(auditor.storageLimitBytes),
     },
     {
       label: "Assign group moderators",
       free: yesNo(free.canAssignGroupModerators),
       plus: yesNo(plus.canAssignGroupModerators),
-      pro: yesNo(pro.canAssignGroupModerators),
+      biz: yesNo(biz.canAssignGroupModerators),
       auditor: yesNo(auditor.canAssignGroupModerators),
     },
     {
       label: "Site moderator eligibility",
       free: yesNo(free.canBeSiteModerator),
       plus: yesNo(plus.canBeSiteModerator),
-      pro: yesNo(pro.canBeSiteModerator),
+      biz: yesNo(biz.canBeSiteModerator),
       auditor: yesNo(auditor.canBeSiteModerator),
     },
     {
@@ -133,9 +133,9 @@ export default async function MembershipPage() {
           <div className="inline-flex rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
             Membership
           </div>
-          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Compare Free, Activist, Pro, and Auditor</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Compare Free, Activist, Biz, and Auditor</h1>
           <p className="max-w-3xl text-sm text-slate-300">
-            Free is for browsing, joining, and messaging. Activist adds core creation tools like events, listings, and fund raisers. Pro adds ads, hiring posts, and business workflows. Auditor is a qualified Pro-like tier with boosted ad credits. Admin is a separate role and is not a paid tier.
+            Free is for browsing, joining, and messaging. Activist adds core creation tools like events, listings, and fund raisers. Biz adds ads, hiring posts, and business workflows. Auditor is a qualified Biz-like tier with boosted ad credits. Admin is a separate role and is not a paid tier.
           </p>
         </div>
 
@@ -150,7 +150,7 @@ export default async function MembershipPage() {
                 <th className="border-b border-[var(--border)] px-3 py-2">Feature</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Free</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Activist</th>
-                <th className="border-b border-[var(--border)] px-3 py-2">Pro</th>
+                <th className="border-b border-[var(--border)] px-3 py-2">Biz</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Auditor</th>
               </tr>
             </thead>
@@ -186,7 +186,7 @@ export default async function MembershipPage() {
                                           : row.free}
                   </td>
                   <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.plus}</td>
-                  <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.pro}</td>
+                  <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.biz}</td>
                   <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.auditor}</td>
                 </tr>
               ))}
@@ -196,7 +196,7 @@ export default async function MembershipPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <span className="rounded border border-[var(--border)] px-2 py-1 text-xs text-slate-300">
-            Current plan: {currentPolicy.isAdmin ? "Admin" : currentPolicy.tier}
+            Current plan: {currentPolicy.isAdmin ? "Admin" : getDisplayMembershipTierName(currentPolicy.tier)}
           </span>
           <Link href="/settings/subscription" className="rounded border border-amber-300/40 bg-[#8f7228] px-3 py-2 text-sm font-semibold text-black">
             Open subscription

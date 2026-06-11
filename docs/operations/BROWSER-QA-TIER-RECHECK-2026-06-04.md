@@ -19,7 +19,7 @@ Accounts used:
 
 - Free: `tierfree@theta-space.dev`
 - Activist: `tieractivist@theta-space.dev`
-- Pro: `tierpro@theta-space.dev`
+- Biz: `tierbiz@theta-space.dev`
 - Admin: `tieradmin@theta-space.dev`
 
 ## Recheck Summary

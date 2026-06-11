@@ -66,11 +66,11 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
     policy.isAdmin
       ? "Admin ad access: unlimited."
       : policy.tier === "PRO"
-        ? `Pro ad credits: ${adCreditBalance ?? 0}`
+        ? `Biz ad credits: ${adCreditBalance ?? 0}`
         : policy.tier === "AUDITOR"
           ? `Auditor ad credits: ${adCreditBalance ?? 0}`
           : policy.tier === "PLUS"
-            ? "Activist members need Pro or Auditor for job ads."
+            ? "Activist members need Biz or Auditor for job ads."
             : "Upgrade to be able to create ads.";
   const showAdCreditLabel = canCreate || policy.canCreateAds || policy.isAdmin;
 

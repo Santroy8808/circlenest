@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { TierGate } from "@/components/policy/tier-gate";
-import { canCreateFundRaiser } from "@/lib/policy/tier-policy";
+import { canCreateFundRaiser, getMonthlyFundraiserLimit } from "@/lib/policy/tier-policy";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 import { FundraiserCreateFormClient } from "@/components/fundraisers/fundraiser-create-form-client";
 import { ReportControl } from "@/components/reports/report-control";
@@ -20,6 +20,22 @@ export default async function FundraisersPage() {
   });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
   const canCreate = canCreateFundRaiser(policy);
+  const monthlyLimit = getMonthlyFundraiserLimit(policy);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+  const currentMonthFundraiserCount =
+    monthlyLimit !== null
+      ? await prisma.fundraiser.count({
+          where: {
+            creatorId: session.user.id,
+            createdAt: {
+              gte: monthStart,
+              lt: nextMonth,
+            },
+          },
+        })
+      : 0;
+  const limitReached = monthlyLimit !== null && currentMonthFundraiserCount >= monthlyLimit;
 
   const fundraisers = await prisma.fundraiser.findMany({
     where: { status: "ACTIVE" },
@@ -51,7 +67,14 @@ export default async function FundraisersPage() {
             compact
           />
         ) : (
-          <FundraiserCreateFormClient canCreate={canCreate} />
+          <>
+            {limitReached ? (
+              <p className="rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+                Activist fund raisers are limited to {monthlyLimit} per month. You can create another next month.
+              </p>
+            ) : null}
+            <FundraiserCreateFormClient canCreate={!limitReached && canCreate} />
+          </>
         )}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

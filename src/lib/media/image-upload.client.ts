@@ -26,6 +26,7 @@ export type UploadImageOptions = {
     | "group-post-media"
     | "group-document"
     | "job-listing-photo"
+    | "bazaar-listing-photo"
     | "fundraiser-banner"
     | "fundraiser-comment-media";
   groupId?: string;

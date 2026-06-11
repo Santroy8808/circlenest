@@ -19,7 +19,7 @@ function formatTierName(policy: TierPolicy) {
   if (policy.isAdmin) return "Admin";
   if (policy.tier === "AUDITOR") return "Auditor";
   if (policy.tier === "PLUS") return "Activist";
-  if (policy.tier === "PRO") return "Pro";
+  if (policy.tier === "PRO") return "Biz";
   return "Free";
 }
 
@@ -49,12 +49,12 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
       ? [
           "Free lets you browse the stream, join groups, and message friends.",
           "Free cannot create events, Market listings, fund raisers, or hiring posts.",
-          "Open Compare memberships to see what Activist and Pro add.",
+          "Open Compare memberships to see what Activist and Biz add.",
         ]
       : policy.tier === "PLUS"
         ? [
             "You can create events, Market listings, and fund raisers.",
-            "Open Compare memberships to see Pro, Auditor, and ad tools.",
+            "Open Compare memberships to see Biz, Auditor, and ad tools.",
             "Activist keeps feed controls and moderation tools open.",
           ]
       : policy.tier === "PRO"

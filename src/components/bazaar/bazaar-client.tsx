@@ -13,6 +13,9 @@ type Listing = {
   currency: string;
   location: string | null;
   category: string | null;
+  imageUrls: string[];
+  expiresAt: string;
+  staleSoon: boolean;
   seller: { id: string; username: string };
     ads: {
       id: string;
@@ -68,10 +71,25 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
     window.location.reload();
   }
 
+  async function renewListing(listingId: string) {
+    await fetch(`/api/bazaar/${listingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "RENEW" }),
+    });
+    window.location.reload();
+  }
+
   const cards: ReactNode[] = [];
   listings.forEach((listing, index) => {
     cards.push(
       <article key={listing.id} className="flex h-full flex-col rounded border border-[var(--border)] bg-[#0d1320] p-3">
+        {listing.imageUrls[0] ? (
+          <div className="mb-3 overflow-hidden rounded border border-[var(--border)] bg-[#111a2a]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={listing.imageUrls[0]} alt={listing.title} className="h-40 w-full object-cover" />
+          </div>
+        ) : null}
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-lg font-semibold text-[var(--text-strong)]">{listing.title}</p>
@@ -96,6 +114,21 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
         <p className="mt-1 text-xs text-slate-500">
           {listing.location || "No location"} | @{listing.seller.username}
         </p>
+        <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-slate-500">
+          Expires {new Date(listing.expiresAt).toLocaleDateString()}
+        </p>
+        {listing.staleSoon && listing.seller.id === currentUserId ? (
+          <div className="mt-2 rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+            This listing is about to go stale. Renew it to keep it live.
+            <button
+              type="button"
+              className="ml-2 rounded border border-amber-300/40 px-2 py-1 text-[11px] font-semibold text-amber-50"
+              onClick={() => void renewListing(listing.id)}
+            >
+              Renew
+            </button>
+          </div>
+        ) : null}
         {listing.seller.id === currentUserId ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {editId === listing.id ? (

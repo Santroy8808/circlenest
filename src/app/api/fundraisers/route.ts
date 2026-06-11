@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { canCreateFundRaiser } from "@/lib/policy/tier-policy";
+import { canCreateFundRaiser, getMonthlyFundraiserLimit } from "@/lib/policy/tier-policy";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 import { FUNDRAISER_TYPES, isFundraiserType } from "@/lib/fundraisers/fundraisers";
 
@@ -16,6 +16,10 @@ function normalizeOptional(value: unknown) {
 
 function normalizeRequired(value: unknown) {
   return String(value ?? "").trim();
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
 export async function GET(request: Request) {
@@ -78,6 +82,22 @@ export async function POST(request: Request) {
   const policy = resolveMemberAccessPolicy(session.user.id, user);
   if (!canCreateFundRaiser(policy)) {
     return NextResponse.json({ error: "Fund raiser creation is not allowed on this tier." }, { status: 403 });
+  }
+  const monthlyLimit = getMonthlyFundraiserLimit(policy);
+  if (monthlyLimit !== null) {
+    const now = new Date();
+    const monthCount = await prisma.fundraiser.count({
+      where: {
+        creatorId: session.user.id,
+        createdAt: {
+          gte: startOfMonth(now),
+          lt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+        },
+      },
+    });
+    if (monthCount >= monthlyLimit) {
+      return NextResponse.json({ error: `Activist fund raisers are limited to ${monthlyLimit} per month.` }, { status: 409 });
+    }
   }
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;

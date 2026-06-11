@@ -53,7 +53,7 @@ export async function trackUserUploadAsset(
 export async function tryReleaseUserUploadAsset(userId: string, url: string) {
   if (!isManagedUploadUrl(url)) return;
 
-  const [photoRef, profileRef, postImageRef, postMediaRef, groupPhotoRef] = await Promise.all([
+  const [photoRef, profileRef, postImageRef, postMediaRef, groupPhotoRef, bazaarListingRef] = await Promise.all([
     prisma.photo.findFirst({ where: { url, album: { userId } }, select: { id: true } }),
     prisma.profile.findFirst({
       where: {
@@ -65,9 +65,10 @@ export async function tryReleaseUserUploadAsset(userId: string, url: string) {
     prisma.post.findFirst({ where: { authorId: userId, imageUrl: url }, select: { id: true } }),
     prisma.post.findFirst({ where: { authorId: userId, mediaUrlsJson: { contains: url } }, select: { id: true } }),
     prisma.groupPhoto.findFirst({ where: { uploaderId: userId, url }, select: { id: true } }),
+    prisma.bazaarListing.findFirst({ where: { sellerId: userId, imageUrlsJson: { contains: url } }, select: { id: true } }),
   ]);
 
-  if (photoRef || profileRef || postImageRef || postMediaRef || groupPhotoRef) return;
+  if (photoRef || profileRef || postImageRef || postMediaRef || groupPhotoRef || bazaarListingRef) return;
 
   const removed = await prisma.userUploadAsset.deleteMany({
     where: { userId, url },

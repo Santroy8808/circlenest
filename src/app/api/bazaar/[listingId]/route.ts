@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 export async function PATCH(request: Request, context: { params: { listingId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,6 +17,7 @@ export async function PATCH(request: Request, context: { params: { listingId: st
   if (existing.sellerId !== session.user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = (await request.json()) as {
+    action?: "RENEW";
     title?: string;
     description?: string;
     price?: number | string;
@@ -18,6 +25,17 @@ export async function PATCH(request: Request, context: { params: { listingId: st
     category?: string;
     status?: "ACTIVE" | "SOLD" | "ARCHIVED";
   };
+  if (body.action === "RENEW") {
+    const renewed = await prisma.bazaarListing.update({
+      where: { id: existing.id },
+      data: {
+        status: "ACTIVE",
+        expiresAt: addDays(new Date(), 14),
+      },
+      include: { seller: { select: { id: true, username: true } } },
+    });
+    return NextResponse.json(renewed);
+  }
   const updated = await prisma.bazaarListing.update({
     where: { id: existing.id },
     data: {

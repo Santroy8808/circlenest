@@ -77,6 +77,7 @@ export type UploadPurpose =
   | "group-post-media"
   | "group-document"
   | "job-listing-photo"
+  | "bazaar-listing-photo"
   | "fundraiser-banner"
   | "fundraiser-comment-media"
   | "misc";
@@ -165,6 +166,9 @@ function buildStorageKey(context: UploadContext, file: FileLike): string {
   }
   if (context.purpose === "job-listing-photo") {
     return ["users", context.ownerId, "jobs", fileName].join("/");
+  }
+  if (context.purpose === "bazaar-listing-photo") {
+    return ["users", context.ownerId, "bazaar", fileName].join("/");
   }
   if (context.purpose === "fundraiser-banner") {
     return ["users", context.ownerId, "fundraisers", "banner", fileName].join("/");

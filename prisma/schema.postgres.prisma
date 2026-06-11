@@ -530,12 +530,15 @@ model BazaarListing {
   currency    String   @default("USD")
   location    String?
   category    String?
+  imageUrlsJson String?
+  expiresAt   DateTime?
   status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   adPlacements AdPlacement[] @relation("BazaarListingAds")
   @@index([status, createdAt])
+  @@index([status, expiresAt])
   @@index([location, createdAt])
   @@index([category, createdAt])
 }

@@ -1,10 +1,9 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -54,7 +53,7 @@ model User {
   messageThreadsCreated MessageThread[] @relation("MessageThreadCreatedBy")
   messageThreadParticipants MessageThreadParticipant[]
   messageThreadParticipantAdditions MessageThreadParticipant[] @relation("MessageThreadParticipantAddedBy")
-  messagePresence MessageThreadPresence[]
+  messageModerationEvents MessageModerationEvent[]
   pushSubscriptions PushSubscription[]
   groupsOwned    Group[]            @relation("GroupOwner")
   groupMemberships GroupMember[]
@@ -107,8 +106,8 @@ model User {
   adPlacementsCreated AdPlacement[]
   adCreditLedgerEntries AdCreditLedger[]
   moderatorActions   ModeratorActionLog[]
-  messageModerationEvents MessageModerationEvent[]
   petitions          AdminPetition[]
+  messageThreadPresences MessageThreadPresence[]
   contentReportsFiled ContentReport[] @relation("ContentReportsFiled")
   contentReportsAssigned ContentReport[] @relation("ContentReportsAssigned")
   contentReportsReviewed ContentReport[] @relation("ContentReportsReviewed")
@@ -311,9 +310,9 @@ model MessageThread {
   updatedAt   DateTime @updatedAt
   userA       User     @relation("ThreadUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB       User     @relation("ThreadUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  messages    Message[]
-  presences   MessageThreadPresence[]
-  moderationEvents MessageModerationEvent[]
+  messages       Message[]
+  threadPresences MessageThreadPresence[]
+  messageModerationEvents MessageModerationEvent[]
   participants MessageThreadParticipant[]
   createdBy   User?    @relation("MessageThreadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }
@@ -361,9 +360,26 @@ model MessageThreadPresence {
   updatedAt   DateTime @updatedAt
   thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([threadId, userId])
   @@index([threadId, updatedAt])
   @@index([userId, updatedAt])
+}
+
+model MessageModerationEvent {
+  id          String   @id @default(cuid())
+  threadId    String
+  messageId   String
+  actorUserId String
+  action      String
+  reason      String?
+  createdAt   DateTime @default(now())
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  actor       User    @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  @@index([threadId, createdAt])
+  @@index([messageId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model PushSubscription {
@@ -381,22 +397,6 @@ model PushSubscription {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, endpoint])
   @@index([userId, enabled, updatedAt])
-}
-
-model MessageModerationEvent {
-  id          String   @id @default(cuid())
-  threadId    String
-  messageId   String
-  actorUserId String
-  action      String
-  reason      String?
-  createdAt   DateTime @default(now())
-  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  actor       User    @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
-  @@index([threadId, createdAt])
-  @@index([messageId, createdAt])
-  @@index([actorUserId, createdAt])
 }
 
 model Group {
@@ -530,12 +530,15 @@ model BazaarListing {
   currency    String   @default("USD")
   location    String?
   category    String?
+  imageUrlsJson String?
+  expiresAt   DateTime?
   status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   adPlacements AdPlacement[] @relation("BazaarListingAds")
   @@index([status, createdAt])
+  @@index([status, expiresAt])
   @@index([location, createdAt])
   @@index([category, createdAt])
 }
@@ -1150,5 +1153,7 @@ model ContentReport {
   @@index([reporterId, targetType, targetId, createdAt])
   @@index([assignedModeratorId, status, createdAt])
 }
+
+
 
 
