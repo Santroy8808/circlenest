@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
   if (!canCreateBazaarListing(policy)) {
-    return NextResponse.json({ error: "Bazaar listing creation is not allowed on this tier." }, { status: 403 });
+    return NextResponse.json({ error: "Market listing creation is not allowed on this tier." }, { status: 403 });
   }
 
   const body = (await request.json()) as {

@@ -6,7 +6,7 @@ import { ADMIN_MODE_COOKIE_NAME, hasAdminModeAccess } from "@/lib/security/admin
 export function requireAdminModePage(userId: string) {
   const token = cookies().get(ADMIN_MODE_COOKIE_NAME)?.value;
   if (!hasAdminModeAccess(userId, token)) {
-    redirect("/settings#administrator-mode");
+    redirect("/settings/account#administrator-mode");
   }
 }
 

@@ -45,7 +45,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
       : policy.tier === "AUDITOR"
         ? `Auditor ad credits: ${adCreditBalance ?? 0}`
       : policy.tier === "PLUS"
-        ? "Ads locked. Upgrade to Pro or Auditor."
+        ? "Activist members need Pro or Auditor for ads."
         : policy.tier === "ADMIN"
           ? "Admin ad access: unlimited."
           : "Upgrade to Pro or Auditor to create ads.";
@@ -67,9 +67,9 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
           <TierGate
             variant="locked"
             title="Events locked"
-            message="Upgrade to Plus to create events."
+            message="Upgrade to Activist to create events."
             ctaLabel="Open subscription"
-            ctaHref="/settings#subscription"
+            ctaHref="/settings/subscription"
             secondaryLabel="Compare memberships"
             secondaryHref="/membership"
             compact

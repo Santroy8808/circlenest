@@ -34,7 +34,7 @@ function formatDate(value: string | null | undefined) {
 
 function tierLabel(tier: string) {
   const normalized = tier.trim().toUpperCase();
-  if (normalized === "PLUS") return "Plus";
+  if (normalized === "PLUS") return "Activist";
   if (normalized === "PRO") return "Pro";
   if (normalized === "AUDITOR") return "Auditor";
   return "Free";
@@ -137,7 +137,7 @@ export function BillingSettings({ role, subscriptionTier, billingSubscription }:
           onClick={() => void startCheckout("PLUS")}
           className="rounded border border-[var(--border)] bg-[#8f7228] px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {currentTier === "PLUS" ? "Plus current" : hasPlusOrHigher ? "Plus included" : "Upgrade to Plus"}
+          {currentTier === "PLUS" ? "Activist current" : hasPlusOrHigher ? "Activist included" : "Upgrade to Activist"}
         </button>
         <button
           type="button"

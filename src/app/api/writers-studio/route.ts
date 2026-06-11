@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
   if (!isAdmin && !canCreateWritersStudio(user?.subscriptionTier, isInvitedCreator)) {
-    return NextResponse.json({ error: "Writers Studio creation is locked." }, { status: 403 });
+    return NextResponse.json({ error: "Writers Corner creation is locked." }, { status: 403 });
   }
 
   const body = (await request.json().catch(() => ({}))) as {

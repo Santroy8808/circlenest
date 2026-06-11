@@ -91,7 +91,7 @@ export async function POST(request: Request, context: { params: { listingId: str
           credits: -creditCost,
           sourceType: "AD_PLACEMENT",
           sourceId: created.id,
-          note: `Bazaar listing ad for ${listing.title}`,
+          note: `Market listing ad for ${listing.title}`,
         },
       });
     }

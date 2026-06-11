@@ -37,7 +37,7 @@ export default async function BazaarPage({ searchParams }: { searchParams?: { cr
       : policy.tier === "AUDITOR"
         ? `Auditor ad credits: ${adCreditBalance ?? 0}`
       : policy.tier === "PLUS"
-        ? "Ads locked. Upgrade to Pro or Auditor."
+        ? "Activist members need Pro or Auditor for ads."
         : policy.tier === "ADMIN"
           ? "Admin ad access: unlimited."
           : "Upgrade to Pro or Auditor to create ads.";
@@ -46,7 +46,7 @@ export default async function BazaarPage({ searchParams }: { searchParams?: { cr
     <AppShell>
       <section className="card space-y-4 p-4">
         <div>
-          <h1 className="text-xl font-semibold">Bazaar</h1>
+          <h1 className="text-xl font-semibold">Market</h1>
           <p className="text-sm text-slate-500">Marketplace listings with search and filters.</p>
         </div>
         {searchParams?.created ? (
@@ -58,10 +58,10 @@ export default async function BazaarPage({ searchParams }: { searchParams?: { cr
         {!canCreate ? (
           <TierGate
             variant="locked"
-            title="Bazaar locked"
-            message="Upgrade to Plus to create Bazaar listings."
+            title="Market locked"
+            message="Upgrade to Activist to create Market listings."
             ctaLabel="Open subscription"
-            ctaHref="/settings#subscription"
+            ctaHref="/settings/subscription"
             secondaryLabel="Compare memberships"
             secondaryHref="/membership"
             compact

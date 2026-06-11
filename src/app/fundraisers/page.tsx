@@ -43,9 +43,9 @@ export default async function FundraisersPage() {
           <TierGate
             variant="locked"
             title="Fund raiser locked"
-            message="Upgrade to Plus to create fund raisers."
+            message="Upgrade to Activist to create fund raisers."
             ctaLabel="Open subscription"
-            ctaHref="/settings#subscription"
+            ctaHref="/settings/subscription"
             secondaryLabel="Compare memberships"
             secondaryHref="/membership"
             compact

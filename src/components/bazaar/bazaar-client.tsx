@@ -149,10 +149,10 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
 
     if ((index + 1) % 6 === 0) {
       cards.push(
-        <AdPlacementCard
+          <AdPlacementCard
           key={`ad-${listing.id}`}
           ad={pickRotatingAd(adPool, Math.floor(index / 6), adSeed)}
-          targetLabel="bazaar"
+          targetLabel="market"
         />,
       );
     }

@@ -84,39 +84,25 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
 
           <nav className="space-y-3 text-xs">
             <Section
-              title="Profile"
+              title="Home"
               links={[
                 ["Home", "/home"],
-                ["Profile", "/profile/edit"],
-                ["My Scientology", "/profile/scientology"],
-                ["Resume", "/profile/resume"],
-                ["Gallery", "/profile/gallery"],
               ]}
             />
             <Section
               title="Production Zone"
               links={[
                 ["Production Zone", "/production-zone"],
-                ["Events", "/events"],
-                ["Bazaar", "/bazaar"],
-                ["Fund Raiser", "/fundraisers"],
-                ["Find a job", "/jobs"],
-                ["Find an Auditor", "/auditors"],
-                ["I'm an Auditor", "/auditors/im-an-auditor"],
               ]}
             />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?view=my"], ["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/settings#invitations"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?view=my"]]} />
+            <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"]]} />
             <Section
               title="Settings"
               links={[
-                ["Security", "/settings"],
-                ["Theme", "/settings/theme"],
-                ["My Rules", "/settings#rules"],
-                ["Notification Dings", "/settings#notifications"],
+                ["Settings", "/settings"],
                 ...(showModeratorFeatures ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
                 ...(showAdminFeatures ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
-                ["Blocked Users", "/blocked-users"],
-                ["My Subscription", "/settings#subscription"],
               ]}
             />
           </nav>

@@ -44,11 +44,11 @@ export default async function WritersStudioPage() {
     <AppShell>
       <section className="card space-y-4 p-4">
         <div>
-          <h1 className="text-xl font-semibold">Writers Studio</h1>
-          <p className="text-sm text-slate-500">Browse public writing projects. Creation is invite-only and subscription-gated.</p>
+          <h1 className="text-xl font-semibold">Writers Corner</h1>
+          <p className="text-sm text-slate-500">Browse public manuscripts. Creation is invite-only and subscription-gated.</p>
         </div>
         {!canCreate ? (
-          <p className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-sm text-amber-200">{access.reason ?? "Writers Studio creation is locked."}</p>
+          <p className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-sm text-amber-200">{access.reason ?? "Writers Corner creation is locked."}</p>
         ) : null}
         <WritersStudioManager
           canCreate={canCreate}

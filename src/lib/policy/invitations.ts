@@ -63,7 +63,7 @@ export function resolveInvitationCreatorAccess(user: InvitationCreatorPolicySour
         canInvite: false,
         inviteLimit: NORMAL_MEMBER_INVITE_LIMIT,
         hasInviteLimitException,
-        reason: "Invite access unlocks after 6 months.",
+        reason: "Invite access unlocks after 6 months for Activist and higher tiers.",
       };
     }
 

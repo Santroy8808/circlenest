@@ -55,7 +55,7 @@ export default async function MembershipPage() {
       auditor: yesNo(auditor.canCreateEvent),
     },
     {
-      label: "Bazaar listings",
+      label: "Market listings",
       free: yesNo(free.canCreateBazaarListing),
       plus: yesNo(plus.canCreateBazaarListing),
       pro: yesNo(pro.canCreateBazaarListing),
@@ -133,9 +133,9 @@ export default async function MembershipPage() {
           <div className="inline-flex rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
             Membership
           </div>
-          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Compare Free, Plus, Pro, and Auditor</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Compare Free, Activist, Pro, and Auditor</h1>
           <p className="max-w-3xl text-sm text-slate-300">
-            Free is for browsing, joining, and messaging. Plus adds core creation tools like fund raisers. Pro adds ads, hiring posts, and fund raisers. Auditor is a qualified Pro-like tier with boosted ad credits. Admin is a separate role and is not a paid tier.
+            Free is for browsing, joining, and messaging. Activist adds core creation tools like events, listings, and fund raisers. Pro adds ads, hiring posts, and business workflows. Auditor is a qualified Pro-like tier with boosted ad credits. Admin is a separate role and is not a paid tier.
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export default async function MembershipPage() {
               <tr>
                 <th className="border-b border-[var(--border)] px-3 py-2">Feature</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Free</th>
-                <th className="border-b border-[var(--border)] px-3 py-2">Plus</th>
+                <th className="border-b border-[var(--border)] px-3 py-2">Activist</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Pro</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Auditor</th>
               </tr>
@@ -165,7 +165,7 @@ export default async function MembershipPage() {
                         ? freeLabel(row.free, true)
                         : row.label === "Create events"
                           ? freeLabel(row.free, free.canCreateEvent)
-                          : row.label === "Bazaar listings"
+                          : row.label === "Market listings"
                             ? freeLabel(row.free, free.canCreateBazaarListing)
                             : row.label === "Hiring posts"
                           ? freeLabel(row.free, free.canCreateHiringPost)
@@ -198,7 +198,7 @@ export default async function MembershipPage() {
           <span className="rounded border border-[var(--border)] px-2 py-1 text-xs text-slate-300">
             Current plan: {currentPolicy.isAdmin ? "Admin" : currentPolicy.tier}
           </span>
-          <Link href="/settings#subscription" className="rounded border border-amber-300/40 bg-[#8f7228] px-3 py-2 text-sm font-semibold text-black">
+          <Link href="/settings/subscription" className="rounded border border-amber-300/40 bg-[#8f7228] px-3 py-2 text-sm font-semibold text-black">
             Open subscription
           </Link>
           <Link href="/home" className="rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">

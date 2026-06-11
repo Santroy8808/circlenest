@@ -22,7 +22,7 @@ export function AdminModeSessionClient() {
 
     const finish = () => {
       if (pathname.startsWith("/admin") || pathname.startsWith("/moderation")) {
-        window.location.assign("/settings#administrator-mode");
+        window.location.assign("/settings/account#administrator-mode");
         return;
       }
       window.location.reload();

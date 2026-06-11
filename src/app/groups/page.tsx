@@ -219,7 +219,7 @@ function CreateGroupCard({ maxCreatedGroupMembers }: { maxCreatedGroupMembers: n
             ctaLabel="Compare memberships"
             ctaHref="/membership"
             secondaryLabel="Open subscription"
-            secondaryHref="/settings#subscription"
+            secondaryHref="/settings/subscription"
             compact
           />
         </div>

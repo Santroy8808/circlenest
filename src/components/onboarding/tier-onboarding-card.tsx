@@ -18,7 +18,7 @@ const STORAGE_PREFIX = "theta.onboarding.dismissed.";
 function formatTierName(policy: TierPolicy) {
   if (policy.isAdmin) return "Admin";
   if (policy.tier === "AUDITOR") return "Auditor";
-  if (policy.tier === "PLUS") return "Plus";
+  if (policy.tier === "PLUS") return "Activist";
   if (policy.tier === "PRO") return "Pro";
   return "Free";
 }
@@ -48,14 +48,14 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
     policy.tier === "FREE"
       ? [
           "Free lets you browse the stream, join groups, and message friends.",
-          "Free cannot create events, Bazaar listings, fund raisers, or hiring posts.",
-          "Open Compare memberships to see what Plus and Pro add.",
+          "Free cannot create events, Market listings, fund raisers, or hiring posts.",
+          "Open Compare memberships to see what Activist and Pro add.",
         ]
       : policy.tier === "PLUS"
         ? [
-            "You can create events, Bazaar listings, and fund raisers.",
+            "You can create events, Market listings, and fund raisers.",
             "Open Compare memberships to see Pro, Auditor, and ad tools.",
-            "Plus keeps feed controls and moderation tools open.",
+            "Activist keeps feed controls and moderation tools open.",
           ]
       : policy.tier === "PRO"
         ? [
@@ -75,11 +75,11 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
               "Use secure-area unlock before sensitive admin actions.",
             ];
 
-  const primaryHref = policy.tier === "FREE" ? "/membership" : policy.tier === "ADMIN" ? "/admin" : "/settings#subscription";
+  const primaryHref = policy.tier === "FREE" ? "/membership" : policy.tier === "ADMIN" ? "/admin" : "/settings/subscription";
   const primaryLabel = policy.tier === "FREE" ? "Compare memberships" : policy.tier === "ADMIN" ? "Open admin portal" : "Open subscription";
   const secondaryHref =
     policy.tier === "FREE"
-      ? "/settings#subscription"
+      ? "/settings/subscription"
       : policy.tier === "PLUS"
         ? "/fundraisers"
         : policy.tier === "PRO" || policy.tier === "AUDITOR"

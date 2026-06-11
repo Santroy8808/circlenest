@@ -2,10 +2,13 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
+import { SecureAreaSessionClient } from "@/components/security/secure-area-session-client";
+import { requireSecureAreaPage } from "@/lib/security/secure-area-guards";
 
 export default async function BlockedUsersPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  requireSecureAreaPage(session.user.id, "/blocked-users");
 
   const rows = await prisma.userBlock.findMany({
     where: { userId: session.user.id },
@@ -15,6 +18,7 @@ export default async function BlockedUsersPage() {
 
   return (
     <AppShell>
+      <SecureAreaSessionClient />
       <section className="card space-y-3 p-4">
         <h1 className="text-xl font-semibold">Blocked Users</h1>
         <p className="text-sm text-slate-400">People you block cannot friend request you, message you, or post on your stream.</p>

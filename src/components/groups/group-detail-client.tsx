@@ -507,9 +507,9 @@ export function GroupDetailClient({
             <TierGate
               variant="locked"
               title="Moderator access locked"
-              message="Upgrade to Plus to assign moderators."
+              message="Upgrade to Activist to assign moderators."
               ctaLabel="Open subscription"
-              ctaHref="/settings#subscription"
+              ctaHref="/settings/subscription"
               secondaryLabel="Compare memberships"
               secondaryHref="/membership"
               compact
@@ -525,7 +525,7 @@ export function GroupDetailClient({
                   <button
                     className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={!canAssignModerators}
-                    title={!canAssignModerators ? "Upgrade to Plus to assign moderators" : undefined}
+                    title={!canAssignModerators ? "Upgrade to Activist to assign moderators" : undefined}
                     onClick={() => run(async () => {
                       await fetch(`/api/groups/${group.id}/members/role`, {
                         method: "PATCH",

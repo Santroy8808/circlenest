@@ -12,48 +12,37 @@ const OPEN_DELTA = 44;
 
 const mobileSections: MenuSection[] = [
   {
-    title: "Profile",
+    title: "Home",
     items: [
       ["Home", "/home"],
-      ["Profile", "/profile/edit"],
-      ["My Scientology", "/profile/scientology"],
-      ["Resume", "/profile/resume"],
-      ["Gallery", "/profile/gallery"],
     ],
   },
   {
     title: "Production Zone",
     items: [
       ["Production Zone", "/production-zone"],
-      ["Events", "/events"],
-      ["Bazaar", "/bazaar"],
-      ["Fund Raiser", "/fundraisers"],
-      ["Find a job", "/jobs"],
-      ["Find an Auditor", "/auditors"],
-      ["I'm an Auditor", "/auditors/im-an-auditor"],
     ],
   },
-    {
-      title: "People",
-      items: [
-        ["Friends", "/friends"],
-        ["Groups", "/groups"],
-        ["My Groups", "/groups?view=my"],
-        ["Messages", "/messages"],
-        ["Notifications", "/notifications"],
-        ["Alerts", "/alerts"],
-        ["Invites", "/settings#invitations"],
-      ],
-    },
+  {
+    title: "People",
+    items: [
+      ["Friends", "/friends"],
+      ["Groups", "/groups"],
+      ["My Groups", "/groups?view=my"],
+    ],
+  },
+  {
+    title: "Communications",
+    items: [
+      ["Messages", "/messages"],
+      ["Notifications", "/notifications"],
+      ["Alerts", "/alerts"],
+    ],
+  },
   {
     title: "Settings",
     items: [
-      ["Security", "/settings"],
-      ["Theme", "/settings/theme"],
-      ["My Rules", "/settings#rules"],
-      ["Notification Dings", "/settings#notifications"],
-      ["Blocked Users", "/blocked-users"],
-      ["My Subscription", "/settings#subscription"],
+      ["Settings", "/settings"],
     ],
   },
 ];

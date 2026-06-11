@@ -3,49 +3,106 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { resolveProductionZoneAccess } from "@/lib/policy/production-zone";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
-const sections: Array<{ key: "BAZAAR" | "WRITERS_STUDIO" | "BUSINESS_PROFILE"; label: string; href?: string }> = [
-  { key: "BAZAAR", label: "Bazaar" },
-  { key: "WRITERS_STUDIO", label: "Writers Studio", href: "/production-zone/writers-studio" },
-  { key: "BUSINESS_PROFILE", label: "Business Profile", href: "/production-zone/business-profile" },
-];
+type ZoneCard = {
+  title: string;
+  description: string;
+  href: string;
+};
 
 export default async function ProductionZonePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { subscriptionTier: true, iasStatus: true },
-  });
-  const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
-  const access = resolveProductionZoneAccess(user?.subscriptionTier, isInvitedCreator);
+  const [user, auditorListing, businessProfile] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, subscriptionTier: true },
+    }),
+    prisma.auditorListing.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    }),
+    prisma.businessProfile.findUnique({
+      where: { ownerId: session.user.id },
+      select: { id: true },
+    }),
+  ]);
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
+  const hasAuditorAccount = policy.tier === "AUDITOR" || Boolean(auditorListing);
+  const showBusiness = policy.tier === "PRO" || policy.isAdmin || Boolean(businessProfile);
+  const showActivistTools = policy.tier !== "FREE";
+
+  const cards: ZoneCard[] = [
+    {
+      title: "Events",
+      description: "Open the events you create, moderate, or are invited to.",
+      href: "/production-zone/events",
+    },
+    {
+      title: "Market",
+      description: "Browse listings, create a listing if your tier allows it, and add listing ads when available.",
+      href: "/production-zone/market",
+    },
+    {
+      title: "Find a Job",
+      description: "Browse job listings and create a posting if your tier supports it.",
+      href: "/production-zone/jobs",
+    },
+    {
+      title: "Find an Auditor",
+      description: "Search the auditor directory with filters and member listings.",
+      href: "/production-zone/auditors",
+    },
+  ];
+
+  if (hasAuditorAccount) {
+    cards.push({
+      title: "I'm an Auditor",
+      description: "Open and maintain your auditor profile.",
+      href: "/auditors/im-an-auditor",
+    });
+  }
+
+  if (showBusiness) {
+    cards.push({
+      title: "My Business",
+      description: "Manage your business profile, then branch into business job and event flows.",
+      href: "/production-zone/business",
+    });
+  }
+
+  if (showActivistTools) {
+    cards.push(
+      {
+        title: "Writers Corner",
+        description: "Open manuscripts and chapters inside Writers Corner.",
+        href: "/production-zone/writers-corner",
+      },
+      {
+        title: "Fund Raiser",
+        description: "Browse fund raisers and create one when your tier allows it.",
+        href: "/production-zone/fundraisers",
+      },
+    );
+  }
 
   return (
     <AppShell>
       <section className="card space-y-4 p-4">
         <div>
           <h1 className="text-xl font-semibold">Production Zone</h1>
-          <p className="text-sm text-slate-500">Browse is open. Creation is invite-only and subscription-gated.</p>
+          <p className="text-sm text-slate-400">Use the zone as a layered control panel. Open one production surface at a time.</p>
         </div>
-        {!access.canCreate ? (
-          <p className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-sm text-amber-200">{access.reason}</p>
-        ) : null}
-        <div className="grid gap-3 md:grid-cols-3">
-          {sections.map((section) => (
-            <article key={section.key} className="rounded border border-[var(--border)] p-3">
-              <h2 className="font-medium">{section.label}</h2>
-              <p className="mt-1 text-xs text-slate-500">Browsing enabled.</p>
-              {section.href ? (
-                <Link href={section.href} className="mt-3 inline-flex rounded border border-slate-400 px-2 py-1 text-xs text-slate-200 hover:border-slate-200 hover:text-white">
-                  Open
-                </Link>
-              ) : (
-                <button disabled={!access.canCreate} className="mt-3 rounded border border-slate-400 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50">
-                  {access.canCreate ? `Create in ${section.label}` : "Create locked"}
-                </button>
-              )}
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {cards.map((card) => (
+            <article key={card.href} className="rounded border border-[var(--border)] p-4">
+              <h2 className="text-base font-semibold text-[var(--text-strong)]">{card.title}</h2>
+              <p className="mt-1 text-sm text-slate-400">{card.description}</p>
+              <Link href={card.href} className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-strong)]">
+                Open
+              </Link>
             </article>
           ))}
         </div>
@@ -53,4 +110,3 @@ export default async function ProductionZonePage() {
     </AppShell>
   );
 }
-

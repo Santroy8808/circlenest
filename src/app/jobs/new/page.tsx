@@ -28,7 +28,7 @@ export default async function JobsCreatePage() {
             title="Job posting locked"
             message="Upgrade to be able to post a job listing."
             ctaLabel="Upgrade to post"
-            ctaHref="/settings#subscription"
+            ctaHref="/settings/subscription"
             secondaryLabel="Back to Find a job"
             secondaryHref="/jobs"
             compact

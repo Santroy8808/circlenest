@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as { tier?: string };
   const tier = normalizeBillingPlanTier(body.tier);
   if (!tier) {
-    return NextResponse.json({ error: "Pick Plus or Pro." }, { status: 400 });
+    return NextResponse.json({ error: "Pick Activist or Pro." }, { status: 400 });
   }
 
   const currentUser = await prisma.user.findUnique({

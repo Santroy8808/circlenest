@@ -70,7 +70,7 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
         : policy.tier === "AUDITOR"
           ? `Auditor ad credits: ${adCreditBalance ?? 0}`
           : policy.tier === "PLUS"
-            ? "Find a job ads unlock on Pro or Auditor."
+            ? "Activist members need Pro or Auditor for job ads."
             : "Upgrade to be able to create ads.";
   const showAdCreditLabel = canCreate || policy.canCreateAds || policy.isAdmin;
 
@@ -120,7 +120,7 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
                 Create job listing
               </Link>
             ) : (
-              <Link href="/settings#subscription" className="rounded border border-amber-400/40 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+              <Link href="/settings/subscription" className="rounded border border-amber-400/40 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
                 Upgrade to be able to post jobs
               </Link>
             )}

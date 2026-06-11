@@ -18,7 +18,7 @@ Test goals:
 Accounts used:
 
 - Free: `tierfree@theta-space.dev`
-- Plus: `tierplus@theta-space.dev`
+- Activist: `tieractivist@theta-space.dev`
 - Pro: `tierpro@theta-space.dev`
 - Admin: `tieradmin@theta-space.dev`
 
