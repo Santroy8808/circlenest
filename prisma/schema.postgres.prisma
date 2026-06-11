@@ -919,6 +919,7 @@ model FundraiserComment {
   id            String   @id @default(cuid())
   fundraiserId  String
   authorId      String
+  parentCommentId String?
   content       String
   mediaUrlsJson String?
   createdAt     DateTime @default(now())
@@ -926,6 +927,7 @@ model FundraiserComment {
   author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([fundraiserId, createdAt])
+  @@index([fundraiserId, parentCommentId, createdAt])
   @@index([authorId, createdAt])
 }
 

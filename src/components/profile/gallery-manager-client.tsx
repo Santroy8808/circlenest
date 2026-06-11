@@ -977,7 +977,6 @@ export function GalleryManagerClient({
                       setModalComment((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
                       commentInputRef.current?.focus();
                     }}
-                    onOpenMedia={(url) => setExpandedMediaUrl(url)}
                     renderActions={(comment) => {
                       const reactions = commentReactions[comment.id] ?? {};
                       return (
