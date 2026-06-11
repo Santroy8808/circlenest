@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Msg = {
@@ -33,19 +33,54 @@ type PresenceRow = {
 
 type ThreadMeta = {
   id: string;
-  other: {
+  kind: "DIRECT" | "GROUP";
+  title?: string | null;
+  participants: Array<{
     id: string;
     username: string;
     displayName: string;
     avatarUrl?: string | null;
-  };
+  }>;
+  other?: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  } | null;
 };
 
 const EMOJIS = ["😀", "😂", "😍", "❤️", "👍", "🙏", "🔥", "🎉", "🤝", "💡"] as const;
+const AUTO_SCROLL_THRESHOLD_PX = 140;
+const POLL_INTERVAL_MS = 6000;
 
-export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserId: string }) {
+function formatClock(value: string | Date | number) {
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatFullTimestamp(value: string | Date | number) {
+  return new Date(value).toLocaleString();
+}
+
+export function ThreadClient({
+  threadId,
+  myUserId,
+  embedded = false,
+  onClose,
+}: {
+  threadId: string;
+  myUserId: string;
+  embedded?: boolean;
+  onClose?: () => void;
+}) {
   const router = useRouter();
   const sendCounter = useRef(0);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const typingOffTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingScrollBehaviorRef = useRef<ScrollBehavior | null>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const initialLoadDoneRef = useRef(false);
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+
   const [messages, setMessages] = useState<Msg[]>([]);
   const [meta, setMeta] = useState<ThreadMeta | null>(null);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
@@ -53,13 +88,35 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [status, setStatus] = useState("");
-  const typingOffTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const queueScrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    pendingScrollBehaviorRef.current = behavior;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const node = listRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior });
+  }, []);
+
+  useEffect(() => {
+    if (!pendingScrollBehaviorRef.current) return;
+    const behavior = pendingScrollBehaviorRef.current;
+    pendingScrollBehaviorRef.current = null;
+    requestAnimationFrame(() => scrollToBottom(behavior));
+  }, [messages, scrollToBottom]);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/messages/threads/${threadId}/messages`, { cache: "no-store" });
-    if (res.ok) setMessages((await res.json()) as Msg[]);
-  }, [threadId]);
+    if (!res.ok) return;
+    const nextMessages = (await res.json()) as Msg[];
+    setMessages(nextMessages);
+    if (!initialLoadDoneRef.current || shouldAutoScrollRef.current) {
+      queueScrollToBottom();
+    }
+    initialLoadDoneRef.current = true;
+  }, [queueScrollToBottom, threadId]);
 
   const loadMeta = useCallback(async () => {
     const res = await fetch(`/api/messages/threads/${threadId}`, { cache: "no-store" });
@@ -88,7 +145,8 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
         error: await readApiError(res, "Message failed to send. Please retry."),
       };
     }
-    return { ok: true as const };
+    const message = (await res.json().catch(() => null)) as Partial<Msg> | null;
+    return { ok: true as const, message };
   }
 
   async function updateTyping(typing: boolean) {
@@ -118,18 +176,30 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
   }
 
   const otherPresence = useMemo(() => presence.find((row) => row.userId !== myUserId) ?? null, [myUserId, presence]);
+  const isGroupThread = meta?.kind === "GROUP";
+  const threadLabel = isGroupThread ? meta?.title ?? "Group chat" : meta?.other?.displayName ?? "Direct Message";
+  const threadSubtitle = isGroupThread
+    ? `${meta?.participants?.length ?? 0} participants`
+    : meta?.other
+      ? `@${meta.other.username}`
+      : "Inbox chat";
   const otherTyping = Boolean(
     otherPresence?.isTyping &&
       otherPresence.lastTypedAt &&
       Date.now() - new Date(otherPresence.lastTypedAt).getTime() < 15_000,
   );
-
-  const lastOwnMessage = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index].senderId === myUserId) return messages[index];
-    }
-    return null;
-  }, [messages, myUserId]);
+  const otherSeenAtMs = useMemo(() => {
+    if (!otherPresence?.lastSeenAt) return null;
+    const parsed = Date.parse(otherPresence.lastSeenAt);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [otherPresence]);
+  const otherActive = useMemo(() => {
+    const marker = otherPresence?.lastSeenAt ?? otherPresence?.updatedAt ?? null;
+    if (!marker) return false;
+    const parsed = Date.parse(marker);
+    if (Number.isNaN(parsed)) return false;
+    return Date.now() - parsed < 90_000;
+  }, [otherPresence]);
 
   const orderedMessages = useMemo(() => {
     return [...messages].sort((a, b) => {
@@ -140,316 +210,403 @@ export function ThreadClient({ threadId, myUserId }: { threadId: string; myUserI
     });
   }, [messages]);
 
+  const headerStatus = otherTyping ? "Typing..." : isGroupThread ? `${meta?.participants?.length ?? 0} participants` : otherActive ? "Active now" : "Inbox chat";
+
+  const getOwnMessageStatus = useCallback(
+    (message: Msg) => {
+      if (message.localStatus === "sending") return "Sending...";
+      if (message.localStatus === "failed") return "Failed to send";
+      if (message.senderId !== myUserId) return null;
+      if (otherSeenAtMs && Date.parse(message.createdAt) <= otherSeenAtMs) return `Read ${formatClock(otherSeenAtMs)}`;
+      if (message.readAt) return `Read ${formatClock(message.readAt)}`;
+      return `Sent ${formatClock(message.createdAt)}`;
+    },
+    [myUserId, otherSeenAtMs],
+  );
+
   useEffect(() => {
+    initialLoadDoneRef.current = false;
+    shouldAutoScrollRef.current = true;
+    setMessages([]);
+    setPresence([]);
+    setMeta(null);
+    setStatus("");
+    setEditingId(null);
+    setEditingText("");
+    setText("");
     void load();
     void loadMeta();
     void loadPresence();
     const id = setInterval(() => {
       void load();
       void loadPresence();
-    }, 6000);
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [load, loadMeta, loadPresence]);
+  }, [load, loadMeta, loadPresence, threadId]);
+
+  useEffect(() => {
+    return () => {
+      if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
+    };
+  }, []);
 
   return (
-    <div className="space-y-3">
-      <header className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--border)] bg-[#0e1728] p-2">
-        <div className="flex items-center gap-2">
-          <Link href={meta ? `/profile/${meta.other.username}` : "/messages"} className="relative h-9 w-9 overflow-hidden rounded-full border border-[var(--border)]">
-            {meta?.other.avatarUrl ? (
-              <Image src={meta.other.avatarUrl} alt={meta.other.username} fill unoptimized className="object-cover" />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-xs text-slate-100">
-                {(meta?.other.displayName ?? "?").charAt(0).toUpperCase()}
-              </span>
-            )}
-          </Link>
-          <div>
-            <Link href={meta ? `/profile/${meta.other.username}` : "/messages"} className="text-sm font-semibold text-[var(--text-strong)] hover:underline">
-              {meta?.other.displayName ?? "Direct Message"}
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded border border-[var(--border)] bg-[#0e1728]/95 p-3 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-3">
+          {!embedded ? (
+            <Link href="/messages" className="rounded border border-[var(--border)] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/5">
+              ← Messages
             </Link>
-            <p className="text-xs text-slate-400">
-              {otherTyping ? "Typing..." : "Inbox chat"}
-            </p>
+          ) : null}
+          {isGroupThread ? (
+            <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[#1a2538] text-sm font-semibold text-slate-100">
+              {threadLabel.slice(0, 1).toUpperCase()}
+            </div>
+          ) : (
+            <Link href={meta?.other ? `/profile/${meta.other.username}` : "/messages"} className="relative h-11 w-11 overflow-hidden rounded-full border border-[var(--border)] bg-[#1a2538]">
+              {meta?.other?.avatarUrl ? (
+                <Image src={meta.other.avatarUrl} alt={meta.other.username} fill unoptimized className="object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-sm font-semibold text-slate-100">
+                  {(meta?.other?.displayName ?? "?").charAt(0).toUpperCase()}
+                </span>
+              )}
+            </Link>
+          )}
+          <div className="min-w-0">
+            {isGroupThread ? (
+              <p className="block truncate text-sm font-semibold text-[var(--text-strong)]">{threadLabel}</p>
+            ) : (
+              <Link href={meta?.other ? `/profile/${meta.other.username}` : "/messages"} className="block truncate text-sm font-semibold text-[var(--text-strong)] hover:underline">
+                {threadLabel}
+              </Link>
+            )}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span>{threadSubtitle}</span>
+              <span>•</span>
+              <span>{headerStatus}</span>
+              {otherTyping ? <span className="rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-200">Live</span> : null}
+            </div>
           </div>
         </div>
-        {meta ? (
-          <button
-            type="button"
-            className="rounded border border-red-400 px-2 py-1 text-xs text-red-200"
-            onClick={async () => {
-              const res = await fetch("/api/blocks", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: meta.other.id }),
-              });
-              if (!res.ok) {
-                setStatus("Could not block user.");
-                return;
-              }
-              setStatus("User blocked. Thread closed.");
-              router.push("/messages");
-              router.refresh();
-            }}
-          >
-            Block user
-          </button>
+        {meta && !isGroupThread ? (
+          <details className="relative">
+            <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded border border-[var(--border)] text-sm text-slate-200 transition hover:bg-white/5">
+              ⋯
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 min-w-40 rounded border border-[var(--border)] bg-[#111a2a] p-1 shadow-lg">
+              <button
+                type="button"
+                className="block w-full rounded px-2 py-1.5 text-left text-xs text-red-200 transition hover:bg-red-500/10"
+                onClick={async () => {
+                  const other = meta.other;
+                  if (!other) {
+                    setStatus("Could not block user.");
+                    return;
+                  }
+                  const res = await fetch("/api/blocks", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId: other.id }),
+                  });
+                  if (!res.ok) {
+                    setStatus("Could not block user.");
+                    return;
+                  }
+                  setStatus("User blocked. Thread closed.");
+                  if (onClose) onClose();
+                  else router.push("/messages");
+                  router.refresh();
+                }}
+              >
+                Block user
+              </button>
+            </div>
+          </details>
         ) : null}
       </header>
 
-      {messages.length > 0 ? (
-        <div className="max-h-[62vh] space-y-3 overflow-y-auto rounded border border-[var(--border)] bg-gradient-to-b from-[#0d1626] to-[#0b1422] p-3">
-          {orderedMessages.map((m) => (
-            <article key={m.id} className="space-y-1">
-              <div className={`flex items-end gap-2 ${m.senderId === myUserId ? "justify-end" : "justify-start"}`}>
-                {m.senderId !== myUserId ? (
-                  <Link href={`/profile/${m.sender.username}`} className="relative h-7 w-7 overflow-hidden rounded-full border border-[var(--border)]">
-                    {m.sender.profile?.avatarUrl ? (
-                      <Image src={m.sender.profile.avatarUrl} alt={m.sender.username} fill unoptimized className="object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-[11px] text-slate-200">
-                        {m.sender.username.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </Link>
-                ) : null}
+      <div className="flex min-h-0 flex-1 flex-col rounded border border-[var(--border)] bg-gradient-to-b from-[#0d1626] to-[#0b1422]">
+        <div
+          ref={listRef}
+          onScroll={() => {
+            const node = listRef.current;
+            if (!node) return;
+            const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+            shouldAutoScrollRef.current = distanceFromBottom < AUTO_SCROLL_THRESHOLD_PX;
+          }}
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3"
+        >
+          {orderedMessages.length > 0 ? (
+            orderedMessages.map((message) => {
+              const isMine = message.senderId === myUserId;
+              const statusText = getOwnMessageStatus(message);
+              const displayName = message.sender.profile?.displayName ?? message.sender.fullName ?? message.sender.username;
+              const senderHref = `/profile/${message.sender.username}`;
 
-                <Link href={`/profile/${m.sender.username}`} className={`text-xs underline ${m.senderId === myUserId ? "text-[#f5d777]" : "text-slate-300"}`}>
-                  @{m.sender.username}
-                </Link>
+              return (
+                <article key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                  <div className={`flex max-w-[min(92%,44rem)] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+                    {!isMine ? (
+                      <Link href={senderHref} className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[#1a2538]">
+                        {message.sender.profile?.avatarUrl ? (
+                          <Image src={message.sender.profile.avatarUrl} alt={message.sender.username} fill unoptimized className="object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-[11px] font-semibold text-slate-200">
+                            {message.sender.username.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </Link>
+                    ) : null}
 
-                <span className="text-[11px] text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
-                {m.editedAt ? <span className="text-[10px] text-slate-500">(edited)</span> : null}
-                {m.localStatus === "sending" ? <span className="text-[10px] text-slate-400">sending...</span> : null}
-                {m.localStatus === "failed" ? <span className="text-[10px] text-red-300">failed</span> : null}
+                    <div className={`min-w-0 ${isMine ? "items-end" : "items-start"}`}>
+                      <div className={`mb-1 flex flex-wrap items-center gap-2 text-[11px] ${isMine ? "justify-end text-[#f5d777]" : "justify-start text-slate-300"}`}>
+                        {isMine ? (
+                          <span className="font-semibold text-[#f5d777]">You</span>
+                        ) : (
+                          <Link href={senderHref} className="font-semibold text-[var(--text-strong)] hover:underline">
+                            @{displayName}
+                          </Link>
+                        )}
+                        <span className="text-slate-500">{formatFullTimestamp(message.createdAt)}</span>
+                        {message.editedAt ? <span className="text-slate-500">edited</span> : null}
+                        {message.localStatus === "sending" ? <span className="text-slate-400">sending...</span> : null}
+                        {message.localStatus === "failed" ? <span className="text-red-300">failed</span> : null}
+                        {isMine ? (
+                          <details className="relative">
+                            <summary className="cursor-pointer list-none rounded px-2 py-0 text-sm leading-none text-slate-300 hover:bg-white/5">⋯</summary>
+                            <div className="absolute right-0 z-20 mt-1 min-w-[120px] rounded border border-[var(--border)] bg-[#111a2a] p-1 text-xs shadow-lg">
+                              <button
+                                type="button"
+                                className="block w-full rounded px-2 py-1 text-left hover:bg-[#1c2a42]"
+                                onClick={() => {
+                                  setEditingId(message.id);
+                                  setEditingText(message.body);
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="block w-full rounded px-2 py-1 text-left text-red-300 hover:bg-[#1c2a42]"
+                                onClick={async () => {
+                                  await fetch(`/api/messages/threads/${threadId}/messages/${message.id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ action: "HIDE" }),
+                                  });
+                                  await load();
+                                }}
+                              >
+                                Hide
+                              </button>
+                              <button
+                                type="button"
+                                className="block w-full rounded px-2 py-1 text-left hover:bg-[#1c2a42]"
+                                onClick={async () => {
+                                  await fetch(`/api/messages/threads/${threadId}/messages/${message.id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ action: "REPORT", reason: "Reported by conversation participant." }),
+                                  });
+                                  setStatus("Message reported for moderator review.");
+                                }}
+                              >
+                                Report
+                              </button>
+                            </div>
+                          </details>
+                        ) : null}
+                      </div>
 
-                {m.senderId === myUserId ? (
-                  <details className="relative">
-                    <summary className="cursor-pointer list-none text-xs text-slate-300">v</summary>
-                    <div className="absolute right-0 z-20 mt-1 min-w-[90px] rounded border border-[var(--border)] bg-[#111a2a] p-1 text-xs shadow-lg">
-                      <button
-                        type="button"
-                        className="block w-full rounded px-2 py-1 text-left hover:bg-[#1c2a42]"
-                        onClick={() => {
-                          setEditingId(m.id);
-                          setEditingText(m.body);
-                        }}
+                      <div
+                        className={`max-w-[82vw] whitespace-pre-wrap break-words rounded-2xl border px-4 py-3 text-sm leading-6 shadow-sm md:max-w-[36rem] ${
+                          isMine
+                            ? "ml-auto rounded-br-sm border-[#d6b24a66] bg-[#2a2110] text-[#f5d777]"
+                            : "mr-auto rounded-bl-sm border-[#94a3b866] bg-[#131c2c] text-[#d1d5db]"
+                        }`}
                       >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="block w-full rounded px-2 py-1 text-left text-red-300 hover:bg-[#1c2a42]"
-                        onClick={async () => {
-                          await fetch(`/api/messages/threads/${threadId}/messages/${m.id}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "HIDE" }),
-                          });
-                          await load();
-                        }}
-                      >
-                        Hide
-                      </button>
-                      <button
-                        type="button"
-                        className="block w-full rounded px-2 py-1 text-left hover:bg-[#1c2a42]"
-                        onClick={async () => {
-                          await fetch(`/api/messages/threads/${threadId}/messages/${m.id}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "REPORT", reason: "Reported by conversation participant." }),
-                          });
-                          setStatus("Message reported for moderator review.");
-                        }}
-                      >
-                        Report
-                      </button>
+                        {editingId === message.id ? (
+                          <div className="space-y-2">
+                            <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="w-full rounded border px-2 py-1 text-sm text-slate-900" rows={3} />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="rounded border px-2 py-1 text-xs"
+                                onClick={async () => {
+                                  if (!editingText.trim()) return;
+                                  await fetch(`/api/messages/threads/${threadId}/messages/${message.id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ action: "EDIT", text: editingText }),
+                                  });
+                                  setEditingId(null);
+                                  setEditingText("");
+                                  await load();
+                                  await loadPresence();
+                                }}
+                              >
+                                Save
+                              </button>
+                              <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => { setEditingId(null); setEditingText(""); }}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          message.body
+                        )}
+                      </div>
+
+                      <div className={`mt-1 flex items-center gap-2 text-[10px] ${isMine ? "justify-end text-amber-100/80" : "justify-start text-slate-500"}`}>
+                        {statusText ? <span>{statusText}</span> : null}
+                      </div>
                     </div>
-                  </details>
-                ) : (
-                  <Link href={`/profile/${m.sender.username}`} className="relative h-7 w-7 overflow-hidden rounded-full border border-[var(--border)]">
-                    {m.sender.profile?.avatarUrl ? (
-                      <Image src={m.sender.profile.avatarUrl} alt={m.sender.username} fill unoptimized className="object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-[11px] text-slate-200">
-                        {m.sender.username.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </Link>
-                )}
-              </div>
 
-              <div
-                className={`max-w-[82%] px-3 py-2 text-sm shadow-sm ${
-                  m.senderId === myUserId
-                    ? "ml-auto rounded-2xl rounded-br-sm border border-[#d6b24a66] bg-[#2a2110] text-[#f5d777]"
-                    : "mr-auto rounded-2xl rounded-bl-sm border border-[#94a3b866] bg-[#131c2c] text-[#d1d5db]"
-                }`}
-              >
-                {editingId === m.id ? (
-                  <div className="space-y-2">
-                    <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="w-full rounded border px-2 py-1 text-sm" rows={3} />
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={async () => {
-                          if (!editingText.trim()) return;
-                          await fetch(`/api/messages/threads/${threadId}/messages/${m.id}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "EDIT", text: editingText }),
-                          });
-                          setEditingId(null);
-                          setEditingText("");
-                          await load();
-                        }}
-                      >
-                        Save
-                      </button>
-                      <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => { setEditingId(null); setEditingText(""); }}>
-                        Cancel
-                      </button>
-                    </div>
+                    {!isMine ? null : (
+                      <div className="h-8 w-8 shrink-0 rounded-full border border-transparent bg-transparent" aria-hidden="true" />
+                    )}
                   </div>
-                ) : (
-                  m.body
-                )}
-              </div>
-              {m.localStatus === "failed" ? (
-                <div className="ml-auto w-fit">
-                  <button
-                    type="button"
-                    className="rounded border border-red-400 px-2 py-1 text-[11px] text-red-200"
-                    onClick={async () => {
-                      const retryClientMessageId = m.clientMessageId?.trim() || `retry-${Date.now()}-${sendCounter.current++}`;
-                      setMessages((previous) =>
-                        previous.map((row) =>
-                          row.id === m.id
-                            ? { ...row, localStatus: "sending", clientMessageId: retryClientMessageId }
-                            : row,
-                        ),
-                      );
-                      const sendResult = await sendMessageToThread(m.body, retryClientMessageId);
-                      if (!sendResult.ok) {
-                        setMessages((previous) =>
-                          previous.map((row) =>
-                            row.id === m.id ? { ...row, localStatus: "failed" } : row,
-                          ),
-                        );
-                        setStatus(sendResult.error);
-                        return;
+                </article>
+              );
+            })
+          ) : (
+            <div className="rounded border border-[var(--border)] bg-[#0d1626] px-3 py-2 text-xs text-slate-400">
+              No messages yet. Send the first inbox message below.
+            </div>
+          )}
+        </div>
+
+        {otherTyping ? (
+          <div className="border-t border-[var(--border)] px-4 py-2 text-xs text-slate-300">
+            <span className="rounded-full bg-white/5 px-2 py-1 text-emerald-200">{meta?.other?.displayName ?? "This person"} is typing…</span>
+          </div>
+        ) : null}
+
+        <form
+          className="space-y-2 border-t border-[var(--border)] bg-[#0d1626] p-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!text.trim()) return;
+            const outgoing = text.trim();
+            const clientMessageId = `${Date.now()}-${sendCounter.current}`;
+            sendCounter.current += 1;
+            const optimistic: Msg = {
+              id: `local-${clientMessageId}`,
+              clientMessageId,
+              body: outgoing,
+              senderId: myUserId,
+              readAt: null,
+              createdAt: new Date().toISOString(),
+              localStatus: "sending",
+              sender: {
+                id: myUserId,
+                username: "you",
+                fullName: "You",
+                profile: null,
+              },
+            };
+            setMessages((previous) => [...previous, optimistic]);
+            setText("");
+            setSending(true);
+            setStatus("");
+            await updateTyping(false);
+            queueScrollToBottom("smooth");
+
+            const sendResult = await sendMessageToThread(outgoing, clientMessageId);
+            setSending(false);
+            if (!sendResult.ok) {
+              setMessages((previous) =>
+                previous.map((row) =>
+                  row.clientMessageId === clientMessageId ? { ...row, localStatus: "failed" } : row,
+                ),
+              );
+              setStatus(sendResult.error);
+              return;
+            }
+            if (sendResult.message) {
+              setMessages((previous) =>
+                previous.map((row) =>
+                  row.clientMessageId === clientMessageId
+                    ? {
+                        ...row,
+                        ...sendResult.message,
+                        localStatus: undefined,
+                        sender: row.sender,
                       }
-                      setStatus("");
-                      await load();
-                      await loadPresence();
-                    }}
-                  >
-                    Retry send
-                  </button>
-                </div>
-              ) : null}
-            </article>
+                    : row,
+                ),
+              );
+            } else {
+              setMessages((previous) =>
+                previous.map((row) =>
+                  row.clientMessageId === clientMessageId ? { ...row, localStatus: undefined } : row,
+                ),
+              );
+            }
+            setStatus("");
+            void loadPresence();
+          }}
+        >
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <button type="button" className="rounded border border-transparent px-1 py-0.5 underline hover:bg-white/5" onClick={() => insertFormat("**", "**")}>
+              B
+            </button>
+            <button type="button" className="rounded border border-transparent px-1 py-0.5 italic underline hover:bg-white/5" onClick={() => insertFormat("_", "_")}>
+              I
+            </button>
+            <button type="button" className="rounded border border-transparent px-1 py-0.5 underline hover:bg-white/5" onClick={() => insertFormat("<u>", "</u>")}>
+              U
+            </button>
+            <button type="button" className="rounded border border-transparent px-1 py-0.5 line-through underline-offset-2 hover:bg-white/5" onClick={() => insertFormat("~~", "~~")}>
+              S
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <textarea
+              ref={editorRef}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                void updateTyping(true);
+                if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
+                typingOffTimer.current = setTimeout(() => {
+                  void updateTyping(false);
+                }, 3000);
+              }}
+              onBlur={() => {
+                if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
+                void updateTyping(false);
+              }}
+              className="min-h-[88px] flex-1 rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              placeholder="Type a message"
+              rows={4}
+            />
+            <button
+              className="rounded border border-[var(--border)] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+              type="submit"
+              disabled={sending || !text.trim()}
+            >
+              {sending ? "Sending..." : "Send"}
+            </button>
+          </div>
+        </form>
+
+        <div className="flex flex-wrap gap-1 px-3 pb-3 pt-2">
+          {EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              className="rounded-sm border border-transparent px-0.5 py-0 text-base leading-none transition hover:scale-110"
+              onClick={() => setText((prev) => `${prev}${emoji}`)}
+            >
+              {emoji}
+            </button>
           ))}
         </div>
-      ) : (
-        <div className="rounded border border-[var(--border)] bg-[#0d1626] px-3 py-2 text-xs text-slate-400">
-          No messages yet. Send the first inbox message below.
-        </div>
-      )}
-
-      {lastOwnMessage ? (
-        <p className="text-xs text-slate-400">
-          {lastOwnMessage.readAt ? `Read ${new Date(lastOwnMessage.readAt).toLocaleString()}` : "Sent"}
-        </p>
-      ) : null}
-
-      <form
-        className="space-y-2 rounded border border-[var(--border)] bg-[#0d1626] p-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!text.trim()) return;
-          const outgoing = text.trim();
-          const clientMessageId = `${Date.now()}-${sendCounter.current}`;
-          sendCounter.current += 1;
-
-          const optimistic: Msg = {
-            id: `local-${clientMessageId}`,
-            clientMessageId,
-            body: outgoing,
-            senderId: myUserId,
-            readAt: null,
-            createdAt: new Date().toISOString(),
-            localStatus: "sending",
-            sender: {
-              id: myUserId,
-              username: "you",
-              fullName: "You",
-              profile: null,
-            },
-          };
-          setMessages((previous) => [...previous, optimistic]);
-          setText("");
-          await updateTyping(false);
-
-          const sendResult = await sendMessageToThread(outgoing, clientMessageId);
-          if (!sendResult.ok) {
-            setMessages((previous) =>
-              previous.map((row) =>
-                row.clientMessageId === clientMessageId ? { ...row, localStatus: "failed" } : row,
-              ),
-            );
-            setStatus(sendResult.error);
-            return;
-          }
-          setStatus("");
-          await load();
-          await loadPresence();
-        }}
-      >
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-          <button type="button" className="underline" onClick={() => insertFormat("**", "**")}>B</button>
-          <button type="button" className="underline italic" onClick={() => insertFormat("_", "_")}>I</button>
-          <button type="button" className="underline" onClick={() => insertFormat("<u>", "</u>")}>U</button>
-          <button type="button" className="line-through underline-offset-2" onClick={() => insertFormat("~~", "~~")}>S</button>
-        </div>
-        <div className="flex gap-2">
-          <textarea
-            ref={editorRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              void updateTyping(true);
-              if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
-              typingOffTimer.current = setTimeout(() => {
-                void updateTyping(false);
-              }, 3000);
-            }}
-            onBlur={() => {
-              if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
-              void updateTyping(false);
-            }}
-            className="flex-1 rounded border px-3 py-2 text-sm"
-            placeholder="Type a message"
-            rows={4}
-          />
-          <button className="rounded border border-[var(--border)] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)]" type="submit">Send</button>
-        </div>
-      </form>
-
-      <div className="flex flex-wrap gap-1">
-        {EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            className="rounded-sm border border-transparent px-0.5 py-0 text-base leading-none hover:scale-110"
-            onClick={() => setText((prev) => `${prev}${emoji}`)}
-          >
-            {emoji}
-          </button>
-        ))}
       </div>
+
       {status ? <p className="text-xs text-slate-300">{status}</p> : null}
     </div>
   );
