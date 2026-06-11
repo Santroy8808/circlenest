@@ -54,6 +54,8 @@ export function PostDiscussionClient({
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
   const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const submittingCommentRef = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   function parseMedia(raw?: string | null): string[] {
@@ -90,24 +92,32 @@ export function PostDiscussionClient({
   }
 
   async function submitComment() {
+    if (submittingCommentRef.current) return;
     const value = content.trim();
     if (!value && mediaUrls.length === 0) return;
-    const res = await fetch(`/api/posts/${post.id}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: value, parentCommentId: replyToCommentId, mediaUrls }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(body.error ?? "Could not add comment");
-      return;
+    submittingCommentRef.current = true;
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/posts/${post.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: value, parentCommentId: replyToCommentId, mediaUrls }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? "Could not add comment");
+        return;
+      }
+      setReplyToCommentId(null);
+      setReplyToUsername(null);
+      setContent("");
+      setMediaUrls([]);
+      router.push(safeReturnTo);
+      router.refresh();
+    } finally {
+      submittingCommentRef.current = false;
+      setSubmittingComment(false);
     }
-    setReplyToCommentId(null);
-    setReplyToUsername(null);
-    setContent("");
-    setMediaUrls([]);
-    router.push(safeReturnTo);
-    router.refresh();
   }
 
   function insertFormat(prefix: string, suffix = "") {
@@ -286,8 +296,8 @@ export function PostDiscussionClient({
               ))}
             </div>
           ) : null}
-          <button className="rounded-md border border-[var(--border)] bg-[#8f7228] px-3 py-1 text-sm text-black" onClick={() => void submitComment()}>
-            Comment
+          <button type="button" className="rounded-md border border-[var(--border)] bg-[#8f7228] px-3 py-1 text-sm text-black" disabled={submittingComment} onClick={() => void submitComment()}>
+            {submittingComment ? "Commenting..." : "Comment"}
           </button>
           {error ? <p className="text-xs text-red-300">{error}</p> : null}
         </div>
