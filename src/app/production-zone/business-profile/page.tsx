@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/prisma";
@@ -38,7 +39,13 @@ export default async function BusinessProfilePage() {
       <section className="card space-y-4 p-4">
         <div>
           <h1 className="text-xl font-semibold">Business Profile</h1>
-          <p className="text-sm text-slate-500">Browse public business profiles. Creation is invite-only and subscription-gated.</p>
+          <p className="text-sm text-slate-500">
+            Browse public business profiles. Storefront publishing now lives on the separate{" "}
+            <Link href="/production-zone/business/storefront" className="underline">
+              Storefront
+            </Link>{" "}
+            page. Creation is invite-only and subscription-gated.
+          </p>
         </div>
         {!canCreate ? (
           <p className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-sm text-amber-200">{access.reason ?? "Business profile creation is locked."}</p>

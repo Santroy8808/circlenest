@@ -34,6 +34,13 @@ export default async function ProductionZoneBusinessPage() {
             <p className="mt-1 text-sm text-slate-400">Create or update the public business presence for your account.</p>
           </Link>
           <Link
+            href="/production-zone/business/storefront"
+            className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+          >
+            <h2 className="text-base font-semibold text-[var(--text-strong)]">Storefront</h2>
+            <p className="mt-1 text-sm text-slate-400">Publish a public storefront for external visitors and manage inquiries.</p>
+          </Link>
+          <Link
             href="/jobs/new"
             className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
           >

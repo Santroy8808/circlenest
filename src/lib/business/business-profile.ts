@@ -13,6 +13,8 @@ export type BusinessProfileSummary = Readonly<{
   state: string | null;
   city: string | null;
   isPublic: boolean;
+  storefrontSlug: string | null;
+  storefrontEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   owner: Readonly<{
@@ -37,6 +39,8 @@ type BusinessProfileSource = {
   state: string | null;
   city: string | null;
   isPublic: boolean;
+  storefrontSlug: string | null;
+  storefrontEnabled: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
   owner: {
@@ -66,6 +70,8 @@ export function serializeBusinessProfile(profile: BusinessProfileSource): Busine
     state: profile.state,
     city: profile.city,
     isPublic: profile.isPublic,
+    storefrontSlug: profile.storefrontSlug,
+    storefrontEnabled: profile.storefrontEnabled,
     createdAt: normalizeDate(profile.createdAt),
     updatedAt: normalizeDate(profile.updatedAt),
     owner: {

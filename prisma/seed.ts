@@ -245,6 +245,48 @@ async function main() {
 
   const userIdByUsername = new Map(users.map((u) => [u.username, u.id]));
 
+  const tierBizUserId = userIdByUsername.get("tierbiz");
+  if (tierBizUserId) {
+    const storefront = await prisma.businessProfile.create({
+      data: {
+        ownerId: tierBizUserId,
+        businessName: "Tier Biz Services",
+        tagline: "A public Biz storefront for Theta-Space visitors.",
+        description: "This is the seeded public storefront for the Biz tier account.",
+        websiteUrl: "https://theta-space.net",
+        contactEmail: "hello@theta-space.dev",
+        contactPhone: "555-0155",
+        category: "Services",
+        location: "Miami, FL",
+        country: "United States",
+        state: "FL",
+        city: "Miami",
+        isPublic: true,
+        storefrontSlug: "tierbiz",
+        storefrontEnabled: true,
+      },
+      select: { id: true, businessName: true },
+    });
+
+    await prisma.businessStorefrontInquiry.create({
+      data: {
+        businessProfileId: storefront.id,
+        visitorName: "Taylor Visitor",
+        visitorEmail: "taylor@example.com",
+        visitorMessage: "Interested in your services. Please get back to me when you can.",
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: tierBizUserId,
+        type: "BUSINESS_INQUIRY",
+        body: "Taylor Visitor sent a storefront inquiry to Tier Biz Services.",
+        targetUrl: "/production-zone/business/storefront",
+      },
+    });
+  }
+
   const friendshipsByUsername: Array<[string, string]> = [
     ["ava", "milo"], ["ava", "jules"], ["ava", "rhea"], ["ava", "priya"],
     ["milo", "noah"], ["milo", "kai"], ["milo", "trent"],

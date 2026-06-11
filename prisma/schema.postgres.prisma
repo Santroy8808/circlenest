@@ -944,14 +944,31 @@ model BusinessProfile {
   state           String?
   city            String?
   isPublic        Boolean  @default(true)
+  storefrontSlug  String?  @unique
+  storefrontEnabled Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  storefrontInquiries BusinessStorefrontInquiry[]
 
   @@index([category, createdAt])
   @@index([location, createdAt])
   @@index([country, state, city, createdAt])
   @@index([isPublic, createdAt])
+}
+
+model BusinessStorefrontInquiry {
+  id                String   @id @default(cuid())
+  businessProfileId  String
+  visitorName        String
+  visitorEmail       String
+  visitorMessage     String
+  readAt             DateTime?
+  createdAt          DateTime @default(now())
+  businessProfile    BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([businessProfileId, createdAt])
+  @@index([businessProfileId, readAt])
 }
 
 model WriterStudioProject {

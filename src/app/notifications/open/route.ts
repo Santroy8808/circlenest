@@ -14,6 +14,8 @@ function fallbackRedirectPath(notificationType: string | null | undefined) {
     case "NEW_COMMENT":
     case "NEW_REACTION":
       return "/home";
+    case "BUSINESS_INQUIRY":
+      return "/production-zone/business/storefront";
     case "ADMIN_ANNOUNCEMENT":
       return "/notifications";
     default:

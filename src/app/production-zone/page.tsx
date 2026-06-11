@@ -68,7 +68,7 @@ export default async function ProductionZonePage() {
   if (showBusiness) {
     cards.push({
       title: "My Business",
-      description: "Manage your business profile, then branch into business job and event flows.",
+      description: "Manage your business profile, storefront, then branch into business job and event flows.",
       href: "/production-zone/business",
     });
   }

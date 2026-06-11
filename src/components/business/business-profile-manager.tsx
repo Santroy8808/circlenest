@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { BusinessProfileSummary } from "@/lib/business/business-profile";
 
@@ -162,6 +163,21 @@ export function BusinessProfileManager({ canCreate, accessReason, ownProfile, pu
         >
           {saving ? "Saving..." : ownProfile ? "Save business profile" : "Create business profile"}
         </button>
+        {ownProfile?.storefrontSlug ? (
+          <p className="text-xs text-slate-400">
+            Storefront path:{" "}
+            {ownProfile.storefrontEnabled ? (
+              <Link href={`/storefront/${ownProfile.storefrontSlug}`} className="text-amber-200 underline underline-offset-2">
+                /storefront/{ownProfile.storefrontSlug}
+              </Link>
+            ) : (
+              <span>/storefront/{ownProfile.storefrontSlug}</span>
+            )}
+            {!ownProfile.storefrontEnabled ? (
+              <span className="ml-2 text-slate-500">(disabled until you enable it on the Storefront page)</span>
+            ) : null}
+          </p>
+        ) : null}
         {status ? <p className="text-xs text-slate-400">{status}</p> : null}
       </section>
 
@@ -179,9 +195,19 @@ export function BusinessProfileManager({ canCreate, accessReason, ownProfile, pu
                     <p className="font-medium text-slate-100">{profile.businessName}</p>
                     <p className="text-xs text-slate-400">@{profile.owner.username}{profile.owner.fullName ? ` • ${profile.owner.fullName}` : ""}</p>
                   </div>
-                  <span className="rounded-full border border-slate-400/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-300">
-                    {profile.category || "Business"}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-slate-400/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                      {profile.category || "Business"}
+                    </span>
+                    {profile.storefrontEnabled && profile.storefrontSlug ? (
+                      <Link
+                        href={`/storefront/${profile.storefrontSlug}`}
+                        className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-amber-200 transition hover:bg-amber-300/10"
+                      >
+                        Storefront open
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
                 {profile.tagline ? <p className="mt-2 text-sm text-slate-300">{profile.tagline}</p> : null}
                 {profile.description ? <p className="mt-2 text-sm text-slate-400">{profile.description}</p> : null}
