@@ -24,7 +24,10 @@ export type UploadImageOptions = {
     | "auditor-attachment"
     | "group-photo"
     | "group-post-media"
-    | "group-document";
+    | "group-document"
+    | "job-listing-photo"
+    | "fundraiser-banner"
+    | "fundraiser-comment-media";
   groupId?: string;
   albumId?: string;
   tagNames?: string[];

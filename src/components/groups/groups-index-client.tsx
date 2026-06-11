@@ -7,6 +7,10 @@ type GroupIndexRow = {
   id: string;
   name: string;
   description: string | null;
+  purpose: string | null;
+  locationCountry: string | null;
+  locationState: string | null;
+  locationCity: string | null;
   visibility: string;
   joinMode: "OPEN" | "REQUEST";
   ownerUsername: string;
@@ -15,7 +19,7 @@ type GroupIndexRow = {
   hasPendingRequest: boolean;
 };
 
-export function GroupsIndexClient({ groups }: { groups: GroupIndexRow[] }) {
+export function GroupsIndexClient({ groups, emptyMessage = "No groups found." }: { groups: GroupIndexRow[]; emptyMessage?: string }) {
   const [statusByGroup, setStatusByGroup] = useState<Record<string, string>>({});
 
   async function join(groupId: string) {
@@ -35,23 +39,27 @@ export function GroupsIndexClient({ groups }: { groups: GroupIndexRow[] }) {
 
   return (
     <section className="grid gap-3">
-      {groups.map((g) => (
+      {groups.length ? groups.map((g) => (
         <article key={g.id} className="card p-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">{g.name}</h2>
-              <p className="text-sm text-slate-600">{g.description || "No description"}</p>
-            </div>
-            <Link href={`/groups/${g.id}`} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">
-              Open Group
-            </Link>
+          <div>
+            <h2 className="text-lg font-semibold">{g.name}</h2>
+            <p className="text-sm text-slate-600">{g.description || "No description"}</p>
           </div>
-          <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
-            <span>{g.visibility}</span>
-            <span>{g.memberCount} members</span>
-            <span>Creator: @{g.ownerUsername}</span>
-            <span>{g.joinMode === "OPEN" ? "Open join" : "Request to join"}</span>
-          </div>
+          <Link href={`/groups/${g.id}`} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">
+            Open Group
+          </Link>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
+          <span>{g.visibility}</span>
+          <span>{g.memberCount} members</span>
+          <span>Creator: @{g.ownerUsername}</span>
+          <span>{g.joinMode === "OPEN" ? "Open join" : "Request to join"}</span>
+          <span>Purpose: {g.purpose || "Not set"}</span>
+          <span>
+            Location: {[g.locationCity, g.locationState, g.locationCountry].filter(Boolean).join(", ") || "Not set"}
+          </span>
+        </div>
           <div className="mt-3 flex items-center gap-3">
             {g.isMember ? (
               <span className="text-xs text-emerald-700">You are a member.</span>
@@ -65,7 +73,7 @@ export function GroupsIndexClient({ groups }: { groups: GroupIndexRow[] }) {
             {statusByGroup[g.id] ? <span className="text-xs text-slate-600">{statusByGroup[g.id]}</span> : null}
           </div>
         </article>
-      ))}
+      )) : <p className="rounded border border-dashed border-slate-300 p-4 text-sm text-slate-600">{emptyMessage}</p>}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { GroupDetailClient } from "@/components/groups/group-detail-client";
 import { canModerateGroup } from "@/lib/auth/scoped-moderation";
+import { canAssignGroupModerators, getMaxCreatedGroupMembers, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
 export default async function GroupPage({ params }: { params: { groupId: string } }) {
   const session = await auth();
@@ -38,6 +39,8 @@ export default async function GroupPage({ params }: { params: { groupId: string 
   const isAdmin = await isAdminUser(session.user.id);
   const myMember = group.members.find((m) => m.userId === session.user.id);
   const canModerate = await canModerateGroup(session.user.id, group.id);
+  const currentUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, subscriptionTier: true } });
+  const policy = resolveUserAccessPolicy(currentUser);
 
   return (
     <AppShell>
@@ -84,8 +87,9 @@ export default async function GroupPage({ params }: { params: { groupId: string 
         currentUserId={session.user.id}
         currentRole={myMember?.role || (isAdmin ? "ADMIN" : null)}
         canModerate={Boolean(canModerate)}
+        canAssignModerators={canAssignGroupModerators(policy)}
+        creatorMemberCap={group.ownerId === session.user.id ? getMaxCreatedGroupMembers(policy) : null}
       />
     </AppShell>
   );
 }
-

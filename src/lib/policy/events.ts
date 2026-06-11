@@ -1,7 +1,6 @@
-const EVENT_CREATOR_TIERS = new Set(["BUSINESS", "SILVER", "GOLD", "DIAMOND"]);
+import { getTierPolicy } from "@/lib/policy/tier-policy";
 
 export function canCreateEvent(subscriptionTier: string | null | undefined) {
-  const tier = (subscriptionTier ?? "FREE").toUpperCase();
-  return EVENT_CREATOR_TIERS.has(tier);
+  return getTierPolicy(subscriptionTier).canCreateEvent;
 }
 

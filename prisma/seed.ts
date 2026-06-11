@@ -42,6 +42,73 @@ const fakeUsers = [
 
 const topicPool = ["Technology", "Community", "Design", "Music", "Photography", "Startups", "Wellness", "Gaming"];
 
+const tierTestUsers = [
+  {
+    username: "tierfree",
+    email: "tierfree@theta-space.dev",
+    fullName: "Tier Free",
+    displayName: "Tier Free",
+    location: "Austin, TX",
+    interests: "Tier testing, Groups, Jobs",
+    relationshipStatus: "Private",
+    bio: "Free-tier test account.",
+    city: "Austin",
+    state: "TX",
+    subscriptionTier: "FREE",
+    role: "MEMBER",
+    password: "FreeTier1!",
+    adminPassword: null,
+  },
+  {
+    username: "tierplus",
+    email: "tierplus@theta-space.dev",
+    fullName: "Tier Plus",
+    displayName: "Tier Plus",
+    location: "Dallas, TX",
+    interests: "Tier testing, Bazaar, Events",
+    relationshipStatus: "Private",
+    bio: "Plus-tier test account.",
+    city: "Dallas",
+    state: "TX",
+    subscriptionTier: "PLUS",
+    role: "MEMBER",
+    password: "PlusTier1!",
+    adminPassword: null,
+  },
+  {
+    username: "tierpro",
+    email: "tierpro@theta-space.dev",
+    fullName: "Tier Pro",
+    displayName: "Tier Pro",
+    location: "Miami, FL",
+    interests: "Tier testing, Ads, Pro tools",
+    relationshipStatus: "Private",
+    bio: "Pro-tier test account.",
+    city: "Miami",
+    state: "FL",
+    subscriptionTier: "PRO",
+    role: "MEMBER",
+    password: "ProTier1!",
+    adminPassword: null,
+  },
+  {
+    username: "tieradmin",
+    email: "tieradmin@theta-space.dev",
+    fullName: "Tier Admin",
+    displayName: "Tier Admin",
+    location: "Seattle, WA",
+    interests: "Tier testing, Admin, Moderation",
+    relationshipStatus: "Private",
+    bio: "Admin-tier test account.",
+    city: "Seattle",
+    state: "WA",
+    subscriptionTier: "ADMIN",
+    role: "ADMIN",
+    password: "AdminTier1!",
+    adminPassword: "AdminTier1!",
+  },
+] as const;
+
 async function resetDb() {
   await prisma.reaction.deleteMany();
   await prisma.comment.deleteMany();
@@ -122,6 +189,50 @@ async function main() {
         feedPreference: {
           create: {
             mode,
+            hiddenPostIds: JSON.stringify([]),
+            topicWeights: JSON.stringify({ Technology: 1, Community: 1 }),
+          },
+        },
+      },
+      select: { id: true, username: true },
+    });
+    users.push(user);
+  }
+
+  for (let i = 0; i < tierTestUsers.length; i++) {
+    const spec = tierTestUsers[i];
+    const theme = themes[(fakeUsers.length + i) % themes.length];
+    const passwordHash = await hash(spec.password, 10);
+    const adminPasswordHash = spec.adminPassword ? await hash(spec.adminPassword, 10) : null;
+
+    const user = await prisma.user.create({
+      data: {
+        fullName: spec.fullName,
+        email: spec.email,
+        username: spec.username,
+        passwordHash,
+        city: spec.city,
+        state: spec.state,
+        country: "United States",
+        subscriptionTier: spec.subscriptionTier,
+        role: spec.role,
+        adminPasswordHash,
+        adminPasswordUpdatedAt: adminPasswordHash ? new Date() : null,
+        profile: {
+          create: {
+            displayName: spec.displayName,
+            bio: spec.bio,
+            location: spec.location,
+            interests: spec.interests,
+            relationshipStatus: spec.relationshipStatus,
+            avatarUrl: `/uploads/seed/avatar-${((fakeUsers.length + i) % 8) + 1}.jpg`,
+            bannerUrl: `/uploads/seed/banner-${((fakeUsers.length + i) % 6) + 1}.jpg`,
+            themeId: theme.id,
+          },
+        },
+        feedPreference: {
+          create: {
+            mode: "CHRONOLOGICAL",
             hiddenPostIds: JSON.stringify([]),
             topicWeights: JSON.stringify({ Technology: 1, Community: 1 }),
           },

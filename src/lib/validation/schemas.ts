@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { validateStrongPassword } from "@/lib/security/password-policy";
 
-const subscriptionTiers = ["FREE", "VERIFIED", "SUPPORTER", "BUSINESS", "SILVER", "GOLD", "DIAMOND"] as const;
+const subscriptionTiers = ["FREE", "PLUS", "PRO", "ADMIN"] as const;
 const nullOrEmptyToUndefined = (value: unknown) =>
   value === null || value === undefined || (typeof value === "string" && value.trim() === "")
     ? undefined
@@ -26,6 +26,7 @@ const isValidMediaUrl = (value: string) => {
 const mediaUrlSchema = z.string().refine(isValidMediaUrl, "Invalid media URL");
 
 export const signupSchema = z.object({
+  inviteCode: z.preprocess(nullOrEmptyToUndefined, z.string().min(8).max(500).optional()),
   fullName: z.string().min(2).max(80),
   email: z.string().email(),
   phoneNumber: z.string().min(7).max(30),
@@ -41,6 +42,7 @@ export const signupSchema = z.object({
   lastServiceWhen: optionalText(120),
   iasStatus: optionalText(120),
   iasNumber: optionalText(120),
+  acceptedTerms: z.literal(true),
   subscriptionTier: z.enum(subscriptionTiers),
   interests: z.array(z.string().min(2).max(50)).min(5),
 }).superRefine((data, ctx) => {

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { canCreateEvent } from "@/lib/policy/events";
+import { canCreateEvent } from "@/lib/policy/tier-policy";
+import { serializeAdPlacements } from "@/lib/ads/ads";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
 export async function GET() {
   const session = await auth();
@@ -18,18 +20,28 @@ export async function GET() {
     include: {
       creator: { select: { username: true } },
       moderators: { include: { user: { select: { username: true } } } },
+      adPlacements: {
+        include: { creator: { select: { id: true, username: true } } },
+        orderBy: [{ createdAt: "desc" }],
+      },
     },
     orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
-  return NextResponse.json(events);
+  return NextResponse.json(
+    events.map((event) => ({
+      ...event,
+      adPlacements: serializeAdPlacements(event.adPlacements),
+    })),
+  );
 }
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { subscriptionTier: true } });
-  if (!canCreateEvent(user?.subscriptionTier)) return NextResponse.json({ error: "Event creation is for paid members." }, { status: 403 });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, subscriptionTier: true } });
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
+  if (!canCreateEvent(policy)) return NextResponse.json({ error: "Event creation is not allowed on this tier." }, { status: 403 });
 
   const body = (await request.json()) as {
     title?: string;

@@ -1,0 +1,36 @@
+{
+  "runId": "200-users-6-months",
+  "phase": "complete",
+  "monthIndex": 5,
+  "monthKey": "2026-06",
+  "usersCreated": 200,
+  "reports": [
+    {
+      "monthKey": "2026-01",
+      "revenueCents": 9900
+    },
+    {
+      "monthKey": "2026-02",
+      "revenueCents": 21600
+    },
+    {
+      "monthKey": "2026-03",
+      "revenueCents": 28200
+    },
+    {
+      "monthKey": "2026-04",
+      "revenueCents": 39400
+    },
+    {
+      "monthKey": "2026-05",
+      "revenueCents": 52700
+    },
+    {
+      "monthKey": "2026-06",
+      "revenueCents": 67000
+    }
+  ],
+  "ledgerPath": "docs\\operations\\mock-platform\\mock-platform-log.jsonl",
+  "reportDir": "docs\\operations\\mock-platform\\reports",
+  "timestamp": "2026-06-03T00:53:15.283Z"
+}

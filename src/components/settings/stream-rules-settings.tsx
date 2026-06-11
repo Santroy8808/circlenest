@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TierGate } from "@/components/policy/tier-gate";
 
-export function StreamRulesSettings() {
+export function StreamRulesSettings({ canChangeFeedType }: { canChangeFeedType: boolean }) {
   const [mode, setMode] = useState<"direct" | "approval">("direct");
   const [status, setStatus] = useState("");
 
@@ -43,6 +44,22 @@ export function StreamRulesSettings() {
         Require my approval before friend/family stream posts go live
       </label>
       <button type="button" onClick={() => void save()} className="mt-2 rounded border px-3 py-1.5 text-sm">Save Rules</button>
+      {!canChangeFeedType ? (
+        <div className="mt-3">
+          <TierGate
+            variant="locked"
+            title="Feed mode locked"
+            message="Upgrade to Plus to change feed type."
+            ctaLabel="Open subscription"
+            ctaHref="/settings#subscription"
+            secondaryLabel="Compare memberships"
+            secondaryHref="/membership"
+            compact
+          />
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-slate-400">Feed type changes live in Theme Settings.</p>
+      )}
       {status ? <p className="mt-1 text-xs text-slate-400">{status}</p> : null}
     </section>
   );

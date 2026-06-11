@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
+import { ReportControl } from "@/components/reports/report-control";
 
 type PostDiscussionComment = {
   id: string;
@@ -152,6 +153,9 @@ export function PostDiscussionClient({
         ) : null}
       </div>
       <p className="text-[18px] leading-[1.55]">{post.content}</p>
+      <div className="max-w-sm">
+        <ReportControl targetType="POST" targetId={post.id} label="Report post" compact />
+      </div>
       {(() => {
         const media = parseMedia(post.mediaUrlsJson);
         if (media.length) {
@@ -207,6 +211,9 @@ export function PostDiscussionClient({
                 ))}
               </div>
             ) : null}
+            <div className="mt-2 max-w-sm">
+              <ReportControl targetType="COMMENT" targetId={comment.id} label="Report comment" compact />
+            </div>
           </div>
         ))}
       </div>

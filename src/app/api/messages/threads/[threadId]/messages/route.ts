@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeUserText, checkRateLimitPlaceholder } from "@/lib/security";
-import { getAuthorizedThread } from "@/lib/messages/thread-access";
+import { getAuthorizedThread, getThreadParticipants, isGroupThread, threadOtherParticipant } from "@/lib/messages/thread-access";
 import { deliverPushNotification } from "@/lib/notifications/push";
 
 function isSchemaDriftError(error: unknown) {
@@ -98,7 +98,11 @@ export async function POST(request: Request, context: { params: { threadId: stri
       }
     }
 
-    const receiverId = thread.userAId === session.user.id ? thread.userBId : thread.userAId;
+    const recipientIds = isGroupThread(thread)
+      ? getThreadParticipants(thread)
+          .map((participant) => participant.id)
+          .filter((recipientId) => recipientId !== session.user.id)
+      : [threadOtherParticipant(thread, session.user.id).id];
     let msg;
     try {
       msg = await prisma.$transaction(async (tx) => {
@@ -142,35 +146,24 @@ export async function POST(request: Request, context: { params: { threadId: stri
       }
     }
 
-    try {
-      await prisma.notification.create({
-        data: {
-          userId: receiverId,
-          type: "INBOX_MESSAGE",
-          body: `New inbox message from @${session.user.name ?? "member"}`,
-          targetUrl: `/messages/${thread.id}`,
-        },
-      });
-    } catch (error) {
+    const notificationBody = isGroupThread(thread)
+      ? `New group message from @${session.user.name ?? "member"}`
+      : `New inbox message from @${session.user.name ?? "member"}`;
+    for (const recipientId of recipientIds) {
       try {
         await prisma.notification.create({
           data: {
-            userId: receiverId,
-            type: "NEW_MESSAGE",
-            body: "You received a new message",
+            userId: recipientId,
+            type: "INBOX_MESSAGE",
+            body: notificationBody,
             targetUrl: `/messages/${thread.id}`,
           },
         });
-      } catch (fallbackError) {
+      } catch (error) {
         console.warn("DM notification creation failed; message still delivered", {
-          code: knownPrismaCode(fallbackError),
-          receiverId,
-        });
-      }
-      if (!isSchemaDriftError(error)) {
-        console.warn("Primary DM notification type failed; attempted fallback type.", {
           code: knownPrismaCode(error),
-          receiverId,
+          recipientId,
+          threadId: thread.id,
         });
       }
     }
@@ -191,11 +184,19 @@ export async function POST(request: Request, context: { params: { threadId: stri
       })
       .catch(() => null);
 
-    await deliverPushNotification(receiverId, {
-      title: "New message",
-      body: "You received a new direct message.",
-      url: `/messages/${thread.id}`,
-    }).catch(() => null);
+    for (const recipientId of recipientIds) {
+      await deliverPushNotification(
+        recipientId,
+        {
+          title: isGroupThread(thread) ? "New group message" : "New message",
+          body: isGroupThread(thread)
+            ? "You received a new group message."
+            : "You received a new direct message.",
+          url: `/messages/${thread.id}`,
+        },
+        "notification",
+      ).catch(() => null);
+    }
 
     return NextResponse.json(msg);
   } catch (error) {

@@ -24,26 +24,27 @@ const mobileSections: MenuSection[] = [
   {
     title: "Production Zone",
     items: [
-      ["Production Zone", "/production-zone", true],
-      ["Events", "/events", true],
-      ["Bazaar", "/bazaar", true],
-      ["Hiring Board", "/jobs", true],
-      ["Find an Auditor", "/auditors", true],
-      ["I'm an Auditor", "/auditors/im-an-auditor", true],
+      ["Production Zone", "/production-zone"],
+      ["Events", "/events"],
+      ["Bazaar", "/bazaar"],
+      ["Fund Raiser", "/fundraisers"],
+      ["Find a job", "/jobs"],
+      ["Find an Auditor", "/auditors"],
+      ["I'm an Auditor", "/auditors/im-an-auditor"],
     ],
   },
-  {
-    title: "People",
-    items: [
-      ["Friends", "/friends"],
-      ["Groups", "/groups"],
-      ["My Groups", "/groups?mine=1"],
-      ["Messages", "/messages"],
-      ["Notifications", "/notifications"],
-      ["Alerts", "/alerts"],
-      ["Invites", "/friends#invites"],
-    ],
-  },
+    {
+      title: "People",
+      items: [
+        ["Friends", "/friends"],
+        ["Groups", "/groups"],
+        ["My Groups", "/groups?view=my"],
+        ["Messages", "/messages"],
+        ["Notifications", "/notifications"],
+        ["Alerts", "/alerts"],
+        ["Invites", "/settings#invitations"],
+      ],
+    },
   {
     title: "Settings",
     items: [
@@ -57,7 +58,15 @@ const mobileSections: MenuSection[] = [
   },
 ];
 
-export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?: SwipeSide; includeAdmin?: boolean }) {
+export function MobileSwipeNav({
+  side = "RIGHT",
+  includeAdmin = false,
+  includeModerator = false,
+}: {
+  side?: SwipeSide;
+  includeAdmin?: boolean;
+  includeModerator?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [activeSectionTitle, setActiveSectionTitle] = useState<string | null>(null);
 
@@ -156,10 +165,11 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
                   <Section
                     title={activeSectionTitle}
                     links={
-                      activeSectionTitle === "Settings" && includeAdmin
+                      activeSectionTitle === "Settings"
                         ? [
                             ...((mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? []) as [string, string][]),
-                            ["Admin Portal", "/admin"],
+                            ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
+                            ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
                           ]
                         : (mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? [])
                     }
@@ -218,3 +228,4 @@ function Section({
     </section>
   );
 }
+

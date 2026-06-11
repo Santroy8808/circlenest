@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { ensureBootstrapAdmins, isAdminUser } from "@/lib/auth/admin";
+import { adminModeLockedResponse } from "@/lib/security/admin-mode-guards";
+import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await ensureBootstrapAdmins();
   if (!(await isAdminUser(session.user.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminModeLocked = adminModeLockedResponse(session.user.id);
+  if (adminModeLocked) return adminModeLocked;
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const rows = await prisma.moderatorActionLog.findMany({
     include: { actor: { select: { username: true } } },
@@ -22,6 +28,10 @@ export async function POST(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await ensureBootstrapAdmins();
   if (!(await isAdminUser(session.user.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminModeLocked = adminModeLockedResponse(session.user.id);
+  if (adminModeLocked) return adminModeLocked;
+  const locked = secureAreaLockedResponse(session.user.id);
+  if (locked) return locked;
 
   const body = (await request.json()) as { action?: string; targetType?: string; targetId?: string; note?: string };
   const action = String(body.action ?? "").trim();

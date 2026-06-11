@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canModerateGroup } from "@/lib/auth/scoped-moderation";
+import { canAddGroupMember } from "@/modules/groups/groups.service";
 
 export async function PATCH(request: Request, context: { params: { groupId: string; requestId: string } }) {
   const session = await auth();
@@ -24,6 +25,9 @@ export async function PATCH(request: Request, context: { params: { groupId: stri
   if (!target) return NextResponse.json({ error: "Join request not found" }, { status: 404 });
 
   if (action === "APPROVE") {
+    const capacity = await canAddGroupMember(context.params.groupId, target.userId);
+    if (!capacity.ok) return NextResponse.json({ error: capacity.error }, { status: capacity.status });
+
     await prisma.$transaction([
       prisma.groupMember.upsert({
         where: { groupId_userId: { groupId: context.params.groupId, userId: target.userId } },
@@ -44,4 +48,5 @@ export async function PATCH(request: Request, context: { params: { groupId: stri
   });
   return NextResponse.json({ ok: true, status: "DENIED" });
 }
+
 

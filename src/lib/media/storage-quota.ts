@@ -1,7 +1,16 @@
 import { prisma } from "@/lib/db/prisma";
+import { getStorageLimitBytes, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 import { deleteStoredUpload, isManagedUploadUrl } from "@/lib/security/upload-storage";
 
 export const ACCOUNT_UPLOAD_LIMIT_BYTES = 100 * 1024 * 1024;
+
+export async function getUserUploadLimitBytes(userId: string): Promise<number> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, subscriptionTier: true },
+  });
+  return getStorageLimitBytes(resolveUserAccessPolicy(user));
+}
 
 export async function getUserUploadUsageBytes(userId: string): Promise<number> {
   const aggregate = await prisma.userUploadAsset.aggregate({
@@ -11,16 +20,17 @@ export async function getUserUploadUsageBytes(userId: string): Promise<number> {
   return aggregate._sum.sizeBytes ?? 0;
 }
 
-export async function canUserStoreBytes(userId: string, incomingBytes: number) {
+export async function canUserStoreBytes(userId: string, incomingBytes: number, limitBytes?: number) {
+  const resolvedLimitBytes = typeof limitBytes === "number" ? limitBytes : await getUserUploadLimitBytes(userId);
   const usedBytes = await getUserUploadUsageBytes(userId);
   const nextBytes = usedBytes + Math.max(0, incomingBytes);
-  const remainingBytes = Math.max(0, ACCOUNT_UPLOAD_LIMIT_BYTES - usedBytes);
+  const remainingBytes = Math.max(0, resolvedLimitBytes - usedBytes);
   return {
-    ok: nextBytes <= ACCOUNT_UPLOAD_LIMIT_BYTES,
+    ok: nextBytes <= resolvedLimitBytes,
     usedBytes,
     nextBytes,
     remainingBytes,
-    limitBytes: ACCOUNT_UPLOAD_LIMIT_BYTES,
+    limitBytes: resolvedLimitBytes,
   };
 }
 

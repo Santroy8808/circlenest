@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { ReportControl } from "@/components/reports/report-control";
+import { TierGate } from "@/components/policy/tier-gate";
 
 type GroupData = {
   id: string;
@@ -38,7 +40,21 @@ async function uploadDocument(file: File, groupId: string): Promise<string | nul
   return result.url;
 }
 
-export function GroupDetailClient({ group, currentUserId, currentRole, canModerate }: { group: GroupData; currentUserId: string; currentRole: string | null; canModerate: boolean }) {
+export function GroupDetailClient({
+  group,
+  currentUserId,
+  currentRole,
+  canModerate,
+  canAssignModerators,
+  creatorMemberCap,
+}: {
+  group: GroupData;
+  currentUserId: string;
+  currentRole: string | null;
+  canModerate: boolean;
+  canAssignModerators: boolean;
+  creatorMemberCap: number | null;
+}) {
   const [status, setStatus] = useState("");
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -108,10 +124,16 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
             <h1 className="text-2xl font-semibold">{group.name}</h1>
             <p className="text-sm text-slate-600">{group.description || "No description"}</p>
             <p className="text-xs text-slate-500">{group.visibility} • {group.members.length} members</p>
+            {creatorMemberCap ? <p className="mt-1 text-xs text-amber-300">Free groups are capped at {creatorMemberCap} members.</p> : null}
           </div>
-          <div className="flex gap-2">
-            {!isMember ? <button className="rounded bg-blue-600 px-3 py-2 text-sm text-white" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
-            {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {!isMember ? <button className="rounded bg-blue-600 px-3 py-2 text-sm text-white" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
+              {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
+            </div>
+            <div className="max-w-sm">
+              <ReportControl targetType="GROUP" targetId={group.id} label="Report group" compact />
+            </div>
           </div>
         </div>
         {status ? <p className="mt-2 text-sm text-slate-600">{status}</p> : null}
@@ -481,6 +503,18 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
           </div>
         ) : null}
         <div className="space-y-2">
+          {canModerate && !canAssignModerators ? (
+            <TierGate
+              variant="locked"
+              title="Moderator access locked"
+              message="Upgrade to Plus to assign moderators."
+              ctaLabel="Open subscription"
+              ctaHref="/settings#subscription"
+              secondaryLabel="Compare memberships"
+              secondaryHref="/membership"
+              compact
+            />
+          ) : null}
           {group.members.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">
               <span>
@@ -488,13 +522,20 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
               </span>
               {canModerate && m.id !== group.ownerId ? (
                 <div className="flex gap-2">
-                  <button className="rounded border border-slate-300 px-2 py-1" onClick={() => run(async () => {
-                    await fetch(`/api/groups/${group.id}/members/role`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ userId: m.id, role: "MODERATOR" }),
-                    });
-                  }, "Moderator assigned")}>Make Mod</button>
+                  <button
+                    className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canAssignModerators}
+                    title={!canAssignModerators ? "Upgrade to Plus to assign moderators" : undefined}
+                    onClick={() => run(async () => {
+                      await fetch(`/api/groups/${group.id}/members/role`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId: m.id, role: "MODERATOR" }),
+                      });
+                    }, "Moderator assigned")}
+                  >
+                    Make Mod
+                  </button>
                   <button className="rounded border border-slate-300 px-2 py-1" onClick={() => run(async () => {
                     await fetch(`/api/groups/${group.id}/members/role`, {
                       method: "PATCH",

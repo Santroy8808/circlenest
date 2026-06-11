@@ -5,13 +5,14 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GalleryManagerClient } from "@/components/profile/gallery-manager-client";
 import { SecureAreaSessionClient } from "@/components/security/secure-area-session-client";
 import { requireSecureAreaPage } from "@/lib/security/secure-area-guards";
+import { getStorageLimitBytes, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
 export default async function GalleryPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   requireSecureAreaPage(session.user.id, "/profile/gallery");
 
-  const [albums, profile, tags, joinedGroups, usage] = await Promise.all([
+  const [albums, profile, tags, joinedGroups, usage, user] = await Promise.all([
     prisma.photoAlbum.findMany({
       where: { userId: session.user.id },
       include: {
@@ -56,7 +57,12 @@ export default async function GalleryPage() {
       where: { userId: session.user.id },
       _sum: { sizeBytes: true },
     }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, subscriptionTier: true },
+    }),
   ]);
+  const storageLimitBytes = getStorageLimitBytes(resolveUserAccessPolicy(user));
 
   return (
     <AppShell>
@@ -68,6 +74,7 @@ export default async function GalleryPage() {
         initialUserTags={tags.map((tag) => tag.name)}
         initialGroups={joinedGroups.map((entry) => ({ id: entry.groupId, name: entry.group.name }))}
         initialUsageBytes={usage._sum.sizeBytes ?? 0}
+        initialLimitBytes={storageLimitBytes}
       />
     </AppShell>
   );

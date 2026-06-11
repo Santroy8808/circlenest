@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { SECURE_AREA_IDLE_MINUTES, SECURE_AREA_TTL_MS } from "@/lib/security/secure-area.shared";
 
-export const SECURE_AREA_COOKIE_NAME = "__Host-theta-secure-area";
+export const SECURE_AREA_COOKIE_NAME = process.env.NODE_ENV === "production" ? "__Host-theta-secure-area" : "theta-secure-area";
 
 const SECURE_AREA_SECRET = process.env.NEXTAUTH_SECRET || "dev-secure-area-secret";
 
@@ -91,6 +91,8 @@ export function buildSecureAreaRedirect(nextPath: string, reason?: "idle" | "loc
 
 export function isSecureAreaRoute(pathname: string) {
   return (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/moderation") ||
     pathname.startsWith("/profile/edit") ||
     pathname.startsWith("/profile/gallery") ||
     pathname.startsWith("/profile/scientology") ||

@@ -76,6 +76,9 @@ export type UploadPurpose =
   | "group-photo"
   | "group-post-media"
   | "group-document"
+  | "job-listing-photo"
+  | "fundraiser-banner"
+  | "fundraiser-comment-media"
   | "misc";
 
 type UserUploadContext = {
@@ -159,6 +162,15 @@ function buildStorageKey(context: UploadContext, file: FileLike): string {
   }
   if (context.purpose === "auditor-attachment") {
     return ["users", context.ownerId, "auditor", "attachments", fileName].join("/");
+  }
+  if (context.purpose === "job-listing-photo") {
+    return ["users", context.ownerId, "jobs", fileName].join("/");
+  }
+  if (context.purpose === "fundraiser-banner") {
+    return ["users", context.ownerId, "fundraisers", "banner", fileName].join("/");
+  }
+  if (context.purpose === "fundraiser-comment-media") {
+    return ["users", context.ownerId, "fundraisers", "comments", fileName].join("/");
   }
   return ["users", context.ownerId, "uploads", fileName].join("/");
 }
@@ -387,3 +399,4 @@ export async function storedUploadExists(url: string): Promise<boolean> {
 export function isManagedUploadUrl(url: string): boolean {
   return url.startsWith("/api/media/") || url.startsWith("/uploads/");
 }
+

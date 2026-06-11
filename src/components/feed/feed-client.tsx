@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -34,6 +34,7 @@ type Comment = {
   content: string;
   mediaUrlsJson?: string | null;
   parentCommentId?: string | null;
+  createdAt: string | Date;
   author: { username: string };
 };
 
@@ -93,14 +94,25 @@ function normalizeAudience(value: unknown): Audience | null {
   return (VALID_AUDIENCES as readonly string[]).includes(normalized) ? (normalized as Audience) : null;
 }
 
-function buildCommentTree(comments: Comment[]) {
-  const byParent: Record<string, Comment[]> = {};
-  for (const c of comments) {
-    const key = c.parentCommentId ?? "ROOT";
-    if (!byParent[key]) byParent[key] = [];
-    byParent[key].push(c);
-  }
-  return { roots: byParent.ROOT ?? [], byParent };
+function toTimeValue(value: string | Date): number {
+  const stamp = new Date(value).getTime();
+  return Number.isFinite(stamp) ? stamp : 0;
+}
+
+function getThreadPreviewComments(comments: Comment[]) {
+  return [...comments]
+    .filter((comment) => parseMedia(comment.mediaUrlsJson).length === 0)
+    .sort((a, b) => toTimeValue(b.createdAt) - toTimeValue(a.createdAt))
+    .slice(0, 3);
+}
+
+function clampRowsStyle(rows: number): CSSProperties {
+  return {
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: rows,
+    overflow: "hidden",
+  };
 }
 
 async function patchPrefs(payload: Record<string, string | boolean>) {
@@ -125,6 +137,7 @@ export function FeedClient({
   initialHasOlderArchive = false,
   fastWindowDays = 14,
   allowComposer = true,
+  canChangeFeedType = true,
 }: {
   initialPosts: FeedPost[];
   initialMode: FeedMode;
@@ -134,6 +147,7 @@ export function FeedClient({
   initialHasOlderArchive?: boolean;
   fastWindowDays?: number;
   allowComposer?: boolean;
+  canChangeFeedType?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -160,7 +174,6 @@ export function FeedClient({
   const [commentMediaBusyByPost, setCommentMediaBusyByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string>>({});
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
-  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({});
   const [hasOlderArchive, setHasOlderArchive] = useState(initialHasOlderArchive);
   const [loadingOlderArchive, setLoadingOlderArchive] = useState(false);
   const [archiveStatus, setArchiveStatus] = useState("");
@@ -395,7 +408,35 @@ export function FeedClient({
             <CommunicateLauncher fullWidth avatarUrl={currentUserAvatarUrl} displayName={currentUserDisplayName} />
           </div>
         ) : null}
-        <div className="flex items-center justify-end rounded-md bg-[var(--bg)] px-2 py-1 text-[11px] shadow-sm">
+        {canChangeFeedType ? (
+          <div className="flex items-center justify-end rounded-md bg-[var(--bg)] px-2 py-1 text-[11px] shadow-sm">
+            <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
+              <span>Stream type</span>
+              <select
+                value={mode}
+                className="border-0 bg-transparent p-0 pr-5 text-[11px] text-slate-300 outline-none"
+                onChange={async (e) => {
+                  const nextMode = e.target.value as FeedMode;
+                  setMode(nextMode);
+                  await patchPrefs({ mode: nextMode });
+                  window.location.reload();
+                }}
+              >
+                {FEED_MODES.map((m) => (
+                  <option key={m} value={m} className="bg-[#151b28] text-slate-100">{toTitleCase(m)}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end rounded-md border border-amber-400/30 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100 shadow-sm">
+            Upgrade to Plus to change feed type.
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end text-[11px] min-[700px]:hidden">
+        {canChangeFeedType ? (
           <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
             <span>Stream type</span>
             <select
@@ -413,27 +454,11 @@ export function FeedClient({
               ))}
             </select>
           </label>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end text-[11px] min-[700px]:hidden">
-        <label className="inline-flex items-center gap-2 text-[var(--text-strong)]">
-          <span>Stream type</span>
-          <select
-            value={mode}
-            className="border-0 bg-transparent p-0 pr-5 text-[11px] text-slate-300 outline-none"
-            onChange={async (e) => {
-              const nextMode = e.target.value as FeedMode;
-              setMode(nextMode);
-              await patchPrefs({ mode: nextMode });
-              window.location.reload();
-            }}
-          >
-            {FEED_MODES.map((m) => (
-              <option key={m} value={m} className="bg-[#151b28] text-slate-100">{toTitleCase(m)}</option>
-            ))}
-          </select>
-        </label>
+        ) : (
+          <div className="rounded border border-amber-400/30 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
+            Upgrade to Plus to change feed type.
+          </div>
+        )}
       </div>
 
       {allowComposer && openComposer ? (
@@ -613,55 +638,8 @@ export function FeedClient({
       ) : null}
 
       {posts.map((post, idx) => {
-        const { roots, byParent } = buildCommentTree(post.comments);
-        const renderThread = (comment: Comment, depth: number, rootId: string): JSX.Element => {
-          const children = byParent[comment.id] ?? [];
-          const key = `${post.id}:${rootId}`;
-          const expanded = expandedThreads[key] ?? false;
-          const isRoot = depth === 0;
-          const canShowChildren = !isRoot || expanded;
-
-          return (
-            <div key={comment.id} style={{ marginLeft: `${Math.min(depth, 3) * 14}px` }} className="space-y-1">
-              <div className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
-                <Link href={`/profile/${comment.author.username}`} className="mr-1 text-[var(--text-strong)] hover:underline">@{comment.author.username}</Link>
-                {comment.content ? <span className="text-slate-200">{`"${comment.content}"`}</span> : null}
-                {parseMedia(comment.mediaUrlsJson).length > 0 ? (
-                  <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
-                    {parseMedia(comment.mediaUrlsJson).map((url) => (
-                      <button key={`${comment.id}-${url}`} type="button" className="text-left" onClick={() => openMedia(post.id, url)}>
-                        <Image src={url} alt="Comment media" width={560} height={420} unoptimized className="h-24 w-full rounded-md object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  className="ml-2 inline-flex min-h-7 min-w-7 items-center justify-center text-lg leading-none text-slate-400 hover:text-slate-100"
-                  onClick={() => openReply(post.id, comment.id, `@${comment.author.username} `)}
-                >
-                  {`\u{21A9}`}
-                </button>
-              </div>
-
-              {isRoot && children.length > 0 ? (
-                <button
-                  type="button"
-                  className="ml-1 text-xs text-slate-400 underline"
-                  onClick={() => setExpandedThreads((prev) => ({ ...prev, [key]: !expanded }))}
-                >
-                  {expanded ? "Hide replies" : `Show ${children.length} repl${children.length === 1 ? "y" : "ies"}`}
-                </button>
-              ) : null}
-
-              {children.length > 0 && canShowChildren ? (
-                <div className="space-y-1">
-                  {children.map((child) => renderThread(child, depth + 1, rootId))}
-                </div>
-              ) : null}
-            </div>
-          );
-        };
+        const previewComments = getThreadPreviewComments(post.comments);
+        const previewRows = Math.max(1, Math.floor(6 / Math.max(previewComments.length || 1, 1)));
 
         return (
           <article key={post.id} className={`rounded-[10px] px-6 py-5 shadow-sm ${idx % 2 === 0 ? "bg-[#121a2a]" : "bg-[#0f1726]"}`}>
@@ -764,7 +742,26 @@ export function FeedClient({
             </div>
 
             <div className="mt-4 space-y-2">
-              {roots.map((root) => renderThread(root, 0, root.id))}
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Latest text in thread</div>
+              {previewComments.length > 0 ? (
+                <div className="space-y-2">
+                  {previewComments.map((comment) => (
+                    <div key={comment.id} className="rounded-md bg-[#0b1220] px-3 py-2 text-sm">
+                      <p
+                        className="text-slate-200"
+                        style={clampRowsStyle(previewRows)}
+                      >
+                        <Link href={`/profile/${comment.author.username}`} className="mr-1 text-[var(--text-strong)] hover:underline">
+                          @{comment.author.username}
+                        </Link>
+                        {comment.content ? <span>{`"${comment.content}"`}</span> : null}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">No text-only thread posts yet.</p>
+              )}
 
               {post.commentsLocked && post.authorId !== currentUserId ? (
                 <p className="text-xs text-slate-400">Comments are locked by the post owner.</p>

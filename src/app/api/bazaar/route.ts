@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { canCreateBazaarListing } from "@/lib/policy/bazaar";
+import { canCreateBazaarListing } from "@/lib/policy/tier-policy";
+import { serializeAdPlacements } from "@/lib/ads/ads";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -29,12 +31,30 @@ export async function GET(request: Request) {
       ...(!Number.isNaN(minPrice) ? { price: { gte: minPrice } } : {}),
       ...(!Number.isNaN(maxPrice) ? { price: { lte: maxPrice } } : {}),
     },
-    include: { seller: { select: { id: true, username: true } } },
+    include: {
+      seller: { select: { id: true, username: true } },
+      adPlacements: {
+        include: { creator: { select: { id: true, username: true } } },
+        orderBy: [{ createdAt: "desc" }],
+      },
+    },
     orderBy: [{ createdAt: "desc" }],
     take: 100,
   });
 
-  return NextResponse.json(listings);
+  return NextResponse.json(
+    listings.map((listing) => ({
+      id: listing.id,
+      title: listing.title,
+      description: listing.description,
+      price: listing.price,
+      currency: listing.currency,
+      location: listing.location,
+      category: listing.category,
+      seller: listing.seller,
+      ads: serializeAdPlacements(listing.adPlacements),
+    })),
+  );
 }
 
 export async function POST(request: Request) {
@@ -42,10 +62,11 @@ export async function POST(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { subscriptionTier: true },
+    select: { role: true, subscriptionTier: true },
   });
-  if (!canCreateBazaarListing(user?.subscriptionTier)) {
-    return NextResponse.json({ error: "Bazaar listing creation is for Business tier and above." }, { status: 403 });
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
+  if (!canCreateBazaarListing(policy)) {
+    return NextResponse.json({ error: "Bazaar listing creation is not allowed on this tier." }, { status: 403 });
   }
 
   const body = (await request.json()) as {

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/db/prisma";
-import { ACCOUNT_UPLOAD_LIMIT_BYTES } from "@/lib/media/storage-quota";
+import { getUserUploadLimitBytes, getUserUploadUsageBytes } from "@/lib/media/storage-quota";
 import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 export async function GET() {
@@ -10,14 +9,13 @@ export async function GET() {
   const locked = secureAreaLockedResponse(session.user.id);
   if (locked) return locked;
 
-  const aggregate = await prisma.userUploadAsset.aggregate({
-    where: { userId: session.user.id },
-    _sum: { sizeBytes: true },
-  });
-  const usedBytes = aggregate._sum.sizeBytes ?? 0;
+  const [usedBytes, limitBytes] = await Promise.all([
+    getUserUploadUsageBytes(session.user.id),
+    getUserUploadLimitBytes(session.user.id),
+  ]);
   return NextResponse.json({
     usedBytes,
-    limitBytes: ACCOUNT_UPLOAD_LIMIT_BYTES,
-    remainingBytes: Math.max(0, ACCOUNT_UPLOAD_LIMIT_BYTES - usedBytes),
+    limitBytes,
+    remainingBytes: Math.max(0, limitBytes - usedBytes),
   });
 }

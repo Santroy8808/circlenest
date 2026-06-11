@@ -6,7 +6,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { FeedClient } from "@/components/feed/feed-client";
 import { FriendStreamPostComposer } from "@/components/profile/friend-stream-post-composer";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
+import { ReportControl } from "@/components/reports/report-control";
 import { prisma } from "@/lib/db/prisma";
+import { canChangeFeedType, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
   const session = await auth();
@@ -31,6 +33,10 @@ export default async function ProfilePage({ params }: { params: { username: stri
   const theme = profile?.theme;
   const friendCount = user.friendsA.length + user.friendsB.length;
   const isOwner = session?.user?.id === user.id;
+  const currentUser = session?.user?.id
+    ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, subscriptionTier: true } })
+    : null;
+  const currentPolicy = resolveUserAccessPolicy(currentUser);
   const isFriendOrFamily = Boolean(
     session?.user?.id &&
       (user.friendsA.some((f) => f.userBId === session.user?.id) || user.friendsB.some((f) => f.userAId === session.user?.id)),
@@ -81,6 +87,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
       content: comment.content,
       mediaUrlsJson: null,
       parentCommentId: comment.parentCommentId,
+      createdAt: comment.createdAt,
       author: { username: comment.author.username },
     })),
     reactions: post.reactions.map((reaction) => ({ id: reaction.id, type: reaction.type })),
@@ -111,6 +118,11 @@ export default async function ProfilePage({ params }: { params: { username: stri
               {!isOwner && session?.user?.id ? (
                 <div className="mt-2">
                   <DirectMessageButton username={user.username} label="Direct Message" />
+                </div>
+              ) : null}
+              {!isOwner && session?.user?.id ? (
+                <div className="mt-2 max-w-sm">
+                  <ReportControl targetType="USER" targetId={user.id} label="Report user" compact />
                 </div>
               ) : null}
             </div>
@@ -191,6 +203,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
           currentUserAvatarUrl={profile?.avatarUrl ?? null}
           currentUserDisplayName={profile?.displayName ?? user.username}
           allowComposer={isOwner}
+          canChangeFeedType={isOwner ? canChangeFeedType(currentPolicy) : false}
         />
         {streamPosts.length === 0 ? <div className="card p-4 text-sm text-slate-600">No activity yet.</div> : null}
       </section>

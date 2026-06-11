@@ -43,7 +43,6 @@ type GalleryAlbum = {
 type CommentNode = GalleryComment & { children: CommentNode[] };
 
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
-const STORAGE_LIMIT_BYTES = 100 * 1024 * 1024;
 
 async function uploadOne(file: File, options?: UploadImageOptions): Promise<string | null> {
   const result = await uploadImageWithCompression(file, options);
@@ -164,6 +163,7 @@ export function GalleryManagerClient({
   initialUserTags,
   initialGroups,
   initialUsageBytes,
+  initialLimitBytes,
 }: {
   initialAlbums: GalleryAlbum[];
   initialAvatarUrl: string | null;
@@ -171,6 +171,7 @@ export function GalleryManagerClient({
   initialUserTags: string[];
   initialGroups: GroupOption[];
   initialUsageBytes: number;
+  initialLimitBytes: number;
 }) {
   const [albums, setAlbums] = useState(initialAlbums);
   const [activeAlbumId, setActiveAlbumId] = useState(initialAlbums[0]?.id ?? "");
@@ -190,6 +191,7 @@ export function GalleryManagerClient({
   const [userTags, setUserTags] = useState<string[]>(initialUserTags);
   const [groups] = useState<GroupOption[]>(initialGroups);
   const [usageBytes, setUsageBytes] = useState<number>(initialUsageBytes);
+  const [storageLimitBytes, setStorageLimitBytes] = useState<number>(initialLimitBytes);
   const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
 
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
@@ -247,10 +249,13 @@ export function GalleryManagerClient({
   );
 
   const storageUsedMb = useMemo(() => (usageBytes / (1024 * 1024)).toFixed(2), [usageBytes]);
-  const storageLimitMb = useMemo(() => (STORAGE_LIMIT_BYTES / (1024 * 1024)).toFixed(0), []);
+  const storageLimitLabel = useMemo(() => {
+    if (storageLimitBytes >= Number.MAX_SAFE_INTEGER / 2) return "Unlimited";
+    return `${(storageLimitBytes / (1024 * 1024)).toFixed(0)}MB`;
+  }, [storageLimitBytes]);
   const storagePercent = useMemo(
-    () => Math.min(100, Math.round((usageBytes / STORAGE_LIMIT_BYTES) * 100)),
-    [usageBytes],
+    () => (storageLimitBytes >= Number.MAX_SAFE_INTEGER / 2 ? 0 : Math.min(100, Math.round((usageBytes / storageLimitBytes) * 100))),
+    [usageBytes, storageLimitBytes],
   );
 
   useEffect(() => {
@@ -283,8 +288,11 @@ export function GalleryManagerClient({
   async function refreshUsage() {
     const res = await fetch("/api/gallery/usage", { cache: "no-store" });
     if (!res.ok) return;
-    const body = (await res.json()) as { usedBytes?: number };
+    const body = (await res.json()) as { usedBytes?: number; limitBytes?: number };
     setUsageBytes(body.usedBytes ?? 0);
+    if (typeof body.limitBytes === "number") {
+      setStorageLimitBytes(body.limitBytes);
+    }
   }
 
   function updatePhotoLocally(photoId: string, updater: (photo: GalleryPhoto) => GalleryPhoto) {
@@ -764,7 +772,7 @@ export function GalleryManagerClient({
             <div className="mt-2 w-full max-w-xs">
               <div className="flex items-center justify-between text-[11px] text-slate-300">
                 <span>Storage used</span>
-                <span>{storageUsedMb}MB / {storageLimitMb}MB</span>
+                <span>{storageUsedMb}MB / {storageLimitLabel}</span>
               </div>
               <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-[#1a2538]">
                 <div
@@ -773,7 +781,7 @@ export function GalleryManagerClient({
                 />
               </div>
               <p className="mt-1 text-[10px] text-slate-500">
-                Upload limit: 100MB per account. Text-only posts do not count.
+                Upload limit: {storageLimitLabel} per account. Text-only posts do not count.
               </p>
             </div>
           </div>
