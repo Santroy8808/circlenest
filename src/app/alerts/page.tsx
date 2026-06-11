@@ -4,50 +4,6 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 
-const baseAlertTemplates = [
-  { type: "GROUP_EVENT", sourceType: "GROUP", sourceId: "global-events", label: "All group event reminders" },
-  { type: "WRITER_CHAPTER", sourceType: "WRITER", sourceId: "followed-writers", label: "New chapters from subscribed writers" },
-  { type: "PROJECT_STATUS", sourceType: "PROJECT", sourceId: "my-projects", label: "Project status updates you subscribed to" },
-] as const;
-
-async function subscribeToAlert(formData: FormData) {
-  "use server";
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  const type = String(formData.get("type") ?? "").trim();
-  const sourceType = String(formData.get("sourceType") ?? "").trim();
-  const sourceId = String(formData.get("sourceId") ?? "").trim();
-  const label = String(formData.get("label") ?? "").trim();
-  if (!type || !sourceType || !sourceId || !label) return;
-
-  await prisma.alertSubscription.upsert({
-    where: {
-      userId_type_sourceType_sourceId: { userId: session.user.id, type, sourceType, sourceId },
-    },
-    update: { label, isActive: true },
-    create: { userId: session.user.id, type, sourceType, sourceId, label, isActive: true },
-  });
-
-  revalidatePath("/alerts");
-}
-
-async function toggleAlertSubscription(formData: FormData) {
-  "use server";
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  const id = String(formData.get("id") ?? "").trim();
-  const nextState = String(formData.get("nextState") ?? "").trim() === "1";
-  if (!id) return;
-
-  await prisma.alertSubscription.updateMany({
-    where: { id, userId: session.user.id },
-    data: { isActive: nextState },
-  });
-  revalidatePath("/alerts");
-}
-
 async function markAlertRead(formData: FormData) {
   "use server";
   const session = await auth();
@@ -78,36 +34,11 @@ export default async function AlertsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [alerts, subscriptions, memberships] = await Promise.all([
-    prisma.alert.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    prisma.alertSubscription.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.groupMember.findMany({
-      where: { userId: session.user.id },
-      select: { group: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
-
-  const templates = [
-    ...baseAlertTemplates,
-    ...memberships.map((membership) => ({
-      type: "GROUP_EVENT",
-      sourceType: "GROUP",
-      sourceId: membership.group.id,
-      label: `${membership.group.name} event reminders`,
-    })),
-  ];
-
-  const subscriptionMap = new Map(
-    subscriptions.map((s) => [`${s.type}:${s.sourceType}:${s.sourceId}`, s]),
-  );
+  const alerts = await prisma.alert.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
 
   return (
     <AppShell>
@@ -115,43 +46,8 @@ export default async function AlertsPage() {
         <div className="card p-4">
           <h1 className="text-xl font-semibold">Alerts</h1>
           <p className="mt-2 text-sm text-slate-300">
-            Alerts are opt-in updates you explicitly subscribed to. Invites, messages, comments, and other social activity are handled in Notifications.
+            Alerts are incoming updates generated from things you already subscribed to elsewhere. This page is read-only for subscriptions and only lets you review or clear incoming alerts.
           </p>
-        </div>
-
-        <div className="card p-4">
-          <h2 className="mb-2 text-lg font-semibold">My Alert Subscriptions</h2>
-          <div className="space-y-2">
-            {templates.map((template) => {
-              const key = `${template.type}:${template.sourceType}:${template.sourceId}`;
-              const active = subscriptionMap.get(key);
-              return (
-                <div key={key} className="flex items-center justify-between rounded border border-[var(--border)] px-3 py-2 text-sm">
-                  <div>
-                    <p className="font-medium text-slate-100">{template.label}</p>
-                    <p className="text-xs text-slate-400">{template.type}</p>
-                  </div>
-                  {active ? (
-                    <form action={toggleAlertSubscription}>
-                      <input type="hidden" name="id" value={active.id} />
-                      <input type="hidden" name="nextState" value={active.isActive ? "0" : "1"} />
-                      <button type="submit" className="underline">
-                        {active.isActive ? "Unsubscribe" : "Re-subscribe"}
-                      </button>
-                    </form>
-                  ) : (
-                    <form action={subscribeToAlert}>
-                      <input type="hidden" name="type" value={template.type} />
-                      <input type="hidden" name="sourceType" value={template.sourceType} />
-                      <input type="hidden" name="sourceId" value={template.sourceId} />
-                      <input type="hidden" name="label" value={template.label} />
-                      <button type="submit" className="underline">Subscribe</button>
-                    </form>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         <div className="card p-4">
