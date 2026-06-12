@@ -301,16 +301,7 @@ export function GroupsCenterClient({
               return (
                 <Link
                   key={group.id}
-                  href={`/groups?${new URLSearchParams({
-                    ...(view === "my" ? { view: "my" } : {}),
-                    ...(selectedGroupId ? { selected: group.id } : { selected: group.id }),
-                    ...(query ? { q: query } : {}),
-                    ...(purpose ? { purpose } : {}),
-                    ...(country ? { country } : {}),
-                    ...(state ? { state } : {}),
-                    ...(city ? { city } : {}),
-                    ...(sort ? { sort } : {}),
-                  }).toString()}`}
+                  href={`/groups/${group.id}`}
                   className={`block rounded-[14px] border px-3 py-3 transition ${
                     selected
                       ? "border-[#d6c26d]/50 bg-[#162033] shadow-[inset_3px_0_0_#d6c26d]"
