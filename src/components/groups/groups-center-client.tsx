@@ -201,47 +201,6 @@ export function GroupsCenterClient({
         </div>
       </section>
 
-      <section className="rounded-[16px] border border-[var(--border)] bg-[#0f1523] p-3">
-        <div className="flex flex-wrap gap-2 overflow-x-auto">
-          {(
-            [
-              { label: "Overview", active: false, tab: "overview" },
-              { label: "Groups", active: true, tab: "groups" },
-              { label: "Documents", active: false, tab: "documents" },
-              { label: "Photos", active: false, tab: "photos" },
-              { label: "Members", active: false, tab: "members" },
-            ] as const
-          ).map(({ label, active, tab }) =>
-            active ? (
-              <button
-                key={label}
-                type="button"
-                className="shrink-0 rounded-[10px] border border-[#cdb66d]/40 bg-[#1a2030] px-3 py-2 text-sm text-white shadow-[inset_0_-2px_0_#d8c36f]"
-              >
-                {label}
-              </button>
-            ) : selectedGroup ? (
-              <Link
-                key={label}
-                href={`/groups/${selectedGroup.id}?tab=${tab}`}
-                className="shrink-0 rounded-[10px] border border-[#2c3951] px-3 py-2 text-sm text-slate-300 transition hover:border-[#4a5a78] hover:text-white"
-              >
-                {label}
-              </Link>
-            ) : (
-              <button
-                key={label}
-                type="button"
-                disabled
-                className="shrink-0 rounded-[10px] border border-[#2c3951] px-3 py-2 text-sm text-slate-500"
-              >
-                {label}
-              </button>
-            ),
-          )}
-        </div>
-      </section>
-
       <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -372,7 +331,17 @@ export function GroupsCenterClient({
             <h2 className="text-xl font-semibold text-[var(--text-strong)]">Selected group discussion</h2>
             <p className="text-sm text-slate-400">Read the latest thread and reply below.</p>
           </div>
-          {selectedGroup ? <p className="text-xs uppercase tracking-[0.18em] text-amber-200">{selectedGroup.thread ? "Thread ready" : "No thread yet"}</p> : null}
+          {selectedGroup ? (
+            <div className="flex items-center gap-2">
+              <p className="text-xs uppercase tracking-[0.18em] text-amber-200">{selectedGroup.thread ? "Thread ready" : "No thread yet"}</p>
+              <Link
+                href={`/groups/${selectedGroup.id}`}
+                className="rounded-full border border-[#304058] px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-[#4a5a78] hover:text-white"
+              >
+                Open group
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-3">

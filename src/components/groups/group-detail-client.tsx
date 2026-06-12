@@ -72,6 +72,17 @@ export function GroupDetailClient({
   creatorMemberCap: number | null;
   initialTab?: "overview" | "groups" | "documents" | "photos" | "members";
 }) {
+  const shellCardClass = "rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)]";
+  const insetCardClass = "rounded-[14px] border border-[var(--border)] bg-[#111a2a] p-3";
+  const inputClass = "rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)]/50";
+  const textareaClass = `${inputClass} min-h-24`;
+  const ghostButtonClass = "rounded-full border border-[#304058] px-4 py-2 text-sm text-slate-200 transition hover:border-[#4a5a78] hover:text-white";
+  const primaryButtonClass = "rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white transition hover:translate-y-[-1px] hover:shadow-[0_10px_24px_rgba(55,110,248,0.28)]";
+  const tabClass = (active: boolean) =>
+    active
+      ? "rounded-[10px] border border-[#cdb66d]/40 bg-[#1a2030] px-3 py-2 text-sm text-white shadow-[inset_0_-2px_0_#d8c36f]"
+      : "rounded-[10px] border border-[#2c3951] px-3 py-2 text-sm text-slate-300 transition hover:border-[#4a5a78] hover:text-white";
+  const subtleLabelClass = "text-[11px] uppercase tracking-[0.16em] text-slate-500";
   const [status, setStatus] = useState("");
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -136,60 +147,60 @@ export function GroupDetailClient({
 
   return (
     <div className="space-y-4">
-      <section className="card p-4">
+      <section className={shellCardClass}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">{group.name}</h1>
-            <p className="text-sm text-slate-600">{group.description || "No description"}</p>
-            <p className="text-xs text-slate-500">{group.visibility} • {group.members.length} members</p>
+            <h1 className="text-2xl font-semibold text-[var(--text-strong)]">{group.name}</h1>
+            <p className="text-sm text-slate-400">{group.description || "No description"}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-amber-200">{group.visibility} • {group.members.length} members</p>
             {creatorMemberCap ? <p className="mt-1 text-xs text-amber-300">Free groups are capped at {creatorMemberCap} members.</p> : null}
           </div>
           <div className="space-y-2">
             <div className="flex gap-2">
-              {!isMember ? <button className="rounded bg-blue-600 px-3 py-2 text-sm text-white" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
-              {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
+              {!isMember ? <button className={primaryButtonClass} onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
+              {isMember && !isOwner && currentRole !== "ADMIN" ? <button className={ghostButtonClass} onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
             </div>
             <div className="max-w-sm">
               <ReportControl targetType="GROUP" targetId={group.id} label="Report group" compact />
             </div>
           </div>
         </div>
-        {status ? <p className="mt-2 text-sm text-slate-600">{status}</p> : null}
+        {status ? <p className="mt-2 text-sm text-slate-300">{status}</p> : null}
       </section>
 
-      <section className="card p-3">
+      <section className="rounded-[16px] border border-[var(--border)] bg-[#0f1523] p-3">
         <div className="flex flex-wrap gap-2">
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "overview" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("overview")}>Overview</button>
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "groups" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("groups")}>Groups</button>
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "documents" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("documents")}>Documents</button>
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "photos" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("photos")}>Photos</button>
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "members" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("members")}>Members</button>
+          <Link href={`/groups/${group.id}?tab=overview`} className={tabClass(activeTab === "overview")}>Overview</Link>
+          <Link href={`/groups/${group.id}?tab=groups`} className={tabClass(activeTab === "groups")}>Groups</Link>
+          <Link href={`/groups/${group.id}?tab=documents`} className={tabClass(activeTab === "documents")}>Documents</Link>
+          <Link href={`/groups/${group.id}?tab=photos`} className={tabClass(activeTab === "photos")}>Photos</Link>
+          <Link href={`/groups/${group.id}?tab=members`} className={tabClass(activeTab === "members")}>Members</Link>
         </div>
       </section>
 
-      {activeTab === "overview" ? <section className="card p-4">
+      {activeTab === "overview" ? <section className={shellCardClass}>
         <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[#11192a]">
           <div className="h-32 bg-gradient-to-r from-[#1a2438] via-[#152237] to-[#0d1524]" />
           <div className="space-y-3 p-4">
             <div>
-              <h2 className="text-lg font-semibold">Overview</h2>
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">Overview</h2>
               <p className="mt-1 text-sm text-slate-400">{group.description || "No description yet."}</p>
             </div>
             <div className="grid gap-3 text-sm text-slate-300 md:grid-cols-2">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Creator</p>
+                <p className={subtleLabelClass}>Creator</p>
                 <p className="mt-1">@{group.ownerUsername}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Visibility</p>
+                <p className={subtleLabelClass}>Visibility</p>
                 <p className="mt-1">{group.visibility}</p>
               </div>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Moderators</p>
+              <p className={subtleLabelClass}>Moderators</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {moderators.length ? moderators.map((member) => (
-                  <Link key={member.id} href={`/profile/${member.username}`} className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-slate-200">
+                  <Link key={member.id} href={`/profile/${member.username}`} className="rounded-full border border-[#304058] px-3 py-1 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white">
                     @{member.username}
                   </Link>
                 )) : <span className="text-sm text-slate-400">No moderators listed.</span>}
@@ -199,10 +210,10 @@ export function GroupDetailClient({
         </div>
       </section> : null}
 
-      {activeTab === "groups" ? <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Groups</h2>
+      {activeTab === "groups" ? <section className={shellCardClass}>
+        <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Groups</h2>
         {isMember ? (
-          <form className="grid gap-2 rounded-[14px] border border-[var(--border)] bg-[#11192a] p-3" onSubmit={(e) => run(async () => {
+          <form className={`grid gap-2 ${insetCardClass}`} onSubmit={(e) => run(async () => {
             e.preventDefault();
             const form = new FormData(e.currentTarget);
             await fetch(`/api/groups/${group.id}/forum/threads`, {
@@ -215,13 +226,13 @@ export function GroupDetailClient({
               }),
             });
           }, "Group created") }>
-            <input name="title" placeholder="Group title" className="rounded border border-slate-300 px-3 py-2" required />
-            <textarea name="content" placeholder="Opening post" className="rounded border border-slate-300 px-3 py-2" required />
+            <input name="title" placeholder="Group title" className={inputClass} required />
+            <textarea name="content" placeholder="Opening post" className={textareaClass} required />
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input name="allowReplyImages" type="checkbox" className="h-4 w-4" />
               Allow photo replies on this discussion
             </label>
-            <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Create Group</button>
+            <button className={primaryButtonClass} type="submit">Create Group</button>
           </form>
         ) : null}
         <div className="mt-3 space-y-3">
@@ -250,10 +261,10 @@ export function GroupDetailClient({
       </section> : null}
 
       {activeTab === "documents" ? <section className="grid gap-4 lg:grid-cols-1">
-        <article className="card p-4">
-          <h2 className="mb-2 text-lg font-semibold">Documents</h2>
+        <article className={shellCardClass}>
+          <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Documents</h2>
           {isMember ? (
-            <form className="grid gap-2" onSubmit={(e) => run(async () => {
+            <form className={`grid gap-2 ${insetCardClass}`} onSubmit={(e) => run(async () => {
               e.preventDefault();
               const form = new FormData(e.currentTarget);
               const file = form.get("document") as File | null;
@@ -269,30 +280,35 @@ export function GroupDetailClient({
                 }),
               });
             }, "Document uploaded") }>
-              <input name="title" placeholder="Document title" className="rounded border border-slate-300 px-3 py-2" />
+              <input name="title" placeholder="Document title" className={inputClass} />
               <input
                 name="document"
                 type="file"
                 accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                className="rounded border border-slate-300 px-3 py-2"
+                className="rounded-[10px] border border-[#304058] bg-[#111a2a] px-3 py-2 text-sm text-slate-200 file:mr-3 file:rounded-full file:border-0 file:bg-[#376ef8] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#4a7cff]"
                 required
               />
-              <p className="text-xs text-slate-500">Accepted: PDF, Word, Excel, PowerPoint, and text files up to 20MB.</p>
-              <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Upload Document</button>
+              <p className="text-xs text-slate-400">Accepted: PDF, Word, Excel, PowerPoint, and text files up to 20MB.</p>
+              <button className={primaryButtonClass} type="submit">Upload Document</button>
             </form>
           ) : null}
           <div className="mt-3 space-y-2">
-            {group.documents.map((d) => <p key={d.id} className="text-sm"><a href={d.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">{d.title}</a> <span className="text-slate-500">by @{d.uploaderUsername}</span></p>)}
+            {group.documents.map((d) => (
+              <a key={d.id} href={d.url} target="_blank" rel="noreferrer" className="block rounded-[14px] border border-[#273449] bg-[#111a2a] px-3 py-3 text-sm text-slate-200 transition hover:border-[#3b4f6c] hover:bg-[#162033]">
+                <span className="font-medium text-[var(--text-strong)]">{d.title}</span>
+                <span className="mt-1 block text-xs uppercase tracking-[0.14em] text-slate-400">Uploaded by @{d.uploaderUsername}</span>
+              </a>
+            ))}
           </div>
         </article>
       </section> : null}
 
       {activeTab === "photos" ? <section className="grid gap-4 lg:grid-cols-1">
-        <article className="card p-4">
-          <h2 className="mb-2 text-lg font-semibold">Photos</h2>
+        <article className={shellCardClass}>
+          <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Photos</h2>
           {isMember ? (
             <div className="space-y-3">
-              <form className="grid gap-2" onSubmit={(e) => run(async () => {
+              <form className={`grid gap-2 ${insetCardClass}`} onSubmit={(e) => run(async () => {
                 e.preventDefault();
                 const form = new FormData(e.currentTarget);
                 await fetch(`/api/groups/${group.id}/photo-albums`, {
@@ -301,13 +317,13 @@ export function GroupDetailClient({
                   body: JSON.stringify({ title: form.get("albumTitle"), description: form.get("albumDescription") }),
                 });
               }, "Album created") }>
-                <p className="text-sm font-medium">Create album</p>
-                <input name="albumTitle" placeholder="Album title (e.g. Summer meetup)" className="rounded border border-slate-300 px-3 py-2" required />
-                <input name="albumDescription" placeholder="Optional album description" className="rounded border border-slate-300 px-3 py-2" />
-                <button className="rounded border border-slate-300 px-3 py-2 text-sm" type="submit">Add Album</button>
+                <p className="text-sm font-medium text-[var(--text-strong)]">Create album</p>
+                <input name="albumTitle" placeholder="Album title (e.g. Summer meetup)" className={inputClass} required />
+                <input name="albumDescription" placeholder="Optional album description" className={inputClass} />
+                <button className={ghostButtonClass} type="submit">Add Album</button>
               </form>
 
-              <form className="grid gap-2" onSubmit={(e) => run(async () => {
+              <form className={`grid gap-2 ${insetCardClass}`} onSubmit={(e) => run(async () => {
                 e.preventDefault();
                 const form = new FormData(e.currentTarget);
                 const file = form.get("photo") as File | null;
@@ -319,21 +335,21 @@ export function GroupDetailClient({
                   String(form.get("tags") ?? ""),
                 );
               }, "Photo added") }>
-                <p className="text-sm font-medium">Upload photo</p>
-                <input name="caption" placeholder="Caption" className="rounded border border-slate-300 px-3 py-2" />
-                <select name="albumId" className="rounded border border-slate-300 px-3 py-2">
+                <p className="text-sm font-medium text-[var(--text-strong)]">Upload photo</p>
+                <input name="caption" placeholder="Caption" className={inputClass} />
+                <select name="albumId" className={inputClass}>
                   <option value="">No album</option>
                   {group.photoAlbums.map((a) => (
                     <option key={a.id} value={a.id}>{a.title}</option>
                   ))}
                 </select>
-                <input name="tags" placeholder="Tags, comma-separated (e.g. meetup, food, sunset)" className="rounded border border-slate-300 px-3 py-2" />
-                <input name="photo" type="file" accept="image/png,image/jpeg,image/webp" className="rounded border border-slate-300 px-3 py-2" required />
-                <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Upload Photo</button>
+                <input name="tags" placeholder="Tags, comma-separated (e.g. meetup, food, sunset)" className={inputClass} />
+                <input name="photo" type="file" accept="image/png,image/jpeg,image/webp" className="rounded-[10px] border border-[#304058] bg-[#111a2a] px-3 py-2 text-sm text-slate-200 file:mr-3 file:rounded-full file:border-0 file:bg-[#376ef8] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#4a7cff]" required />
+                <button className={primaryButtonClass} type="submit">Upload Photo</button>
               </form>
 
               <div
-                className={`rounded border-2 border-dashed p-4 text-sm ${dragActive ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"}`}
+                className={`rounded-[14px] border-2 border-dashed p-4 text-sm text-slate-300 transition ${dragActive ? "border-[#4a7cff] bg-[#162033]" : "border-[#304058] bg-[#111a2a]"}`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragActive(true);
@@ -352,33 +368,33 @@ export function GroupDetailClient({
             </div>
           ) : null}
 
-          <div className="mt-3 rounded border border-slate-200 p-2">
-            <p className="mb-2 text-sm font-medium">Filter photos</p>
+          <div className={`mt-3 ${insetCardClass}`}>
+            <p className="mb-2 text-sm font-medium text-[var(--text-strong)]">Filter photos</p>
             <div className="grid gap-2 md:grid-cols-3">
-              <select value={albumFilter} onChange={(e) => setAlbumFilter(e.target.value)} className="rounded border border-slate-300 px-2 py-2 text-sm">
+              <select value={albumFilter} onChange={(e) => setAlbumFilter(e.target.value)} className={inputClass}>
                 <option value="all">All albums</option>
                 {group.photoAlbums.map((a) => (
                   <option key={a.id} value={a.id}>{a.title}</option>
                 ))}
               </select>
-              <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className="rounded border border-slate-300 px-2 py-2 text-sm">
+              <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className={inputClass}>
                 <option value="">All tags</option>
                 {allTags.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
-              <button className="rounded border border-slate-300 px-2 py-2 text-sm" onClick={() => { setAlbumFilter("all"); setTagFilter(""); }}>
+              <button className={ghostButtonClass} onClick={() => { setAlbumFilter("all"); setTagFilter(""); }}>
                 Clear filters
               </button>
             </div>
           </div>
 
           {isMember ? (
-            <div className="mt-3 rounded border border-slate-200 p-3">
+            <div className={`mt-3 ${insetCardClass}`}>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">Bulk actions</p>
+                <p className="text-sm font-medium text-[var(--text-strong)]">Bulk actions</p>
                 <button
-                  className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  className="rounded-full border border-[#304058] px-3 py-1 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white"
                   onClick={() => {
                     if (allVisibleSelected) {
                       setSelectedPhotoIds((prev) => prev.filter((id) => !visiblePhotos.some((p) => p.id === id)));
@@ -390,19 +406,19 @@ export function GroupDetailClient({
                   {allVisibleSelected ? "Unselect visible" : "Select visible"}
                 </button>
               </div>
-              <p className="mb-2 text-xs text-slate-600">{selectedPhotoIds.length} selected</p>
+              <p className="mb-2 text-xs text-slate-400">{selectedPhotoIds.length} selected</p>
               <div className="grid gap-2 md:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-600">Move selected to album</label>
+                  <label className="text-xs text-slate-400">Move selected to album</label>
                   <div className="flex gap-2">
-                    <select value={bulkAlbumId} onChange={(e) => setBulkAlbumId(e.target.value)} className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs">
+                    <select value={bulkAlbumId} onChange={(e) => setBulkAlbumId(e.target.value)} className="flex-1 rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-xs text-slate-100">
                       <option value="">No album</option>
                       {group.photoAlbums.map((a) => (
                         <option key={a.id} value={a.id}>{a.title}</option>
                       ))}
                     </select>
                     <button
-                      className="rounded border border-slate-300 px-2 py-1 text-xs"
+                      className="rounded-full border border-[#304058] px-3 py-2 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white"
                       onClick={() => run(async () => {
                         if (!selectedPhotoIds.length) return;
                         await fetch(`/api/groups/${group.id}/photos/bulk`, {
@@ -417,11 +433,11 @@ export function GroupDetailClient({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-600">Add tags to selected</label>
+                  <label className="text-xs text-slate-400">Add tags to selected</label>
                   <div className="flex gap-2">
-                    <input value={bulkAddTags} onChange={(e) => setBulkAddTags(e.target.value)} placeholder="tag1, tag2" className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs" />
+                    <input value={bulkAddTags} onChange={(e) => setBulkAddTags(e.target.value)} placeholder="tag1, tag2" className="flex-1 rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400" />
                     <button
-                      className="rounded border border-slate-300 px-2 py-1 text-xs"
+                      className="rounded-full border border-[#304058] px-3 py-2 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white"
                       onClick={() => run(async () => {
                         if (!selectedPhotoIds.length || !bulkAddTags.trim()) return;
                         await fetch(`/api/groups/${group.id}/photos/bulk`, {
@@ -439,11 +455,11 @@ export function GroupDetailClient({
                   </div>
                 </div>
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-xs text-slate-600">Remove tags from selected</label>
+                  <label className="text-xs text-slate-400">Remove tags from selected</label>
                   <div className="flex gap-2">
-                    <input value={bulkRemoveTags} onChange={(e) => setBulkRemoveTags(e.target.value)} placeholder="tag1, tag2" className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs" />
+                    <input value={bulkRemoveTags} onChange={(e) => setBulkRemoveTags(e.target.value)} placeholder="tag1, tag2" className="flex-1 rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400" />
                     <button
-                      className="rounded border border-slate-300 px-2 py-1 text-xs"
+                      className="rounded-full border border-[#304058] px-3 py-2 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white"
                       onClick={() => run(async () => {
                         if (!selectedPhotoIds.length || !bulkRemoveTags.trim()) return;
                         await fetch(`/api/groups/${group.id}/photos/bulk`, {
@@ -466,9 +482,9 @@ export function GroupDetailClient({
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             {visiblePhotos.map((p) => (
-              <figure key={p.id} className="rounded border border-slate-200 p-2">
+              <figure key={p.id} className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-2 transition hover:border-[#3b4f6c] hover:bg-[#162033]">
                 {isMember ? (
-                  <label className="mb-1 flex items-center gap-1 text-[11px] text-slate-600">
+                  <label className="mb-1 flex items-center gap-1 text-[11px] text-slate-400">
                     <input
                       type="checkbox"
                       checked={selectedPhotoIds.includes(p.id)}
@@ -484,7 +500,7 @@ export function GroupDetailClient({
                   </label>
                 ) : null}
                 <Image src={p.url} alt={p.caption || "Group photo"} width={300} height={200} unoptimized className="h-32 w-full rounded object-cover" />
-                <figcaption className="mt-1 text-xs text-slate-600">
+                <figcaption className="mt-2 text-xs text-slate-300">
                   {p.caption || "Photo"} • @{p.uploaderUsername}
                   <br />
                   Album: {group.photoAlbums.find((a) => a.id === p.albumId)?.title || "None"}
@@ -493,9 +509,9 @@ export function GroupDetailClient({
                 </figcaption>
                 {isMember ? (
                   <div className="mt-2">
-                    <label className="mb-1 block text-[11px] text-slate-500">Move to album</label>
+                    <label className="mb-1 block text-[11px] text-slate-400">Move to album</label>
                     <select
-                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                      className="w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-xs text-slate-100"
                       value={p.albumId ?? ""}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -519,36 +535,36 @@ export function GroupDetailClient({
                 ) : null}
               </figure>
             ))}
-            {visiblePhotos.length === 0 ? <p className="text-sm text-slate-600">No photos match current filters.</p> : null}
+            {visiblePhotos.length === 0 ? <p className="text-sm text-slate-400">No photos match current filters.</p> : null}
           </div>
         </article>
       </section> : null}
 
-      {activeTab === "members" ? <section className="card p-4">
+      {activeTab === "members" ? <section className={shellCardClass}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Members</h2>
-            <p className="text-sm text-slate-500">See who is in the group and manage roles from here.</p>
+            <h2 className="text-lg font-semibold text-[var(--text-strong)]">Members</h2>
+            <p className="text-sm text-slate-400">See who is in the group and manage roles from here.</p>
           </div>
-          <Link href="/friends" className="rounded border border-slate-300 px-3 py-2 text-sm">
+          <Link href="/friends" className={ghostButtonClass}>
             Add people from Friends
           </Link>
         </div>
         {canModerate && group.joinRequests.length ? (
-          <div className="mb-3 space-y-2 rounded border border-slate-200 p-2">
-            <p className="text-sm font-medium">Pending Join Requests</p>
+          <div className={`mb-3 space-y-2 ${insetCardClass}`}>
+            <p className="text-sm font-medium text-[var(--text-strong)]">Pending Join Requests</p>
             {group.joinRequests.map((request) => (
-              <div key={request.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">
-                <span>@{request.username}</span>
+              <div key={request.id} className="flex items-center justify-between rounded-[14px] border border-[#273449] bg-[#162033] p-3 text-sm">
+                <span className="text-slate-200">@{request.username}</span>
                 <div className="flex gap-2">
-                  <button className="rounded border border-emerald-400 px-2 py-1 text-xs" onClick={() => run(async () => {
+                  <button className="rounded-full border border-emerald-400/60 px-3 py-1.5 text-xs text-emerald-200 transition hover:border-emerald-300 hover:text-white" onClick={() => run(async () => {
                     await fetch(`/api/groups/${group.id}/join-requests/${request.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ action: "APPROVE" }),
                     });
                   }, "Join request approved")}>Approve</button>
-                  <button className="rounded border border-red-400 px-2 py-1 text-xs" onClick={() => run(async () => {
+                  <button className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-300 hover:text-white" onClick={() => run(async () => {
                     await fetch(`/api/groups/${group.id}/join-requests/${request.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
@@ -574,14 +590,14 @@ export function GroupDetailClient({
             />
           ) : null}
           {group.members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">
-              <span>
-                <Link href={`/profile/${m.username}`} className="underline">@{m.username}</Link> • {displayRole(m.role)}
+            <div key={m.id} className="flex items-center justify-between rounded-[14px] border border-[#273449] bg-[#111a2a] p-3 text-sm transition hover:border-[#3b4f6c] hover:bg-[#162033]">
+              <span className="text-slate-200">
+                <Link href={`/profile/${m.username}`} className="text-[var(--text-strong)] underline underline-offset-2">@{m.username}</Link> • {displayRole(m.role)}
               </span>
               {canModerate && m.id !== group.ownerId ? (
                 <div className="flex gap-2">
                   <button
-                    className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={!canAssignModerators}
                     title={!canAssignModerators ? "Upgrade to Activist to assign moderators" : undefined}
                     onClick={() => run(async () => {
@@ -594,14 +610,14 @@ export function GroupDetailClient({
                   >
                     Make Mod
                   </button>
-                  <button className="rounded border border-slate-300 px-2 py-1" onClick={() => run(async () => {
+                  <button className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white" onClick={() => run(async () => {
                     await fetch(`/api/groups/${group.id}/members/role`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ userId: m.id, role: "MEMBER" }),
                     });
                   }, "Role updated")}>Make Member</button>
-                  <button className="rounded border border-red-400 px-2 py-1 text-red-300" onClick={() => run(async () => {
+                  <button className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-300 hover:text-white" onClick={() => run(async () => {
                     await fetch(`/api/groups/${group.id}/members/${m.id}`, { method: "DELETE" });
                   }, "Member removed from group")}>Kick</button>
                 </div>
