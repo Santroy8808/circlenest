@@ -1,7 +1,16 @@
-export type WritersStudioArticleSummary = Readonly<{
+import sanitizeHtml from "sanitize-html";
+import { getDisplayMembershipTierName, normalizeMembershipTier } from "@/lib/policy/tier-policy";
+
+const WRITERS_STUDIO_ALLOWED_TAGS = ["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "blockquote", "h1", "h2", "h3", "h4", "a", "div", "span"];
+const WRITERS_STUDIO_ALLOWED_ATTRIBUTES = {
+  a: ["href", "target", "rel"],
+};
+
+export type WritersStudioChapterSummary = Readonly<{
   id: string;
   title: string;
   body: string;
+  wordCount: number;
   orderIndex: number;
   isPublished: boolean;
   createdAt: string;
@@ -15,7 +24,10 @@ export type WritersStudioProjectSummary = Readonly<{
   summary: string | null;
   genre: string | null;
   format: string | null;
+  accessTier: string;
+  accessTierLabel: string;
   isPublic: boolean;
+  chapterCount: number;
   createdAt: string;
   updatedAt: string;
   owner: Readonly<{
@@ -23,16 +35,20 @@ export type WritersStudioProjectSummary = Readonly<{
     username: string;
     fullName: string | null;
   }>;
-  articles: WritersStudioArticleSummary[];
 }>;
 
-type WritersStudioProjectSource = {
+export type WritersStudioProjectDetail = WritersStudioProjectSummary & Readonly<{
+  chapters: WritersStudioChapterSummary[];
+}>;
+
+type WritersStudioProjectSummarySource = {
   id: string;
   ownerId: string;
   title: string;
   summary: string | null;
   genre: string | null;
   format: string | null;
+  accessTier: string;
   isPublic: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -41,6 +57,12 @@ type WritersStudioProjectSource = {
     username: string;
     fullName: string | null;
   };
+  _count?: {
+    articles: number;
+  };
+};
+
+type WritersStudioProjectDetailSource = WritersStudioProjectSummarySource & {
   articles: Array<{
     id: string;
     title: string;
@@ -56,11 +78,30 @@ function normalizeDate(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function serializeArticle(article: WritersStudioProjectSource["articles"][number]): WritersStudioArticleSummary {
+export function sanitizeWritersStudioHtml(input: string) {
+  return sanitizeHtml(input, {
+    allowedTags: WRITERS_STUDIO_ALLOWED_TAGS,
+    allowedAttributes: WRITERS_STUDIO_ALLOWED_ATTRIBUTES,
+  }).trim();
+}
+
+export function extractWritersStudioPlainText(input: string) {
+  return sanitizeHtml(input, { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, " ").trim();
+}
+
+export function getWritersStudioWordCount(input: string) {
+  const plainText = extractWritersStudioPlainText(input);
+  if (!plainText) return 0;
+  return plainText.split(/\s+/).filter(Boolean).length;
+}
+
+function serializeChapter(article: WritersStudioProjectDetailSource["articles"][number]): WritersStudioChapterSummary {
+  const body = sanitizeWritersStudioHtml(article.body);
   return {
     id: article.id,
     title: article.title,
-    body: article.body,
+    body,
+    wordCount: getWritersStudioWordCount(body),
     orderIndex: article.orderIndex,
     isPublished: article.isPublished,
     createdAt: normalizeDate(article.createdAt),
@@ -68,7 +109,8 @@ function serializeArticle(article: WritersStudioProjectSource["articles"][number
   };
 }
 
-export function serializeWritersStudioProject(project: WritersStudioProjectSource): WritersStudioProjectSummary {
+function serializeProjectBase(project: WritersStudioProjectSummarySource) {
+  const accessTier = normalizeMembershipTier(project.accessTier);
   return {
     id: project.id,
     ownerId: project.ownerId,
@@ -76,7 +118,10 @@ export function serializeWritersStudioProject(project: WritersStudioProjectSourc
     summary: project.summary,
     genre: project.genre,
     format: project.format,
+    accessTier,
+    accessTierLabel: getDisplayMembershipTierName(accessTier),
     isPublic: project.isPublic,
+    chapterCount: project._count?.articles ?? 0,
     createdAt: normalizeDate(project.createdAt),
     updatedAt: normalizeDate(project.updatedAt),
     owner: {
@@ -84,10 +129,20 @@ export function serializeWritersStudioProject(project: WritersStudioProjectSourc
       username: project.owner.username,
       fullName: project.owner.fullName,
     },
-    articles: project.articles.map((article) => serializeArticle(article)),
+  } satisfies WritersStudioProjectSummary;
+}
+
+export function serializeWritersStudioProject(project: WritersStudioProjectDetailSource): WritersStudioProjectDetail {
+  return {
+    ...serializeProjectBase(project),
+    chapters: project.articles.map((article) => serializeChapter(article)),
   };
 }
 
-export function serializeWritersStudioProjects(projects: WritersStudioProjectSource[]): WritersStudioProjectSummary[] {
-  return projects.map((project) => serializeWritersStudioProject(project));
+export function serializeWritersStudioProjectSummary(project: WritersStudioProjectSummarySource): WritersStudioProjectSummary {
+  return serializeProjectBase(project);
+}
+
+export function serializeWritersStudioProjects(projects: WritersStudioProjectSummarySource[]): WritersStudioProjectSummary[] {
+  return projects.map((project) => serializeWritersStudioProjectSummary(project));
 }

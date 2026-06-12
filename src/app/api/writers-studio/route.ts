@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/prisma";
 import { canCreateWritersStudio, resolveProductionZoneAccess } from "@/lib/policy/production-zone";
+import { resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 import { serializeWritersStudioProject, serializeWritersStudioProjects } from "@/lib/writers-studio/writers-studio";
 
 export async function GET() {
@@ -11,7 +12,7 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { subscriptionTier: true, iasStatus: true },
+    select: { subscriptionTier: true, role: true, iasStatus: true },
   });
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
@@ -23,7 +24,7 @@ export async function GET() {
       where: { ownerId: session.user.id },
       include: {
         owner: { select: { id: true, username: true, fullName: true } },
-        articles: { orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }] },
+        _count: { select: { articles: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -31,7 +32,7 @@ export async function GET() {
       where: { isPublic: true, NOT: { ownerId: session.user.id } },
       include: {
         owner: { select: { id: true, username: true, fullName: true } },
-        articles: { where: { isPublished: true }, orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }], take: 3 },
+        _count: { select: { articles: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { subscriptionTier: true, iasStatus: true },
+    select: { subscriptionTier: true, role: true, iasStatus: true },
   });
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
@@ -67,16 +68,12 @@ export async function POST(request: Request) {
     summary?: string | null;
     genre?: string | null;
     format?: string | null;
-    isPublic?: boolean;
-    articleTitle?: string | null;
-    articleBody?: string | null;
   };
 
   const title = String(body.title ?? "").trim();
   if (!title) return NextResponse.json({ error: "Project title is required." }, { status: 400 });
 
-  const articleTitle = String(body.articleTitle ?? "").trim();
-  const articleBody = String(body.articleBody ?? "").trim();
+  const accessTier = resolveUserAccessPolicy(user).tier;
 
   const project = await prisma.writerStudioProject.create({
     data: {
@@ -85,21 +82,13 @@ export async function POST(request: Request) {
       summary: String(body.summary ?? "").trim() || null,
       genre: String(body.genre ?? "").trim() || null,
       format: String(body.format ?? "").trim() || null,
-      isPublic: body.isPublic ?? true,
-      articles: articleTitle || articleBody
-        ? {
-            create: {
-              title: articleTitle || title,
-              body: articleBody || String(body.summary ?? "").trim() || "",
-              orderIndex: 0,
-              isPublished: true,
-            },
-          }
-        : undefined,
+      accessTier,
+      isPublic: true,
     },
     include: {
       owner: { select: { id: true, username: true, fullName: true } },
       articles: { orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }] },
+      _count: { select: { articles: true } },
     },
   });
 

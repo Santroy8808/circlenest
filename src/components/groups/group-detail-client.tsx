@@ -6,6 +6,7 @@ import Image from "next/image";
 import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
 import { ReportControl } from "@/components/reports/report-control";
 import { TierGate } from "@/components/policy/tier-gate";
+import { ForumThreadCard } from "@/components/groups/forum-thread-card";
 
 type GroupData = {
   id: string;
@@ -16,7 +17,20 @@ type GroupData = {
   members: Array<{ id: string; username: string; role: string }>;
   joinRequests: Array<{ id: string; userId: string; username: string }>;
   events: Array<{ id: string; title: string; description: string | null; startsAt: string; endsAt: string | null; locationName: string | null; googleMapsUrl: string | null; creatorUsername: string }>;
-  threads: Array<{ id: string; title: string; authorUsername: string; posts: Array<{ id: string; content: string; authorUsername: string }> }>;
+  threads: Array<{
+    id: string;
+    title: string;
+    authorUsername: string;
+    allowReplyImages: boolean;
+    posts: Array<{
+      id: string;
+      content: string;
+      parentCommentId: string | null;
+      mediaUrlsJson: string | null;
+      createdAt: string;
+      authorUsername: string;
+    }>;
+  }>;
   documents: Array<{ id: string; title: string; url: string; uploaderUsername: string }>;
   photos: Array<{ id: string; caption: string | null; url: string; uploaderUsername: string; albumId: string | null; tags: string | null }>;
   photoAlbums: Array<{ id: string; title: string; description: string | null }>;
@@ -59,7 +73,7 @@ export function GroupDetailClient({
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
   const [dragActive, setDragActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<"events" | "forum" | "documents" | "photos" | "members">("forum");
+  const [activeTab, setActiveTab] = useState<"events" | "groups" | "documents" | "photos" | "members">("groups");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [bulkAlbumId, setBulkAlbumId] = useState<string>("");
   const [bulkAddTags, setBulkAddTags] = useState("");
@@ -142,7 +156,7 @@ export function GroupDetailClient({
       <section className="card p-3">
         <div className="flex flex-wrap gap-2">
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "events" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("events")}>Events</button>
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "forum" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("forum")}>Forum</button>
+          <button className={`rounded px-3 py-2 text-sm ${activeTab === "groups" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("groups")}>Groups</button>
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "documents" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("documents")}>Documents</button>
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "photos" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("photos")}>Photos</button>
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "members" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("members")}>Members</button>
@@ -155,46 +169,52 @@ export function GroupDetailClient({
         <Link href="/events" className="mt-3 inline-block rounded border border-slate-300 px-3 py-2 text-sm">Open Events</Link>
       </section> : null}
 
-      {activeTab === "forum" ? <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Forum</h2>
+      {activeTab === "groups" ? <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Groups</h2>
         {isMember ? (
-          <form className="grid gap-2" onSubmit={(e) => run(async () => {
+          <form className="grid gap-2 rounded-[14px] border border-[var(--border)] bg-[#11192a] p-3" onSubmit={(e) => run(async () => {
             e.preventDefault();
             const form = new FormData(e.currentTarget);
             await fetch(`/api/groups/${group.id}/forum/threads`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ title: form.get("title"), content: form.get("content") }),
+              body: JSON.stringify({
+                title: form.get("title"),
+                content: form.get("content"),
+                allowReplyImages: form.get("allowReplyImages") === "on",
+              }),
             });
-          }, "Thread created") }>
-            <input name="title" placeholder="Thread title" className="rounded border border-slate-300 px-3 py-2" required />
+          }, "Group created") }>
+            <input name="title" placeholder="Group title" className="rounded border border-slate-300 px-3 py-2" required />
             <textarea name="content" placeholder="Opening post" className="rounded border border-slate-300 px-3 py-2" required />
-            <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Start Thread</button>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input name="allowReplyImages" type="checkbox" className="h-4 w-4" />
+              Allow photo replies on this discussion
+            </label>
+            <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Create Group</button>
           </form>
         ) : null}
         <div className="mt-3 space-y-3">
           {group.threads.map((t) => (
-            <article key={t.id} className="rounded border border-slate-200 p-3">
-              <p className="font-medium">{t.title}</p>
-              <p className="text-xs text-slate-500">by @{t.authorUsername}</p>
-              <div className="mt-2 space-y-1">
-                {t.posts.map((p) => <p key={p.id} className="text-sm"><span className="font-medium">@{p.authorUsername}</span> {p.content}</p>)}
-              </div>
-              {isMember ? (
-                <form className="mt-2 flex gap-2" onSubmit={(e) => run(async () => {
-                  e.preventDefault();
-                  const form = new FormData(e.currentTarget);
-                  await fetch(`/api/groups/${group.id}/forum/threads/${t.id}/posts`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ content: form.get("content") }),
-                  });
-                }, "Reply posted") }>
-                  <input name="content" placeholder="Reply" className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm" required />
-                  <button className="rounded bg-blue-600 px-2 py-1 text-sm text-white" type="submit">Reply</button>
-                </form>
-              ) : null}
-            </article>
+            <ForumThreadCard
+              key={t.id}
+              groupId={group.id}
+              isMember={isMember}
+              thread={{
+                id: t.id,
+                title: t.title,
+                authorUsername: t.authorUsername,
+                allowReplyImages: t.allowReplyImages,
+                posts: t.posts.map((p) => ({
+                  id: p.id,
+                  content: p.content,
+                  parentCommentId: p.parentCommentId,
+                  mediaUrlsJson: p.mediaUrlsJson,
+                  createdAt: p.createdAt,
+                  author: { username: p.authorUsername },
+                })),
+              }}
+            />
           ))}
         </div>
       </section> : null}

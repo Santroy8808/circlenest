@@ -75,11 +75,11 @@ export default async function ProductionZonePage() {
 
   if (showActivistTools) {
     cards.push(
-      {
-        title: "Writers Corner",
-        description: "Open manuscripts and chapters inside Writers Corner.",
-        href: "/production-zone/writers-corner",
-      },
+    {
+      title: "Writers Corner",
+      description: "Open manuscripts, chapter pages, and paged readers inside Writers Corner.",
+      href: "/production-zone/writers-corner",
+    },
       {
         title: "Fund Raiser",
         description: "Browse fund raisers and create one when your tier allows it.",

@@ -71,7 +71,15 @@ export default async function GroupPage({ params }: { params: { groupId: string 
             id: t.id,
             title: t.title,
             authorUsername: t.author.username,
-            posts: t.posts.map((p) => ({ id: p.id, content: p.content, authorUsername: p.author.username })),
+            allowReplyImages: t.allowReplyImages,
+            posts: t.posts.map((p) => ({
+              id: p.id,
+              content: p.content,
+              parentCommentId: p.parentCommentId,
+              mediaUrlsJson: p.mediaUrlsJson,
+              createdAt: p.createdAt.toISOString(),
+              authorUsername: p.author.username,
+            })),
           })),
           documents: group.documents.map((d) => ({ id: d.id, title: d.title, url: d.url, uploaderUsername: d.uploader.username })),
           photos: group.photos.map((p) => ({

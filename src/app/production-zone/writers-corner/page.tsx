@@ -30,7 +30,7 @@ export default async function ProductionZoneWritersCornerPage() {
           className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
         >
           <h2 className="text-base font-semibold text-[var(--text-strong)]">Manuscripts</h2>
-          <p className="mt-1 text-sm text-slate-400">Use the dedicated writing workspace to create or edit manuscripts and chapters.</p>
+          <p className="mt-1 text-sm text-slate-400">Open the manuscript list, then tap a manuscript card to create chapters or read the chapter pages.</p>
         </Link>
       </section>
     </AppShell>

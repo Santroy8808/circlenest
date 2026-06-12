@@ -576,6 +576,7 @@ model GroupForumThread {
   groupId      String
   authorId     String
   title        String
+  allowReplyImages Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -587,11 +588,14 @@ model GroupForumPost {
   id          String   @id @default(cuid())
   threadId     String
   authorId     String
+  parentCommentId String?
   content      String
+  mediaUrlsJson String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   thread       GroupForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  @@index([threadId, parentCommentId, createdAt])
 }
 
 model GroupDocument {
@@ -980,6 +984,7 @@ model WriterStudioProject {
   summary         String?
   genre           String?
   format          String?
+  accessTier      String   @default("FREE")
   isPublic        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -987,6 +992,7 @@ model WriterStudioProject {
   articles        WriterStudioArticle[]
 
   @@index([ownerId, createdAt])
+  @@index([accessTier, createdAt])
   @@index([genre, createdAt])
   @@index([format, createdAt])
   @@index([isPublic, createdAt])
