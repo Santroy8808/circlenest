@@ -100,6 +100,7 @@ export function GroupsCenterClient({
 }: GroupsCenterClientProps) {
   const router = useRouter();
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showSearchTools, setShowSearchTools] = useState(Boolean(query || purpose || country || state || city));
   const [createStatus, setCreateStatus] = useState("");
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState<CreateGroupFormState>(initialCreateGroupState);
@@ -185,7 +186,7 @@ export function GroupsCenterClient({
       </section>
 
       <section className="rounded-[16px] border border-[var(--border)] bg-[#0f1523] p-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/groups"
             className={`rounded-full px-4 py-2 text-sm transition ${!isMyGroupsView ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
@@ -198,6 +199,20 @@ export function GroupsCenterClient({
           >
             My Groups
           </Link>
+          <button
+            type="button"
+            className={`rounded-full px-4 py-2 text-sm transition ${showSearchTools ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
+            onClick={() => setShowSearchTools((previous) => !previous)}
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white"
+            onClick={() => setShowCreateGroup((previous) => !previous)}
+          >
+            Create
+          </button>
         </div>
       </section>
 
@@ -209,44 +224,39 @@ export function GroupsCenterClient({
               {isMyGroupsView ? "Sort the groups you run or moderate, then jump into the selected discussion." : "Search the directory, sort by activity, and choose a group to read."}
             </p>
           </div>
-          <button
-            type="button"
-            className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => setShowCreateGroup((previous) => !previous)}
-          >
-            Create Group
-          </button>
         </div>
 
-        <form action="/groups" method="get" className="mt-3 space-y-3">
-          <input type="hidden" name="view" value={view === "my" ? "my" : "joined"} />
-          {selectedGroupId ? <input type="hidden" name="selected" value={selectedGroupId} /> : null}
-          <div className="grid gap-2 md:grid-cols-[1.4fr_1.4fr_auto]">
-            <input name="q" defaultValue={query} placeholder={isMyGroupsView ? "Search my groups..." : "Search groups..."} className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
-            <select name="sort" defaultValue={sort} className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100" onChange={(event) => event.currentTarget.form?.requestSubmit()}>
-              <option value="active">Active</option>
-              <option value="newest">Newest</option>
-              <option value="members">Members</option>
-            </select>
-            <button type="submit" className="rounded-[10px] border border-[#304058] px-3 py-2 text-sm text-slate-200">
-              Search
-            </button>
-          </div>
-          <div className="grid gap-2 md:grid-cols-3">
-            <input name="purpose" defaultValue={purpose} placeholder="Purpose" className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
-            <input name="country" defaultValue={country} placeholder="Country" className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
-            <input name="state" defaultValue={state} placeholder="State" className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
-          </div>
-          <input name="city" defaultValue={city} placeholder="City" className="w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
-          <div className="flex items-center gap-2">
-            <button type="submit" className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white">
-              {isMyGroupsView ? "Search my groups" : "Search groups"}
-            </button>
-            <Link href={searchHrefBase.split("?")[0]} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-slate-200">
-              Clear
-            </Link>
-          </div>
-        </form>
+        {showSearchTools ? (
+          <form action="/groups" method="get" className="mt-3 space-y-3 rounded-[14px] border border-[#2e3c55] bg-[#111a2a] p-3">
+            <input type="hidden" name="view" value={view === "my" ? "my" : "joined"} />
+            {selectedGroupId ? <input type="hidden" name="selected" value={selectedGroupId} /> : null}
+            <div className="grid gap-2 md:grid-cols-[1.4fr_1.4fr_auto]">
+              <input name="q" defaultValue={query} placeholder={isMyGroupsView ? "Search my groups..." : "Search groups..."} className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
+              <select name="sort" defaultValue={sort} className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100" onChange={(event) => event.currentTarget.form?.requestSubmit()}>
+                <option value="active">Active</option>
+                <option value="newest">Newest</option>
+                <option value="members">Members</option>
+              </select>
+              <button type="submit" className="rounded-[10px] border border-[#304058] px-3 py-2 text-sm text-slate-200">
+                Search
+              </button>
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              <input name="purpose" defaultValue={purpose} placeholder="Purpose" className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
+              <input name="country" defaultValue={country} placeholder="Country" className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
+              <input name="state" defaultValue={state} placeholder="State" className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
+            </div>
+            <input name="city" defaultValue={city} placeholder="City" className="w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
+            <div className="flex items-center gap-2">
+              <button type="submit" className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white">
+                {isMyGroupsView ? "Search my groups" : "Search groups"}
+              </button>
+              <Link href={searchHrefBase.split("?")[0]} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-slate-200">
+                Clear
+              </Link>
+            </div>
+          </form>
+        ) : null}
 
         {showCreateGroup ? (
           <form onSubmit={(event) => void submitCreateGroup(event)} className="mt-4 space-y-3 rounded-[14px] border border-[#2e3c55] bg-[#111a2a] p-3">
