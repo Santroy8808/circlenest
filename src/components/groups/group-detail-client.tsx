@@ -14,6 +14,7 @@ type GroupData = {
   description: string | null;
   visibility: string;
   ownerId: string;
+  ownerUsername: string;
   members: Array<{ id: string; username: string; role: string }>;
   joinRequests: Array<{ id: string; userId: string; username: string }>;
   events: Array<{ id: string; title: string; description: string | null; startsAt: string; endsAt: string | null; locationName: string | null; googleMapsUrl: string | null; creatorUsername: string }>;
@@ -61,6 +62,7 @@ export function GroupDetailClient({
   canModerate,
   canAssignModerators,
   creatorMemberCap,
+  initialTab = "groups",
 }: {
   group: GroupData;
   currentUserId: string;
@@ -68,12 +70,13 @@ export function GroupDetailClient({
   canModerate: boolean;
   canAssignModerators: boolean;
   creatorMemberCap: number | null;
+  initialTab?: "overview" | "groups" | "documents" | "photos" | "members";
 }) {
   const [status, setStatus] = useState("");
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
   const [dragActive, setDragActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<"events" | "groups" | "documents" | "photos" | "members">("groups");
+  const [activeTab, setActiveTab] = useState<"overview" | "groups" | "documents" | "photos" | "members">(initialTab);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [bulkAlbumId, setBulkAlbumId] = useState<string>("");
   const [bulkAddTags, setBulkAddTags] = useState("");
@@ -102,6 +105,7 @@ export function GroupDetailClient({
   });
 
   const allVisibleSelected = visiblePhotos.length > 0 && visiblePhotos.every((p) => selectedPhotoIds.includes(p.id));
+  const moderators = group.members.filter((member) => member.role === "CREATOR" || member.role === "MODERATOR");
 
   async function run(action: () => Promise<void>, ok = "Saved") {
     setStatus("Working...");
@@ -155,7 +159,7 @@ export function GroupDetailClient({
 
       <section className="card p-3">
         <div className="flex flex-wrap gap-2">
-          <button className={`rounded px-3 py-2 text-sm ${activeTab === "events" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("events")}>Events</button>
+          <button className={`rounded px-3 py-2 text-sm ${activeTab === "overview" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("overview")}>Overview</button>
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "groups" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("groups")}>Groups</button>
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "documents" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("documents")}>Documents</button>
           <button className={`rounded px-3 py-2 text-sm ${activeTab === "photos" ? "bg-slate-900 text-white" : "border border-slate-300"}`} onClick={() => setActiveTab("photos")}>Photos</button>
@@ -163,10 +167,36 @@ export function GroupDetailClient({
         </div>
       </section>
 
-      {activeTab === "events" ? <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Events</h2>
-        <p className="text-sm text-slate-600">Events are now managed in the standalone Events section.</p>
-        <Link href="/events" className="mt-3 inline-block rounded border border-slate-300 px-3 py-2 text-sm">Open Events</Link>
+      {activeTab === "overview" ? <section className="card p-4">
+        <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[#11192a]">
+          <div className="h-32 bg-gradient-to-r from-[#1a2438] via-[#152237] to-[#0d1524]" />
+          <div className="space-y-3 p-4">
+            <div>
+              <h2 className="text-lg font-semibold">Overview</h2>
+              <p className="mt-1 text-sm text-slate-400">{group.description || "No description yet."}</p>
+            </div>
+            <div className="grid gap-3 text-sm text-slate-300 md:grid-cols-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Creator</p>
+                <p className="mt-1">@{group.ownerUsername}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Visibility</p>
+                <p className="mt-1">{group.visibility}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Moderators</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {moderators.length ? moderators.map((member) => (
+                  <Link key={member.id} href={`/profile/${member.username}`} className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-slate-200">
+                    @{member.username}
+                  </Link>
+                )) : <span className="text-sm text-slate-400">No moderators listed.</span>}
+              </div>
+            </div>
+          </div>
+        </div>
       </section> : null}
 
       {activeTab === "groups" ? <section className="card p-4">
@@ -495,7 +525,15 @@ export function GroupDetailClient({
       </section> : null}
 
       {activeTab === "members" ? <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Members</h2>
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Members</h2>
+            <p className="text-sm text-slate-500">See who is in the group and manage roles from here.</p>
+          </div>
+          <Link href="/friends" className="rounded border border-slate-300 px-3 py-2 text-sm">
+            Add people from Friends
+          </Link>
+        </div>
         {canModerate && group.joinRequests.length ? (
           <div className="mb-3 space-y-2 rounded border border-slate-200 p-2">
             <p className="text-sm font-medium">Pending Join Requests</p>

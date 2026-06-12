@@ -205,24 +205,40 @@ export function GroupsCenterClient({
         <div className="flex flex-wrap gap-2 overflow-x-auto">
           {(
             [
-              { label: "Overview", active: false },
-              { label: "Events", active: false },
-              { label: "Groups", active: true },
-              { label: "Documents", active: false },
-              { label: "Photos", active: false },
-              { label: "Members", active: false },
+              { label: "Overview", active: false, tab: "overview" },
+              { label: "Groups", active: true, tab: "groups" },
+              { label: "Documents", active: false, tab: "documents" },
+              { label: "Photos", active: false, tab: "photos" },
+              { label: "Members", active: false, tab: "members" },
             ] as const
-          ).map(({ label, active }) => (
-            <button
-              key={label}
-              type="button"
-              className={`shrink-0 rounded-[10px] border px-3 py-2 text-sm transition ${
-                active ? "border-[#cdb66d]/40 bg-[#1a2030] text-white shadow-[inset_0_-2px_0_#d8c36f]" : "border-[#2c3951] text-slate-300 hover:border-[#4a5a78] hover:text-white"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          ).map(({ label, active, tab }) =>
+            active ? (
+              <button
+                key={label}
+                type="button"
+                className="shrink-0 rounded-[10px] border border-[#cdb66d]/40 bg-[#1a2030] px-3 py-2 text-sm text-white shadow-[inset_0_-2px_0_#d8c36f]"
+              >
+                {label}
+              </button>
+            ) : selectedGroup ? (
+              <Link
+                key={label}
+                href={`/groups/${selectedGroup.id}?tab=${tab}`}
+                className="shrink-0 rounded-[10px] border border-[#2c3951] px-3 py-2 text-sm text-slate-300 transition hover:border-[#4a5a78] hover:text-white"
+              >
+                {label}
+              </Link>
+            ) : (
+              <button
+                key={label}
+                type="button"
+                disabled
+                className="shrink-0 rounded-[10px] border border-[#2c3951] px-3 py-2 text-sm text-slate-500"
+              >
+                {label}
+              </button>
+            ),
+          )}
         </div>
       </section>
 

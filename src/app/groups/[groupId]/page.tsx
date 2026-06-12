@@ -7,13 +7,18 @@ import { GroupDetailClient } from "@/components/groups/group-detail-client";
 import { canModerateGroup } from "@/lib/auth/scoped-moderation";
 import { canAssignGroupModerators, getMaxCreatedGroupMembers, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
-export default async function GroupPage({ params }: { params: { groupId: string } }) {
+type SearchParams = {
+  tab?: string | string[];
+};
+
+export default async function GroupPage({ params, searchParams }: { params: { groupId: string }; searchParams?: SearchParams }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const group = await prisma.group.findUnique({
     where: { id: params.groupId },
     include: {
+      owner: { select: { username: true } },
       members: { include: { user: { select: { id: true, username: true } } } },
       joinRequests: {
         where: { status: "PENDING" },
@@ -41,6 +46,7 @@ export default async function GroupPage({ params }: { params: { groupId: string 
   const canModerate = await canModerateGroup(session.user.id, group.id);
   const currentUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, subscriptionTier: true } });
   const policy = resolveUserAccessPolicy(currentUser);
+  const initialTab = normalizeTab(readParam(searchParams?.tab));
 
   return (
     <AppShell>
@@ -51,6 +57,7 @@ export default async function GroupPage({ params }: { params: { groupId: string 
           description: group.description,
           visibility: group.visibility,
           ownerId: group.ownerId,
+          ownerUsername: group.owner.username,
           members: group.members.map((m) => ({ id: m.user.id, username: m.user.username, role: m.role })),
           joinRequests: group.joinRequests.map((request) => ({
             id: request.id,
@@ -97,7 +104,21 @@ export default async function GroupPage({ params }: { params: { groupId: string 
         canModerate={Boolean(canModerate)}
         canAssignModerators={canAssignGroupModerators(policy)}
         creatorMemberCap={group.ownerId === session.user.id ? getMaxCreatedGroupMembers(policy) : null}
+        initialTab={initialTab}
       />
     </AppShell>
   );
+}
+
+function readParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function normalizeTab(value: string): "overview" | "groups" | "documents" | "photos" | "members" {
+  if (value === "overview") return "overview";
+  if (value === "documents") return "documents";
+  if (value === "photos") return "photos";
+  if (value === "members") return "members";
+  return "groups";
 }
