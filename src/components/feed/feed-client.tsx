@@ -182,6 +182,19 @@ export function FeedClient({
   const modeLabel = useMemo(() => toTitleCase(mode), [mode]);
 
   useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  function refreshFeed(statusMessage?: string) {
+    if (statusMessage) setStatus(statusMessage);
+    router.refresh();
+  }
+
+  useEffect(() => {
     const openFromEvent = () => {
       if (allowComposer) {
         setComposerAudience("ALL");
@@ -304,7 +317,8 @@ export function FeedClient({
       setPollStatusByPost((prev) => ({ ...prev, [postId]: body.error ?? "Could not save vote." }));
       return;
     }
-    window.location.reload();
+    setPollStatusByPost((prev) => ({ ...prev, [postId]: "Vote saved." }));
+    router.refresh();
   }
 
   function openReply(postId: string, parentCommentId: string | null, mention = "") {
@@ -413,7 +427,7 @@ export function FeedClient({
                   const nextMode = e.target.value as FeedMode;
                   setMode(nextMode);
                   await patchPrefs({ mode: nextMode });
-                  window.location.reload();
+                  router.refresh();
                 }}
               >
                 {FEED_MODES.map((m) => (
@@ -440,7 +454,7 @@ export function FeedClient({
                 const nextMode = e.target.value as FeedMode;
                 setMode(nextMode);
                 await patchPrefs({ mode: nextMode });
-                window.location.reload();
+                router.refresh();
               }}
             >
               {FEED_MODES.map((m) => (
@@ -619,7 +633,7 @@ export function FeedClient({
                     setPollOptions(["", ""]);
                     setOpenComposer(false);
                     setStatus("Posted");
-                    window.location.reload();
+                    refreshFeed("Posted");
                   }}
                 >
                   Post
@@ -694,9 +708,9 @@ export function FeedClient({
             ) : null}
 
             <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-slate-300">
-              <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "LIKE" }) }); window.location.reload(); }}>{`\u{2764}\u{FE0F}`} Like {post.reactions.length}</button>
+              <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "LIKE" }) }); refreshFeed(); }}>{`\u{2764}\u{FE0F}`} Like {post.reactions.length}</button>
               {post.allowReshare !== false ? (
-                <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); window.location.reload(); }}>{`\u{1F501}`} Repost</button>
+                <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); refreshFeed(); }}>{`\u{1F501}`} Repost</button>
               ) : null}
               <button
                 className="inline-flex min-h-10 items-center gap-1 rounded-md border border-[#3d4e6d] bg-[#1a2335] px-3 py-1.5 text-[15px] font-medium text-white hover:border-[#5f769f] hover:bg-[#243149] disabled:cursor-not-allowed disabled:opacity-60"
@@ -720,7 +734,7 @@ export function FeedClient({
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ commentsLocked: !post.commentsLocked }),
                     });
-                    window.location.reload();
+                    refreshFeed();
                   }}
                 >
                   {post.commentsLocked ? "\u{1F512}" : "\u{1F513}"} {post.commentsLocked ? "Locked" : "Unlocked"}
@@ -729,7 +743,7 @@ export function FeedClient({
               <details className="relative">
                 <summary className="cursor-pointer list-none text-slate-400 hover:text-white">{`\u{22EF}`}</summary>
                 <div className="absolute right-0 top-5 rounded-md bg-[#0b1220] p-2 shadow-lg">
-                  <button className="text-xs text-slate-200 hover:text-white" onClick={async () => { await patchPrefs({ hidePostId: post.id }); window.location.reload(); }}>Hide post</button>
+                  <button className="text-xs text-slate-200 hover:text-white" onClick={async () => { await patchPrefs({ hidePostId: post.id }); setPosts((current) => current.filter((entry) => entry.id !== post.id)); router.refresh(); }}>Hide post</button>
                 </div>
               </details>
             </div>
@@ -775,7 +789,7 @@ export function FeedClient({
                       setCommentMediaByPost((prev) => ({ ...prev, [post.id]: [] }));
                       setReplyPostId(null);
                       setReplyParentByPost((prev) => ({ ...prev, [post.id]: null }));
-                      window.location.reload();
+                      refreshFeed();
                     } finally {
                       commentSubmittingRefs.current[post.id] = false;
                       setCommentSubmittingByPost((prev) => ({ ...prev, [post.id]: false }));

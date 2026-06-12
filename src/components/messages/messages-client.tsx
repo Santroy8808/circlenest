@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type FriendRef = {
   id: string;
@@ -31,168 +30,74 @@ type ThreadSummary = {
   lastMessageAt: string;
 };
 
-type DraggableWindowProps = {
-  title: string;
-  subtitle: string;
-  onClose: () => void;
-  children: ReactNode;
-};
-
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-
-function DraggableWindow({ title, subtitle, onClose, children }: DraggableWindowProps) {
-  const windowRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
-  const resizeRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
-  const positionRef = useRef({ x: 24, y: 88 });
-  const [position, setPosition] = useState({ x: 24, y: 88 });
-  const [size, setSize] = useState({ width: 860, height: 720 });
-  const [dragging, setDragging] = useState(false);
-  const [resizing, setResizing] = useState(false);
-
-  useEffect(() => {
-    const width = typeof window === "undefined" ? 860 : Math.min(860, Math.max(360, Math.floor(window.innerWidth * 0.78)));
-    const height = typeof window === "undefined" ? 720 : Math.min(760, Math.max(420, Math.floor(window.innerHeight * 0.76)));
-    const left = typeof window === "undefined" ? 24 : window.innerWidth < 900 ? 8 : Math.max(24, window.innerWidth - width - 24);
-    const top = typeof window === "undefined" ? 88 : window.innerHeight < 760 ? 8 : 96;
-    setSize({ width, height });
-    setPosition({ x: left, y: top });
-    positionRef.current = { x: left, y: top };
-  }, [title]);
-
-  useEffect(() => {
-    function handleMove(event: PointerEvent) {
-      if (dragRef.current && windowRef.current) {
-        const bounds = windowRef.current.getBoundingClientRect();
-        const nextX = clamp(event.clientX - dragRef.current.offsetX, 8, Math.max(8, window.innerWidth - bounds.width - 8));
-        const nextY = clamp(event.clientY - dragRef.current.offsetY, 8, Math.max(8, window.innerHeight - bounds.height - 8));
-        positionRef.current = { x: nextX, y: nextY };
-        setPosition({ x: nextX, y: nextY });
-      }
-      if (resizeRef.current) {
-        const currentPosition = positionRef.current;
-        const nextWidth = clamp(
-          resizeRef.current.startWidth + (event.clientX - resizeRef.current.startX),
-          420,
-          Math.max(420, window.innerWidth - currentPosition.x - 8),
-        );
-        const nextHeight = clamp(
-          resizeRef.current.startHeight + (event.clientY - resizeRef.current.startY),
-          420,
-          Math.max(420, window.innerHeight - currentPosition.y - 8),
-        );
-        setSize({ width: nextWidth, height: nextHeight });
-      }
-    }
-
-    function handleUp() {
-      dragRef.current = null;
-      resizeRef.current = null;
-      setDragging(false);
-      setResizing(false);
-    }
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-    window.addEventListener("pointercancel", handleUp);
-    return () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-    };
-  }, []);
-
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[80]">
-      <div
-        ref={windowRef}
-        className="pointer-events-auto fixed flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[#0b1422] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
-        style={{ left: position.x, top: position.y, width: size.width, height: size.height, minWidth: 420, minHeight: 420 }}
-      >
-        <div
-          className="flex items-start justify-between gap-3 border-b border-[var(--border)] bg-[#111b2d] px-4 py-3"
-          style={{ touchAction: "none", cursor: dragging ? "grabbing" : "grab" }}
-          onPointerDown={(event) => {
-            if (event.button !== 0) return;
-            dragRef.current = {
-              offsetX: event.clientX - position.x,
-              offsetY: event.clientY - position.y,
-            };
-            setDragging(true);
-          }}
-        >
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[var(--text-strong)]">{title}</p>
-            <p className="truncate text-xs text-slate-400">{subtitle}</p>
-          </div>
-          <button
-            type="button"
-            className="rounded border border-[var(--border)] px-3 py-1.5 text-xs text-slate-200 transition hover:bg-white/5"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-        <div className="min-h-0 flex flex-1 flex-col overflow-hidden p-3">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[#0e1728]">
-            {children}
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label="Resize chat window"
-          className="absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--border)] bg-[#152238] text-[0px] opacity-70 transition hover:opacity-100"
-          style={{ touchAction: "none" }}
-          onPointerDown={(event) => {
-            if (event.button !== 0) return;
-            event.stopPropagation();
-            resizeRef.current = {
-              startX: event.clientX,
-              startY: event.clientY,
-              startWidth: size.width,
-              startHeight: size.height,
-            };
-            setResizing(true);
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function displayNameForUser(user: FriendRef) {
-  return user.profile?.displayName ?? user.fullName ?? user.username;
-}
-
 function threadTitle(thread: ThreadSummary) {
   return thread.kind === "GROUP" ? thread.title ?? thread.displayLabel : thread.displayLabel;
 }
 
-export function MessagesClient({ myUserId, friends }: { myUserId: string; friends: FriendRef[] }) {
+function formatThreadTime(value: string) {
+  const date = new Date(value);
+  const diff = Date.now() - date.getTime();
+  if (diff < 86_400_000) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  if (diff < 604_800_000) {
+    return date.toLocaleDateString([], { weekday: "short" });
+  }
+  return date.toLocaleDateString();
+}
+
+function kindChip(kind: ThreadSummary["kind"]) {
+  return kind === "GROUP"
+    ? { label: "Group", icon: "◉", className: "border-[#56703d] bg-[#1a2412] text-[#c9e09d]" }
+    : { label: "Direct", icon: "●", className: "border-[#385b8f] bg-[#141f31] text-[#aac8ff]" };
+}
+
+export function MessagesClient({ friends }: { myUserId: string; friends: FriendRef[] }) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [threadSearch, setThreadSearch] = useState("");
-  const [directUsername, setDirectUsername] = useState("");
-  const [directMessage, setDirectMessage] = useState("");
-  const [groupTitle, setGroupTitle] = useState("");
-  const [groupMessage, setGroupMessage] = useState("");
-  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [chatFilter, setChatFilter] = useState<"ALL" | "DIRECT" | "GROUP">("ALL");
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
-  const [loadingDirect, setLoadingDirect] = useState(false);
-  const [loadingGroup, setLoadingGroup] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/messages/threads", { cache: "no-store" });
-    if (res.ok) setThreads((await res.json()) as ThreadSummary[]);
+    if (!res.ok) return;
+    const nextThreads = (await res.json()) as ThreadSummary[];
+    setThreads(nextThreads);
+  }, []);
+
+  const openChatWindow = useCallback((thread: ThreadSummary) => {
+    setActiveThreadId(thread.id);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("theta.activeChatThreadId", thread.id);
+      } catch {}
+      window.dispatchEvent(
+        new CustomEvent("theta-chat-open", {
+          detail: {
+            threadId: thread.id,
+            title: threadTitle(thread),
+            subtitle: thread.subtitle,
+          },
+        }),
+      );
+    }
   }, []);
 
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       void load();
-    }, 7000);
-    return () => window.clearInterval(timer);
+    }, 20000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
   useEffect(() => {
@@ -205,8 +110,9 @@ export function MessagesClient({ myUserId, friends }: { myUserId: string; friend
 
   const filteredThreads = useMemo(() => {
     const query = threadSearch.trim().toLowerCase();
-    if (!query) return threads;
     return threads.filter((thread) => {
+      if (chatFilter !== "ALL" && thread.kind !== chatFilter) return false;
+      if (!query) return true;
       const participantText = thread.participants.map((participant) => `${participant.username} ${participant.displayName}`).join(" ");
       return (
         thread.displayLabel.toLowerCase().includes(query) ||
@@ -216,240 +122,110 @@ export function MessagesClient({ myUserId, friends }: { myUserId: string; friend
         (thread.title ?? "").toLowerCase().includes(query)
       );
     });
-  }, [threadSearch, threads]);
+  }, [chatFilter, threadSearch, threads]);
 
-  const toggleFriend = useCallback((friendId: string) => {
-    setSelectedFriendIds((previous) =>
-      previous.includes(friendId) ? previous.filter((value) => value !== friendId) : [...previous, friendId],
-    );
-  }, []);
-
-  const openChatWindow = useCallback((threadId: string, title?: string, subtitle?: string) => {
-    setActiveThreadId(threadId);
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem("theta.activeChatThreadId", threadId);
-      } catch {}
-      window.dispatchEvent(
-        new CustomEvent("theta-chat-open", {
-          detail: { threadId, title, subtitle },
-        }),
-      );
-    }
-  }, []);
-
-  async function startThread(payload: Record<string, unknown>) {
-    const res = await fetch("/api/messages/threads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
-    if (!res.ok) {
-      setStatus(body.error ?? "Could not start chat.");
-      return null;
-    }
-    setStatus("");
-    await load();
-    return body.id ?? null;
-  }
+  const friendCount = friends.length;
+  const unreadCount = threads.reduce((sum, thread) => sum + thread.unread, 0);
 
   return (
     <div className="space-y-4">
-      <section className="rounded border border-[var(--border)] bg-[#0e1728] p-3">
-        <h2 className="text-sm font-semibold text-[var(--text-strong)]">Start a single chat</h2>
-        <p className="mt-1 text-xs text-slate-400">Single chats are for people who are not in your friends/family list.</p>
-        <form
-          className="mt-3 space-y-2"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const username = directUsername.trim().replace(/^@+/, "");
-            if (!username) return;
-            setLoadingDirect(true);
-            const id = await startThread({
-              mode: "DIRECT",
-              username,
-              initialMessage: directMessage.trim() || undefined,
-            });
-            if (id) {
-              openChatWindow(id, `@${username}`, "Opening thread...");
-              setDirectUsername("");
-              setDirectMessage("");
-            }
-            setLoadingDirect(false);
-          }}
-        >
-          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-            <input
-              value={directUsername}
-              onChange={(event) => setDirectUsername(event.target.value)}
-              className="rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-              placeholder="Username for single chat"
-            />
-            <button
-              className="rounded border border-[#6a5420] bg-[#c49a35] px-3 py-2 text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] disabled:opacity-60"
-              type="submit"
-              disabled={loadingDirect}
-            >
-              {loadingDirect ? "Opening..." : "Open chat"}
-            </button>
+      <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-[var(--text-strong)]">Mailbox</h2>
+            <p className="text-sm text-slate-400">Open any direct or group chat in the pop-out window.</p>
           </div>
-          <textarea
-            value={directMessage}
-            onChange={(event) => setDirectMessage(event.target.value)}
-            placeholder="Optional first message"
-            className="w-full rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            rows={2}
-          />
-        </form>
-      </section>
-
-      <section className="rounded border border-[var(--border)] bg-[#0e1728] p-3">
-        <h2 className="text-sm font-semibold text-[var(--text-strong)]">Start a group chat</h2>
-        <p className="mt-1 text-xs text-slate-400">Group chats are friends/family only.</p>
-        <form
-          className="mt-3 space-y-3"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!selectedFriendIds.length) {
-              setStatus("Pick at least one friend.");
-              return;
-            }
-            setLoadingGroup(true);
-            const id = await startThread({
-              mode: "GROUP",
-              participantIds: selectedFriendIds,
-              title: groupTitle.trim() || undefined,
-              initialMessage: groupMessage.trim() || undefined,
-            });
-            if (id) {
-              openChatWindow(id, groupTitle.trim() || "Group chat", `${selectedFriendIds.length} participants`);
-              setGroupTitle("");
-              setGroupMessage("");
-              setSelectedFriendIds([]);
-            }
-            setLoadingGroup(false);
-          }}
-        >
-          <input
-            value={groupTitle}
-            onChange={(event) => setGroupTitle(event.target.value)}
-            className="w-full rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            placeholder="Group title (optional)"
-          />
-          <div className="rounded border border-[var(--border)] bg-[#111a2a] p-3">
-            <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Pick friends</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {friends.map((friend) => {
-                const selected = selectedFriendIds.includes(friend.id);
-                return (
-                  <button
-                    key={friend.id}
-                    type="button"
-                    className={`flex items-center gap-3 rounded border px-3 py-2 text-left transition ${
-                      selected ? "border-[#d6b24a66] bg-[#2a2110]" : "border-[var(--border)] bg-[#0f1728] hover:bg-white/5"
-                    }`}
-                    onClick={() => toggleFriend(friend.id)}
-                  >
-                    {friend.profile?.avatarUrl ? (
-                      <Image
-                        src={friend.profile.avatarUrl}
-                        alt={displayNameForUser(friend)}
-                        width={34}
-                        height={34}
-                        unoptimized
-                        className="h-8 w-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2a3550] text-xs font-semibold text-white">
-                        {displayNameForUser(friend).charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-100">{displayNameForUser(friend)}</p>
-                      <p className="truncate text-xs text-slate-400">@{friend.username}</p>
-                    </div>
-                    <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${selected ? "bg-amber-400/15 text-amber-200" : "bg-white/5 text-slate-400"}`}>
-                      {selected ? "Added" : "Add"}
-                    </span>
-                  </button>
-                );
-              })}
-              {friends.length === 0 ? <p className="text-sm text-slate-400">No friends yet.</p> : null}
-            </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <span className="rounded-full border border-[#304058] bg-[#111a2a] px-3 py-1.5">{threads.length} chats</span>
+            <span className="rounded-full border border-[#304058] bg-[#111a2a] px-3 py-1.5">{friendCount} friends</span>
+            <span className="rounded-full border border-[#304058] bg-[#111a2a] px-3 py-1.5">{unreadCount} unread</span>
           </div>
-          <textarea
-            value={groupMessage}
-            onChange={(event) => setGroupMessage(event.target.value)}
-            placeholder="Optional first group message"
-            className="w-full rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            rows={2}
-          />
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-slate-400">{selectedFriendIds.length} selected</p>
-            <button
-              className="rounded border border-[#6a5420] bg-[#c49a35] px-3 py-2 text-[#1a1204] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] disabled:opacity-60"
-              type="submit"
-              disabled={loadingGroup}
-            >
-              {loadingGroup ? "Opening..." : "Open group chat"}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded border border-[var(--border)] bg-[#0e1728] p-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-[var(--text-strong)]">Messages</h2>
-          <span className="text-xs text-slate-400">Tap a row to open a chat window</span>
         </div>
-        <div className="mt-2">
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <input
             value={threadSearch}
             onChange={(event) => setThreadSearch(event.target.value)}
-            placeholder="Search by name, group title, or message text"
-            className="w-full rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            placeholder="Search by person, group, or message text"
+            className="rounded-[12px] border border-[#304058] bg-[#182232] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)]/50"
           />
+          <div className="flex flex-wrap items-center gap-2">
+            {(["ALL", "DIRECT", "GROUP"] as const).map((value) => {
+              const active = chatFilter === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setChatFilter(value)}
+                  className={
+                    active
+                      ? "rounded-[10px] border border-[#cdb66d]/40 bg-[#1a2030] px-3 py-2 text-sm text-white shadow-[inset_0_-2px_0_#d8c36f]"
+                      : "rounded-[10px] border border-[#2c3951] px-3 py-2 text-sm text-slate-300 transition hover:border-[#4a5a78] hover:text-white"
+                  }
+                >
+                  {value === "ALL" ? "All chats" : value === "DIRECT" ? "Direct" : "Groups"}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="mt-4 space-y-2">
+      </section>
+
+      <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-2 shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+        <div className="divide-y divide-[#243146]">
           {filteredThreads.map((thread) => {
             const label = threadTitle(thread);
             const selected = activeThreadId === thread.id;
+            const chip = kindChip(thread.kind);
             return (
               <button
                 key={thread.id}
                 type="button"
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition hover:-translate-y-0.5 hover:bg-white/5 ${
-                  selected ? "border-[#d6b24a88] bg-[#151f31]" : "border-[var(--border)] bg-[#111a2a]"
+                className={`group flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition ${
+                  selected ? "bg-[#162033]" : "hover:bg-[#131d2f]"
                 }`}
-                onClick={() => openChatWindow(thread.id, label, thread.subtitle)}
+                onClick={() => openChatWindow(thread)}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a3550] text-sm font-semibold text-white ring-1 ring-[var(--border)]">
-                  {label.charAt(0).toUpperCase()}
-                </div>
+                {thread.participants[0]?.avatarUrl ? (
+                  <Image
+                    src={thread.participants[0].avatarUrl}
+                    alt={label}
+                    width={54}
+                    height={54}
+                    unoptimized
+                    className="h-12 w-12 shrink-0 rounded-full border border-[#304058] object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#304058] bg-[#23324a] text-sm font-semibold text-white">
+                    {label.charAt(0).toUpperCase()}
+                  </div>
+                )}
+
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-100">{label}</p>
-                    {thread.kind === "GROUP" ? (
-                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-slate-400">
-                        Group
-                      </span>
-                    ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-[var(--text-strong)]">{label}</p>
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] ${chip.className}`}>
+                      <span>{chip.icon}</span>
+                      <span>{chip.label}</span>
+                    </span>
                   </div>
                   <p className="truncate text-xs text-slate-400">{thread.subtitle}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-300">
-                    {thread.lastMessageBody?.trim() ? thread.lastMessageBody : "No messages yet"}
-                  </p>
+                  <p className="mt-1 truncate text-sm text-slate-300">{thread.lastMessageBody?.trim() || "No messages yet"}</p>
                 </div>
-                <div className="ml-3 flex shrink-0 flex-col items-end gap-1">
-                  {thread.lastMessageAt ? <span className="text-[10px] text-slate-400">{new Date(thread.lastMessageAt).toLocaleString()}</span> : null}
-                  {thread.unread > 0 ? <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{thread.unread}</span> : null}
+
+                <div className="ml-2 flex shrink-0 flex-col items-end gap-2">
+                  <span className="text-[11px] text-slate-400">{formatThreadTime(thread.lastMessageAt)}</span>
+                  {thread.unread > 0 ? (
+                    <span className="rounded-full bg-[#376ef8] px-2 py-0.5 text-xs font-semibold text-white">{thread.unread}</span>
+                  ) : (
+                    <span className="text-xs text-slate-500 transition group-hover:text-slate-300">Open</span>
+                  )}
                 </div>
               </button>
             );
           })}
-          {threads.length === 0 ? <p className="text-sm text-slate-300">No threads yet.</p> : null}
-          {threads.length > 0 && filteredThreads.length === 0 ? <p className="text-sm text-slate-300">No matching threads.</p> : null}
+          {threads.length === 0 ? <p className="px-3 py-8 text-sm text-slate-400">No messages yet.</p> : null}
+          {threads.length > 0 && filteredThreads.length === 0 ? <p className="px-3 py-8 text-sm text-slate-400">No matching chats.</p> : null}
         </div>
       </section>
 

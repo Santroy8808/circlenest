@@ -51,7 +51,7 @@ type ThreadMeta = {
 
 const EMOJIS = ["😀", "😂", "😍", "❤️", "👍", "🙏", "🔥", "🎉", "🤝", "💡"] as const;
 const AUTO_SCROLL_THRESHOLD_PX = 140;
-const POLL_INTERVAL_MS = 6000;
+const POLL_INTERVAL_MS = 12000;
 
 function formatClock(value: string | Date | number) {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -238,10 +238,20 @@ export function ThreadClient({
     void loadMeta();
     void loadPresence();
     const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       void load();
       void loadPresence();
     }, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      void load();
+      void loadPresence();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load, loadMeta, loadPresence, threadId]);
 
   useEffect(() => {

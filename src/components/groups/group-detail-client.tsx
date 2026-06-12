@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
 import { ReportControl } from "@/components/reports/report-control";
 import { TierGate } from "@/components/policy/tier-gate";
@@ -72,6 +73,7 @@ export function GroupDetailClient({
   creatorMemberCap: number | null;
   initialTab?: "overview" | "groups" | "documents" | "photos" | "members";
 }) {
+  const router = useRouter();
   const shellCardClass = "rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)]";
   const insetCardClass = "rounded-[14px] border border-[var(--border)] bg-[#111a2a] p-3";
   const inputClass = "rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)]/50";
@@ -87,7 +89,6 @@ export function GroupDetailClient({
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
   const [dragActive, setDragActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "groups" | "documents" | "photos" | "members">(initialTab);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [bulkAlbumId, setBulkAlbumId] = useState<string>("");
   const [bulkAddTags, setBulkAddTags] = useState("");
@@ -122,7 +123,7 @@ export function GroupDetailClient({
     setStatus("Working...");
     await action();
     setStatus(ok);
-    window.location.reload();
+    router.refresh();
   }
 
   async function uploadGroupPhoto(file: File, caption = "", albumId = "", tags = "") {
@@ -170,15 +171,15 @@ export function GroupDetailClient({
 
       <section className="rounded-[16px] border border-[var(--border)] bg-[#0f1523] p-3">
         <div className="flex flex-wrap gap-2">
-          <Link href={`/groups/${group.id}?tab=overview`} className={tabClass(activeTab === "overview")}>Overview</Link>
-          <Link href={`/groups/${group.id}?tab=groups`} className={tabClass(activeTab === "groups")}>Groups</Link>
-          <Link href={`/groups/${group.id}?tab=documents`} className={tabClass(activeTab === "documents")}>Documents</Link>
-          <Link href={`/groups/${group.id}?tab=photos`} className={tabClass(activeTab === "photos")}>Photos</Link>
-          <Link href={`/groups/${group.id}?tab=members`} className={tabClass(activeTab === "members")}>Members</Link>
+          <Link href={`/groups/${group.id}?tab=overview`} className={tabClass(initialTab === "overview")}>Overview</Link>
+          <Link href={`/groups/${group.id}?tab=groups`} className={tabClass(initialTab === "groups")}>Groups</Link>
+          <Link href={`/groups/${group.id}?tab=documents`} className={tabClass(initialTab === "documents")}>Documents</Link>
+          <Link href={`/groups/${group.id}?tab=photos`} className={tabClass(initialTab === "photos")}>Photos</Link>
+          <Link href={`/groups/${group.id}?tab=members`} className={tabClass(initialTab === "members")}>Members</Link>
         </div>
       </section>
 
-      {activeTab === "overview" ? <section className={shellCardClass}>
+      {initialTab === "overview" ? <section className={shellCardClass}>
         <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[#11192a]">
           <div className="h-32 bg-gradient-to-r from-[#1a2438] via-[#152237] to-[#0d1524]" />
           <div className="space-y-3 p-4">
@@ -210,7 +211,7 @@ export function GroupDetailClient({
         </div>
       </section> : null}
 
-      {activeTab === "groups" ? <section className={shellCardClass}>
+      {initialTab === "groups" ? <section className={shellCardClass}>
         <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Groups</h2>
         {isMember ? (
           <form className={`grid gap-2 ${insetCardClass}`} onSubmit={(e) => run(async () => {
@@ -260,7 +261,7 @@ export function GroupDetailClient({
         </div>
       </section> : null}
 
-      {activeTab === "documents" ? <section className="grid gap-4 lg:grid-cols-1">
+      {initialTab === "documents" ? <section className="grid gap-4 lg:grid-cols-1">
         <article className={shellCardClass}>
           <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Documents</h2>
           {isMember ? (
@@ -303,7 +304,7 @@ export function GroupDetailClient({
         </article>
       </section> : null}
 
-      {activeTab === "photos" ? <section className="grid gap-4 lg:grid-cols-1">
+      {initialTab === "photos" ? <section className="grid gap-4 lg:grid-cols-1">
         <article className={shellCardClass}>
           <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Photos</h2>
           {isMember ? (
@@ -540,7 +541,7 @@ export function GroupDetailClient({
         </article>
       </section> : null}
 
-      {activeTab === "members" ? <section className={shellCardClass}>
+      {initialTab === "members" ? <section className={shellCardClass}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-[var(--text-strong)]">Members</h2>
