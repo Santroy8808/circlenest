@@ -103,6 +103,7 @@ export function GroupsCenterClient({
   const [createStatus, setCreateStatus] = useState("");
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState<CreateGroupFormState>(initialCreateGroupState);
+  const isMyGroupsView = view === "my";
 
   const sortedGroups = useMemo(() => directoryGroups, [directoryGroups]);
   const searchHrefBase = useMemo(() => {
@@ -156,8 +157,11 @@ export function GroupsCenterClient({
       <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold text-[var(--text-strong)]">{selectedGroup?.name ?? "Groups"}</h1>
-            <p className="mt-1 text-sm text-slate-400">{selectedGroup?.description ?? "Browse groups, then open a discussion below."}</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{isMyGroupsView ? "My Groups" : "Groups"}</p>
+            <h1 className="text-2xl font-semibold text-[var(--text-strong)]">{selectedGroup?.name ?? (isMyGroupsView ? "My Groups" : "Groups")}</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              {selectedGroup?.description ?? (isMyGroupsView ? "Groups you created, moderate, or keep active." : "Browse groups, then open a discussion below.")}
+            </p>
             <p className="mt-1 text-xs uppercase tracking-[0.18em] text-amber-200">{selectedGroup?.visibility ?? "PUBLIC"} · {selectedGroup?.memberCount ?? 0} members</p>
           </div>
           {selectedGroup ? (
@@ -177,6 +181,23 @@ export function GroupsCenterClient({
               </button>
             </div>
           ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-[16px] border border-[var(--border)] bg-[#0f1523] p-3">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/groups"
+            className={`rounded-full px-4 py-2 text-sm transition ${!isMyGroupsView ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
+          >
+            Joined Groups
+          </Link>
+          <Link
+            href="/groups?view=my"
+            className={`rounded-full px-4 py-2 text-sm transition ${isMyGroupsView ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
+          >
+            My Groups
+          </Link>
         </div>
       </section>
 
@@ -208,8 +229,10 @@ export function GroupsCenterClient({
       <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-[var(--text-strong)]">Groups</h2>
-            <p className="text-sm text-slate-400">Search the directory, sort by activity, and choose a group to read.</p>
+            <h2 className="text-xl font-semibold text-[var(--text-strong)]">{isMyGroupsView ? "My Groups" : "Groups"}</h2>
+            <p className="text-sm text-slate-400">
+              {isMyGroupsView ? "Sort the groups you run or moderate, then jump into the selected discussion." : "Search the directory, sort by activity, and choose a group to read."}
+            </p>
           </div>
           <button
             type="button"
@@ -224,7 +247,7 @@ export function GroupsCenterClient({
           <input type="hidden" name="view" value={view === "my" ? "my" : "joined"} />
           {selectedGroupId ? <input type="hidden" name="selected" value={selectedGroupId} /> : null}
           <div className="grid gap-2 md:grid-cols-[1.4fr_1.4fr_auto]">
-            <input name="q" defaultValue={query} placeholder="Search groups..." className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
+            <input name="q" defaultValue={query} placeholder={isMyGroupsView ? "Search my groups..." : "Search groups..."} className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
             <select name="sort" defaultValue={sort} className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100" onChange={(event) => event.currentTarget.form?.requestSubmit()}>
               <option value="active">Active</option>
               <option value="newest">Newest</option>
@@ -242,7 +265,7 @@ export function GroupsCenterClient({
           <input name="city" defaultValue={city} placeholder="City" className="w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400" />
           <div className="flex items-center gap-2">
             <button type="submit" className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white">
-              Search groups
+              {isMyGroupsView ? "Search my groups" : "Search groups"}
             </button>
             <Link href={searchHrefBase.split("?")[0]} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-slate-200">
               Clear
@@ -320,7 +343,9 @@ export function GroupsCenterClient({
               );
             })
           ) : (
-            <p className="rounded-[14px] border border-dashed border-[#2d3b52] bg-[#111a2a] p-4 text-sm text-slate-400">No groups match that search.</p>
+            <p className="rounded-[14px] border border-dashed border-[#2d3b52] bg-[#111a2a] p-4 text-sm text-slate-400">
+              {isMyGroupsView ? "No groups in your managed list match that search." : "No groups match that search."}
+            </p>
           )}
         </div>
       </section>

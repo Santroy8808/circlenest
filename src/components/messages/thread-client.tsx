@@ -347,7 +347,7 @@ export function ThreadClient({
 
               return (
                 <article key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                  <div className={`flex max-w-[min(92%,44rem)] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+                  <div className={`flex max-w-[min(92%,42rem)] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                     {!isMine ? (
                       <Link href={senderHref} className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[#1a2538]">
                         {message.sender.profile?.avatarUrl ? (
@@ -421,10 +421,10 @@ export function ThreadClient({
                       </div>
 
                       <div
-                        className={`max-w-[82vw] whitespace-pre-wrap break-words rounded-2xl border px-4 py-3 text-sm leading-6 shadow-sm md:max-w-[36rem] ${
+                        className={`max-w-[82vw] whitespace-pre-wrap break-words rounded-[18px] border px-4 py-3 text-sm leading-6 shadow-[0_8px_20px_rgba(0,0,0,0.18)] md:max-w-[36rem] ${
                           isMine
-                            ? "ml-auto rounded-br-sm border-[#d6b24a66] bg-[#2a2110] text-[#f5d777]"
-                            : "mr-auto rounded-bl-sm border-[#94a3b866] bg-[#131c2c] text-[#d1d5db]"
+                            ? "ml-auto rounded-br-sm border-[#d6b24a66] bg-[#241c0f] text-[#f5d777]"
+                            : "mr-auto rounded-bl-sm border-[#94a3b866] bg-[#111a29] text-[#d1d5db]"
                         }`}
                       >
                         {editingId === message.id ? (
@@ -563,7 +563,7 @@ export function ThreadClient({
               S
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 rounded-[16px] border border-[var(--border)] bg-[#11192a] p-[5px]">
             <textarea
               ref={editorRef}
               value={text}
@@ -579,12 +579,12 @@ export function ThreadClient({
                 if (typingOffTimer.current) clearTimeout(typingOffTimer.current);
                 void updateTyping(false);
               }}
-              className="min-h-[88px] flex-1 rounded border border-[var(--border)] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="min-h-[88px] flex-1 rounded-[12px] border border-[#41536d] bg-[#111a2a] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
               placeholder="Type a message"
               rows={4}
             />
             <button
-              className="rounded border border-[var(--border)] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+              className="rounded-[12px] border border-[var(--border)] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
               type="submit"
               disabled={sending || !text.trim()}
             >
