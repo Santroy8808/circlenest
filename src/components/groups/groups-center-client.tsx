@@ -189,30 +189,38 @@ export function GroupsCenterClient({
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/groups"
-            className={`rounded-full px-4 py-2 text-sm transition ${!isMyGroupsView ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
+            className={`rounded-full px-4 py-2 text-sm transition ${
+              !isMyGroupsView ? "border border-[#d6b66a]/40 bg-[#1a2030] text-white shadow-[inset_0_-2px_0_#d8c36f]" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"
+            }`}
           >
             Joined Groups
           </Link>
           <Link
             href="/groups?view=my"
-            className={`rounded-full px-4 py-2 text-sm transition ${isMyGroupsView ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
+            className={`rounded-full px-4 py-2 text-sm transition ${
+              isMyGroupsView ? "border border-[#d6b66a]/40 bg-[#1a2030] text-white shadow-[inset_0_-2px_0_#d8c36f]" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"
+            }`}
           >
             My Groups
           </Link>
           <button
             type="button"
-            className={`rounded-full px-4 py-2 text-sm transition ${showSearchTools ? "bg-[#376ef8] font-semibold text-white" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"}`}
+            className={`rounded-full px-4 py-2 text-sm transition ${
+              showSearchTools ? "border border-[#d6b66a]/40 bg-[#1a2030] text-white shadow-[inset_0_-2px_0_#d8c36f]" : "border border-[#304058] text-slate-200 hover:border-[#4a5a78]"
+            }`}
             onClick={() => setShowSearchTools((previous) => !previous)}
           >
             Search
           </button>
-          <button
-            type="button"
-            className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => setShowCreateGroup((previous) => !previous)}
-          >
-            Create
-          </button>
+          <div className="ml-auto flex items-center">
+            <button
+              type="button"
+              className="rounded-full border border-[#304058] bg-[#111a2a] px-4 py-2 text-sm text-slate-200 transition hover:border-[#4a5a78] hover:text-white"
+              onClick={() => setShowCreateGroup((previous) => !previous)}
+            >
+              Create
+            </button>
+          </div>
         </div>
       </section>
 
@@ -220,9 +228,7 @@ export function GroupsCenterClient({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-[var(--text-strong)]">{isMyGroupsView ? "My Groups" : "Groups"}</h2>
-            <p className="text-sm text-slate-400">
-              {isMyGroupsView ? "Sort the groups you run or moderate, then jump into the selected discussion." : "Search the directory, sort by activity, and choose a group to read."}
-            </p>
+            <p className="text-sm text-slate-400">{isMyGroupsView ? "Your groups are shown right away. Open Search if you want to filter them." : "Browse groups, or open Search to filter the directory."}</p>
           </div>
         </div>
 
