@@ -118,7 +118,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
                 ["Production Zone", "/production-zone"],
               ]}
             />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?view=my"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"]]} />
             <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"]]} />
             <Section
               title="Settings"
