@@ -164,6 +164,7 @@ export function GalleryManagerClient({
   const [usageBytes, setUsageBytes] = useState<number>(initialUsageBytes);
   const [storageLimitBytes, setStorageLimitBytes] = useState<number>(initialLimitBytes);
   const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
+  const [showTools, setShowTools] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [bannerUrl, setBannerUrl] = useState(initialBannerUrl);
@@ -673,49 +674,28 @@ export function GalleryManagerClient({
       </div>
 
       <article className={shellCardClass}>
-        <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Photos</h1>
             <p className="text-sm text-slate-400">{activeAlbum?.title ?? "Gallery"}</p>
             <p className="text-xs text-slate-400">
-              {activeAlbum?.photos.length ?? 0} Photos
-              {updatedAt ? ` - Updated ${formatStableDate(new Date(updatedAt))}` : ""}
+              {activeAlbum?.photos.length ?? 0} photos{updatedAt ? ` • Updated ${formatStableDate(new Date(updatedAt))}` : ""}
             </p>
-            {activeAlbum?.parentAlbumId ? <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-200">Parent album</p> : null}
-            <div className="mt-2 w-full max-w-xs">
-              <div className="flex items-center justify-between text-[11px] text-slate-300">
-                <span>Storage used</span>
-                <span>{storageUsedMb}MB / {storageLimitLabel}</span>
-              </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-[#1a2538]">
-                <div
-                  className={`h-full ${storagePercent >= 90 ? "bg-red-400" : storagePercent >= 75 ? "bg-amber-400" : "bg-emerald-400"}`}
-                  style={{ width: `${storagePercent}%` }}
-                />
-              </div>
-              <p className="mt-1 text-[10px] text-slate-500">
-                Upload limit: {storageLimitLabel} per account. Text-only posts do not count.
-              </p>
-            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-[12px]">
-            <button type="button" className={ghostButtonClass} onClick={() => void shareAlbum()}>
-              Share
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={primaryButtonClass} onClick={() => setShowTools(true)}>
+              Upload
             </button>
-            <label className="flex items-center gap-1 text-slate-300">
+            <label className="flex items-center gap-1 text-[12px] text-slate-300">
               Sort
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "newest" | "oldest")} className={inputClass}>
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
               </select>
             </label>
-            <label className="flex items-center gap-1 text-slate-300">
+            <label className="flex items-center gap-1 text-[12px] text-slate-300">
               Album
-              <select
-                value={activeAlbum?.id ?? ""}
-                onChange={(event) => setActiveAlbumId(event.target.value)}
-                className={inputClass}
-              >
+              <select value={activeAlbum?.id ?? ""} onChange={(event) => setActiveAlbumId(event.target.value)} className={inputClass}>
                 {albums.map((album) => (
                   <option key={album.id} value={album.id}>
                     {album.title}
@@ -723,77 +703,95 @@ export function GalleryManagerClient({
                 ))}
               </select>
             </label>
+            <button type="button" className={ghostButtonClass} onClick={() => setShowTools((value) => !value)}>
+              {showTools ? "Hide tools" : "Manage"}
+            </button>
           </div>
         </div>
       </article>
 
-      <article className={shellCardClass}>
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="gallery-upload-input" className={`${primaryButtonClass} cursor-pointer`}>
-            Upload Photos
-          </label>
-          <input
-            id="gallery-upload-input"
-            type="file"
-            multiple
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(event) => {
-              if (!event.currentTarget.files) return;
-              void uploadFiles(event.currentTarget.files);
-            }}
-          />
-
-          <div className="flex items-center gap-1 text-[12px] text-slate-300">
-            Album
+      {showTools ? (
+        <article className={shellCardClass}>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="gallery-upload-input" className={`${primaryButtonClass} cursor-pointer`}>
+              Choose photos
+            </label>
             <input
-              value={newAlbumTitle}
-              onChange={(event) => setNewAlbumTitle(event.target.value)}
-              placeholder="New album"
-              className="w-36 rounded-[10px] border border-[#304058] bg-[#182232] px-2 py-1.5 text-slate-100 placeholder:text-slate-400"
+              id="gallery-upload-input"
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                if (!event.currentTarget.files) return;
+                void uploadFiles(event.currentTarget.files);
+              }}
             />
-            <select value={newAlbumParentId} onChange={(event) => setNewAlbumParentId(event.target.value)} className={inputClass}>
-              <option value="">No parent album</option>
-              {albums.map((album) => (
-                <option key={album.id} value={album.id}>{album.title}</option>
-              ))}
-            </select>
-            <button type="button" className={ghostButtonClass} onClick={() => void createAlbum()}>
-              Create
+            <button type="button" className={ghostButtonClass} onClick={() => void shareAlbum()}>
+              Share album
             </button>
           </div>
 
-          <label className="flex items-center gap-1 text-[12px] text-slate-300">
-            Visibility
-            <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} className={inputClass}>
-              <option value="PUBLIC">Public</option>
-              <option value="FRIENDS_FAMILY">Friends & Family</option>
-              <option value="PRIVATE">Private</option>
-            </select>
-          </label>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Create album</p>
+              <div className="grid gap-2">
+                <input
+                  value={newAlbumTitle}
+                  onChange={(event) => setNewAlbumTitle(event.target.value)}
+                  placeholder="New album"
+                  className={inputClass}
+                />
+                <select value={newAlbumParentId} onChange={(event) => setNewAlbumParentId(event.target.value)} className={inputClass}>
+                  <option value="">No parent album</option>
+                  {albums.map((album) => (
+                    <option key={album.id} value={album.id}>{album.title}</option>
+                  ))}
+                </select>
+                <button type="button" className={ghostButtonClass} onClick={() => void createAlbum()}>
+                  Create
+                </button>
+              </div>
+            </div>
 
-          <label className="ml-auto inline-flex items-center gap-1 text-[12px] text-slate-300">
-            <input type="checkbox" checked={notifyFriendsAndFamily} onChange={(event) => setNotifyFriendsAndFamily(event.target.checked)} />
-            Notify Friends and Family
-          </label>
-        </div>
-
-        <div
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            if (busy) return;
-            if (event.dataTransfer.files?.length) {
-              void uploadFiles(event.dataTransfer.files);
-            }
-          }}
-          className="mt-2 rounded-[16px] border border-dashed border-[#304058] bg-[#111a2a] px-3 py-5 text-center text-[12px] text-slate-300"
-        >
-          Drag photos here or use Upload Photos.
-        </div>
-
-        {status ? <p className="mt-2 text-[11px] text-slate-300">{status}</p> : null}
-      </article>
+            <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Upload settings</p>
+              <div className="grid gap-3">
+                <div className="rounded-[12px] border border-[#2b3850] bg-[#0f1624] px-3 py-2 text-[11px] text-slate-300">
+                  Storage: {storageUsedMb}MB / {storageLimitLabel}
+                  {storagePercent > 0 ? ` (${storagePercent}%)` : ""}
+                </div>
+                <label className="flex items-center gap-2 text-[12px] text-slate-300">
+                  <input type="checkbox" checked={notifyFriendsAndFamily} onChange={(event) => setNotifyFriendsAndFamily(event.target.checked)} />
+                  Notify Friends and Family
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-slate-300">
+                  Visibility
+                  <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} className={inputClass}>
+                    <option value="PUBLIC">Public</option>
+                    <option value="FRIENDS_FAMILY">Friends & Family</option>
+                    <option value="PRIVATE">Private</option>
+                  </select>
+                </label>
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (busy) return;
+                    if (event.dataTransfer.files?.length) {
+                      void uploadFiles(event.dataTransfer.files);
+                    }
+                  }}
+                  className="rounded-[16px] border border-dashed border-[#304058] bg-[#111a2a] px-3 py-5 text-center text-[12px] text-slate-300"
+                >
+                  Drag photos here or choose photos.
+                </div>
+                {status ? <p className="text-[11px] text-slate-300">{status}</p> : null}
+              </div>
+            </div>
+          </div>
+        </article>
+      ) : null}
 
       {activeAlbum ? (
         <article className={shellCardClass}>

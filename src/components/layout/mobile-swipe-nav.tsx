@@ -57,7 +57,6 @@ export function MobileSwipeNav({
   includeModerator?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [activeSectionTitle, setActiveSectionTitle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -145,41 +144,23 @@ export function MobileSwipeNav({
                 Close
               </button>
             </div>
-            <nav className="space-y-2 text-xs">
-              {activeSectionTitle == null ? (
-                <>
-                  {mobileSections.map((section) => (
-                    <PrimaryRow
-                      key={section.title}
-                      label={section.title}
-                      onTap={() => setActiveSectionTitle(section.title)}
-                    />
-                  ))}
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]"
-                    onClick={() => setActiveSectionTitle(null)}
-                  >
-                    Back
-                  </button>
-                  <Section
-                    title={activeSectionTitle}
-                    links={
-                      activeSectionTitle === "Settings"
-                        ? [
-                            ...((mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? []) as [string, string][]),
-                            ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
-                            ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
-                          ]
-                        : (mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? [])
-                    }
-                    onNavigate={() => setOpen(false)}
-                  />
-                </>
-              )}
+            <nav className="space-y-3 text-xs">
+              {mobileSections.map((section) => (
+                <Section
+                  key={section.title}
+                  title={section.title}
+                  links={
+                    section.title === "Settings"
+                      ? [
+                          ...section.items,
+                          ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
+                          ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
+                        ]
+                      : section.items
+                  }
+                  onNavigate={() => setOpen(false)}
+                />
+              ))}
             </nav>
             <div className="mt-4 border-t border-[var(--border)] pt-3 text-sm">
               <LogoutButton />
@@ -188,19 +169,6 @@ export function MobileSwipeNav({
         </div>
       ) : null}
     </>
-  );
-}
-
-function PrimaryRow({ label, onTap }: { label: string; onTap: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onTap}
-      className="flex w-full items-center justify-between rounded-md border border-[var(--border)] bg-[#111c30] px-3 py-3 text-left text-[16px] font-semibold text-[#f4f7ff]"
-    >
-      <span>{label}</span>
-      <span className="text-[#f2d78d]">{"\u203A"}</span>
-    </button>
   );
 }
 
@@ -214,11 +182,11 @@ function Section({
   onNavigate: () => void;
 }) {
   return (
-    <section className="border border-[var(--border)] bg-[#101a2c] p-3">
+    <section className="rounded-[14px] border border-[var(--border)] bg-[#101a2c] p-3">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
       <div className="grid gap-1">
         {links.map(([label, href, comingSoon]) => (
-          <Link key={href} href={href} className="flex items-center gap-2 text-[13px] text-slate-300 transition hover:text-white" onClick={onNavigate}>
+          <Link key={href} href={href} className="flex items-center justify-between rounded-[10px] border border-transparent px-2 py-2 text-[13px] text-slate-300 transition hover:border-[#304058] hover:bg-[#0f1624] hover:text-white" onClick={onNavigate}>
             <span>{label}</span>
             {comingSoon ? (
               <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
