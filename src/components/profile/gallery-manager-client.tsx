@@ -155,9 +155,7 @@ export function GalleryManagerClient({
   const [albumVisibility, setAlbumVisibility] = useState<AlbumVisibility>("PUBLIC");
   const [albumShareGroupIds, setAlbumShareGroupIds] = useState<string[]>([]);
   const [albumTagNames, setAlbumTagNames] = useState<string[]>([]);
-  const [tagChoice, setTagChoice] = useState("");
   const [newTagName, setNewTagName] = useState("");
-  const [uploadTagNames, setUploadTagNames] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string>("ALL");
   const [userTags, setUserTags] = useState<string[]>(initialUserTags);
   const [groups] = useState<GroupOption[]>(initialGroups);
@@ -195,15 +193,28 @@ export function GalleryManagerClient({
 
   const visiblePhotos = useMemo(() => {
     if (!activeAlbum) return [];
+    const albumTagMatches = tagFilter !== "ALL" && parseAlbumTagNames(activeAlbum).includes(tagFilter);
     const filtered = tagFilter === "ALL"
       ? activeAlbum.photos
-      : activeAlbum.photos.filter((photo) => parsePhotoTagNames(photo).includes(tagFilter));
+      : activeAlbum.photos.filter((photo) => albumTagMatches || parsePhotoTagNames(photo).includes(tagFilter));
     const sorted = [...filtered].sort((a, b) => {
       const delta = toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime();
       return sortMode === "newest" ? -delta : delta;
     });
     return sorted;
   }, [activeAlbum, sortMode, tagFilter]);
+
+  const availableTagFilters = useMemo(() => {
+    const names = new Set<string>();
+    for (const tag of userTags) names.add(tag);
+    if (activeAlbum) {
+      for (const tag of parseAlbumTagNames(activeAlbum)) names.add(tag);
+      for (const photo of activeAlbum.photos) {
+        for (const tag of parsePhotoTagNames(photo)) names.add(tag);
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [activeAlbum, userTags]);
 
   const visiblePhotoGroups = useMemo(() => {
     const groups: Array<{ label: string; photos: GalleryPhoto[] }> = [];
@@ -247,7 +258,6 @@ export function GalleryManagerClient({
     setAlbumShareGroupIds(parseShareGroupIds(activeAlbum.shareGroupIds));
     const tags = parseAlbumTagNames(activeAlbum);
     setAlbumTagNames(tags);
-    setUploadTagNames(tags.length ? tags : ["Stream_Image"]);
   }, [activeAlbum]);
 
   useEffect(() => {
@@ -333,7 +343,6 @@ export function GalleryManagerClient({
           uploadOne(file, {
             purpose: "gallery-photo",
             albumId: targetAlbum!.id,
-            tagNames: uploadTagNames,
           }),
         ),
       )
@@ -352,7 +361,6 @@ export function GalleryManagerClient({
         urls,
         notifyFriendsAndFamily,
         visibility,
-        tagNames: uploadTagNames,
       }),
     });
 
@@ -426,8 +434,11 @@ export function GalleryManagerClient({
     const trimmed = name.trim();
     if (!trimmed) return;
     setAlbumTagNames((previous) => (previous.includes(trimmed) ? previous : [...previous, trimmed]));
-    setUploadTagNames((previous) => (previous.includes(trimmed) ? previous : [...previous, trimmed]));
     setUserTags((previous) => Array.from(new Set([...previous, trimmed])).sort((a, b) => a.localeCompare(b)));
+  }
+
+  function removeAlbumTag(name: string) {
+    setAlbumTagNames((previous) => previous.filter((entry) => entry !== name));
   }
 
   async function saveAlbumProperties() {
@@ -703,6 +714,22 @@ export function GalleryManagerClient({
                 ))}
               </select>
             </label>
+            <label className="flex items-center gap-1 text-[12px] text-slate-300">
+              Tag
+              <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className={inputClass}>
+                <option value="ALL">All tags</option>
+                {availableTagFilters.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {tagFilter !== "ALL" ? (
+              <button type="button" className={ghostButtonClass} onClick={() => setTagFilter("ALL")}>
+                Clear tag
+              </button>
+            ) : null}
             <button type="button" className={ghostButtonClass} onClick={() => setShowTools((value) => !value)}>
               {showTools ? "Hide tools" : "Manage"}
             </button>
@@ -790,6 +817,69 @@ export function GalleryManagerClient({
               </div>
             </div>
           </div>
+
+          {activeAlbum ? (
+            <div className="mt-3 rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Album tags</p>
+                <button type="button" className={ghostButtonClass} onClick={() => void saveAlbumProperties()}>
+                  Save album tags
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {albumTagNames.length ? (
+                  albumTagNames.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="rounded-full border border-[#304058] bg-[#0f1624] px-3 py-1 text-xs text-slate-200"
+                      onClick={() => removeAlbumTag(tag)}
+                    >
+                      {tag} x
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400">No album tags yet.</p>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  value={newTagName}
+                  onChange={(event) => setNewTagName(event.target.value)}
+                  placeholder="Add album tag"
+                  className={`${inputClass} min-w-[180px]`}
+                />
+                <button
+                  type="button"
+                  className={ghostButtonClass}
+                  onClick={() => {
+                    addAlbumTagByName(newTagName);
+                    setNewTagName("");
+                  }}
+                >
+                  Add tag
+                </button>
+                {userTags.length ? (
+                  <select
+                    defaultValue=""
+                    className={inputClass}
+                    onChange={(event) => {
+                      if (!event.target.value) return;
+                      addAlbumTagByName(event.target.value);
+                      event.target.value = "";
+                    }}
+                  >
+                    <option value="">Use existing tag</option>
+                    {userTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </article>
       ) : null}
 
