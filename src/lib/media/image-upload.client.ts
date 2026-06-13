@@ -40,6 +40,16 @@ const DEFAULT_OPTIONS: Required<CompressionOptions> = {
   minSavingsBytes: 8 * 1024,
 };
 
+async function yieldToBrowser() {
+  await new Promise<void>((resolve) => {
+    if (typeof window !== "undefined" && "requestAnimationFrame" in window) {
+      window.requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
 function extensionForMime(mime: string): string {
   if (mime === "image/jpeg") return "jpg";
   if (mime === "image/png") return "png";
@@ -103,6 +113,7 @@ export async function compressImageOnDevice(file: File, options?: CompressionOpt
     };
   }
 
+  await yieldToBrowser();
   const source = await loadImageFromFile(file);
   const dimensions = targetDimensions(source.naturalWidth, source.naturalHeight, config.maxEdgePx);
   const canvas = document.createElement("canvas");
@@ -122,9 +133,11 @@ export async function compressImageOnDevice(file: File, options?: CompressionOpt
       },
     };
   }
+  await yieldToBrowser();
   context.drawImage(source, 0, 0, dimensions.width, dimensions.height);
 
   const desiredType = file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
+  await yieldToBrowser();
   const blob = await canvasToBlob(canvas, desiredType, config.quality);
   if (!blob) {
     return {
@@ -179,6 +192,7 @@ export async function uploadImageWithCompression(
   file: File,
   options?: UploadImageOptions,
 ): Promise<{ url: string | null; stats: CompressionStats }> {
+  await yieldToBrowser();
   const compressed = await compressImageOnDevice(file);
   const form = new FormData();
   form.append("file", compressed.file);
