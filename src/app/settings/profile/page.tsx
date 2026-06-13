@@ -8,7 +8,7 @@ import { requireSecureAreaPage } from "@/lib/security/secure-area-guards";
 const links = [
   { title: "Profile", href: "/profile/edit", description: "Edit your main profile fields." },
   { title: "My Resume", href: "/profile/resume", description: "Update your resume details and visibility." },
-  { title: "Gallery", href: "/profile/gallery", description: "Manage albums, media, and storage usage." },
+  { title: "My Pics", href: "/profile/gallery", description: "Manage albums, media, and storage usage." },
   { title: "My Scientology", href: "/profile/scientology", description: "Control the Scientology profile data used across the platform." },
   { title: "Theme", href: "/settings/theme", description: "Adjust theme and feed-mode controls." },
   { title: "My Subscription", href: "/settings/subscription", description: "View tier and billing controls." },

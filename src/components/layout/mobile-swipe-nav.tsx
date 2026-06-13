@@ -2,19 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/layout/logout-button";
 
 type SwipeSide = "LEFT" | "RIGHT";
 type MenuSection = { title: string; items: [string, string, boolean?][] };
 
-const EDGE_SIZE = 44;
-const OPEN_DELTA = 44;
-
 const mobileSections: MenuSection[] = [
   {
     title: "Home",
     items: [
-      ["Home", "/home"],
+      ["My Stream", "/home"],
+      ["My Pics", "/profile/gallery"],
     ],
   },
   {
@@ -28,7 +27,6 @@ const mobileSections: MenuSection[] = [
     items: [
       ["Friends", "/friends"],
       ["Groups", "/groups"],
-      ["My Groups", "/groups?view=my"],
     ],
   },
   {
@@ -57,59 +55,20 @@ export function MobileSwipeNav({
   includeModerator?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [activeSectionTitle, setActiveSectionTitle] = useState<string | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
-    let startX = 0;
-    let startY = 0;
-    let tracking = false;
-    let openedFromGesture = false;
+    setOpen(false);
+  }, [pathname]);
 
-    const onTouchStart = (event: TouchEvent) => {
-      if (window.innerWidth >= 700 || open) return;
-      const touch = event.touches[0];
-      startX = touch.clientX;
-      startY = touch.clientY;
-      openedFromGesture = false;
-      tracking = side === "RIGHT" ? startX >= window.innerWidth - EDGE_SIZE : startX <= EDGE_SIZE;
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      if (!tracking || open || openedFromGesture) return;
-      const touch = event.touches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      if (Math.abs(dx) <= Math.abs(dy)) return;
-      if (side === "RIGHT" && dx <= -OPEN_DELTA) {
-        openedFromGesture = true;
-        setOpen(true);
-      }
-      if (side === "LEFT" && dx >= OPEN_DELTA) {
-        openedFromGesture = true;
-        setOpen(true);
-      }
-    };
-
-    const onTouchEnd = (event: TouchEvent) => {
-      if (!tracking || open) return;
-      const touch = event.changedTouches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      const horizontalIntent = Math.abs(dx) > Math.abs(dy);
-      if (!horizontalIntent) return;
-      if (side === "RIGHT" && dx <= -OPEN_DELTA) setOpen(true);
-      if (side === "LEFT" && dx >= OPEN_DELTA) setOpen(true);
-    };
-
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    window.addEventListener("touchend", onTouchEnd, { passive: true });
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
+      document.body.style.overflow = original;
     };
-  }, [side, open]);
+  }, [open]);
 
   const triggerSideClass = side === "RIGHT" ? "right-3" : "left-3";
 
@@ -119,7 +78,7 @@ export function MobileSwipeNav({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`fixed top-[calc(env(safe-area-inset-top,0px)+10px)] ${triggerSideClass} z-[52] rounded-md border border-[var(--border)] bg-[#0f1624]/95 px-3 py-1.5 text-xs font-semibold text-[var(--text-strong)] shadow-lg min-[700px]:hidden`}
+          className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] ${triggerSideClass} z-[52] rounded-full border border-[#304058] bg-[#0f1624]/95 px-4 py-3 text-xs font-semibold tracking-[0.14em] text-[var(--text-strong)] shadow-[0_18px_36px_rgba(0,0,0,0.35)] min-[700px]:hidden`}
           aria-label="Open menu"
         >
           Menu
@@ -129,43 +88,37 @@ export function MobileSwipeNav({
       {open ? (
         <div className="fixed inset-0 z-50 min-[700px]:hidden">
           <button className="absolute inset-0 bg-black/55" type="button" onClick={() => setOpen(false)} aria-label="Close menu overlay" />
-          <aside className={`absolute top-0 h-full w-[44vw] max-w-[250px] min-w-[208px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
-            <nav className="space-y-2 text-xs">
-              {activeSectionTitle == null ? (
-                <>
-                  <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Menu</p>
-                  {mobileSections.map((section) => (
-                    <PrimaryRow
-                      key={section.title}
-                      label={section.title}
-                      onTap={() => setActiveSectionTitle(section.title)}
-                    />
-                  ))}
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]"
-                    onClick={() => setActiveSectionTitle(null)}
-                  >
-                    Back
-                  </button>
-                  <Section
-                    title={activeSectionTitle}
-                    links={
-                      activeSectionTitle === "Settings"
-                        ? [
-                            ...((mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? []) as [string, string][]),
-                            ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
-                            ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
-                          ]
-                        : (mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? [])
-                    }
-                    onNavigate={() => setOpen(false)}
-                  />
-                </>
-              )}
+          <aside className={`absolute top-0 h-full w-[88vw] max-w-[360px] overflow-y-auto border-[var(--border)] bg-[#0f1624] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] pt-[calc(env(safe-area-inset-top,0px)+16px)] shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Control Panel</p>
+                <p className="mt-1 text-xs text-slate-400">Quick navigation</p>
+              </div>
+              <button type="button" className="rounded-full border border-[#304058] px-3 py-1 text-xs text-slate-200" onClick={() => setOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <QuickLink href="/home" label="My Stream" onNavigate={() => setOpen(false)} />
+              <QuickLink href="/profile/gallery" label="My Pics" onNavigate={() => setOpen(false)} />
+            </div>
+            <nav className="space-y-3 text-xs">
+              {mobileSections.map((section) => (
+                <Section
+                  key={section.title}
+                  title={section.title}
+                  links={
+                    section.title === "Settings"
+                      ? [
+                          ...section.items,
+                          ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
+                          ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
+                        ]
+                      : section.items
+                  }
+                  onNavigate={() => setOpen(false)}
+                />
+              ))}
             </nav>
             <div className="mt-4 border-t border-[var(--border)] pt-3 text-sm">
               <LogoutButton />
@@ -174,19 +127,6 @@ export function MobileSwipeNav({
         </div>
       ) : null}
     </>
-  );
-}
-
-function PrimaryRow({ label, onTap }: { label: string; onTap: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onTap}
-      className="flex w-full items-center justify-between rounded-md border border-[var(--border)] bg-[#111c30] px-3 py-3 text-left text-[16px] font-semibold text-[#f4f7ff]"
-    >
-      <span>{label}</span>
-      <span className="text-[#f2d78d]">{"\u203A"}</span>
-    </button>
   );
 }
 
@@ -200,11 +140,11 @@ function Section({
   onNavigate: () => void;
 }) {
   return (
-    <section className="border border-[var(--border)] bg-[#101a2c] p-3">
+    <section className="rounded-[14px] border border-[var(--border)] bg-[#101a2c] p-3">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
       <div className="grid gap-1">
         {links.map(([label, href, comingSoon]) => (
-          <Link key={href} href={href} className="flex items-center gap-2 text-[13px] text-slate-300 transition hover:text-white" onClick={onNavigate}>
+          <Link key={href} href={href} className="flex items-center justify-between rounded-[10px] border border-transparent px-2 py-2 text-[13px] text-slate-300 transition hover:border-[#304058] hover:bg-[#0f1624] hover:text-white" onClick={onNavigate}>
             <span>{label}</span>
             {comingSoon ? (
               <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
@@ -215,6 +155,26 @@ function Section({
         ))}
       </div>
     </section>
+  );
+}
+
+function QuickLink({
+  href,
+  label,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-[12px] border border-[#304058] bg-[#111a2a] px-3 py-3 text-center text-sm font-medium text-slate-100 transition hover:border-[#4a5a78] hover:bg-[#162033]"
+      onClick={onNavigate}
+    >
+      {label}
+    </Link>
   );
 }
 

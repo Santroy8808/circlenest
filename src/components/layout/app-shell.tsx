@@ -109,8 +109,8 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
             <Section
               title="Home"
               links={[
-                ["Home", "/home"],
-                ["Gallery", "/profile/gallery"],
+                ["My Stream", "/home"],
+                ["My Pics", "/profile/gallery"],
               ]}
             />
             <Section
