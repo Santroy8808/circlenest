@@ -498,7 +498,7 @@ export function GroupDetailClient({
 
       {photosUploadOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-4 sm:py-6"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
@@ -511,7 +511,7 @@ export function GroupDetailClient({
             role="dialog"
             aria-modal="true"
             aria-labelledby="upload-photos-title"
-            className="w-full max-w-3xl rounded-[22px] border border-[var(--border)] bg-[#0f1523] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+            className="my-auto w-full max-w-3xl rounded-[22px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-5 max-sm:min-h-[calc(100dvh-2rem)] max-sm:overflow-y-auto sm:max-h-[calc(100dvh-3rem)] sm:overflow-y-auto"
             onKeyDown={(event) => {
               if (event.key !== "Tab") return;
               const root = photosModalRef.current;
