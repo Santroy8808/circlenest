@@ -473,7 +473,7 @@ export function GroupDetailClient({
                 <Image src={p.url} alt={p.caption || "Group photo"} width={800} height={600} unoptimized className="h-56 w-full object-cover" />
                 <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-xs text-white opacity-0 transition group-hover:opacity-100">
                   <div className="space-y-1">
-                    <p className="font-medium">{p.caption || "Photo"} • @{p.uploaderUsername}</p>
+                    <p className="font-medium">{p.caption || "Photo"} - @{p.uploaderUsername}</p>
                     <p>Album: {group.photoAlbums.find((a) => a.id === p.albumId)?.title || "None"}</p>
                     <p>Tags: {parsedTags(p.tags).length ? parsedTags(p.tags).join(", ") : "None"}</p>
                   </div>
@@ -685,7 +685,7 @@ export function GroupDetailClient({
           {group.members.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded-[14px] border border-[#273449] bg-[#111a2a] p-3 text-sm transition hover:border-[#3b4f6c] hover:bg-[#162033]">
               <span className="text-slate-200">
-                <Link href={`/profile/${m.username}`} className="text-[var(--text-strong)] underline underline-offset-2">@{m.username}</Link> • {displayRole(m.role)}
+                <Link href={`/profile/${m.username}`} className="text-[var(--text-strong)] underline underline-offset-2">@{m.username}</Link> - {displayRole(m.role)}
               </span>
               {canModerate && m.id !== group.ownerId ? (
                 <div className="flex gap-2">

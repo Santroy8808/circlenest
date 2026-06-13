@@ -689,11 +689,14 @@ model AlertSubscription {
 model PhotoAlbum {
   id          String   @id @default(cuid())
   userId      String
+  parentAlbumId String?
   title       String
   visibility  String   @default("PUBLIC")
   shareGroupIds String?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentAlbum PhotoAlbum? @relation("PhotoAlbumParent", fields: [parentAlbumId], references: [id], onDelete: SetNull)
+  children    PhotoAlbum[] @relation("PhotoAlbumParent")
   photos      Photo[]
   albumTags   PhotoAlbumTag[]
 }
@@ -1178,6 +1181,7 @@ model ContentReport {
   @@index([reporterId, targetType, targetId, createdAt])
   @@index([assignedModeratorId, status, createdAt])
 }
+
 
 
 
