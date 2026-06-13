@@ -21,6 +21,8 @@ export function SecureAreaUnlockClient({ next, reason }: { next: string; reason?
         <h1 className="mb-2 text-xl font-semibold text-[var(--text-strong)]">Secure Area Unlock</h1>
         <p className="mb-4 text-sm text-slate-300">{messageForReason(reason)}</p>
         <form
+          action="/api/auth/secure-area/unlock"
+          method="post"
           className="space-y-3"
           onSubmit={async (event) => {
             event.preventDefault();
@@ -38,11 +40,12 @@ export function SecureAreaUnlockClient({ next, reason }: { next: string; reason?
               setStatus(body.error ?? "Could not unlock secure area.");
               return;
             }
-            router.replace(next);
-            router.refresh();
+            window.location.assign(next);
           }}
         >
+          <input type="hidden" name="next" value={next} />
           <input
+            name="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             type="password"

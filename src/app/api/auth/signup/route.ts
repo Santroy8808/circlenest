@@ -5,6 +5,7 @@ import { signupSchema } from "@/lib/validation/schemas";
 import { createAccountCryptoMaterial } from "@/lib/security/account-crypto";
 import { ensureUserStorageRoot } from "@/lib/security/upload-storage";
 import { randomToken, sha256 } from "@/lib/security/tokens";
+import { findSignupInvitationByCode } from "@/lib/policy/invitations";
 import { sendEmailVerificationEmail } from "@/lib/email/smtp";
 import { getPublicBaseUrl } from "@/lib/config/public-base-url";
 import {
@@ -15,6 +16,7 @@ import {
   recordSignupSecurityEvent,
   verifyTurnstileToken,
 } from "@/lib/security/signup-bot-guard";
+import { CURRENT_TERMS_VERSION } from "@/lib/security/terms";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
   const normalizedEmail = parsed.data.email.trim().toLowerCase();
   const normalizedBackupEmail = parsed.data.backupEmail?.trim().toLowerCase() || undefined;
   const normalizedUsername = parsed.data.username.trim();
+  const inviteCode = typeof body.inviteCode === "string" ? body.inviteCode.trim() : "";
   const ipAddress = getClientIpFromRequest(request);
   const userAgent = getUserAgentFromRequest(request);
   const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
@@ -82,6 +85,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Too many signup attempts. Please wait a bit and try again." }, { status: 429 });
   }
 
+  if (!inviteCode) {
+    return NextResponse.json({ error: "Invitation code required." }, { status: 400 });
+  }
+
+  const invitation = await findSignupInvitationByCode({
+    inviteCode,
+    inviteeEmail: normalizedEmail,
+  });
+  if (!invitation) {
+    return NextResponse.json({ error: "Invalid or expired invitation code." }, { status: 403 });
+  }
+
   const turnstile = await verifyTurnstileToken({ token: turnstileToken, ipAddress });
   if (!turnstile.ok) {
     await recordSignupSecurityEvent({
@@ -110,66 +125,102 @@ export async function POST(request: Request) {
   const uniqueInterests = Array.from(new Set(parsed.data.interests.map((v) => v.trim()).filter(Boolean)));
 
   const keyMaterial = createAccountCryptoMaterial();
-
-  const user = await prisma.user.create({
-    data: {
-      fullName: parsed.data.fullName,
-      email: normalizedEmail,
-      phoneNumber: parsed.data.phoneNumber,
-      backupEmail: normalizedBackupEmail ?? null,
-      recoveryPhoneNumber: parsed.data.recoveryPhoneNumber ?? null,
-      username: normalizedUsername,
-      passwordHash,
-      city: parsed.data.city,
-      state: parsed.data.state,
-      country: parsed.data.country,
-      lastOnLinesAt: parsed.data.lastOnLinesAt ?? null,
-      lastService: parsed.data.lastService ?? null,
-      lastServiceWhen: parsed.data.lastServiceWhen ?? null,
-      iasStatus: parsed.data.iasStatus ?? null,
-      iasNumber: parsed.data.iasNumber ?? null,
-      subscriptionTier: parsed.data.subscriptionTier,
-      passwordUpdatedAt: new Date(),
-      profile: {
-        create: {
-          displayName: parsed.data.fullName,
-          interests: uniqueInterests.join(", "),
-          themeId: defaultTheme?.id,
-        },
-      },
-      feedPreference: { create: { mode: "CHRONOLOGICAL" } },
-      followedTopics: {
-        createMany: {
-          data: uniqueInterests.map((topic) => ({ topic })),
-        },
-      },
-      keyMaterial: {
-        create: keyMaterial,
-      },
-      securityEvents: {
-        create: {
-          eventType: "ACCOUNT_CREATED",
-          ipAddress,
-          userAgent,
-          metadata: JSON.stringify({ subscriptionTier: parsed.data.subscriptionTier }),
-        },
-      },
-    },
-  });
-
-  void ensureUserStorageRoot(user.id).catch((error) => {
-    console.error("Failed to initialize user storage root", error);
-  });
-
   const verificationToken = randomToken(24);
-  const tokenHash = sha256(verificationToken);
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId: user.id,
-      tokenHash,
-      expiresAt,
-    },
+  const verificationTokenHash = sha256(verificationToken);
+
+  const now = new Date();
+  let transactionResult;
+  try {
+    transactionResult = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          fullName: parsed.data.fullName,
+          email: normalizedEmail,
+          phoneNumber: parsed.data.phoneNumber,
+          backupEmail: normalizedBackupEmail ?? null,
+          recoveryPhoneNumber: parsed.data.recoveryPhoneNumber ?? null,
+          username: normalizedUsername,
+          passwordHash,
+          city: parsed.data.city,
+          state: parsed.data.state,
+          country: parsed.data.country,
+          lastOnLinesAt: parsed.data.lastOnLinesAt ?? null,
+          lastService: parsed.data.lastService ?? null,
+          lastServiceWhen: parsed.data.lastServiceWhen ?? null,
+          iasStatus: parsed.data.iasStatus ?? null,
+          iasNumber: parsed.data.iasNumber ?? null,
+          acceptedTermsVersion: CURRENT_TERMS_VERSION,
+          acceptedTermsAt: now,
+          subscriptionTier: "FREE",
+          passwordUpdatedAt: now,
+          profile: {
+            create: {
+              displayName: parsed.data.fullName,
+              interests: uniqueInterests.join(", "),
+              themeId: defaultTheme?.id,
+            },
+          },
+          feedPreference: { create: { mode: "CHRONOLOGICAL" } },
+          followedTopics: {
+            createMany: {
+              data: uniqueInterests.map((topic) => ({ topic })),
+            },
+          },
+          keyMaterial: {
+            create: keyMaterial,
+          },
+          securityEvents: {
+            create: {
+              eventType: "ACCOUNT_CREATED",
+              ipAddress,
+              userAgent,
+              metadata: JSON.stringify({ subscriptionTier: "FREE" }),
+            },
+          },
+        },
+      });
+
+      const acceptance = await tx.membershipInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          tokenHash: invitation.tokenHash,
+          inviteeEmail: normalizedEmail,
+          status: "PENDING",
+          reviewStatus: "APPROVED",
+          expiresAt: { gt: now },
+          revokedAt: null,
+          rejectedAt: null,
+          acceptedAt: null,
+        },
+        data: {
+          status: "ACCEPTED",
+          acceptedAt: now,
+          inviteeUserId: user.id,
+        },
+      });
+      if (acceptance.count !== 1) {
+        throw new Error("INVITATION_INVALID");
+      }
+
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: verificationTokenHash,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        },
+      });
+
+      return user;
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "INVITATION_INVALID") {
+      return NextResponse.json({ error: "Invalid or expired invitation code." }, { status: 403 });
+    }
+    throw error;
+  }
+
+  void ensureUserStorageRoot(transactionResult.id).catch((error) => {
+    console.error("Failed to initialize user storage root", error);
   });
 
   const baseUrl = getPublicBaseUrl(request);
@@ -177,15 +228,15 @@ export async function POST(request: Request) {
 
   let emailSent = false;
   try {
-    await sendEmailVerificationEmail(user.email, verifyUrl);
+    await sendEmailVerificationEmail(transactionResult.email, verifyUrl);
     emailSent = true;
   } catch (error) {
     console.error("Email verification send failed", {
-      userId: user.id,
-      email: user.email,
+      userId: transactionResult.id,
+      email: transactionResult.email,
       error: error instanceof Error ? error.message : String(error),
     });
   }
 
-  return NextResponse.json({ id: user.id, email: user.email, username: user.username, emailSent });
+  return NextResponse.json({ id: transactionResult.id, email: transactionResult.email, username: transactionResult.username, emailSent });
 }

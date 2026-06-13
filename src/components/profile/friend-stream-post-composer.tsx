@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function FriendStreamPostComposer({ username }: { username: string }) {
+  const router = useRouter();
   const [content, setContent] = useState("");
   const [status, setStatus] = useState("");
 
@@ -22,7 +24,7 @@ export function FriendStreamPostComposer({ username }: { username: string }) {
     }
     setContent("");
     setStatus(body?.pending ? "Posted for approval." : "Posted to stream.");
-    window.location.reload();
+    router.refresh();
   }
 
   return (

@@ -6,6 +6,8 @@ Certain parts of Theta-Space use a second security layer on top of the normal lo
 
 These routes currently require a fresh secure-area unlock:
 
+- `/admin`
+- `/moderation`
 - `/profile/edit`
 - `/profile/gallery`
 - `/profile/scientology`

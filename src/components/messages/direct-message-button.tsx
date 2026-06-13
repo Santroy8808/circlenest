@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export function DirectMessageButton({
   username,
@@ -14,7 +13,6 @@ export function DirectMessageButton({
   className?: string;
   label?: string;
 }) {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,8 +46,18 @@ export function DirectMessageButton({
               return;
             }
             const body = (await res.json()) as { id: string };
-            router.push(`/messages/${body.id}`);
-            router.refresh();
+            try {
+              window.localStorage.setItem("theta.activeChatThreadId", body.id);
+            } catch {}
+            window.dispatchEvent(
+              new CustomEvent("theta-chat-open", {
+                detail: {
+                  threadId: body.id,
+                  title: normalized ? `@${normalized}` : "Chat",
+                  subtitle: "Opening thread...",
+                },
+              }),
+            );
           } finally {
             setBusy(false);
           }

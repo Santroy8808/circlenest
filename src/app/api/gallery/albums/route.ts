@@ -91,6 +91,7 @@ export async function POST(request: Request) {
     visibility?: AlbumVisibility;
     shareGroupIds?: string[];
     tagNames?: string[];
+    parentAlbumId?: string | null;
   };
 
   const title = String(body.title ?? "").trim();
@@ -102,9 +103,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Pick at least one group for Groups visibility." }, { status: 400 });
   }
 
+  let parentAlbumId: string | null = null;
+  const rawParentAlbumId = String(body.parentAlbumId ?? "").trim();
+  if (rawParentAlbumId) {
+    const parentAlbum = await prisma.photoAlbum.findFirst({
+      where: { id: rawParentAlbumId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!parentAlbum) return NextResponse.json({ error: "Parent album not found" }, { status: 404 });
+    parentAlbumId = parentAlbum.id;
+  }
+
   const album = await prisma.photoAlbum.create({
     data: {
       userId: session.user.id,
+      parentAlbumId,
       title,
       visibility,
       shareGroupIds: shareGroupIds.length ? JSON.stringify(shareGroupIds) : null,
@@ -137,6 +150,7 @@ export async function PATCH(request: Request) {
     visibility?: AlbumVisibility;
     shareGroupIds?: string[];
     tagNames?: string[];
+    parentAlbumId?: string | null;
   };
 
   const albumId = String(body.albumId ?? "").trim();
@@ -154,11 +168,27 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Pick at least one group for Groups visibility." }, { status: 400 });
   }
 
+  let parentAlbumId: string | null | undefined = undefined;
+  if (body.parentAlbumId !== undefined) {
+    const rawParentAlbumId = String(body.parentAlbumId ?? "").trim();
+    if (!rawParentAlbumId) {
+      parentAlbumId = null;
+    } else {
+      const parentAlbum = await prisma.photoAlbum.findFirst({
+        where: { id: rawParentAlbumId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!parentAlbum) return NextResponse.json({ error: "Parent album not found" }, { status: 404 });
+      parentAlbumId = parentAlbum.id;
+    }
+  }
+
   await prisma.photoAlbum.update({
     where: { id: album.id },
     data: {
       title: body.title !== undefined ? String(body.title).trim() || undefined : undefined,
       visibility,
+      parentAlbumId,
       shareGroupIds:
         shareGroupIds !== undefined
           ? shareGroupIds.length

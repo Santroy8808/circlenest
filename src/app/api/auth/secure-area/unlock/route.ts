@@ -14,7 +14,12 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const parsed = unlockSchema.safeParse(await request.json());
+  const contentType = request.headers.get("content-type") ?? "";
+  const payload =
+    contentType.includes("application/json")
+      ? await request.json().catch(() => ({}))
+      : Object.fromEntries((await request.formData()).entries());
+  const parsed = unlockSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
   const user = await prisma.user.findUnique({
@@ -27,7 +32,9 @@ export async function POST(request: Request) {
   if (!valid) return NextResponse.json({ error: "Password incorrect." }, { status: 401 });
 
   const next = parsed.data.next && isSecureAreaRoute(parsed.data.next) ? parsed.data.next : "/settings";
-  const response = NextResponse.json({ ok: true, next });
+  const response = contentType.includes("application/json")
+    ? NextResponse.json({ ok: true, next })
+    : NextResponse.redirect(new URL(next, request.url), 303);
   response.cookies.set(createSecureAreaCookie(session.user.id));
   return response;
 }

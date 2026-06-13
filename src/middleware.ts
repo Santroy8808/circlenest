@@ -15,6 +15,9 @@ const protectedPrefixes = [
   "/alerts",
 ];
 
+const desktopGateCookieName = "theta_desktop_gate";
+const deviceTokenCookieName = "theta_device_token";
+
 export default function middleware(req: NextRequest) {
   if (!featureFlags.rebuildCore && req.nextUrl.pathname.startsWith("/home")) {
     return NextResponse.redirect(new URL("/", req.nextUrl));
@@ -36,8 +39,10 @@ export default function middleware(req: NextRequest) {
   const hasSession =
     Boolean(req.cookies.get("authjs.session-token")?.value) ||
     Boolean(req.cookies.get("__Secure-authjs.session-token")?.value);
+  const hasDesktopGate = Boolean(req.cookies.get(desktopGateCookieName)?.value);
+  const hasDeviceToken = Boolean(req.cookies.get(deviceTokenCookieName)?.value);
 
-  if (isProtected && !hasSession) {
+  if (isProtected && (!hasSession || (!hasDesktopGate && !hasDeviceToken))) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
   return NextResponse.next();

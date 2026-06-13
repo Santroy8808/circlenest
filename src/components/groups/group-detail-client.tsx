@@ -3,7 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { ReportControl } from "@/components/reports/report-control";
+import { TierGate } from "@/components/policy/tier-gate";
+import { ForumThreadCard } from "@/components/groups/forum-thread-card";
 
 type GroupData = {
   id: string;
@@ -14,7 +18,20 @@ type GroupData = {
   members: Array<{ id: string; username: string; role: string }>;
   joinRequests: Array<{ id: string; userId: string; username: string }>;
   events: Array<{ id: string; title: string; description: string | null; startsAt: string; endsAt: string | null; locationName: string | null; googleMapsUrl: string | null; creatorUsername: string }>;
-  threads: Array<{ id: string; title: string; authorUsername: string; posts: Array<{ id: string; content: string; authorUsername: string }> }>;
+  threads: Array<{
+    id: string;
+    title: string;
+    authorUsername: string;
+    allowReplyImages: boolean;
+    posts: Array<{
+      id: string;
+      content: string;
+      parentCommentId: string | null;
+      mediaUrlsJson: string | null;
+      createdAt: string;
+      authorUsername: string;
+    }>;
+  }>;
   documents: Array<{ id: string; title: string; url: string; uploaderUsername: string }>;
   photos: Array<{ id: string; caption: string | null; url: string; uploaderUsername: string; albumId: string | null; tags: string | null }>;
   photoAlbums: Array<{ id: string; title: string; description: string | null }>;
@@ -38,7 +55,22 @@ async function uploadDocument(file: File, groupId: string): Promise<string | nul
   return result.url;
 }
 
-export function GroupDetailClient({ group, currentUserId, currentRole, canModerate }: { group: GroupData; currentUserId: string; currentRole: string | null; canModerate: boolean }) {
+export function GroupDetailClient({
+  group,
+  currentUserId,
+  currentRole,
+  canModerate,
+  canAssignModerators,
+  creatorMemberCap,
+}: {
+  group: GroupData;
+  currentUserId: string;
+  currentRole: string | null;
+  canModerate: boolean;
+  canAssignModerators: boolean;
+  creatorMemberCap: number | null;
+}) {
+  const router = useRouter();
   const [status, setStatus] = useState("");
   const [albumFilter, setAlbumFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -77,7 +109,7 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
     setStatus("Working...");
     await action();
     setStatus(ok);
-    window.location.reload();
+    router.refresh();
   }
 
   async function uploadGroupPhoto(file: File, caption = "", albumId = "", tags = "") {
@@ -108,10 +140,16 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
             <h1 className="text-2xl font-semibold">{group.name}</h1>
             <p className="text-sm text-slate-600">{group.description || "No description"}</p>
             <p className="text-xs text-slate-500">{group.visibility} • {group.members.length} members</p>
+            {creatorMemberCap ? <p className="mt-1 text-xs text-amber-300">Free groups are capped at {creatorMemberCap} members.</p> : null}
           </div>
-          <div className="flex gap-2">
-            {!isMember ? <button className="rounded bg-blue-600 px-3 py-2 text-sm text-white" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
-            {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {!isMember ? <button className="rounded bg-blue-600 px-3 py-2 text-sm text-white" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/join`, { method: "POST" }); }, "Joined group")}>Join</button> : null}
+              {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
+            </div>
+            <div className="max-w-sm">
+              <ReportControl targetType="GROUP" targetId={group.id} label="Report group" compact />
+            </div>
           </div>
         </div>
         {status ? <p className="mt-2 text-sm text-slate-600">{status}</p> : null}
@@ -136,43 +174,49 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
       {activeTab === "forum" ? <section className="card p-4">
         <h2 className="mb-2 text-lg font-semibold">Forum</h2>
         {isMember ? (
-          <form className="grid gap-2" onSubmit={(e) => run(async () => {
+          <form className="grid gap-2 rounded-[14px] border border-[var(--border)] bg-[#11192a] p-3" onSubmit={(e) => run(async () => {
             e.preventDefault();
             const form = new FormData(e.currentTarget);
             await fetch(`/api/groups/${group.id}/forum/threads`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ title: form.get("title"), content: form.get("content") }),
+              body: JSON.stringify({
+                title: form.get("title"),
+                content: form.get("content"),
+                allowReplyImages: form.get("allowReplyImages") === "on",
+              }),
             });
           }, "Thread created") }>
             <input name="title" placeholder="Thread title" className="rounded border border-slate-300 px-3 py-2" required />
             <textarea name="content" placeholder="Opening post" className="rounded border border-slate-300 px-3 py-2" required />
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input name="allowReplyImages" type="checkbox" className="h-4 w-4" />
+              Allow photo replies on this thread
+            </label>
             <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">Start Thread</button>
           </form>
         ) : null}
         <div className="mt-3 space-y-3">
           {group.threads.map((t) => (
-            <article key={t.id} className="rounded border border-slate-200 p-3">
-              <p className="font-medium">{t.title}</p>
-              <p className="text-xs text-slate-500">by @{t.authorUsername}</p>
-              <div className="mt-2 space-y-1">
-                {t.posts.map((p) => <p key={p.id} className="text-sm"><span className="font-medium">@{p.authorUsername}</span> {p.content}</p>)}
-              </div>
-              {isMember ? (
-                <form className="mt-2 flex gap-2" onSubmit={(e) => run(async () => {
-                  e.preventDefault();
-                  const form = new FormData(e.currentTarget);
-                  await fetch(`/api/groups/${group.id}/forum/threads/${t.id}/posts`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ content: form.get("content") }),
-                  });
-                }, "Reply posted") }>
-                  <input name="content" placeholder="Reply" className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm" required />
-                  <button className="rounded bg-blue-600 px-2 py-1 text-sm text-white" type="submit">Reply</button>
-                </form>
-              ) : null}
-            </article>
+            <ForumThreadCard
+              key={t.id}
+              groupId={group.id}
+              isMember={isMember}
+              thread={{
+                id: t.id,
+                title: t.title,
+                authorUsername: t.authorUsername,
+                allowReplyImages: t.allowReplyImages,
+                posts: t.posts.map((p) => ({
+                  id: p.id,
+                  content: p.content,
+                  parentCommentId: p.parentCommentId,
+                  mediaUrlsJson: p.mediaUrlsJson,
+                  createdAt: p.createdAt,
+                  author: { username: p.authorUsername },
+                })),
+              }}
+            />
           ))}
         </div>
       </section> : null}
@@ -481,6 +525,18 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
           </div>
         ) : null}
         <div className="space-y-2">
+          {canModerate && !canAssignModerators ? (
+            <TierGate
+              variant="locked"
+              title="Moderator access locked"
+              message="Upgrade to Activist to assign moderators."
+              ctaLabel="Open subscription"
+              ctaHref="/settings/subscription"
+              secondaryLabel="Compare memberships"
+              secondaryHref="/membership"
+              compact
+            />
+          ) : null}
           {group.members.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm">
               <span>
@@ -488,13 +544,20 @@ export function GroupDetailClient({ group, currentUserId, currentRole, canModera
               </span>
               {canModerate && m.id !== group.ownerId ? (
                 <div className="flex gap-2">
-                  <button className="rounded border border-slate-300 px-2 py-1" onClick={() => run(async () => {
-                    await fetch(`/api/groups/${group.id}/members/role`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ userId: m.id, role: "MODERATOR" }),
-                    });
-                  }, "Moderator assigned")}>Make Mod</button>
+                  <button
+                    className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canAssignModerators}
+                    title={!canAssignModerators ? "Upgrade to Activist to assign moderators" : undefined}
+                    onClick={() => run(async () => {
+                      await fetch(`/api/groups/${group.id}/members/role`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId: m.id, role: "MODERATOR" }),
+                      });
+                    }, "Moderator assigned")}
+                  >
+                    Make Mod
+                  </button>
                   <button className="rounded border border-slate-300 px-2 py-1" onClick={() => run(async () => {
                     await fetch(`/api/groups/${group.id}/members/role`, {
                       method: "PATCH",

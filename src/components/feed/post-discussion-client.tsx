@@ -150,7 +150,7 @@ export function PostDiscussionClient({
       setPollStatus(body.error ?? "Could not save vote.");
       return;
     }
-    window.location.reload();
+    router.refresh();
   }
 
   return (

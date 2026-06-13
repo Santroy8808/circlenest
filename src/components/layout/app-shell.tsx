@@ -1,10 +1,17 @@
+import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { AdStreamSidebar } from "@/components/ads/ad-stream-sidebar";
+import { AdminModeSessionClient } from "@/components/security/admin-mode-session-client";
 import { MobileSwipeNav } from "@/components/layout/mobile-swipe-nav";
 import { LogoutButton } from "@/components/layout/logout-button";
-import { ensureBootstrapAdmins, isAdminUser } from "@/lib/auth/admin";
+import { ensureBootstrapAdmins, isAdminUser, isSiteModeratorUser } from "@/lib/auth/admin";
+import { ADMIN_MODE_COOKIE_NAME, hasAdminModeAccess } from "@/lib/security/admin-mode";
+import { CURRENT_TERMS_VERSION } from "@/lib/security/terms";
+import { TermsGateClient } from "@/components/security/terms-gate-client";
+import { GlobalChatDock } from "@/components/messages/global-chat-dock";
 
 export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
   const session = await auth();
@@ -16,12 +23,15 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
   let pendingInvites = 0;
   let pref: { mobileNavSwipeSide: string | null } | null = null;
   let adminAccess = false;
+  let moderatorAccess = false;
+  let needsTermsAcceptance = false;
+  let adminAnnouncement: { id: string; body: string; targetUrl: string | null; createdAt: Date } | null = null;
 
   try {
     await ensureBootstrapAdmins();
 
     if (userId) {
-      const [loadedProfile, loadedCounts, loadedPref, loadedAdminAccess] = await Promise.all([
+      const [loadedProfile, loadedCounts, loadedPref, loadedAdminAccess, loadedModeratorAccess, loadedTerms] = await Promise.all([
         prisma.profile.findUnique({ where: { userId }, select: { displayName: true, avatarUrl: true, bannerUrl: true } }),
         Promise.all([
           prisma.notification.count({ where: { userId, readAt: null } }),
@@ -31,21 +41,37 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
         ]),
         prisma.userFeedPreference.findUnique({ where: { userId }, select: { mobileNavSwipeSide: true } }),
         isAdminUser(userId),
+        isSiteModeratorUser(userId),
+        prisma.user.findUnique({ where: { id: userId }, select: { acceptedTermsVersion: true } }),
       ]);
 
       profile = loadedProfile;
       [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = loadedCounts;
       pref = loadedPref;
       adminAccess = loadedAdminAccess;
+      moderatorAccess = loadedModeratorAccess;
+      needsTermsAcceptance = loadedTerms?.acceptedTermsVersion !== CURRENT_TERMS_VERSION;
+      adminAnnouncement = await prisma.notification.findFirst({
+        where: { userId, readAt: null, type: "ADMIN_ANNOUNCEMENT" },
+        select: { id: true, body: true, targetUrl: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      });
     }
   } catch (error) {
     console.error("[AppShell] fallback render", error);
   }
 
+  const adminModeToken = userId ? cookies().get(ADMIN_MODE_COOKIE_NAME)?.value : null;
+  const adminModeActive = Boolean(userId && adminAccess && hasAdminModeAccess(userId, adminModeToken));
+  const showAdminFeatures = adminAccess && adminModeActive;
+  const showModeratorFeatures = moderatorAccess && (!adminAccess || adminModeActive);
+
   return (
     <div className="min-h-screen">
-      <div className="mx-auto hidden max-w-[1600px] grid-cols-[260px_minmax(0,1fr)] gap-6 p-3 min-[700px]:grid xl:grid-cols-[260px_minmax(0,1fr)_320px]">
-        <aside className="card sticky top-3 h-[calc(100vh-1.5rem)] overflow-auto p-5">
+      <TermsGateClient needsAcceptance={needsTermsAcceptance} />
+      {adminModeActive ? <AdminModeSessionClient /> : null}
+      <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 p-3 min-[700px]:grid min-[700px]:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_320px]">
+        <aside className="card sticky top-3 hidden h-[calc(100vh-1.5rem)] overflow-auto p-5 min-[700px]:block">
           <div className="mb-4 flex items-start gap-3">
             <div className="relative h-[7.5rem] w-[7.5rem] overflow-hidden rounded-md border border-[var(--border)]">
               {profile?.avatarUrl ? <Image src={profile.avatarUrl} alt="Avatar" width={160} height={160} unoptimized className="h-full w-full object-cover" /> : <div className="h-full w-full bg-[#222b3d]" />}
@@ -58,37 +84,26 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
 
           <nav className="space-y-3 text-xs">
             <Section
-              title="Profile"
+              title="Home"
               links={[
                 ["Home", "/home"],
-                ["Profile", "/profile/edit"],
-                ["My Scientology", "/profile/scientology"],
-                ["Resume", "/profile/resume"],
                 ["Gallery", "/profile/gallery"],
               ]}
             />
             <Section
               title="Production Zone"
               links={[
-                ["Production Zone", "/production-zone", true],
-                ["Events", "/events", true],
-                ["Bazaar", "/bazaar", true],
-                ["Hiring Board", "/jobs", true],
-                ["Find an Auditor", "/auditors", true],
-                ["I'm an Auditor", "/auditors/im-an-auditor", true],
+                ["Production Zone", "/production-zone"],
               ]}
             />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"], ["My Groups", "/groups?mine=1"], ["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"], ["Invites", "/friends#invites"]]} />
+            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"]]} />
+            <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"]]} />
             <Section
               title="Settings"
               links={[
-                ["Security", "/settings"],
-                ["Theme", "/settings/theme"],
-                ["My Rules", "/settings#rules"],
-                ["Notification Dings", "/settings#notifications"],
-                ...(adminAccess ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
-                ["Blocked Users", "/blocked-users"],
-                ["My Subscription", "/settings#subscription"],
+                ["Settings", "/settings"],
+                ...(showModeratorFeatures ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
+                ...(showAdminFeatures ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
               ]}
             />
           </nav>
@@ -97,12 +112,25 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
           </div>
         </aside>
 
-        <main className="space-y-3">
+        <main className="min-w-0 space-y-3">
           <div className="mx-auto w-full max-w-[720px] space-y-2">
-            <div className="relative h-56 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)]">
+            {adminAnnouncement ? (
+              <div className="rounded border border-amber-300/40 bg-amber-300/10 p-3 text-sm text-amber-100">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200">Admin announcement</p>
+                    <p className="mt-1 whitespace-pre-wrap">{adminAnnouncement.body}</p>
+                  </div>
+                  <Link href={`/notifications/open?id=${encodeURIComponent(adminAnnouncement.id)}`} className="rounded border border-amber-200/40 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-200/10">
+                    Open
+                  </Link>
+                </div>
+              </div>
+            ) : null}
+            <div className="relative hidden h-56 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)] min-[700px]:block">
               {profile?.bannerUrl ? <Image src={profile.bannerUrl} alt="Banner" width={1200} height={420} unoptimized className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-r from-[#1b2438] to-[#0b0e15]" />}
             </div>
-            <div className="sticky top-0 z-30 bg-[var(--bg)]/98 pb-[10px] backdrop-blur">
+            <div className="sticky top-0 z-30 hidden bg-[var(--bg)]/98 pb-[10px] backdrop-blur min-[700px]:block">
               <header className="flex items-center justify-between gap-4 rounded-md bg-[var(--bg)] px-3 py-2 text-[13px] shadow-sm">
                 <div className="flex flex-wrap items-center gap-4">
                   <Link href="/home" className="hover:underline">All</Link>
@@ -123,12 +151,15 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
         </main>
 
         <aside className="card sticky top-3 hidden h-[calc(100vh-1.5rem)] overflow-auto p-4 text-sm xl:block">
-          {rightSidebar ?? <p className="text-slate-400">Right panel reserved for ad stream and quick tools.</p>}
+          {rightSidebar ?? <AdStreamSidebar />}
         </aside>
       </div>
-
-      <div className="space-y-2 p-2 min-[700px]:hidden">{children}</div>
-      <MobileSwipeNav side={pref?.mobileNavSwipeSide === "LEFT" ? "LEFT" : "RIGHT"} includeAdmin={adminAccess} />
+      {userId ? <GlobalChatDock myUserId={userId} /> : null}
+      <MobileSwipeNav
+        side={pref?.mobileNavSwipeSide === "LEFT" ? "LEFT" : "RIGHT"}
+        includeAdmin={showAdminFeatures}
+        includeModerator={showModeratorFeatures}
+      />
     </div>
   );
 }
@@ -152,3 +183,6 @@ function Section({ title, links }: { title: string; links: [string, string, bool
     </section>
   );
 }
+
+
+

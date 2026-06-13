@@ -4,17 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { validateStrongPassword } from "@/lib/security/password-policy";
+import { CURRENT_TERMS_VERSION } from "@/lib/security/terms";
 
 const INTEREST_OPTIONS = ["Technology", "Science", "Gaming", "Music", "Movies", "Books", "Travel", "Fitness", "Art", "Business", "Family", "News", "Sports", "Health", "Education", "Spirituality"];
-const SUBSCRIPTION_OPTIONS = [
-  { value: "FREE", label: "Free ($2/mo placeholder)" },
-  { value: "VERIFIED", label: "Verified ($10/mo placeholder)" },
-  { value: "SUPPORTER", label: "Supporter ($15/mo placeholder)" },
-  { value: "BUSINESS", label: "Business ($25/mo placeholder)" },
-  { value: "SILVER", label: "Silver ($50/mo placeholder)" },
-  { value: "GOLD", label: "Gold ($100/mo placeholder)" },
-  { value: "DIAMOND", label: "Diamond ($1,000/mo placeholder)" },
-] as const;
 
 export default function SignupPage() {
   const router = useRouter();
@@ -23,6 +15,7 @@ export default function SignupPage() {
   const [formStartedAt] = useState(() => Date.now());
   const turnstileSiteKey = useMemo(() => process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? "", []);
   const [form, setForm] = useState({
+    inviteCode: "",
     fullName: "",
     email: "",
     phoneNumber: "",
@@ -39,6 +32,7 @@ export default function SignupPage() {
     lastServiceWhen: "",
     iasStatus: "",
     iasNumber: "",
+    acceptedTerms: false,
     subscriptionTier: "FREE",
     interest1: "",
     interest2: "",
@@ -47,6 +41,13 @@ export default function SignupPage() {
     interest5: "",
     website: "",
   });
+
+  useEffect(() => {
+    const inviteFromUrl = new URLSearchParams(window.location.search).get("invite")?.trim() ?? "";
+    if (inviteFromUrl) {
+      setForm((prev) => (prev.inviteCode === inviteFromUrl ? prev : { ...prev, inviteCode: inviteFromUrl }));
+    }
+  }, []);
 
   useEffect(() => {
     (window as typeof window & { onTurnstileSuccess?: (token: string) => void; onTurnstileExpired?: () => void }).onTurnstileSuccess = (token: string) => {
@@ -65,7 +66,8 @@ export default function SignupPage() {
     <main className="mx-auto max-w-2xl p-4">
       <div className="card p-4">
         <h1 className="mb-3 text-lg font-semibold text-[var(--text-strong)]">Create Account</h1>
-        <p className="mb-3 text-xs text-slate-300">This data stays on this platform and is not sold to outside companies.</p>
+        <p className="mb-1 text-xs text-slate-300">This data stays on this platform and is not sold to outside companies.</p>
+        <p className="mb-3 text-xs text-slate-300">An invitation code is required. New members start Free and upgrade later.</p>
         <form
           className="grid gap-2"
           onSubmit={async (e) => {
@@ -97,6 +99,7 @@ export default function SignupPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
+                inviteCode: form.inviteCode,
                 fullName: form.fullName,
                 email: form.email,
                 phoneNumber: form.phoneNumber,
@@ -112,6 +115,7 @@ export default function SignupPage() {
                 lastServiceWhen: form.lastServiceWhen,
                 iasStatus: form.iasStatus,
                 iasNumber: form.iasNumber,
+                acceptedTerms: form.acceptedTerms,
                 subscriptionTier: form.subscriptionTier,
                 interests,
                 turnstileToken,
@@ -130,6 +134,14 @@ export default function SignupPage() {
             router.push("/?notice=email_verification_sent");
           }}
         >
+          <input
+            name="inviteCode"
+            value={form.inviteCode}
+            onChange={(e) => setForm((prev) => ({ ...prev, inviteCode: e.target.value }))}
+            required
+            placeholder="Invitation Code"
+            className="rounded-md border px-2 py-1.5 text-sm"
+          />
           <input name="fullName" value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} required placeholder="Full Name" className="rounded-md border px-2 py-1.5 text-sm" />
           <div className="grid gap-2 md:grid-cols-2">
             <input name="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} type="email" required placeholder="Email" className="rounded-md border px-2 py-1.5 text-sm" />
@@ -200,11 +212,24 @@ export default function SignupPage() {
             </label>
             <input name="iasNumber" value={form.iasNumber} onChange={(e) => setForm((prev) => ({ ...prev, iasNumber: e.target.value }))} placeholder="IAS Number (optional)" className="rounded-md border px-2 py-1.5 text-sm" />
           </div>
-          <select name="subscriptionTier" value={form.subscriptionTier} onChange={(e) => setForm((prev) => ({ ...prev, subscriptionTier: e.target.value }))} required className="rounded-md border px-2 py-1.5 text-sm">
-            {SUBSCRIPTION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          <div className="grid gap-1">
+            <span className="text-xs text-slate-300">Starting tier</span>
+            <input value="FREE" readOnly className="rounded-md border px-2 py-1.5 text-sm text-slate-400" />
+            <input type="hidden" name="subscriptionTier" value="FREE" />
+          </div>
+          <label className="flex items-start gap-2 rounded-md border border-[var(--border)] p-3 text-sm text-slate-200">
+            <input
+              name="acceptedTerms"
+              type="checkbox"
+              checked={form.acceptedTerms}
+              onChange={(e) => setForm((prev) => ({ ...prev, acceptedTerms: e.target.checked }))}
+              className="mt-1"
+              required
+            />
+            <span>
+              I agree to the current terms, privacy policy, and community rules. Version {CURRENT_TERMS_VERSION}.
+            </span>
+          </label>
           <p className="pt-1 text-xs text-slate-300">Interests: pick your top 5 (most important first):</p>
           {[1, 2, 3, 4, 5].map((rank) => (
             <label key={rank} className="flex items-center gap-2 text-xs">

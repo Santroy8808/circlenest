@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { uploadFile, uploadImageWithCompression } from "@/lib/media/image-upload.client";
 
@@ -24,6 +25,13 @@ type InitialListing = {
   media: Array<{ id: string; url: string; caption: string | null }>;
 };
 
+type ScientologySource = {
+  displayName: string | null;
+  trainingLevel: string;
+  processingLevel: string;
+  additionalCourses: string[];
+};
+
 function parseStories(raw: string | null | undefined): Story[] {
   if (!raw) return [];
   try {
@@ -43,18 +51,30 @@ function parseStories(raw: string | null | undefined): Story[] {
   }
 }
 
-export function AuditorListingFormClient({ initialListing }: { initialListing: InitialListing | null }) {
+function buildEducationSummary(source: ScientologySource) {
+  const parts = [source.trainingLevel, source.processingLevel, ...source.additionalCourses].filter(Boolean);
+  return parts.length ? parts.join(" | ") : "";
+}
+
+export function AuditorListingFormClient({
+  initialListing,
+  scientologySource,
+}: {
+  initialListing: InitialListing | null;
+  scientologySource: ScientologySource;
+}) {
   const [status, setStatus] = useState("");
+  const educationSummary = useMemo(() => buildEducationSummary(scientologySource), [scientologySource]);
   const [profile, setProfile] = useState({
-    displayName: initialListing?.displayName ?? "",
+    displayName: initialListing?.displayName ?? scientologySource.displayName ?? "",
     classLevel: initialListing?.classLevel ?? "",
     country: initialListing?.country ?? "",
     state: initialListing?.state ?? "",
     city: initialListing?.city ?? "",
     location: initialListing?.location ?? "",
-    trainedAt: initialListing?.trainedAt ?? "",
-    credentials: initialListing?.credentials ?? "",
-    specialtyCourses: initialListing?.specialtyCourses ?? "",
+    trainedAt: initialListing?.trainedAt ?? educationSummary,
+    credentials: initialListing?.credentials ?? educationSummary,
+    specialtyCourses: initialListing?.specialtyCourses ?? scientologySource.additionalCourses.join(", "),
     services: initialListing?.services ?? "",
     bio: initialListing?.bio ?? "",
     travels: initialListing?.travels ?? false,
@@ -122,24 +142,55 @@ export function AuditorListingFormClient({ initialListing }: { initialListing: I
 
   return (
     <section className="card space-y-4 p-4">
-      <h1 className="text-xl font-semibold">I&apos;m an Auditor</h1>
-      <p className="text-sm text-slate-300">Post your auditor listing so people can find you.</p>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold">I&apos;m an Auditor</h1>
+        <p className="text-sm text-slate-300">Build your personal auditor profile and publish it for the public directory.</p>
+        <p className="text-xs text-slate-400">Your My Scientology data is pulled in below as the education source for this profile.</p>
+      </div>
 
-      <h2 className="text-lg font-semibold">Post a Listing as an Auditor</h2>
+      <div className="rounded border border-sky-400/30 bg-sky-300/10 p-3 text-sm text-sky-50">
+        <p className="text-xs uppercase tracking-[0.18em] text-sky-100">My Scientology source</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>Profile: {scientologySource.displayName ? scientologySource.displayName : "Not set yet"}</li>
+          <li>Training: {scientologySource.trainingLevel || "Not listed"}</li>
+          <li>Processing: {scientologySource.processingLevel || "Not listed"}</li>
+          <li>
+            Additional courses:
+            {scientologySource.additionalCourses.length ? (
+              <ul className="mt-1 list-disc pl-5" style={{ columnWidth: "14rem", columnGap: "1.5rem" }}>
+                {scientologySource.additionalCourses.map((course) => (
+                  <li key={course} className="break-inside-avoid">
+                    {course}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              " None listed"
+            )}
+          </li>
+        </ul>
+        <Link href="/profile/scientology" className="mt-2 inline-block text-xs underline underline-offset-2">
+          Edit My Scientology
+        </Link>
+      </div>
+
+      <h2 className="text-lg font-semibold">Public profile fields</h2>
       <div className="grid gap-2 md:grid-cols-2">
-        <input value={profile.displayName} onChange={(e) => setProfile((p) => ({ ...p, displayName: e.target.value }))} placeholder="Display name" className="rounded border px-3 py-2" />
         <input value={profile.classLevel} onChange={(e) => setProfile((p) => ({ ...p, classLevel: e.target.value }))} placeholder="Auditor class level" className="rounded border px-3 py-2" />
         <input value={profile.country} onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))} placeholder="Country" className="rounded border px-3 py-2" />
         <input value={profile.state} onChange={(e) => setProfile((p) => ({ ...p, state: e.target.value }))} placeholder="State" className="rounded border px-3 py-2" />
         <input value={profile.city} onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))} placeholder="City" className="rounded border px-3 py-2" />
-        <input value={profile.location} onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))} placeholder="Location text (optional)" className="rounded border px-3 py-2" />
-        <textarea value={profile.trainedAt} onChange={(e) => setProfile((p) => ({ ...p, trainedAt: e.target.value }))} placeholder="Where trained" className="rounded border px-3 py-2 md:col-span-2" />
-        <textarea value={profile.credentials} onChange={(e) => setProfile((p) => ({ ...p, credentials: e.target.value }))} placeholder="Credentials" className="rounded border px-3 py-2 md:col-span-2" />
-        <textarea value={profile.specialtyCourses} onChange={(e) => setProfile((p) => ({ ...p, specialtyCourses: e.target.value }))} placeholder="Specialty courses" className="rounded border px-3 py-2 md:col-span-2" />
-        <textarea value={profile.services} onChange={(e) => setProfile((p) => ({ ...p, services: e.target.value }))} placeholder="What you deliver" className="rounded border px-3 py-2 md:col-span-2" />
-        <textarea value={profile.bio} onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))} placeholder="Bio / description" className="rounded border px-3 py-2 md:col-span-2" />
-        <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm"><input type="checkbox" checked={profile.travels} onChange={(e) => setProfile((p) => ({ ...p, travels: e.target.checked }))} /> I travel</label>
-        <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm"><input type="checkbox" checked={profile.lookingForPcs} onChange={(e) => setProfile((p) => ({ ...p, lookingForPcs: e.target.checked }))} /> Looking for PCs</label>
+        <input value={profile.location} onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))} placeholder="Location / service area" className="rounded border px-3 py-2" />
+        <textarea value={profile.services} onChange={(e) => setProfile((p) => ({ ...p, services: e.target.value }))} placeholder="What I offer" className="rounded border px-3 py-2 md:col-span-2" />
+        <textarea value={profile.bio} onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))} placeholder="Who I am" className="rounded border px-3 py-2 md:col-span-2" />
+        <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm">
+          <input type="checkbox" checked={profile.travels} onChange={(e) => setProfile((p) => ({ ...p, travels: e.target.checked }))} />
+          Willing to travel
+        </label>
+        <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm">
+          <input type="checkbox" checked={profile.lookingForPcs} onChange={(e) => setProfile((p) => ({ ...p, lookingForPcs: e.target.checked }))} />
+          Looking for PCs
+        </label>
       </div>
 
       <div className="space-y-2 rounded border border-[var(--border)] p-3">
@@ -176,7 +227,7 @@ export function AuditorListingFormClient({ initialListing }: { initialListing: I
         onClick={() => void saveProfile()}
         className="rounded border border-[#d6b24a] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1305] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(0,0,0,0.35)] transition hover:brightness-110 active:translate-y-[1px]"
       >
-        Save auditor profile
+        Save public auditor profile
       </button>
       {status ? <p className="text-sm text-slate-300">{status}</p> : null}
     </section>

@@ -3,83 +3,119 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { BazaarClient } from "@/components/bazaar/bazaar-client";
-import { canCreateBazaarListing } from "@/lib/policy/bazaar";
+import { BazaarCreateFormClient } from "@/components/bazaar/bazaar-create-form-client";
+import { TierGate } from "@/components/policy/tier-gate";
+import { canCreateBazaarListing, getBazaarListingLifetimeDays, getBazaarListingMaxImageCount, getBazaarListingRollingLimit, getBazaarListingWeeklyLimit } from "@/lib/policy/tier-policy";
+import { getProAdCreditBalance, serializeAdPlacements } from "@/lib/ads/ads";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
-export default async function BazaarPage() {
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function parseImageUrlsJson(value: string | null | undefined) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map((entry) => String(entry ?? "").trim()).filter(Boolean).slice(0, 3) : [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function BazaarPage({ searchParams }: { searchParams?: { created?: string } }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const listings = await prisma.bazaarListing.findMany({
     where: { status: "ACTIVE" },
-    include: { seller: { select: { id: true, username: true } } },
+    include: {
+      seller: { select: { id: true, username: true } },
+      adPlacements: {
+        include: { creator: { select: { id: true, username: true } } },
+        orderBy: [{ createdAt: "desc" }],
+      },
+    },
     orderBy: { createdAt: "desc" },
     take: 60,
   });
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { subscriptionTier: true },
+    select: { role: true, subscriptionTier: true },
   });
-  const canCreate = canCreateBazaarListing(user?.subscriptionTier);
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
+  const canCreate = canCreateBazaarListing(policy);
+  const maxImages = getBazaarListingMaxImageCount(policy);
+  const bazaarLimitNote =
+    policy.tier === "PLUS"
+      ? `Activist listings are limited to ${getBazaarListingWeeklyLimit(policy) ?? 0} per week, ${getBazaarListingRollingLimit(policy) ?? 0} in any 2-week window, ${maxImages ?? 0} photos per listing, and last ${getBazaarListingLifetimeDays(policy) ?? 14} days.`
+      : policy.tier === "PRO" || policy.tier === "AUDITOR"
+        ? "Biz and Auditor listings are unlimited."
+        : policy.tier === "ADMIN"
+          ? "Admin listings are unlimited."
+          : null;
+  const adCreditBalance = policy.tier === "PRO" || policy.tier === "AUDITOR" ? await getProAdCreditBalance(session.user.id, policy) : null;
+  const adCreditLabel =
+    policy.tier === "PRO"
+      ? `Biz ad credits: ${adCreditBalance ?? 0}`
+      : policy.tier === "AUDITOR"
+        ? `Auditor ad credits: ${adCreditBalance ?? 0}`
+      : policy.tier === "PLUS"
+        ? "Activist members need Biz or Auditor for ads."
+        : policy.tier === "ADMIN"
+          ? "Admin ad access: unlimited."
+          : "Upgrade to Biz or Auditor to create ads.";
 
   return (
     <AppShell>
       <section className="card space-y-4 p-4">
         <div>
-          <h1 className="text-xl font-semibold">Bazaar</h1>
+          <h1 className="text-xl font-semibold">Market</h1>
           <p className="text-sm text-slate-500">Marketplace listings with search and filters.</p>
         </div>
-        {canCreate ? (
-          <form
-            action={async (formData) => {
-              "use server";
-              const { auth } = await import("@/auth");
-              const { prisma } = await import("@/lib/db/prisma");
-              const { canCreateBazaarListing } = await import("@/lib/policy/bazaar");
-              const current = await auth();
-              if (!current?.user?.id) return;
-              const currentUser = await prisma.user.findUnique({
-                where: { id: current.user.id },
-                select: { subscriptionTier: true },
-              });
-              if (!canCreateBazaarListing(currentUser?.subscriptionTier)) return;
-              const title = String(formData.get("title") ?? "").trim();
-              const price = Number(formData.get("price"));
-              if (!title || Number.isNaN(price) || price < 0) return;
-              await prisma.bazaarListing.create({
-                data: {
-                  sellerId: current.user.id,
-                  title,
-                  price,
-                  description: String(formData.get("description") ?? "").trim() || null,
-                  location: String(formData.get("location") ?? "").trim() || null,
-                  category: String(formData.get("category") ?? "").trim() || null,
-                },
-              });
-            }}
-            className="grid gap-2 md:grid-cols-2"
-          >
-            <input name="title" required placeholder="Listing title" className="rounded border border-slate-300 px-3 py-2" />
-            <input name="price" required placeholder="Price" type="number" min="0" step="0.01" className="rounded border border-slate-300 px-3 py-2" />
-            <input name="location" placeholder="Location" className="rounded border border-slate-300 px-3 py-2" />
-            <input name="category" placeholder="Category" className="rounded border border-slate-300 px-3 py-2" />
-            <input name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 md:col-span-2" />
-            <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-white md:col-span-2">Create Listing</button>
-          </form>
-        ) : (
-          <p className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-sm text-amber-200">
-            Browsing is open to everyone. Creating Bazaar listings is for Business tier and above.
+        {searchParams?.created ? (
+          <p className="rounded border border-emerald-400/40 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-200">
+            Listing created.
           </p>
-        )}
-        <BazaarClient currentUserId={session.user.id} initialListings={listings.map((listing) => ({
-          id: listing.id,
-          title: listing.title,
-          description: listing.description,
-          price: listing.price,
-          currency: listing.currency,
-          location: listing.location,
-          category: listing.category,
-          seller: { id: listing.seller.id, username: listing.seller.username },
-        }))} />
+        ) : null}
+        <p className="text-xs text-slate-400">{adCreditLabel}</p>
+        {!canCreate ? (
+          <TierGate
+            variant="locked"
+            title="Market locked"
+            message="Upgrade to Activist to create Market listings."
+            ctaLabel="Open subscription"
+            ctaHref="/settings/subscription"
+            secondaryLabel="Compare memberships"
+            secondaryHref="/membership"
+            compact
+          />
+        ) : null}
+        <BazaarCreateFormClient canCreate={canCreate} maxImages={maxImages} listingLimitNote={bazaarLimitNote} />
+        <BazaarClient
+          currentUserId={session.user.id}
+          initialListings={listings
+            .map((listing) => {
+              const expiresAt = listing.expiresAt ?? addDays(listing.createdAt, 14);
+              return {
+                id: listing.id,
+                title: listing.title,
+                description: listing.description,
+                price: listing.price,
+                currency: listing.currency,
+                location: listing.location,
+                category: listing.category,
+                imageUrls: parseImageUrlsJson(listing.imageUrlsJson),
+                expiresAt: expiresAt.toISOString(),
+                staleSoon: expiresAt.getTime() - Date.now() <= 3 * 24 * 60 * 60 * 1000,
+                seller: { id: listing.seller.id, username: listing.seller.username },
+                ads: serializeAdPlacements(listing.adPlacements),
+              };
+            })
+            .filter((listing) => new Date(listing.expiresAt).getTime() > Date.now())}
+        />
       </section>
     </AppShell>
   );

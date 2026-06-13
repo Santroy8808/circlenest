@@ -14,3 +14,11 @@ export function resolveProductionZoneAccess(subscriptionTier: string | null | un
   };
 }
 
+export function canCreateBusinessProfile(subscriptionTier: string | null | undefined, isInvitedCreator = false) {
+  return resolveProductionZoneAccess(subscriptionTier, isInvitedCreator).canCreate;
+}
+
+export function canCreateWritersStudio(subscriptionTier: string | null | undefined, isInvitedCreator = false) {
+  return resolveProductionZoneAccess(subscriptionTier, isInvitedCreator).canCreate;
+}
+

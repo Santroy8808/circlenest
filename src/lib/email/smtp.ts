@@ -61,3 +61,31 @@ export async function sendEmailVerificationEmail(to: string, verifyUrl: string) 
     html: `<p>Please validate your email by clicking Validate in the email we sent you.</p><p><a href="${verifyUrl}">Validate</a></p>`,
   });
 }
+
+export async function sendAdminAnnouncementEmail(input: {
+  to: string;
+  headline: string;
+  body: string;
+  link?: string | null;
+}) {
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@theta-space.local";
+  const transporter = createSmtpTransport();
+
+  await transporter.verify();
+
+  const link = input.link?.trim() || null;
+  const text = link
+    ? `${input.headline}\n\n${input.body}\n\nOpen: ${link}`
+    : `${input.headline}\n\n${input.body}`;
+  const html = link
+    ? `<p>${input.body.replaceAll("\n", "<br />")}</p><p><a href="${link}">Open announcement</a></p>`
+    : `<p>${input.body.replaceAll("\n", "<br />")}</p>`;
+
+  await transporter.sendMail({
+    from,
+    to: input.to,
+    subject: input.headline,
+    text,
+    html,
+  });
+}

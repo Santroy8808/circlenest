@@ -1,10 +1,10 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
 import speakeasy from "speakeasy";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { verifyLoginChallenge } from "@/lib/auth/login-challenge";
+import { resolvePasswordLogin } from "@/lib/auth/login";
 import { isPasswordExpired } from "@/lib/security/password-policy";
 
 const loginSchema = z.object({
@@ -15,7 +15,6 @@ const loginSchema = z.object({
   challenge: z.string().optional(),
 });
 
-const tiersRequiringTwoFa = new Set(["BUSINESS", "SILVER", "GOLD", "DIAMOND"]);
 const requireTierTwoFa = process.env.REQUIRE_2FA_BY_TIER === "true";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -61,39 +60,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const identifier = parsed.data.identifier?.trim() || parsed.data.email?.trim();
         if (!identifier || !parsed.data.password) return null;
-        const loweredIdentifier = identifier.toLowerCase();
-        const looksLikeEmail = identifier.includes("@");
 
-        const user = await prisma.user.findFirst({
-          where: looksLikeEmail
-            ? { OR: [{ email: identifier }, { email: loweredIdentifier }] }
-            : { OR: [{ username: identifier }, { email: loweredIdentifier }] },
+        const result = await resolvePasswordLogin({
+          identifier,
+          password: parsed.data.password,
+          requireTierTwoFa,
         });
-        if (!user) return null;
-        const pendingVerification = await prisma.emailVerificationToken.findFirst({
-          where: { userId: user.id, expiresAt: { gt: new Date() } },
-          select: { id: true },
-        });
-        if (pendingVerification) return null;
+        if (!result.ok) return null;
 
-        const valid = await compare(parsed.data.password, user.passwordHash);
-        if (!valid) return null;
-
-        if (isPasswordExpired(user.passwordUpdatedAt)) return null;
-
-        const twoFa = await prisma.twoFactorConfig.findUnique({ where: { userId: user.id } });
-        if (requireTierTwoFa && tiersRequiringTwoFa.has(user.subscriptionTier) && !twoFa?.enabled) return null;
-        if (twoFa?.enabled) {
+        if (result.twoFactorEnabled) {
           const otp = parsed.data.otp?.trim();
           if (!otp) return null;
+          const twoFa = await prisma.twoFactorConfig.findUnique({ where: { userId: result.user.id } });
+          if (!twoFa?.enabled) return null;
           if (!speakeasy.totp.verify({ secret: twoFa.secret, encoding: "base32", token: otp })) return null;
         }
 
         return {
-          id: user.id,
-          email: user.email,
-          name: user.username,
-          sessionVersion: user.sessionVersion,
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.username,
+          sessionVersion: result.user.sessionVersion,
         };
       },
     }),
@@ -103,14 +90,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.userId = user.id;
         token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion ?? 1;
+        token.lastValidatedAt = Date.now();
       }
       if (typeof token.userId === "string") {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.userId },
-          select: { sessionVersion: true },
-        });
-        if (!dbUser || dbUser.sessionVersion !== token.sessionVersion) {
-          token.invalidated = true;
+        const lastValidatedAt = typeof token.lastValidatedAt === "number" ? token.lastValidatedAt : 0;
+        const shouldRefresh = !lastValidatedAt || Date.now() - lastValidatedAt >= 60_000;
+        if (shouldRefresh) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.userId },
+            select: { sessionVersion: true, deactivatedAt: true },
+          });
+          token.lastValidatedAt = Date.now();
+          if (!dbUser || dbUser.deactivatedAt || dbUser.sessionVersion !== token.sessionVersion) {
+            token.invalidated = true;
+          }
         }
       }
       return token;

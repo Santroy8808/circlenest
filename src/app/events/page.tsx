@@ -3,10 +3,15 @@ import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { canCreateEvent } from "@/lib/policy/events";
+import { AdPlacementPanel } from "@/components/ads/ad-placement-panel";
+import { TierGate } from "@/components/policy/tier-gate";
+import { canCreateEvent } from "@/lib/policy/tier-policy";
+import { getProAdCreditBalance, serializeAdPlacements } from "@/lib/ads/ads";
 import { canModerateEvent } from "@/lib/auth/scoped-moderation";
+import { ReportControl } from "@/components/reports/report-control";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
-export default async function EventsPage() {
+export default async function EventsPage({ searchParams }: { searchParams?: { created?: string } }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -22,12 +27,28 @@ export default async function EventsPage() {
     include: {
       creator: { select: { username: true } },
       moderators: { include: { user: { select: { username: true } } } },
+      adPlacements: {
+        include: { creator: { select: { id: true, username: true } } },
+        orderBy: [{ createdAt: "desc" }],
+      },
     },
     orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { subscriptionTier: true } });
-  const canCreate = canCreateEvent(user?.subscriptionTier);
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, subscriptionTier: true } });
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
+  const canCreate = canCreateEvent(policy);
+  const adCreditBalance = policy.tier === "PRO" || policy.tier === "AUDITOR" ? await getProAdCreditBalance(session.user.id, policy) : null;
+  const adCreditLabel =
+    policy.tier === "PRO"
+      ? `Biz ad credits: ${adCreditBalance ?? 0}`
+      : policy.tier === "AUDITOR"
+        ? `Auditor ad credits: ${adCreditBalance ?? 0}`
+      : policy.tier === "PLUS"
+        ? "Activist members need Biz or Auditor for ads."
+        : policy.tier === "ADMIN"
+          ? "Admin ad access: unlimited."
+          : "Upgrade to Biz or Auditor to create ads.";
 
   return (
     <AppShell>
@@ -36,16 +57,35 @@ export default async function EventsPage() {
           <h1 className="text-xl font-semibold">Events</h1>
           <p className="text-sm text-slate-500">Events are invite-based. You can access events you create, are invited to, or moderate.</p>
         </div>
+        {searchParams?.created === "1" ? (
+          <p className="rounded border border-emerald-400/40 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-200">
+            Event created.
+          </p>
+        ) : null}
+        <p className="text-xs text-slate-400">{adCreditLabel}</p>
+        {!canCreate ? (
+          <TierGate
+            variant="locked"
+            title="Events locked"
+            message="Upgrade to Activist to create events."
+            ctaLabel="Open subscription"
+            ctaHref="/settings/subscription"
+            secondaryLabel="Compare memberships"
+            secondaryHref="/membership"
+            compact
+          />
+        ) : null}
         <form
+          key={searchParams?.created ?? "initial"}
           action={async (formData) => {
             "use server";
             const { auth } = await import("@/auth");
             const { prisma } = await import("@/lib/db/prisma");
-            const { revalidatePath } = await import("next/cache");
             const current = await auth();
             if (!current?.user?.id) return;
-            const user = await prisma.user.findUnique({ where: { id: current.user.id }, select: { subscriptionTier: true } });
-            if (!canCreateEvent(user?.subscriptionTier)) return;
+            const user = await prisma.user.findUnique({ where: { id: current.user.id }, select: { role: true, subscriptionTier: true } });
+            const policy = resolveMemberAccessPolicy(current.user.id, user);
+            if (!canCreateEvent(policy)) return;
             const title = String(formData.get("title") ?? "").trim();
             const startsAt = String(formData.get("startsAt") ?? "").trim();
             if (!title || !startsAt) return;
@@ -78,10 +118,15 @@ export default async function EventsPage() {
             await prisma.eventModerator.create({ data: { eventId: event.id, userId: current.user.id, grantedById: current.user.id } });
             const moderatorIds = Array.from(new Set(moderators.map((moderator) => moderator.id).filter((id) => id !== current.user.id)));
             if (moderatorIds.length > 0) {
-              await prisma.eventModerator.createMany({
-                data: moderatorIds.map((userId) => ({ eventId: event.id, userId, grantedById: current.user.id })),
-                skipDuplicates: true,
-              });
+              await Promise.all(
+                moderatorIds.map((userId) =>
+                  prisma.eventModerator.upsert({
+                    where: { eventId_userId: { eventId: event.id, userId } },
+                    create: { eventId: event.id, userId, grantedById: current.user.id },
+                    update: { grantedById: current.user.id },
+                  }),
+                ),
+              );
             }
             const inviteNotifications = invitees
               .filter((invitee) => invitee.id !== current.user.id)
@@ -94,32 +139,47 @@ export default async function EventsPage() {
             if (inviteNotifications.length > 0) {
               await prisma.notification.createMany({ data: inviteNotifications });
             }
-            revalidatePath("/events");
+            redirect(`/events?created=${Date.now()}`);
           }}
           className="grid gap-2 md:grid-cols-2"
         >
-          <input name="title" placeholder="Event title" className="rounded border border-slate-300 px-3 py-2" required />
-          <input name="locationName" placeholder="Location" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="startsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2" required />
-          <input name="endsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="inviteUsernames" placeholder="Invite usernames (comma-separated)" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="moderatorUsernames" placeholder="Moderator usernames (comma-separated)" className="rounded border border-slate-300 px-3 py-2" />
-          <input name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 md:col-span-2" />
+          <input disabled={!canCreate} name="title" placeholder="Event title" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" required />
+          <input disabled={!canCreate} name="locationName" placeholder="Location" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+          <input disabled={!canCreate} name="startsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" required />
+          <input disabled={!canCreate} name="endsAt" type="datetime-local" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+          <input disabled={!canCreate} name="inviteUsernames" placeholder="Invite usernames (comma-separated)" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+          <input disabled={!canCreate} name="moderatorUsernames" placeholder="Moderator usernames (comma-separated)" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+          <input disabled={!canCreate} name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100 md:col-span-2" />
           <button type="submit" disabled={!canCreate} className="rounded bg-slate-900 px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2">Create Event</button>
         </form>
-        {!canCreate ? <p className="text-xs text-amber-300">Event creation is for paid members.</p> : null}
         <div className="space-y-2">
-          {events.map((event) => {
+          {events.map((event, index) => {
             const isEventModerator = isAdmin || event.creatorId === session.user.id || event.moderators.some((moderator) => moderator.userId === session.user.id);
             return (
               <article key={event.id} className="rounded border border-[var(--border)] p-3 text-sm">
                 <p className="font-medium">{event.title}</p>
                 <p className="text-slate-500">{new Date(event.startsAt).toLocaleString()}</p>
-                <p className="text-xs text-slate-500">by @{event.creator.username}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Moderators: {event.moderators.length ? event.moderators.map((moderator) => `@${moderator.user.username}`).join(", ") : "None"}
-                </p>
-                {isEventModerator ? (
+              <p className="text-xs text-slate-500">by @{event.creator.username}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Moderators: {event.moderators.length ? event.moderators.map((moderator) => `@${moderator.user.username}`).join(", ") : "None"}
+              </p>
+              <div className="mt-2 max-w-sm">
+                <ReportControl targetType="EVENT" targetId={event.id} label="Report event" compact />
+              </div>
+              <div className="mt-3">
+                <AdPlacementPanel
+                  targetType="EVENT_LISTING"
+                  createEndpoint={`/api/events/${event.id}/ads`}
+                  targetLabel="Event listing ads"
+                  canCreate={canCreate}
+                  ownsTarget={isAdmin || event.creatorId === session.user.id}
+                  requiresCredits={policy.tier === "PRO" || policy.tier === "AUDITOR"}
+                  creditBalance={adCreditBalance}
+                  ads={serializeAdPlacements(event.adPlacements)}
+                  slotIndex={index}
+                />
+              </div>
+              {isEventModerator ? (
                   <div className="mt-2 space-y-2">
                     <div className="flex gap-2">
                       <form action={async () => {
@@ -156,10 +216,15 @@ export default async function EventsPage() {
                         });
                         const userIds = Array.from(new Set(users.map((user) => user.id).filter((id) => id !== current.user.id)));
                         if (userIds.length) {
-                          await prisma.eventModerator.createMany({
-                            data: userIds.map((userId) => ({ eventId: event.id, userId, grantedById: current.user.id })),
-                            skipDuplicates: true,
-                          });
+                          await Promise.all(
+                            userIds.map((userId) =>
+                              prisma.eventModerator.upsert({
+                                where: { eventId_userId: { eventId: event.id, userId } },
+                                create: { eventId: event.id, userId, grantedById: current.user.id },
+                                update: { grantedById: current.user.id },
+                              }),
+                            ),
+                          );
                         }
                         revalidatePath("/events");
                       }}

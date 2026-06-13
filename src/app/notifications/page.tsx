@@ -5,6 +5,28 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 
+function labelNotificationType(type: string) {
+  switch (type) {
+    case "BUSINESS_INQUIRY":
+      return "Storefront inquiry";
+    case "FRIEND_REQUEST":
+      return "Friend request";
+    case "NEW_MESSAGE":
+    case "INBOX_MESSAGE":
+      return "Message";
+    case "GROUP_ACTIVITY":
+      return "Group activity";
+    case "NEW_COMMENT":
+      return "Comment";
+    case "NEW_REACTION":
+      return "Reaction";
+    case "ADMIN_ANNOUNCEMENT":
+      return "Admin announcement";
+    default:
+      return type;
+  }
+}
+
 async function markAllNotificationsRead() {
   "use server";
   const session = await auth();
@@ -44,7 +66,7 @@ export default async function NotificationsPage() {
             <div key={n.id} className="rounded border border-slate-200 p-2 text-sm hover:bg-[#13233a]">
               <div className="flex items-start justify-between gap-3">
                 <Link href={`/notifications/open?id=${encodeURIComponent(n.id)}`} className="min-w-0 flex-1">
-                  <p className="font-medium">{n.type}</p>
+                  <p className="font-medium">{labelNotificationType(n.type)}</p>
                   <p className="text-slate-100">{n.body}</p>
                   <p className="mt-1 text-[11px] text-slate-400">{new Date(n.createdAt).toLocaleString()}</p>
                 </Link>

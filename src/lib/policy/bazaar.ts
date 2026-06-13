@@ -1,7 +1,6 @@
-const BAZAAR_CREATOR_TIERS = new Set(["BUSINESS", "SILVER", "GOLD", "DIAMOND"]);
+import { getTierPolicy } from "@/lib/policy/tier-policy";
 
 export function canCreateBazaarListing(subscriptionTier: string | null | undefined) {
-  const tier = (subscriptionTier ?? "FREE").toUpperCase();
-  return BAZAAR_CREATOR_TIERS.has(tier);
+  return getTierPolicy(subscriptionTier).canCreateBazaarListing;
 }
 

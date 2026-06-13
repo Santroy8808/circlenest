@@ -17,7 +17,11 @@ function normalizePurpose(raw: FormDataEntryValue | null): UploadPurpose {
     value === "auditor-attachment" ||
     value === "group-photo" ||
     value === "group-post-media" ||
-    value === "group-document"
+    value === "group-document" ||
+    value === "job-listing-photo" ||
+    value === "bazaar-listing-photo" ||
+    value === "fundraiser-banner" ||
+    value === "fundraiser-comment-media"
   ) {
     return value;
   }
@@ -137,8 +141,9 @@ export async function POST(request: Request) {
   const quota = await canUserStoreBytes(session.user.id, sizeToStore);
   if (!quota.ok) {
     const remainingMb = (quota.remainingBytes / (1024 * 1024)).toFixed(2);
+    const limitLabel = quota.limitBytes >= Number.MAX_SAFE_INTEGER / 2 ? "unlimited" : `${(quota.limitBytes / (1024 * 1024)).toFixed(0)}MB`;
     return NextResponse.json(
-      { error: `Storage limit reached. You have ${remainingMb}MB remaining out of 100MB.` },
+      { error: `Storage limit reached. You have ${remainingMb}MB remaining out of ${limitLabel}.` },
       { status: 413 },
     );
   }
@@ -161,3 +166,4 @@ export async function POST(request: Request) {
   await trackUserUploadAsset(session.user.id, url, sizeToStore, contentTypeToStore);
   return NextResponse.json({ ok: true, url, backend: getUploadStorageBackend(), compression });
 }
+

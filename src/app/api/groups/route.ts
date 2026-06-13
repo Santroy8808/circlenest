@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createGroupForUser } from "@/modules/groups/groups.service";
 import { prisma } from "@/lib/db/prisma";
+import { canCreateGroup, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
 export async function GET() {
   const session = await auth();
@@ -28,9 +29,21 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, subscriptionTier: true },
+  });
+  const policy = resolveUserAccessPolicy(user);
+  if (!canCreateGroup(policy)) {
+    return NextResponse.json({ error: "Group creation is not allowed on this tier." }, { status: 403 });
+  }
 
   const body = (await request.json()) as {
     name?: string;
+    purpose?: string;
+    locationCountry?: string;
+    locationState?: string;
+    locationCity?: string;
     description?: string;
     visibility?: "PUBLIC" | "PRIVATE";
     joinMode?: "OPEN" | "REQUEST";

@@ -12,24 +12,16 @@ const OPEN_DELTA = 44;
 
 const mobileSections: MenuSection[] = [
   {
-    title: "Profile",
+    title: "Home",
     items: [
       ["Home", "/home"],
-      ["Profile", "/profile/edit"],
-      ["My Scientology", "/profile/scientology"],
-      ["Resume", "/profile/resume"],
       ["Gallery", "/profile/gallery"],
     ],
   },
   {
     title: "Production Zone",
     items: [
-      ["Production Zone", "/production-zone", true],
-      ["Events", "/events", true],
-      ["Bazaar", "/bazaar", true],
-      ["Hiring Board", "/jobs", true],
-      ["Find an Auditor", "/auditors", true],
-      ["I'm an Auditor", "/auditors/im-an-auditor", true],
+      ["Production Zone", "/production-zone"],
     ],
   },
   {
@@ -37,29 +29,44 @@ const mobileSections: MenuSection[] = [
     items: [
       ["Friends", "/friends"],
       ["Groups", "/groups"],
-      ["My Groups", "/groups?mine=1"],
+    ],
+  },
+  {
+    title: "Communications",
+    items: [
       ["Messages", "/messages"],
       ["Notifications", "/notifications"],
       ["Alerts", "/alerts"],
-      ["Invites", "/friends#invites"],
     ],
   },
   {
     title: "Settings",
     items: [
-      ["Security", "/settings"],
-      ["Theme", "/settings/theme"],
-      ["My Rules", "/settings#rules"],
-      ["Notification Dings", "/settings#notifications"],
-      ["Blocked Users", "/blocked-users"],
-      ["My Subscription", "/settings#subscription"],
+      ["Settings", "/settings"],
     ],
   },
 ];
 
-export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?: SwipeSide; includeAdmin?: boolean }) {
+export function MobileSwipeNav({
+  side = "RIGHT",
+  includeAdmin = false,
+  includeModerator = false,
+}: {
+  side?: SwipeSide;
+  includeAdmin?: boolean;
+  includeModerator?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [activeSectionTitle, setActiveSectionTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [open]);
 
   useEffect(() => {
     let startX = 0;
@@ -121,21 +128,26 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`fixed top-[calc(env(safe-area-inset-top,0px)+10px)] ${triggerSideClass} z-[52] rounded-md border border-[var(--border)] bg-[#0f1624]/95 px-3 py-1.5 text-xs font-semibold text-[var(--text-strong)] shadow-lg min-[700px]:hidden`}
+          className={`fixed top-[calc(env(safe-area-inset-top,0px)+10px)] ${triggerSideClass} z-[52] rounded-full border border-[#304058] bg-[#0f1624]/95 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-[var(--text-strong)] shadow-lg min-[700px]:hidden`}
           aria-label="Open menu"
         >
-          Menu
+          Control Panel
         </button>
       ) : null}
 
       {open ? (
         <div className="fixed inset-0 z-50 min-[700px]:hidden">
           <button className="absolute inset-0 bg-black/55" type="button" onClick={() => setOpen(false)} aria-label="Close menu overlay" />
-          <aside className={`absolute top-0 h-full w-[44vw] max-w-[250px] min-w-[208px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
+          <aside className={`absolute top-0 h-full w-[82vw] max-w-[320px] min-w-[260px] overflow-auto border-[var(--border)] bg-[#0f1624] p-4 shadow-2xl transition-transform duration-200 ${side === "RIGHT" ? "right-0 border-l" : "left-0 border-r"}`}>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Control Panel</p>
+              <button type="button" className="rounded-full border border-[#304058] px-3 py-1 text-xs text-slate-200" onClick={() => setOpen(false)}>
+                Close
+              </button>
+            </div>
             <nav className="space-y-2 text-xs">
               {activeSectionTitle == null ? (
                 <>
-                  <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Menu</p>
                   {mobileSections.map((section) => (
                     <PrimaryRow
                       key={section.title}
@@ -156,10 +168,11 @@ export function MobileSwipeNav({ side = "RIGHT", includeAdmin = false }: { side?
                   <Section
                     title={activeSectionTitle}
                     links={
-                      activeSectionTitle === "Settings" && includeAdmin
+                      activeSectionTitle === "Settings"
                         ? [
                             ...((mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? []) as [string, string][]),
-                            ["Admin Portal", "/admin"],
+                            ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
+                            ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
                           ]
                         : (mobileSections.find((section) => section.title === activeSectionTitle)?.items ?? [])
                     }
@@ -218,3 +231,4 @@ function Section({
     </section>
   );
 }
+

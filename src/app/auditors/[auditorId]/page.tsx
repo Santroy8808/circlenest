@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
+import { ReportControl } from "@/components/reports/report-control";
 
 function parseStories(raw: string | null | undefined): Array<{ title: string; body: string; attachments: string[] }> {
   if (!raw) return [];
@@ -36,16 +37,27 @@ export default async function AuditorProfilePage({ params }: { params: { auditor
   return (
     <AppShell>
       <section className="card space-y-3 p-4">
-        <Link href="/auditors" className="text-sm underline">Back to Find an Auditor</Link>
+        <Link href="/auditors" className="text-sm underline">
+          Back to directory
+        </Link>
         <h1 className="text-xl font-semibold">{listing.displayName}</h1>
-        <p className="text-sm text-slate-400">{listing.classLevel} • @{listing.user.username}</p>
-        <p className="text-sm text-slate-300">{listing.city || ""} {listing.state || ""} {listing.country || ""}</p>
-        <p className="text-sm text-slate-300">{listing.travels ? "Travels: Yes" : "Travels: No"} • {listing.lookingForPcs ? "Looking for PCs" : "Not currently looking for PCs"}</p>
-        {listing.trainedAt ? <p className="text-sm">Trained at: {listing.trainedAt}</p> : null}
+        <p className="text-sm text-slate-400">
+          Auditor listing | {listing.classLevel} | @{listing.user.username}
+        </p>
+        <p className="text-sm text-slate-300">
+          {listing.city || ""} {listing.state || ""} {listing.country || ""}
+        </p>
+        <p className="text-sm text-slate-300">
+          {listing.travels ? "Willing to travel" : "No travel"} | {listing.lookingForPcs ? "Looking for PCs" : "Not currently looking for PCs"}
+        </p>
+        {listing.trainedAt ? <p className="text-sm">Education: {listing.trainedAt}</p> : null}
         {listing.credentials ? <p className="text-sm">Credentials: {listing.credentials}</p> : null}
         {listing.specialtyCourses ? <p className="text-sm">Specialty courses: {listing.specialtyCourses}</p> : null}
-        {listing.services ? <p className="text-sm">Services: {listing.services}</p> : null}
-        {listing.bio ? <p className="text-sm">{listing.bio}</p> : null}
+        {listing.services ? <p className="text-sm">What I offer: {listing.services}</p> : null}
+        {listing.bio ? <p className="text-sm">Who I am: {listing.bio}</p> : null}
+        <div className="max-w-sm">
+          <ReportControl targetType="AUDITOR_LISTING" targetId={listing.id} label="Report auditor listing" compact />
+        </div>
 
         {listing.media.length ? (
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -59,24 +71,27 @@ export default async function AuditorProfilePage({ params }: { params: { auditor
 
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Success Stories</h2>
-          {stories.length ? stories.map((story, index) => (
-            <article key={`${story.title}-${index}`} className="rounded border border-[var(--border)] p-3">
-              <p className="font-medium">{story.title || `Story ${index + 1}`}</p>
-              {story.body ? <p className="text-sm text-slate-300">{story.body}</p> : null}
-              {story.attachments.length ? (
-                <div className="mt-2 space-y-1">
-                  {story.attachments.map((url) => (
-                    <a key={url} href={url} target="_blank" rel="noreferrer" className="block text-xs underline">
-                      Attachment
-                    </a>
-                  ))}
-                </div>
-              ) : null}
-            </article>
-          )) : <p className="text-sm text-slate-400">No success stories yet.</p>}
+          {stories.length ? (
+            stories.map((story, index) => (
+              <article key={`${story.title}-${index}`} className="rounded border border-[var(--border)] p-3">
+                <p className="font-medium">{story.title || `Story ${index + 1}`}</p>
+                {story.body ? <p className="text-sm text-slate-300">{story.body}</p> : null}
+                {story.attachments.length ? (
+                  <div className="mt-2 space-y-1">
+                    {story.attachments.map((url) => (
+                      <a key={url} href={url} target="_blank" rel="noreferrer" className="block text-xs underline">
+                        Attachment
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <p className="text-sm text-slate-400">No success stories yet.</p>
+          )}
         </div>
       </section>
     </AppShell>
   );
 }
-

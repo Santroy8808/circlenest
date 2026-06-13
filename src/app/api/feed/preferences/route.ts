@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { FEED_MODES } from "@/lib/feed/modes";
+import { canChangeFeedType } from "@/lib/policy/tier-policy";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
 type FeedPatch = {
   mode?: string;
@@ -39,6 +41,11 @@ function parseWeights(raw: string | null | undefined): Record<string, number> {
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, subscriptionTier: true },
+  });
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
 
   const body = (await request.json()) as FeedPatch;
 
@@ -63,6 +70,9 @@ export async function PATCH(request: Request) {
   const weights = parseWeights(pref.topicWeights);
 
   if (body.mode && FEED_MODES.includes(body.mode as (typeof FEED_MODES)[number])) {
+    if (!canChangeFeedType(policy)) {
+      return NextResponse.json({ error: "Feed type changes are not allowed on this tier." }, { status: 403 });
+    }
     await prisma.userFeedPreference.update({ where: { userId: session.user.id }, data: { mode: body.mode } });
   }
 

@@ -24,12 +24,20 @@ model User {
   lastOnLinesAt  String?
   lastService    String?
   lastServiceWhen String?
-  iasStatus      String?
-  iasNumber      String?
+    iasStatus      String?
+    iasNumber      String?
+    acceptedTermsVersion String?
+    acceptedTermsAt DateTime?
+    deactivatedAt DateTime?
+    deletionRequestedAt DateTime?
   subscriptionTier String @default("FREE")
   role           String @default("MEMBER")
+  adminPasswordHash String?
+  adminPasswordUpdatedAt DateTime?
+  inviteLimitException Boolean @default(false)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+  billingSubscription BillingSubscription?
   profile        Profile?
   posts          Post[]
   streamPosts    Post[]             @relation("ProfileStreamOwner")
@@ -42,6 +50,11 @@ model User {
   messages       Message[]
   threadsA       MessageThread[]    @relation("ThreadUserA")
   threadsB       MessageThread[]    @relation("ThreadUserB")
+  messageThreadsCreated MessageThread[] @relation("MessageThreadCreatedBy")
+  messageThreadParticipants MessageThreadParticipant[]
+  messageThreadParticipantAdditions MessageThreadParticipant[] @relation("MessageThreadParticipantAddedBy")
+  messageModerationEvents MessageModerationEvent[]
+  pushSubscriptions PushSubscription[]
   groupsOwned    Group[]            @relation("GroupOwner")
   groupMemberships GroupMember[]
   notifications  Notification[]
@@ -63,6 +76,13 @@ model User {
   eventInvitations   EventInvitation[]
   eventModerators    EventModerator[]   @relation("EventModerators")
   eventModeratorGrants EventModerator[] @relation("EventModeratorGrants")
+  siteModeratorAssignments SiteModeratorAssignment[] @relation("SiteModeratorAssignmentUser")
+  siteModeratorInvitationsSent SiteModeratorAssignment[] @relation("SiteModeratorInvitesSent")
+  siteModeratorGrants SiteModeratorAssignment[] @relation("SiteModeratorGrants")
+  siteModeratorRevocations SiteModeratorAssignment[] @relation("SiteModeratorRevocations")
+  membershipInvitationsSent MembershipInvitation[] @relation("MembershipInvitesSent")
+  membershipInvitationsReceived MembershipInvitation[] @relation("MembershipInvitesReceived")
+  membershipInvitationReviews MembershipInvitation[] @relation("MembershipInviteReviews")
   groupForumThreads  GroupForumThread[]
   groupForumPosts    GroupForumPost[]
   groupDocuments     GroupDocument[]
@@ -78,9 +98,41 @@ model User {
   uploadAssets       UserUploadAsset[]
   bazaarListings     BazaarListing[]
   jobListings        JobListing[]
+  fundraisers        Fundraiser[]
+  fundraiserComments FundraiserComment[]
+  businessProfile    BusinessProfile?
+  writerStudioProjects WriterStudioProject[]
   auditorListings    AuditorListing[]
+  adPlacementsCreated AdPlacement[]
+  adCreditLedgerEntries AdCreditLedger[]
   moderatorActions   ModeratorActionLog[]
   petitions          AdminPetition[]
+  messageThreadPresences MessageThreadPresence[]
+  contentReportsFiled ContentReport[] @relation("ContentReportsFiled")
+  contentReportsAssigned ContentReport[] @relation("ContentReportsAssigned")
+  contentReportsReviewed ContentReport[] @relation("ContentReportsReviewed")
+}
+
+model BillingSubscription {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  provider               String   @default("STRIPE")
+  providerCustomerId     String?  @unique
+  providerSubscriptionId String?  @unique
+  subscriptionTier       String   @default("FREE")
+  status                 String   @default("INACTIVE")
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean  @default(false)
+  canceledAt             DateTime?
+  trialEndsAt            DateTime?
+  pausedAt               DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([provider, providerSubscriptionId])
 }
 
 model EmailVerificationToken {
@@ -251,28 +303,109 @@ model MessageThread {
   id          String   @id @default(cuid())
   userAId     String
   userBId     String
+  kind        String   @default("DIRECT")
+  threadKey   String?  @unique
+  title       String?
+  createdById String?
   updatedAt   DateTime @updatedAt
   userA       User     @relation("ThreadUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB       User     @relation("ThreadUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  messages    Message[]
+  messages       Message[]
+  threadPresences MessageThreadPresence[]
+  messageModerationEvents MessageModerationEvent[]
+  participants MessageThreadParticipant[]
+  createdBy   User?    @relation("MessageThreadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model MessageThreadParticipant {
+  id        String   @id @default(cuid())
+  threadId  String
+  userId    String
+  addedById String?
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedBy   User?    @relation("MessageThreadParticipantAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([threadId, userId])
+  @@index([userId, createdAt])
 }
 
 model Message {
   id          String   @id @default(cuid())
   threadId    String
   senderId    String
+  clientMessageId String?
   body        String
+  editedAt    DateTime?
+  hiddenBySenderAt DateTime?
   readAt      DateTime?
   createdAt   DateTime @default(now())
   thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender      User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  moderationEvents MessageModerationEvent[]
   @@index([threadId, createdAt])
   @@index([senderId, createdAt])
+  @@unique([threadId, senderId, clientMessageId])
+}
+
+model MessageThreadPresence {
+  id          String   @id @default(cuid())
+  threadId    String
+  userId      String
+  isTyping    Boolean  @default(false)
+  lastTypedAt DateTime?
+  lastSeenAt  DateTime?
+  updatedAt   DateTime @updatedAt
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([threadId, updatedAt])
+  @@index([userId, updatedAt])
+}
+
+model MessageModerationEvent {
+  id          String   @id @default(cuid())
+  threadId    String
+  messageId   String
+  actorUserId String
+  action      String
+  reason      String?
+  createdAt   DateTime @default(now())
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  actor       User    @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  @@index([threadId, createdAt])
+  @@index([messageId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    String
+  deviceId    String?
+  endpoint    String
+  p256dh      String?
+  auth        String?
+  enabled     Boolean  @default(true)
+  lastSentAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, endpoint])
+  @@index([userId, enabled, updatedAt])
 }
 
 model Group {
   id          String          @id @default(cuid())
   name        String
+  purpose     String?
+  locationCountry String?
+  locationState String?
+  locationCity String?
   description String?
   visibility  String          @default("PUBLIC")
   joinMode    String          @default("OPEN")
@@ -319,6 +452,7 @@ model Event {
   creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   invitations   EventInvitation[]
   moderators    EventModerator[]
+  adPlacements  AdPlacement[] @relation("EventAds")
   @@index([startsAt, createdAt])
   @@index([creatorId, createdAt])
 }
@@ -349,6 +483,44 @@ model EventModerator {
   @@index([userId, createdAt])
 }
 
+model MembershipInvitation {
+  id          String   @id @default(cuid())
+  inviterId   String
+  inviteeUserId String?
+  inviteeEmail String
+  inviteeName String
+  inviteePhone String?
+  tokenHash   String   @unique
+  status      String   @default("PENDING")
+  reviewStatus String  @default("NOT_REQUIRED")
+  currentOrg  String?
+  lastServiceDate String?
+  lastServiceName String?
+  isActiveScientologist Boolean?
+  isInGoodStanding Boolean?
+  agreedToPrivateMembershipTerms Boolean @default(false)
+  qualificationNotes String?
+  applicationFeeAmountCents Int?
+  applicationFeeCurrency String?
+  applicationFeePaidAt DateTime?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  rejectedAt  DateTime?
+  resubmittedAt DateTime?
+  reviewedAt  DateTime?
+  reviewedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  inviter     User     @relation("MembershipInvitesSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeUser User?    @relation("MembershipInvitesReceived", fields: [inviteeUserId], references: [id], onDelete: SetNull)
+  reviewedBy  User?    @relation("MembershipInviteReviews", fields: [reviewedById], references: [id], onDelete: SetNull)
+  @@index([inviterId, status, createdAt])
+  @@index([inviteeEmail, status, createdAt])
+  @@index([reviewStatus, createdAt])
+  @@index([status, expiresAt])
+}
+
 model BazaarListing {
   id          String   @id @default(cuid())
   sellerId    String
@@ -358,11 +530,15 @@ model BazaarListing {
   currency    String   @default("USD")
   location    String?
   category    String?
+  imageUrlsJson String?
+  expiresAt   DateTime?
   status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  adPlacements AdPlacement[] @relation("BazaarListingAds")
   @@index([status, createdAt])
+  @@index([status, expiresAt])
   @@index([location, createdAt])
   @@index([category, createdAt])
 }
@@ -400,6 +576,7 @@ model GroupForumThread {
   groupId      String
   authorId     String
   title        String
+  allowReplyImages Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -411,11 +588,14 @@ model GroupForumPost {
   id          String   @id @default(cuid())
   threadId     String
   authorId     String
+  parentCommentId String?
   content      String
+  mediaUrlsJson String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   thread       GroupForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  @@index([threadId, parentCommentId, createdAt])
 }
 
 model GroupDocument {
@@ -509,11 +689,14 @@ model AlertSubscription {
 model PhotoAlbum {
   id          String   @id @default(cuid())
   userId      String
+  parentAlbumId String?
   title       String
   visibility  String   @default("PUBLIC")
   shareGroupIds String?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentAlbum PhotoAlbum? @relation("PhotoAlbumParent", fields: [parentAlbumId], references: [id], onDelete: SetNull)
+  children    PhotoAlbum[] @relation("PhotoAlbumParent")
   photos      Photo[]
   albumTags   PhotoAlbumTag[]
 }
@@ -693,6 +876,7 @@ model JobListing {
   title         String
   duties        String
   requirements  String?
+  imageUrl      String?
   salaryMin     Float?
   salaryMax     Float?
   location      String?
@@ -701,8 +885,135 @@ model JobListing {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  adPlacements  AdPlacement[] @relation("JobListingAds")
   @@index([status, createdAt])
   @@index([location, createdAt])
+}
+
+model Fundraiser {
+  id                  String   @id @default(cuid())
+  creatorId           String
+  organizerName       String
+  fundraiserType      String
+  charityName         String?
+  organizationName    String?
+  campaignName        String?
+  otherDescription    String?
+  title               String
+  description         String
+  goalAmount          Float
+  locationCountry     String?
+  locationState       String?
+  locationCity        String?
+  currentOrg          String?
+  currentService      String?
+  additionalNotes     String?
+  bannerUrl           String?
+  allowDirectMessages Boolean  @default(true)
+  status              String   @default("ACTIVE")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  creator             User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  comments            FundraiserComment[]
+  adPlacements        AdPlacement[] @relation("FundraiserAds")
+
+  @@index([status, createdAt])
+  @@index([fundraiserType, createdAt])
+  @@index([locationCountry, locationState, locationCity, createdAt])
+}
+
+model FundraiserComment {
+  id            String   @id @default(cuid())
+  fundraiserId  String
+  authorId      String
+  parentCommentId String?
+  content       String
+  mediaUrlsJson String?
+  createdAt     DateTime @default(now())
+  fundraiser    Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([fundraiserId, createdAt])
+  @@index([fundraiserId, parentCommentId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model BusinessProfile {
+  id              String   @id @default(cuid())
+  ownerId         String   @unique
+  businessName    String
+  tagline         String?
+  description     String?
+  websiteUrl      String?
+  contactEmail    String?
+  contactPhone    String?
+  category        String?
+  location        String?
+  country         String?
+  state           String?
+  city            String?
+  isPublic        Boolean  @default(true)
+  storefrontSlug  String?  @unique
+  storefrontEnabled Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  storefrontInquiries BusinessStorefrontInquiry[]
+
+  @@index([category, createdAt])
+  @@index([location, createdAt])
+  @@index([country, state, city, createdAt])
+  @@index([isPublic, createdAt])
+}
+
+model BusinessStorefrontInquiry {
+  id                String   @id @default(cuid())
+  businessProfileId  String
+  visitorName        String
+  visitorEmail       String
+  visitorMessage     String
+  readAt             DateTime?
+  createdAt          DateTime @default(now())
+  businessProfile    BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([businessProfileId, createdAt])
+  @@index([businessProfileId, readAt])
+}
+
+model WriterStudioProject {
+  id              String   @id @default(cuid())
+  ownerId         String
+  title           String
+  summary         String?
+  genre           String?
+  format          String?
+  accessTier      String   @default("FREE")
+  isPublic        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  articles        WriterStudioArticle[]
+
+  @@index([ownerId, createdAt])
+  @@index([accessTier, createdAt])
+  @@index([genre, createdAt])
+  @@index([format, createdAt])
+  @@index([isPublic, createdAt])
+}
+
+model WriterStudioArticle {
+  id              String   @id @default(cuid())
+  projectId       String
+  title           String
+  body            String
+  orderIndex      Int      @default(0)
+  isPublished     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         WriterStudioProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, orderIndex])
+  @@index([isPublished, createdAt])
 }
 
 model AuditorListing {
@@ -746,6 +1057,80 @@ model AuditorMedia {
   @@index([auditorListingId, createdAt])
 }
 
+model AdPlacement {
+  id              String   @id @default(cuid())
+  creatorId       String
+  targetType      String
+  bazaarListingId String?
+  eventId         String?
+  jobListingId    String?
+  fundraiserId    String?
+  headline        String
+  body            String?
+  creditCost      Int      @default(0)
+  boostFactor     Float    @default(1)
+  status          String   @default("ACTIVE")
+  startsAt        DateTime @default(now())
+  endsAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  bazaarListing   BazaarListing? @relation("BazaarListingAds", fields: [bazaarListingId], references: [id], onDelete: Cascade)
+  event           Event?   @relation("EventAds", fields: [eventId], references: [id], onDelete: Cascade)
+  jobListing      JobListing? @relation("JobListingAds", fields: [jobListingId], references: [id], onDelete: Cascade)
+  fundraiser      Fundraiser? @relation("FundraiserAds", fields: [fundraiserId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, createdAt])
+  @@index([targetType, createdAt])
+  @@index([status, createdAt])
+  @@index([bazaarListingId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([jobListingId, createdAt])
+  @@index([fundraiserId, createdAt])
+}
+
+model AdCreditLedger {
+  id          String   @id @default(cuid())
+  ledgerKey   String   @unique
+  userId      String
+  entryType   String
+  periodKey   String?
+  credits     Int
+  balanceAfter Int?
+  sourceType  String?
+  sourceId    String?
+  note        String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, periodKey, entryType])
+  @@index([sourceType, sourceId, createdAt])
+}
+
+model SiteModeratorAssignment {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  invitedById String?
+  grantedById String?
+  revokedById String?
+  status      String   @default("PENDING")
+  reason      String?
+  invitedAt   DateTime @default(now())
+  grantedAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("SiteModeratorAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy   User?    @relation("SiteModeratorInvitesSent", fields: [invitedById], references: [id], onDelete: SetNull)
+  grantedBy   User?    @relation("SiteModeratorGrants", fields: [grantedById], references: [id], onDelete: SetNull)
+  revokedBy   User?    @relation("SiteModeratorRevocations", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([status, invitedAt])
+  @@index([grantedById, grantedAt])
+  @@index([revokedById, revokedAt])
+}
+
 model ModeratorActionLog {
   id           String   @id @default(cuid())
   actorUserId  String
@@ -771,3 +1156,33 @@ model AdminPetition {
   @@index([status, createdAt])
   @@index([requesterId, createdAt])
 }
+
+model ContentReport {
+  id                 String   @id @default(cuid())
+  reporterId         String
+  targetType         String
+  targetId           String
+  reason             String
+  details            String?
+  status             String   @default("OPEN")
+  assignedModeratorId String?
+  assignedAt         DateTime?
+  resolution         String?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  reporter           User     @relation("ContentReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  assignedModerator  User?    @relation("ContentReportsAssigned", fields: [assignedModeratorId], references: [id], onDelete: SetNull)
+  reviewedBy         User?    @relation("ContentReportsReviewed", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([reporterId, targetType, targetId, createdAt])
+  @@index([assignedModeratorId, status, createdAt])
+}
+
+
+
+
+

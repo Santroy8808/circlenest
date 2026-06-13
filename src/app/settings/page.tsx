@@ -3,11 +3,35 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { SecureAreaSessionClient } from "@/components/security/secure-area-session-client";
-import { MobileNavigationSettings } from "@/components/settings/mobile-navigation-settings";
-import { NotificationDingsSettings } from "@/components/settings/notification-dings-settings";
-import { StreamRulesSettings } from "@/components/settings/stream-rules-settings";
-import { PetitionForm } from "@/components/settings/petition-form";
 import { requireSecureAreaPage } from "@/lib/security/secure-area-guards";
+
+const sections = [
+  {
+    title: "Profile",
+    description: "Profile, resume, gallery, Scientology details, theme, and subscription.",
+    href: "/settings/profile",
+  },
+  {
+    title: "Security",
+    description: "Rules, dings, blocked users, and invite controls.",
+    href: "/settings/security",
+  },
+  {
+    title: "Navigation",
+    description: "Choose how the mobile control panel opens.",
+    href: "/settings/navigation",
+  },
+  {
+    title: "Account",
+    description: "Administrator mode, petitions, exports, and account lifecycle actions.",
+    href: "/settings/account",
+  },
+  {
+    title: "Membership Comparison",
+    description: "Compare Free, Activist, Biz, and Auditor access.",
+    href: "/membership",
+  },
+] as const;
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -17,21 +41,24 @@ export default async function SettingsPage() {
   return (
     <AppShell>
       <SecureAreaSessionClient />
-      <div className="card p-3">
-        <h1 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Settings</h1>
-        <div className="grid gap-1 text-sm">
-          <Link href="/settings/theme" className="underline underline-offset-2 hover:scale-[1.02]">Theme Settings</Link>
-          <Link href="/profile/edit" className="underline underline-offset-2 hover:scale-[1.02]">Profile Settings</Link>
-          <Link href="/settings#security" className="underline underline-offset-2 hover:scale-[1.02]">Security</Link>
-          <Link href="/settings#rules" className="underline underline-offset-2 hover:scale-[1.02]">My Rules</Link>
-          <Link href="/blocked-users" className="underline underline-offset-2 hover:scale-[1.02]">Blocked Users</Link>
-          <Link href="/settings#subscription" className="underline underline-offset-2 hover:scale-[1.02]">My Subscription</Link>
+      <section className="card space-y-4 p-4">
+        <div>
+          <h1 className="text-xl font-semibold">Settings</h1>
+          <p className="text-sm text-slate-400">Open one control area at a time. Each subject now lives on its own page.</p>
         </div>
-        <MobileNavigationSettings />
-        <NotificationDingsSettings />
-        <StreamRulesSettings />
-        <PetitionForm />
-      </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {sections.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+            >
+              <h2 className="text-base font-semibold text-[var(--text-strong)]">{section.title}</h2>
+              <p className="mt-1 text-sm text-slate-400">{section.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
     </AppShell>
   );
 }
