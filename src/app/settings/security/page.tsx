@@ -21,7 +21,7 @@ export default async function SettingsSecurityPage() {
 
   const links = [
     { title: "My Rules", href: "/settings/security/rules", description: "Adjust stream posting rules and feed-change access." },
-    { title: "Notification Dings", href: "/settings/security/notification-dings", description: "Control phone dings for notifications and alerts." },
+    { title: "Phone notifications", href: "/settings/security/notification-dings", description: "Control phone dings for notifications and alerts." },
     { title: "Blocked Users", href: "/blocked-users", description: "Manage people you have blocked." },
     ...(showInviteLink
       ? [{ title: "Invite", href: "/settings/invitations", description: "Open the invite and qualification flow for your account." }]

@@ -163,6 +163,11 @@ function CreateGroupCard({ maxCreatedGroupMembers }: { maxCreatedGroupMembers: n
     <section className="card p-4">
       <h1 className="mb-2 text-xl font-semibold">Groups</h1>
       <p className="mb-3 text-sm text-slate-600">Create a group with a clear purpose and location.</p>
+      {!maxCreatedGroupMembers ? (
+        <p className="mb-3 rounded border border-[var(--border)] bg-[#0e1524] px-3 py-2 text-xs text-slate-300">
+          Your tier can create groups without the Free member cap and can assign moderators.
+        </p>
+      ) : null}
       <form
         action={async (formData) => {
           "use server";

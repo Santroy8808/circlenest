@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { BusinessProfileManager } from "@/components/business/business-profile-manager";
-import { canCreateBusinessProfile, resolveProductionZoneAccess } from "@/lib/policy/production-zone";
+import { canCreateBusinessProfile, resolveBusinessProfileAccess } from "@/lib/policy/production-zone";
 import { serializeBusinessProfiles, serializeBusinessProfile } from "@/lib/business/business-profile";
 
 export default async function BusinessProfilePage() {
@@ -18,7 +18,7 @@ export default async function BusinessProfilePage() {
   });
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
-  const access = resolveProductionZoneAccess(user?.subscriptionTier, isInvitedCreator);
+  const access = resolveBusinessProfileAccess(user?.subscriptionTier, isInvitedCreator);
   const canCreate = isAdmin || canCreateBusinessProfile(user?.subscriptionTier, isInvitedCreator);
 
   const [ownProfile, publicProfiles] = await Promise.all([
@@ -44,7 +44,7 @@ export default async function BusinessProfilePage() {
             <Link href="/production-zone/business/storefront" className="underline">
               Storefront
             </Link>{" "}
-            page. Creation is invite-only and subscription-gated.
+            page. Biz members can create a profile and then publish a storefront.
           </p>
         </div>
         {!canCreate ? (

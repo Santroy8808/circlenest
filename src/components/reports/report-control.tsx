@@ -69,12 +69,18 @@ export function ReportControl({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[#0f1728] text-slate-300 transition hover:bg-white/5 ${triggerClassName}`}
+        className={`inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[#0f1728] text-slate-300 transition hover:bg-white/5 ${compact ? "h-8 w-8" : "h-8 px-3 text-xs font-semibold"} ${triggerClassName}`}
       >
-        <span aria-hidden="true" className="text-lg leading-none">
-          ...
-        </span>
-        <span className="sr-only">{label}</span>
+        {compact ? (
+          <>
+            <span aria-hidden="true" className="text-lg leading-none">
+              ...
+            </span>
+            <span className="sr-only">{label}</span>
+          </>
+        ) : (
+          <span>{label}</span>
+        )}
       </button>
 
       {open ? (

@@ -148,7 +148,7 @@ export function GroupDetailClient({
               {isMember && !isOwner && currentRole !== "ADMIN" ? <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => run(async () => { await fetch(`/api/groups/${group.id}/leave`, { method: "POST" }); }, "Left group")}>Leave</button> : null}
             </div>
             <div className="max-w-sm">
-              <ReportControl targetType="GROUP" targetId={group.id} label="Report group" compact />
+              <ReportControl targetType="GROUP" targetId={group.id} label="Report group" />
             </div>
           </div>
         </div>

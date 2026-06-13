@@ -58,7 +58,7 @@ export default async function MarketPage({ searchParams }: { searchParams?: { cr
   const rollingLimit = getMarketListingRollingLimit(policy);
   const marketQuotaWidget =
     policy.tier === "PLUS"
-      ? `Activist quota: ${createdThisWeek}/${weeklyLimit ?? 0} this week (${Math.max((weeklyLimit ?? 0) - createdThisWeek, 0)} left) • ${createdInTwoWeeks}/${rollingLimit ?? 0} in the current 2-week window (${Math.max((rollingLimit ?? 0) - createdInTwoWeeks, 0)} left).`
+      ? `Activist quota: ${createdThisWeek}/${weeklyLimit ?? 0} this week (${Math.max((weeklyLimit ?? 0) - createdThisWeek, 0)} left). ${createdInTwoWeeks}/${rollingLimit ?? 0} in the current 2-week window (${Math.max((rollingLimit ?? 0) - createdInTwoWeeks, 0)} left).`
       : policy.tier === "PRO" || policy.tier === "AUDITOR" || policy.tier === "ADMIN"
         ? "Biz listings are unlimited, and Biz also unlocks job posting."
         : "Browse The Market freely. Upgrade to Activist to create listings, or Biz to remove Market limits and post jobs.";

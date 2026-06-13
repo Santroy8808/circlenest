@@ -17,7 +17,7 @@ async function updateStorefrontSettings(request: Request) {
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
   if (!isAdmin && !canCreateBusinessProfile(user?.subscriptionTier, isInvitedCreator)) {
-    return NextResponse.json({ error: "Storefront access is locked." }, { status: 403 });
+    return NextResponse.json({ error: "Biz is required to publish a storefront." }, { status: 403 });
   }
 
   const profile = await prisma.businessProfile.findUnique({
