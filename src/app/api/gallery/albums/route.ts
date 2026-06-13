@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 
 type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "GROUPS" | "PRIVATE";
 
@@ -62,8 +61,6 @@ async function resolveTagIds(userId: string, tagNames: string[]): Promise<string
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const locked = secureAreaLockedResponse(session.user.id);
-  if (locked) return locked;
 
   const albums = await prisma.photoAlbum.findMany({
     where: { userId: session.user.id },
@@ -83,14 +80,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const locked = secureAreaLockedResponse(session.user.id);
-  if (locked) return locked;
 
   const body = (await request.json()) as {
     title?: string;
     visibility?: AlbumVisibility;
     shareGroupIds?: string[];
     tagNames?: string[];
+    parentAlbumId?: string | null;
   };
 
   const title = String(body.title ?? "").trim();
@@ -102,9 +98,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Pick at least one group for Groups visibility." }, { status: 400 });
   }
 
+  let parentAlbumId: string | null = null;
+  const rawParentAlbumId = String(body.parentAlbumId ?? "").trim();
+  if (rawParentAlbumId) {
+    const parentAlbum = await prisma.photoAlbum.findFirst({
+      where: { id: rawParentAlbumId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!parentAlbum) return NextResponse.json({ error: "Parent album not found" }, { status: 404 });
+    parentAlbumId = parentAlbum.id;
+  }
+
   const album = await prisma.photoAlbum.create({
     data: {
       userId: session.user.id,
+      parentAlbumId,
       title,
       visibility,
       shareGroupIds: shareGroupIds.length ? JSON.stringify(shareGroupIds) : null,
@@ -128,8 +136,6 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const locked = secureAreaLockedResponse(session.user.id);
-  if (locked) return locked;
 
   const body = (await request.json()) as {
     albumId?: string;
@@ -137,6 +143,7 @@ export async function PATCH(request: Request) {
     visibility?: AlbumVisibility;
     shareGroupIds?: string[];
     tagNames?: string[];
+    parentAlbumId?: string | null;
   };
 
   const albumId = String(body.albumId ?? "").trim();
@@ -154,11 +161,27 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Pick at least one group for Groups visibility." }, { status: 400 });
   }
 
+  let parentAlbumId: string | null | undefined = undefined;
+  if (body.parentAlbumId !== undefined) {
+    const rawParentAlbumId = String(body.parentAlbumId ?? "").trim();
+    if (!rawParentAlbumId) {
+      parentAlbumId = null;
+    } else {
+      const parentAlbum = await prisma.photoAlbum.findFirst({
+        where: { id: rawParentAlbumId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!parentAlbum) return NextResponse.json({ error: "Parent album not found" }, { status: 404 });
+      parentAlbumId = parentAlbum.id;
+    }
+  }
+
   await prisma.photoAlbum.update({
     where: { id: album.id },
     data: {
       title: body.title !== undefined ? String(body.title).trim() || undefined : undefined,
       visibility,
+      parentAlbumId,
       shareGroupIds:
         shareGroupIds !== undefined
           ? shareGroupIds.length

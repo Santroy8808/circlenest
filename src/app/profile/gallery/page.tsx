@@ -11,7 +11,7 @@ export default async function GalleryPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [albums, profile, tags, usage, user] = await Promise.all([
+  const [albums, tags, usage, user] = await Promise.all([
     prisma.photoAlbum.findMany({
       where: {
         userId: session.user.id,
@@ -39,10 +39,6 @@ export default async function GalleryPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.profile.findUnique({
-      where: { userId: session.user.id },
-      select: { avatarUrl: true, bannerUrl: true },
-    }),
     prisma.userMediaTag.findMany({
       where: { userId: session.user.id },
       orderBy: { name: "asc" },
@@ -63,8 +59,6 @@ export default async function GalleryPage() {
     <AppShell>
       <GalleryManagerClient
         initialAlbums={albums}
-        initialAvatarUrl={profile?.avatarUrl ?? null}
-        initialBannerUrl={profile?.bannerUrl ?? null}
         initialUserTags={tags.map((tag) => tag.name)}
         initialUsageBytes={usage._sum.sizeBytes ?? 0}
         initialLimitBytes={storageLimitBytes}

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 import { CommentThread } from "@/components/comments/comment-thread";
@@ -118,15 +119,11 @@ function parsePhotoTagNames(photo: GalleryPhoto | null | undefined): string[] {
 
 export function GalleryManagerClient({
   initialAlbums,
-  initialAvatarUrl,
-  initialBannerUrl,
   initialUserTags,
   initialUsageBytes,
   initialLimitBytes,
 }: {
   initialAlbums: GalleryAlbum[];
-  initialAvatarUrl: string | null;
-  initialBannerUrl: string | null;
   initialUserTags: string[];
   initialUsageBytes: number;
   initialLimitBytes: number;
@@ -138,27 +135,17 @@ export function GalleryManagerClient({
   const primaryButtonClass = "rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white transition hover:translate-y-[-1px] hover:shadow-[0_10px_24px_rgba(55,110,248,0.28)]";
   const [albums, setAlbums] = useState(initialAlbums);
   const [activeAlbumId, setActiveAlbumId] = useState(initialAlbums[0]?.id ?? "");
-  const [viewMode, setViewMode] = useState<"albums" | "album">("albums");
-  const [newAlbumTitle, setNewAlbumTitle] = useState("");
-  const [newAlbumParentId, setNewAlbumParentId] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [notifyFriendsAndFamily, setNotifyFriendsAndFamily] = useState(true);
   const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
-  const [albumVisibility, setAlbumVisibility] = useState<AlbumVisibility>("PUBLIC");
-  const [albumTagNames, setAlbumTagNames] = useState<string[]>([]);
-  const [newTagName, setNewTagName] = useState("");
   const [tagFilter, setTagFilter] = useState<string>("ALL");
   const [userTags, setUserTags] = useState<string[]>(initialUserTags);
   const [usageBytes, setUsageBytes] = useState<number>(initialUsageBytes);
   const [storageLimitBytes, setStorageLimitBytes] = useState<number>(initialLimitBytes);
   const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
-  const [showTools, setShowTools] = useState(false);
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
-
-  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
-  const [bannerUrl, setBannerUrl] = useState(initialBannerUrl);
-  const [dragUrl, setDragUrl] = useState<string | null>(null);
 
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Record<string, boolean>>({});
   const [starredPhotoIds, setStarredPhotoIds] = useState<Record<string, boolean>>({});
@@ -245,13 +232,6 @@ export function GalleryManagerClient({
   );
 
   useEffect(() => {
-    if (!activeAlbum) return;
-    setAlbumVisibility(normalizeAlbumVisibility(activeAlbum.visibility));
-    const tags = parseAlbumTagNames(activeAlbum);
-    setAlbumTagNames(tags);
-  }, [activeAlbum]);
-
-  useEffect(() => {
     if (!openPhoto) return;
     setModalCaption(openPhoto.caption ?? "");
     setModalTags(parsePhotoTagNames(openPhoto).join(", "));
@@ -308,7 +288,7 @@ export function GalleryManagerClient({
     if (!list.length) return;
 
     setBusy(true);
-    setShowTools(true);
+    setShowUploadPanel(true);
     setUploadProgress({
       phase: "preparing",
       total: list.length,
@@ -322,7 +302,7 @@ export function GalleryManagerClient({
       const createdAlbumRes = await fetch("/api/gallery/albums", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "my_pics", visibility: albumVisibility, tagNames: albumTagNames, parentAlbumId: newAlbumParentId || null }),
+        body: JSON.stringify({ title: "My Pics" }),
       });
       if (!createdAlbumRes.ok) {
         setBusy(false);
@@ -412,123 +392,8 @@ export function GalleryManagerClient({
 
     setBusy(false);
     setUploadProgress(null);
+    setShowUploadPanel(false);
     setStatus(`Uploaded ${createdPhotos.length} of ${list.length} photo${list.length === 1 ? "" : "s"}.`);
-    void refreshUsage();
-  }
-
-  async function createAlbum() {
-    const title = newAlbumTitle.trim();
-    if (!title) return;
-    const res = await fetch("/api/gallery/albums", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          visibility: albumVisibility,
-          tagNames: albumTagNames,
-          parentAlbumId: newAlbumParentId || null,
-        }),
-    });
-    if (!res.ok) {
-      setStatus("Could not create album.");
-      return;
-    }
-    const created = (await res.json()) as GalleryAlbum;
-    const nextAlbum = { ...created, photos: [] };
-    setAlbums((previous) => [nextAlbum, ...previous]);
-    setActiveAlbumId(nextAlbum.id);
-    setViewMode("album");
-    setUserTags((previous) => Array.from(new Set([...previous, ...albumTagNames])).sort((a, b) => a.localeCompare(b)));
-    setNewAlbumTitle("");
-    setStatus(`Album "${nextAlbum.title}" created.`);
-  }
-
-  function addAlbumTagByName(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setAlbumTagNames((previous) => (previous.includes(trimmed) ? previous : [...previous, trimmed]));
-    setUserTags((previous) => Array.from(new Set([...previous, trimmed])).sort((a, b) => a.localeCompare(b)));
-  }
-
-  function removeAlbumTag(name: string) {
-    setAlbumTagNames((previous) => previous.filter((entry) => entry !== name));
-  }
-
-  async function saveAlbumProperties() {
-    if (!activeAlbum) return;
-    const res = await fetch("/api/gallery/albums", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        albumId: activeAlbum.id,
-        visibility: albumVisibility,
-        tagNames: albumTagNames,
-        parentAlbumId: newAlbumParentId || null,
-      }),
-    });
-    if (!res.ok) {
-      let message = "Could not save album settings.";
-      try {
-        const body = (await res.json()) as { error?: string };
-        if (body.error) message = body.error;
-      } catch {
-        // no-op
-      }
-      setStatus(message);
-      return;
-    }
-
-    const updated = (await res.json()) as GalleryAlbum;
-    setAlbums((previous) => previous.map((album) => (album.id === updated.id ? { ...album, ...updated } : album)));
-    setUserTags((previous) => Array.from(new Set([...previous, ...albumTagNames])).sort((a, b) => a.localeCompare(b)));
-    setStatus("Album settings updated.");
-  }
-
-  async function assignProfileImage(type: "avatar" | "banner", url: string) {
-    const payload = type === "avatar" ? { avatarUrl: url } : { bannerUrl: url };
-    const res = await fetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      setStatus(`Could not update ${type}.`);
-      return;
-    }
-
-    if (type === "avatar") setAvatarUrl(url);
-    else setBannerUrl(url);
-    setStatus(`${type === "avatar" ? "Avatar" : "Banner"} updated.`);
-  }
-
-  async function assignFromDrop(type: "avatar" | "banner", e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    const directUrl = e.dataTransfer.getData(DRAG_URL_MIME) || e.dataTransfer.getData("text/plain") || dragUrl;
-    if (directUrl) {
-      await assignProfileImage(type, directUrl);
-      return;
-    }
-
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    const uploaded = await uploadOne(file, { purpose: type === "avatar" ? "profile-avatar" : "profile-banner" });
-    if (!uploaded) {
-      setStatus(`Could not upload dropped file for ${type}.`);
-      return;
-    }
-    await assignProfileImage(type, uploaded);
-    void refreshUsage();
-  }
-
-  async function assignFromPicker(type: "avatar" | "banner", file: File | null) {
-    if (!file) return;
-    const uploaded = await uploadOne(file, { purpose: type === "avatar" ? "profile-avatar" : "profile-banner" });
-    if (!uploaded) {
-      setStatus(`Could not upload selected file for ${type}.`);
-      return;
-    }
-    await assignProfileImage(type, uploaded);
     void refreshUsage();
   }
 
@@ -648,54 +513,6 @@ export function GalleryManagerClient({
 
   return (
     <section className="space-y-3">
-      <div className="grid gap-2 md:grid-cols-[1fr_2fr]">
-        <div
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            void assignFromDrop("avatar", event);
-          }}
-          className="group relative overflow-hidden rounded-md bg-[#111a2a]"
-        >
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt="Avatar" width={420} height={420} unoptimized className="aspect-square h-full w-full object-cover" />
-          ) : (
-            <div className="flex aspect-square items-center justify-center text-xs text-slate-400">Drop image for avatar</div>
-          )}
-          <label className="absolute inset-x-0 bottom-0 cursor-pointer bg-black/55 px-2 py-1.5 text-center text-xs text-slate-100 opacity-0 transition group-hover:opacity-100">
-            Change Avatar
-            <input
-              type="file"
-              className="hidden"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => void assignFromPicker("avatar", event.currentTarget.files?.[0] ?? null)}
-            />
-          </label>
-        </div>
-
-        <div
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            void assignFromDrop("banner", event);
-          }}
-          className="group relative overflow-hidden rounded-md bg-[#111a2a]"
-        >
-          {bannerUrl ? (
-            <Image src={bannerUrl} alt="Banner" width={1400} height={560} unoptimized className="h-full min-h-[220px] w-full object-cover" />
-          ) : (
-            <div className="flex min-h-[220px] items-center justify-center text-xs text-slate-400">Drop image for banner</div>
-          )}
-          <label className="absolute inset-x-0 bottom-0 cursor-pointer bg-black/55 px-2 py-1.5 text-center text-xs text-slate-100 opacity-0 transition group-hover:opacity-100">
-            Change Banner
-            <input
-              type="file"
-              className="hidden"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => void assignFromPicker("banner", event.currentTarget.files?.[0] ?? null)}
-            />
-          </label>
-        </div>
-      </div>
-
       <article className={shellCardClass}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -706,9 +523,12 @@ export function GalleryManagerClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={primaryButtonClass} onClick={() => setShowTools(true)}>
+            <button type="button" className={primaryButtonClass} onClick={() => setShowUploadPanel(true)}>
               Upload
             </button>
+            <Link href="/profile/gallery/albums" className={ghostButtonClass}>
+              Albums
+            </Link>
             <label className="flex items-center gap-1 text-[12px] text-slate-300">
               Sort
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "newest" | "oldest")} className={inputClass}>
@@ -742,9 +562,6 @@ export function GalleryManagerClient({
                 Clear tag
               </button>
             ) : null}
-            <button type="button" className={ghostButtonClass} onClick={() => setShowTools((value) => !value)}>
-              {showTools ? "Hide tools" : "Manage"}
-            </button>
           </div>
         </div>
         {uploadProgress ? (
@@ -783,9 +600,10 @@ export function GalleryManagerClient({
         ) : null}
       </article>
 
-      {showTools ? (
+      {showUploadPanel ? (
         <article className={shellCardClass}>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="gallery-upload-input" className={`${primaryButtonClass} cursor-pointer`}>
               Choose photos
             </label>
@@ -798,35 +616,19 @@ export function GalleryManagerClient({
               onChange={(event) => {
                 if (!event.currentTarget.files) return;
                 void uploadFiles(event.currentTarget.files);
+                event.currentTarget.value = "";
               }}
             />
             <button type="button" className={ghostButtonClass} onClick={() => void shareAlbum()}>
               Share album
             </button>
+            </div>
+            <button type="button" className={ghostButtonClass} onClick={() => setShowUploadPanel(false)}>
+              Close
+            </button>
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Create album</p>
-              <div className="grid gap-2">
-                <input
-                  value={newAlbumTitle}
-                  onChange={(event) => setNewAlbumTitle(event.target.value)}
-                  placeholder="New album"
-                  className={inputClass}
-                />
-                <select value={newAlbumParentId} onChange={(event) => setNewAlbumParentId(event.target.value)} className={inputClass}>
-                  <option value="">No parent album</option>
-                  {albums.map((album) => (
-                    <option key={album.id} value={album.id}>{album.title}</option>
-                  ))}
-                </select>
-                <button type="button" className={ghostButtonClass} onClick={() => void createAlbum()}>
-                  Create
-                </button>
-              </div>
-            </div>
-
+          <div className="mt-3 grid gap-3">
             <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Upload settings</p>
               <div className="grid gap-3">
@@ -862,69 +664,6 @@ export function GalleryManagerClient({
               </div>
             </div>
           </div>
-
-          {activeAlbum ? (
-            <div className="mt-3 rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Album tags</p>
-                <button type="button" className={ghostButtonClass} onClick={() => void saveAlbumProperties()}>
-                  Save album tags
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {albumTagNames.length ? (
-                  albumTagNames.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      className="rounded-full border border-[#304058] bg-[#0f1624] px-3 py-1 text-xs text-slate-200"
-                      onClick={() => removeAlbumTag(tag)}
-                    >
-                      {tag} x
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-400">No album tags yet.</p>
-                )}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <input
-                  value={newTagName}
-                  onChange={(event) => setNewTagName(event.target.value)}
-                  placeholder="Add album tag"
-                  className={`${inputClass} min-w-[180px]`}
-                />
-                <button
-                  type="button"
-                  className={ghostButtonClass}
-                  onClick={() => {
-                    addAlbumTagByName(newTagName);
-                    setNewTagName("");
-                  }}
-                >
-                  Add tag
-                </button>
-                {userTags.length ? (
-                  <select
-                    defaultValue=""
-                    className={inputClass}
-                    onChange={(event) => {
-                      if (!event.target.value) return;
-                      addAlbumTagByName(event.target.value);
-                      event.target.value = "";
-                    }}
-                  >
-                    <option value="">Use existing tag</option>
-                    {userTags.map((tag) => (
-                      <option key={tag} value={tag}>
-                        {tag}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
         </article>
       ) : null}
 
@@ -979,7 +718,6 @@ export function GalleryManagerClient({
                             }}
                             draggable
                             onDragStart={(event) => {
-                              setDragUrl(photo.url);
                               event.dataTransfer.effectAllowed = "copy";
                               event.dataTransfer.setData(DRAG_URL_MIME, photo.url);
                               event.dataTransfer.setData("text/plain", photo.url);

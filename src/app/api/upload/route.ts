@@ -85,8 +85,7 @@ export async function POST(request: Request) {
   const needsSecureArea =
     uploadContext.ownerType === "user" &&
     (uploadContext.purpose === "profile-avatar" ||
-      uploadContext.purpose === "profile-banner" ||
-      uploadContext.purpose === "gallery-photo");
+      uploadContext.purpose === "profile-banner");
   if (needsSecureArea) {
     const locked = secureAreaLockedResponse(session.user.id);
     if (locked) return locked;

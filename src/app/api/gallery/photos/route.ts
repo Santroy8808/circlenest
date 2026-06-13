@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 import { createStreamPost } from "@/modules/stream/stream.write.service";
 
 type UploadPhotoBody = {
@@ -49,8 +48,6 @@ async function resolveTagIds(userId: string, tagNames: string[]): Promise<string
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const locked = secureAreaLockedResponse(session.user.id);
-  if (locked) return locked;
   const body = (await request.json()) as UploadPhotoBody;
   const urls = Array.isArray(body.urls) ? body.urls.filter((u): u is string => typeof u === "string" && u.length > 0) : [];
   if (!urls.length) return NextResponse.json({ error: "No photos provided" }, { status: 400 });
