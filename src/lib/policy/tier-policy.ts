@@ -92,7 +92,7 @@ const TIER_POLICY_MATRIX: Record<MembershipTier, TierPolicy> = {
     isAdmin: false,
     canCreateEvent: true,
     canCreateBazaarListing: true,
-    canCreateHiringPost: true,
+    canCreateHiringPost: false,
     canCreateFundRaiser: true,
     canChangeFeedType: true,
     canCreateGroup: true,

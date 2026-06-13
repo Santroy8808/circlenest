@@ -41,7 +41,7 @@ export async function POST(request: Request, context: { params: { listingId: str
     select: { role: true, subscriptionTier: true },
   });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
-  if (!canCreateTargetAd(policy, "BAZAAR_LISTING")) {
+  if (!canCreateTargetAd(policy, "MARKET_LISTING")) {
     return NextResponse.json({ error: "Ads are not available on this tier." }, { status: 403 });
   }
 
@@ -72,7 +72,7 @@ export async function POST(request: Request, context: { params: { listingId: str
     const created = await tx.adPlacement.create({
       data: {
         creatorId: session.user.id,
-        targetType: "BAZAAR_LISTING",
+        targetType: "MARKET_LISTING",
         bazaarListingId: listing.id,
         headline,
         body: String(body.body ?? "").trim() || null,

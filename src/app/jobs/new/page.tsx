@@ -26,7 +26,7 @@ export default async function JobsCreatePage() {
           <TierGate
             variant="locked"
             title="Job posting locked"
-            message="Upgrade to be able to post a job listing."
+            message="Only Biz can post a job listing. Free and Activist users can still browse the job board."
             ctaLabel="Upgrade to post"
             ctaHref="/settings/subscription"
             secondaryLabel="Back to Find a job"

@@ -9,7 +9,7 @@ function getAdContext(ad: {
   jobListing: { id: string; title: string } | null;
 }) {
   if (ad.bazaarListing) {
-    return { label: "Market", href: "/bazaar" };
+    return { label: "The Market", href: "/market" };
   }
   if (ad.event) {
     return { label: "Event", href: "/events" };

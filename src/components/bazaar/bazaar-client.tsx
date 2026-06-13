@@ -58,14 +58,14 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
     if (location.trim()) params.set("location", location.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
-    const response = await fetch(`/api/bazaar?${params.toString()}`, { cache: "no-store" });
+    const response = await fetch(`/api/market?${params.toString()}`, { cache: "no-store" });
     const data = (await response.json().catch(() => [])) as Listing[];
     setListings(Array.isArray(data) ? data : []);
     setStatus("");
   }
 
   async function saveEdit(listingId: string) {
-    await fetch(`/api/bazaar/${listingId}`, {
+    await fetch(`/api/market/${listingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: editTitle, price: Number(editPrice) }),
@@ -74,7 +74,7 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
   }
 
   async function renewListing(listingId: string) {
-    await fetch(`/api/bazaar/${listingId}`, {
+    await fetch(`/api/market/${listingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "RENEW" }),
@@ -102,7 +102,7 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
               {listing.category || "Uncategorized"}
             </span>
             <ReportControl
-              targetType="BAZAAR_LISTING"
+              targetType="MARKET_LISTING"
               targetId={listing.id}
               label="Report listing"
               compact
@@ -169,7 +169,7 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
                   <button
                     className="rounded border border-red-400 px-2 py-1 text-xs text-red-300"
                     onClick={async () => {
-                      await fetch(`/api/bazaar/${listing.id}`, { method: "DELETE" });
+                      await fetch(`/api/market/${listing.id}`, { method: "DELETE" });
                       router.refresh();
                     }}
                   >

@@ -19,6 +19,7 @@ function normalizePurpose(raw: FormDataEntryValue | null): UploadPurpose {
     value === "group-post-media" ||
     value === "group-document" ||
     value === "job-listing-photo" ||
+    value === "market-listing-photo" ||
     value === "bazaar-listing-photo" ||
     value === "fundraiser-banner" ||
     value === "fundraiser-comment-media"
@@ -85,8 +86,7 @@ export async function POST(request: Request) {
   const needsSecureArea =
     uploadContext.ownerType === "user" &&
     (uploadContext.purpose === "profile-avatar" ||
-      uploadContext.purpose === "profile-banner" ||
-      uploadContext.purpose === "gallery-photo");
+      uploadContext.purpose === "profile-banner");
   if (needsSecureArea) {
     const locked = secureAreaLockedResponse(session.user.id);
     if (locked) return locked;

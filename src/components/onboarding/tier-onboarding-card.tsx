@@ -43,6 +43,36 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
 
   const name = displayName?.trim() || "there";
   const tierName = formatTierName(policy);
+  const quickActions =
+    policy.tier === "FREE"
+      ? [
+          { href: "/home", label: "Create a post" },
+          { href: "/groups", label: "Join groups" },
+          { href: "/friends", label: "Find people" },
+        ]
+      : policy.tier === "PLUS"
+        ? [
+            { href: "/production-zone/events", label: "Create an event" },
+            { href: "/production-zone/market", label: "Create a listing" },
+            { href: "/production-zone/fundraisers", label: "Start a fund raiser" },
+          ]
+        : policy.tier === "PRO"
+          ? [
+              { href: "/production-zone/business-profile", label: "Open business profile" },
+              { href: "/profile/gallery", label: "Open My Pics" },
+              { href: "/production-zone/business/storefront", label: "Open storefront" },
+            ]
+          : policy.tier === "AUDITOR"
+            ? [
+                { href: "/auditors/im-an-auditor", label: "Open auditor profile" },
+                { href: "/production-zone/business-profile", label: "Open business profile" },
+                { href: "/production-zone/events", label: "Create an event" },
+              ]
+            : [
+                { href: "/admin", label: "Open admin portal" },
+                { href: "/moderation", label: "Open moderation" },
+                { href: "/settings/account", label: "Review account tools" },
+              ];
 
   const guidance =
     policy.tier === "FREE"
@@ -137,6 +167,14 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
           </li>
         ))}
       </ul>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-3">
+        {quickActions.map((action) => (
+          <Link key={action.href} href={action.href} className="rounded border border-[var(--border)] bg-[#111827] px-3 py-2 text-sm text-[var(--text-strong)] transition hover:border-[var(--accent)]/40 hover:bg-[#142033]">
+            {action.label}
+          </Link>
+        ))}
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href={primaryHref} className="rounded border border-amber-300/40 bg-[#8f7228] px-3 py-2 text-sm font-semibold text-black">

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getMonthlyAdCredits, type TierPolicy } from "@/lib/policy/tier-policy";
 
-export const AD_TARGET_TYPES = ["BAZAAR_LISTING", "EVENT_LISTING", "JOB_LISTING", "FUNDRAISER_LISTING"] as const;
+export const AD_TARGET_TYPES = ["MARKET_LISTING", "BAZAAR_LISTING", "EVENT_LISTING", "JOB_LISTING", "FUNDRAISER_LISTING"] as const;
 export type AdTargetType = (typeof AD_TARGET_TYPES)[number];
 
 export const AD_STATUSES = ["ACTIVE", "PAUSED", "ARCHIVED"] as const;

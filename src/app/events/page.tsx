@@ -75,6 +75,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
             compact
           />
         ) : null}
+        {canCreate ? (
         <form
           key={searchParams?.created ?? "initial"}
           action={async (formData) => {
@@ -152,6 +153,18 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
           <input disabled={!canCreate} name="description" placeholder="Description" className="rounded border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100 md:col-span-2" />
           <button type="submit" disabled={!canCreate} className="rounded bg-slate-900 px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2">Create Event</button>
         </form>
+        ) : (
+          <div className="rounded border border-[var(--border)] bg-[#0d1320] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Create event</p>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--text-strong)]">Example event card</h2>
+            <p className="mt-1 text-sm text-slate-400">Invite-only events show a title, time, location, description, moderators, and optional ad tools.</p>
+            <div className="mt-4 rounded border border-[var(--border)] bg-[#111a2a] p-4 text-sm text-slate-300">
+              <p className="font-semibold text-[var(--text-strong)]">Private dinner meetup</p>
+              <p className="mt-1">Tuesday, 7:00 PM • Downtown • Created by @host</p>
+              <p className="mt-2 text-xs text-slate-400">Invite names, assign moderators, and manage ads from this card.</p>
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           {events.map((event, index) => {
             const isEventModerator = isAdmin || event.creatorId === session.user.id || event.moderators.some((moderator) => moderator.userId === session.user.id);

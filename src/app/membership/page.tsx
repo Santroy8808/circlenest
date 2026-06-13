@@ -62,7 +62,7 @@ export default async function MembershipPage() {
       auditor: yesNo(auditor.canCreateBazaarListing),
     },
     {
-      label: "Hiring posts",
+      label: "Job listings",
       free: yesNo(free.canCreateHiringPost),
       plus: yesNo(plus.canCreateHiringPost),
       biz: yesNo(biz.canCreateHiringPost),
@@ -167,7 +167,7 @@ export default async function MembershipPage() {
                           ? freeLabel(row.free, free.canCreateEvent)
                           : row.label === "Market listings"
                             ? freeLabel(row.free, free.canCreateBazaarListing)
-                            : row.label === "Hiring posts"
+                          : row.label === "Job listings"
                           ? freeLabel(row.free, free.canCreateHiringPost)
                           : row.label === "Fund raisers"
                             ? freeLabel(row.free, free.canCreateFundRaiser)

@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import {
-  canCreateBazaarListing,
-  getBazaarListingLifetimeDays,
-  getBazaarListingMaxImageCount,
-  getBazaarListingRollingLimit,
-  getBazaarListingWeeklyLimit,
-} from "@/lib/policy/tier-policy";
+  canCreateMarketListing,
+  getMarketListingLifetimeDays,
+  getMarketListingMaxImageCount,
+  getMarketListingRollingLimit,
+  getMarketListingWeeklyLimit,
+} from "@/lib/policy/market";
 import { serializeAdPlacements } from "@/lib/ads/ads";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     select: { role: true, subscriptionTier: true },
   });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
-  if (!canCreateBazaarListing(policy)) {
+  if (!canCreateMarketListing(policy)) {
     return NextResponse.json({ error: "Market listing creation is not allowed on this tier." }, { status: 403 });
   }
 
@@ -119,12 +119,12 @@ export async function POST(request: Request) {
   const price = Number(body.price);
   if (!title || Number.isNaN(price) || price < 0) return NextResponse.json({ error: "Valid title and price are required" }, { status: 400 });
   const imageUrls = parseImageUrls(body.imageUrls);
-  const maxImages = getBazaarListingMaxImageCount(policy);
+  const maxImages = getMarketListingMaxImageCount(policy);
   if (maxImages !== null && imageUrls.length > maxImages) {
     return NextResponse.json({ error: `Market listings can include up to ${maxImages} photos on this tier.` }, { status: 400 });
   }
-  const weeklyLimit = getBazaarListingWeeklyLimit(policy);
-  const rollingLimit = getBazaarListingRollingLimit(policy);
+  const weeklyLimit = getMarketListingWeeklyLimit(policy);
+  const rollingLimit = getMarketListingRollingLimit(policy);
   if (weeklyLimit !== null || rollingLimit !== null) {
     const now = new Date();
     const weekAgo = addDays(now, -7);
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
       location: String(body.location ?? "").trim() || null,
       category: String(body.category ?? "").trim() || null,
       imageUrlsJson: imageUrls.length ? JSON.stringify(imageUrls.slice(0, 3)) : null,
-      expiresAt: policy.tier === "PLUS" ? addDays(new Date(), getBazaarListingLifetimeDays(policy) ?? 14) : null,
+      expiresAt: policy.tier === "PLUS" ? addDays(new Date(), getMarketListingLifetimeDays(policy) ?? 14) : null,
     },
     include: { seller: { select: { id: true, username: true } } },
   });

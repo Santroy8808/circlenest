@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { GalleryManagerClient } from "@/components/profile/gallery-manager-client";
+import { GalleryAlbumsManagerClient } from "@/components/profile/gallery-albums-manager-client";
 
 const PERSONAL_GALLERY_EXCLUDED_ALBUMS = ["stream_photos"];
 
-export default async function GalleryPage() {
+export default async function GalleryAlbumsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -19,21 +19,9 @@ export default async function GalleryPage() {
       include: {
         albumTags: { include: { tag: true } },
         photos: {
-          where: { visibility: { not: "GROUPS" } },
-          include: {
-            photoTags: { include: { tag: true } },
-            comments: {
-              select: {
-                id: true,
-                content: true,
-                parentCommentId: true,
-                createdAt: true,
-                author: { select: { username: true, fullName: true } },
-              },
-              orderBy: { createdAt: "asc" },
-            },
-          },
+          select: { id: true, url: true, createdAt: true },
           orderBy: { createdAt: "desc" },
+          take: 1,
         },
       },
       orderBy: { createdAt: "desc" },
@@ -41,13 +29,13 @@ export default async function GalleryPage() {
     prisma.userMediaTag.findMany({
       where: { userId: session.user.id },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { name: true },
     }),
   ]);
 
   return (
     <AppShell>
-      <GalleryManagerClient
+      <GalleryAlbumsManagerClient
         initialAlbums={albums}
         initialUserTags={tags.map((tag) => tag.name)}
       />

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeUserText } from "@/lib/security";
-import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 import { deliverPushNotification } from "@/lib/notifications/push";
 
 async function canViewPhoto(userId: string, photoId: string) {
@@ -16,8 +15,6 @@ async function canViewPhoto(userId: string, photoId: string) {
 export async function POST(request: Request, context: { params: { photoId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const locked = secureAreaLockedResponse(session.user.id);
-  if (locked) return locked;
   const photo = await canViewPhoto(session.user.id, context.params.photoId);
   if (!photo) return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   if (photo.commentsLocked && photo.album.userId !== session.user.id) {

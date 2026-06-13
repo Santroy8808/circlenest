@@ -33,15 +33,15 @@ export default async function ProductionZoneJobsPage() {
             <p className="mt-1 text-sm text-slate-400">Search and filter the current job board.</p>
           </Link>
           <Link
-            href={canCreate ? "/jobs/new" : "/settings/subscription"}
+            href="/jobs/new"
             className="block rounded border border-[var(--border)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[color:var(--card-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
           >
             <h2 className="text-base font-semibold text-[var(--text-strong)]">Create job listing</h2>
             <p className="mt-1 text-sm text-slate-400">
-              {canCreate ? "Your tier can post job listings." : "Your tier cannot create job listings yet."}
+              {canCreate ? "Biz can post job listings." : "Only Biz can create job listings."}
             </p>
             <span className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-slate-400">
-              {canCreate ? "Job creator is available on the main page." : "Job creation unlocks on the right tier."}
+              {canCreate ? "Job creator is available on the main page." : "Job creation is Biz-only."}
             </span>
           </Link>
         </div>

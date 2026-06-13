@@ -42,12 +42,12 @@ export default async function ProductionZonePage() {
     },
     {
       title: "Market",
-      description: "Browse listings, create a listing if your tier allows it, and add listing ads when available.",
+      description: "Browse listings, create a listing if your tier allows it, and see how Biz removes Market limits and unlocks job posting.",
       href: "/production-zone/market",
     },
     {
       title: "Find a Job",
-      description: "Browse job listings and create a posting if your tier supports it.",
+      description: "Browse job listings freely. Only Biz can create a new job posting.",
       href: "/production-zone/jobs",
     },
     {
