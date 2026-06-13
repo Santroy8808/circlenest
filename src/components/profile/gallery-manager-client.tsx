@@ -6,9 +6,7 @@ import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media
 import { CommentThread } from "@/components/comments/comment-thread";
 
 type Visibility = "PUBLIC" | "FRIENDS_FAMILY" | "PRIVATE";
-type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "GROUPS" | "PRIVATE";
-
-type GroupOption = { id: string; name: string };
+type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "PRIVATE";
 
 type GalleryComment = {
   id: string;
@@ -40,6 +38,13 @@ type GalleryAlbum = {
   createdAt: string | Date;
   photos: GalleryPhoto[];
   albumTags?: { tag: { id: string; name: string } }[];
+};
+
+type UploadProgressState = {
+  phase: "preparing" | "uploading" | "saving";
+  total: number;
+  completed: number;
+  currentName: string | null;
 };
 
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
@@ -97,18 +102,8 @@ function normalizeVisibility(value: string | null | undefined): Visibility {
 }
 
 function normalizeAlbumVisibility(value: string | null | undefined): AlbumVisibility {
-  if (value === "PRIVATE" || value === "FRIENDS_FAMILY" || value === "FRIENDS" || value === "FAMILY" || value === "GROUPS") return value;
+  if (value === "PRIVATE" || value === "FRIENDS_FAMILY" || value === "FRIENDS" || value === "FAMILY") return value;
   return "PUBLIC";
-}
-
-function parseShareGroupIds(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
-  } catch {
-    return [];
-  }
 }
 
 function parseAlbumTagNames(album: GalleryAlbum | null | undefined): string[] {
@@ -126,7 +121,6 @@ export function GalleryManagerClient({
   initialAvatarUrl,
   initialBannerUrl,
   initialUserTags,
-  initialGroups,
   initialUsageBytes,
   initialLimitBytes,
 }: {
@@ -134,7 +128,6 @@ export function GalleryManagerClient({
   initialAvatarUrl: string | null;
   initialBannerUrl: string | null;
   initialUserTags: string[];
-  initialGroups: GroupOption[];
   initialUsageBytes: number;
   initialLimitBytes: number;
 }) {
@@ -153,17 +146,15 @@ export function GalleryManagerClient({
   const [notifyFriendsAndFamily, setNotifyFriendsAndFamily] = useState(true);
   const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
   const [albumVisibility, setAlbumVisibility] = useState<AlbumVisibility>("PUBLIC");
-  const [albumShareGroupIds, setAlbumShareGroupIds] = useState<string[]>([]);
   const [albumTagNames, setAlbumTagNames] = useState<string[]>([]);
-  const [tagChoice, setTagChoice] = useState("");
   const [newTagName, setNewTagName] = useState("");
-  const [uploadTagNames, setUploadTagNames] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string>("ALL");
   const [userTags, setUserTags] = useState<string[]>(initialUserTags);
-  const [groups] = useState<GroupOption[]>(initialGroups);
   const [usageBytes, setUsageBytes] = useState<number>(initialUsageBytes);
   const [storageLimitBytes, setStorageLimitBytes] = useState<number>(initialLimitBytes);
   const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
+  const [showTools, setShowTools] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
 
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [bannerUrl, setBannerUrl] = useState(initialBannerUrl);
@@ -194,15 +185,28 @@ export function GalleryManagerClient({
 
   const visiblePhotos = useMemo(() => {
     if (!activeAlbum) return [];
+    const albumTagMatches = tagFilter !== "ALL" && parseAlbumTagNames(activeAlbum).includes(tagFilter);
     const filtered = tagFilter === "ALL"
       ? activeAlbum.photos
-      : activeAlbum.photos.filter((photo) => parsePhotoTagNames(photo).includes(tagFilter));
+      : activeAlbum.photos.filter((photo) => albumTagMatches || parsePhotoTagNames(photo).includes(tagFilter));
     const sorted = [...filtered].sort((a, b) => {
       const delta = toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime();
       return sortMode === "newest" ? -delta : delta;
     });
     return sorted;
   }, [activeAlbum, sortMode, tagFilter]);
+
+  const availableTagFilters = useMemo(() => {
+    const names = new Set<string>();
+    for (const tag of userTags) names.add(tag);
+    if (activeAlbum) {
+      for (const tag of parseAlbumTagNames(activeAlbum)) names.add(tag);
+      for (const photo of activeAlbum.photos) {
+        for (const tag of parsePhotoTagNames(photo)) names.add(tag);
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [activeAlbum, userTags]);
 
   const visiblePhotoGroups = useMemo(() => {
     const groups: Array<{ label: string; photos: GalleryPhoto[] }> = [];
@@ -243,10 +247,8 @@ export function GalleryManagerClient({
   useEffect(() => {
     if (!activeAlbum) return;
     setAlbumVisibility(normalizeAlbumVisibility(activeAlbum.visibility));
-    setAlbumShareGroupIds(parseShareGroupIds(activeAlbum.shareGroupIds));
     const tags = parseAlbumTagNames(activeAlbum);
     setAlbumTagNames(tags);
-    setUploadTagNames(tags.length ? tags : ["Stream_Image"]);
   }, [activeAlbum]);
 
   useEffect(() => {
@@ -306,14 +308,21 @@ export function GalleryManagerClient({
     if (!list.length) return;
 
     setBusy(true);
-    setStatus("Uploading photos...");
+    setShowTools(true);
+    setUploadProgress({
+      phase: "preparing",
+      total: list.length,
+      completed: 0,
+      currentName: list[0]?.name ?? null,
+    });
+    setStatus(`Preparing ${list.length} photo${list.length === 1 ? "" : "s"}...`);
 
     let targetAlbum = activeAlbum;
     if (!targetAlbum) {
       const createdAlbumRes = await fetch("/api/gallery/albums", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "stream_photos", visibility: albumVisibility, shareGroupIds: albumShareGroupIds, tagNames: albumTagNames, parentAlbumId: newAlbumParentId || null }),
+        body: JSON.stringify({ title: "my_pics", visibility: albumVisibility, tagNames: albumTagNames, parentAlbumId: newAlbumParentId || null }),
       });
       if (!createdAlbumRes.ok) {
         setBusy(false);
@@ -326,23 +335,42 @@ export function GalleryManagerClient({
       setActiveAlbumId(targetAlbum.id);
     }
 
-    const urls = (
-      await Promise.all(
-        list.map((file) =>
-          uploadOne(file, {
-            purpose: "gallery-photo",
-            albumId: targetAlbum!.id,
-            tagNames: uploadTagNames,
-          }),
-        ),
-      )
-    ).filter((url): url is string => Boolean(url));
+    const urls: string[] = [];
+    for (const [index, file] of list.entries()) {
+      setUploadProgress({
+        phase: "uploading",
+        total: list.length,
+        completed: index,
+        currentName: file.name,
+      });
+      setStatus(`Uploading ${index + 1} of ${list.length}: ${file.name}`);
+      const uploaded = await uploadOne(file, {
+        purpose: "gallery-photo",
+        albumId: targetAlbum!.id,
+      });
+      if (uploaded) urls.push(uploaded);
+      setUploadProgress({
+        phase: "uploading",
+        total: list.length,
+        completed: index + 1,
+        currentName: file.name,
+      });
+    }
+
     if (!urls.length) {
       setBusy(false);
+      setUploadProgress(null);
       setStatus("Upload failed.");
       return;
     }
 
+    setUploadProgress({
+      phase: "saving",
+      total: list.length,
+      completed: urls.length,
+      currentName: null,
+    });
+    setStatus(`Saving ${urls.length} uploaded photo${urls.length === 1 ? "" : "s"}...`);
     const saveRes = await fetch("/api/gallery/photos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -351,7 +379,6 @@ export function GalleryManagerClient({
         urls,
         notifyFriendsAndFamily,
         visibility,
-        tagNames: uploadTagNames,
       }),
     });
 
@@ -364,6 +391,7 @@ export function GalleryManagerClient({
         // no-op
       }
       setBusy(false);
+      setUploadProgress(null);
       setStatus(message);
       return;
     }
@@ -383,7 +411,8 @@ export function GalleryManagerClient({
     );
 
     setBusy(false);
-    setStatus(`Uploaded ${createdPhotos.length} photo${createdPhotos.length === 1 ? "" : "s"}.`);
+    setUploadProgress(null);
+    setStatus(`Uploaded ${createdPhotos.length} of ${list.length} photo${list.length === 1 ? "" : "s"}.`);
     void refreshUsage();
   }
 
@@ -393,13 +422,12 @@ export function GalleryManagerClient({
     const res = await fetch("/api/gallery/albums", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        visibility: albumVisibility,
-        shareGroupIds: albumShareGroupIds,
-        tagNames: albumTagNames,
-        parentAlbumId: newAlbumParentId || null,
-      }),
+        body: JSON.stringify({
+          title,
+          visibility: albumVisibility,
+          tagNames: albumTagNames,
+          parentAlbumId: newAlbumParentId || null,
+        }),
     });
     if (!res.ok) {
       setStatus("Could not create album.");
@@ -415,18 +443,15 @@ export function GalleryManagerClient({
     setStatus(`Album "${nextAlbum.title}" created.`);
   }
 
-  function toggleAlbumShareGroup(groupId: string) {
-    setAlbumShareGroupIds((previous) =>
-      previous.includes(groupId) ? previous.filter((id) => id !== groupId) : [...previous, groupId],
-    );
-  }
-
   function addAlbumTagByName(name: string) {
     const trimmed = name.trim();
     if (!trimmed) return;
     setAlbumTagNames((previous) => (previous.includes(trimmed) ? previous : [...previous, trimmed]));
-    setUploadTagNames((previous) => (previous.includes(trimmed) ? previous : [...previous, trimmed]));
     setUserTags((previous) => Array.from(new Set([...previous, trimmed])).sort((a, b) => a.localeCompare(b)));
+  }
+
+  function removeAlbumTag(name: string) {
+    setAlbumTagNames((previous) => previous.filter((entry) => entry !== name));
   }
 
   async function saveAlbumProperties() {
@@ -437,7 +462,6 @@ export function GalleryManagerClient({
       body: JSON.stringify({
         albumId: activeAlbum.id,
         visibility: albumVisibility,
-        shareGroupIds: albumShareGroupIds,
         tagNames: albumTagNames,
         parentAlbumId: newAlbumParentId || null,
       }),
@@ -673,49 +697,28 @@ export function GalleryManagerClient({
       </div>
 
       <article className={shellCardClass}>
-        <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Photos</h1>
             <p className="text-sm text-slate-400">{activeAlbum?.title ?? "Gallery"}</p>
             <p className="text-xs text-slate-400">
-              {activeAlbum?.photos.length ?? 0} Photos
-              {updatedAt ? ` - Updated ${formatStableDate(new Date(updatedAt))}` : ""}
+              {activeAlbum?.photos.length ?? 0} photos{updatedAt ? ` • Updated ${formatStableDate(new Date(updatedAt))}` : ""}
             </p>
-            {activeAlbum?.parentAlbumId ? <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-200">Parent album</p> : null}
-            <div className="mt-2 w-full max-w-xs">
-              <div className="flex items-center justify-between text-[11px] text-slate-300">
-                <span>Storage used</span>
-                <span>{storageUsedMb}MB / {storageLimitLabel}</span>
-              </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-[#1a2538]">
-                <div
-                  className={`h-full ${storagePercent >= 90 ? "bg-red-400" : storagePercent >= 75 ? "bg-amber-400" : "bg-emerald-400"}`}
-                  style={{ width: `${storagePercent}%` }}
-                />
-              </div>
-              <p className="mt-1 text-[10px] text-slate-500">
-                Upload limit: {storageLimitLabel} per account. Text-only posts do not count.
-              </p>
-            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-[12px]">
-            <button type="button" className={ghostButtonClass} onClick={() => void shareAlbum()}>
-              Share
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={primaryButtonClass} onClick={() => setShowTools(true)}>
+              Upload
             </button>
-            <label className="flex items-center gap-1 text-slate-300">
+            <label className="flex items-center gap-1 text-[12px] text-slate-300">
               Sort
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "newest" | "oldest")} className={inputClass}>
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
               </select>
             </label>
-            <label className="flex items-center gap-1 text-slate-300">
+            <label className="flex items-center gap-1 text-[12px] text-slate-300">
               Album
-              <select
-                value={activeAlbum?.id ?? ""}
-                onChange={(event) => setActiveAlbumId(event.target.value)}
-                className={inputClass}
-              >
+              <select value={activeAlbum?.id ?? ""} onChange={(event) => setActiveAlbumId(event.target.value)} className={inputClass}>
                 {albums.map((album) => (
                   <option key={album.id} value={album.id}>
                     {album.title}
@@ -723,77 +726,207 @@ export function GalleryManagerClient({
                 ))}
               </select>
             </label>
+            <label className="flex items-center gap-1 text-[12px] text-slate-300">
+              Tag
+              <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className={inputClass}>
+                <option value="ALL">All tags</option>
+                {availableTagFilters.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {tagFilter !== "ALL" ? (
+              <button type="button" className={ghostButtonClass} onClick={() => setTagFilter("ALL")}>
+                Clear tag
+              </button>
+            ) : null}
+            <button type="button" className={ghostButtonClass} onClick={() => setShowTools((value) => !value)}>
+              {showTools ? "Hide tools" : "Manage"}
+            </button>
           </div>
         </div>
+        {uploadProgress ? (
+          <div className="mt-4 rounded-[14px] border border-[#2b3850] bg-[#111a2a] px-3 py-3">
+            <div className="flex items-center justify-between gap-3 text-sm text-slate-200">
+              <span>
+                {uploadProgress.phase === "preparing"
+                  ? "Preparing upload"
+                  : uploadProgress.phase === "saving"
+                    ? "Saving photos"
+                    : `Uploading ${uploadProgress.completed} of ${uploadProgress.total}`}
+              </span>
+              <span className="text-xs text-slate-400">
+                {uploadProgress.completed}/{uploadProgress.total}
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#1a2538]">
+              <div
+                className="h-full rounded-full bg-[#376ef8] transition-all duration-300"
+                style={{
+                  width: `${Math.max(
+                    uploadProgress.phase === "saving"
+                      ? 96
+                      : Math.round((uploadProgress.completed / Math.max(uploadProgress.total, 1)) * 100),
+                    8,
+                  )}%`,
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              {uploadProgress.currentName ?? "Finalizing your upload..."}
+            </p>
+          </div>
+        ) : status ? (
+          <p className="mt-4 text-sm text-slate-300">{status}</p>
+        ) : null}
       </article>
 
-      <article className={shellCardClass}>
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="gallery-upload-input" className={`${primaryButtonClass} cursor-pointer`}>
-            Upload Photos
-          </label>
-          <input
-            id="gallery-upload-input"
-            type="file"
-            multiple
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(event) => {
-              if (!event.currentTarget.files) return;
-              void uploadFiles(event.currentTarget.files);
-            }}
-          />
-
-          <div className="flex items-center gap-1 text-[12px] text-slate-300">
-            Album
+      {showTools ? (
+        <article className={shellCardClass}>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="gallery-upload-input" className={`${primaryButtonClass} cursor-pointer`}>
+              Choose photos
+            </label>
             <input
-              value={newAlbumTitle}
-              onChange={(event) => setNewAlbumTitle(event.target.value)}
-              placeholder="New album"
-              className="w-36 rounded-[10px] border border-[#304058] bg-[#182232] px-2 py-1.5 text-slate-100 placeholder:text-slate-400"
+              id="gallery-upload-input"
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                if (!event.currentTarget.files) return;
+                void uploadFiles(event.currentTarget.files);
+              }}
             />
-            <select value={newAlbumParentId} onChange={(event) => setNewAlbumParentId(event.target.value)} className={inputClass}>
-              <option value="">No parent album</option>
-              {albums.map((album) => (
-                <option key={album.id} value={album.id}>{album.title}</option>
-              ))}
-            </select>
-            <button type="button" className={ghostButtonClass} onClick={() => void createAlbum()}>
-              Create
+            <button type="button" className={ghostButtonClass} onClick={() => void shareAlbum()}>
+              Share album
             </button>
           </div>
 
-          <label className="flex items-center gap-1 text-[12px] text-slate-300">
-            Visibility
-            <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} className={inputClass}>
-              <option value="PUBLIC">Public</option>
-              <option value="FRIENDS_FAMILY">Friends & Family</option>
-              <option value="PRIVATE">Private</option>
-            </select>
-          </label>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Create album</p>
+              <div className="grid gap-2">
+                <input
+                  value={newAlbumTitle}
+                  onChange={(event) => setNewAlbumTitle(event.target.value)}
+                  placeholder="New album"
+                  className={inputClass}
+                />
+                <select value={newAlbumParentId} onChange={(event) => setNewAlbumParentId(event.target.value)} className={inputClass}>
+                  <option value="">No parent album</option>
+                  {albums.map((album) => (
+                    <option key={album.id} value={album.id}>{album.title}</option>
+                  ))}
+                </select>
+                <button type="button" className={ghostButtonClass} onClick={() => void createAlbum()}>
+                  Create
+                </button>
+              </div>
+            </div>
 
-          <label className="ml-auto inline-flex items-center gap-1 text-[12px] text-slate-300">
-            <input type="checkbox" checked={notifyFriendsAndFamily} onChange={(event) => setNotifyFriendsAndFamily(event.target.checked)} />
-            Notify Friends and Family
-          </label>
-        </div>
+            <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Upload settings</p>
+              <div className="grid gap-3">
+                <div className="rounded-[12px] border border-[#2b3850] bg-[#0f1624] px-3 py-2 text-[11px] text-slate-300">
+                  Storage: {storageUsedMb}MB / {storageLimitLabel}
+                  {storagePercent > 0 ? ` (${storagePercent}%)` : ""}
+                </div>
+                <label className="flex items-center gap-2 text-[12px] text-slate-300">
+                  <input type="checkbox" checked={notifyFriendsAndFamily} onChange={(event) => setNotifyFriendsAndFamily(event.target.checked)} />
+                  Notify Friends and Family
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-slate-300">
+                  Visibility
+                  <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} className={inputClass}>
+                    <option value="PUBLIC">Public</option>
+                    <option value="FRIENDS_FAMILY">Friends & Family</option>
+                    <option value="PRIVATE">Private</option>
+                  </select>
+                </label>
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (busy) return;
+                    if (event.dataTransfer.files?.length) {
+                      void uploadFiles(event.dataTransfer.files);
+                    }
+                  }}
+                  className="rounded-[16px] border border-dashed border-[#304058] bg-[#111a2a] px-3 py-5 text-center text-[12px] text-slate-300"
+                >
+                  Drag photos here or choose photos.
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            if (busy) return;
-            if (event.dataTransfer.files?.length) {
-              void uploadFiles(event.dataTransfer.files);
-            }
-          }}
-          className="mt-2 rounded-[16px] border border-dashed border-[#304058] bg-[#111a2a] px-3 py-5 text-center text-[12px] text-slate-300"
-        >
-          Drag photos here or use Upload Photos.
-        </div>
-
-        {status ? <p className="mt-2 text-[11px] text-slate-300">{status}</p> : null}
-      </article>
+          {activeAlbum ? (
+            <div className="mt-3 rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Album tags</p>
+                <button type="button" className={ghostButtonClass} onClick={() => void saveAlbumProperties()}>
+                  Save album tags
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {albumTagNames.length ? (
+                  albumTagNames.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="rounded-full border border-[#304058] bg-[#0f1624] px-3 py-1 text-xs text-slate-200"
+                      onClick={() => removeAlbumTag(tag)}
+                    >
+                      {tag} x
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400">No album tags yet.</p>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  value={newTagName}
+                  onChange={(event) => setNewTagName(event.target.value)}
+                  placeholder="Add album tag"
+                  className={`${inputClass} min-w-[180px]`}
+                />
+                <button
+                  type="button"
+                  className={ghostButtonClass}
+                  onClick={() => {
+                    addAlbumTagByName(newTagName);
+                    setNewTagName("");
+                  }}
+                >
+                  Add tag
+                </button>
+                {userTags.length ? (
+                  <select
+                    defaultValue=""
+                    className={inputClass}
+                    onChange={(event) => {
+                      if (!event.target.value) return;
+                      addAlbumTagByName(event.target.value);
+                      event.target.value = "";
+                    }}
+                  >
+                    <option value="">Use existing tag</option>
+                    {userTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </article>
+      ) : null}
 
       {activeAlbum ? (
         <article className={shellCardClass}>
@@ -826,7 +959,7 @@ export function GalleryManagerClient({
                     <p className="text-[11px] uppercase tracking-[0.22em] text-amber-200">{group.label}</p>
                     <div className="h-px flex-1 bg-[#273449]" />
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-4">
                     {group.photos.map((photo) => {
                       const selected = Boolean(selectedPhotoIds[photo.id]);
                       const starred = Boolean(starredPhotoIds[photo.id]);

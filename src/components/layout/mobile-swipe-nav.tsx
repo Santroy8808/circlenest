@@ -4,46 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { buildControlPanelSections } from "@/components/layout/control-panel.config";
+import { ControlPanelSection } from "@/components/layout/control-panel-section";
 
 type SwipeSide = "LEFT" | "RIGHT";
-type MenuSection = { title: string; items: [string, string, boolean?][] };
-
-const mobileSections: MenuSection[] = [
-  {
-    title: "Home",
-    items: [
-      ["My Stream", "/home"],
-      ["My Pics", "/profile/gallery"],
-    ],
-  },
-  {
-    title: "Production Zone",
-    items: [
-      ["Production Zone", "/production-zone"],
-    ],
-  },
-  {
-    title: "People",
-    items: [
-      ["Friends", "/friends"],
-      ["Groups", "/groups"],
-    ],
-  },
-  {
-    title: "Communications",
-    items: [
-      ["Messages", "/messages"],
-      ["Notifications", "/notifications"],
-      ["Alerts", "/alerts"],
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      ["Settings", "/settings"],
-    ],
-  },
-];
 
 export function MobileSwipeNav({
   side = "RIGHT",
@@ -56,6 +20,10 @@ export function MobileSwipeNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const mobileSections = buildControlPanelSections({
+    includeAdmin,
+    includeModerator,
+  });
 
   useEffect(() => {
     setOpen(false);
@@ -104,19 +72,12 @@ export function MobileSwipeNav({
             </div>
             <nav className="space-y-3 text-xs">
               {mobileSections.map((section) => (
-                <Section
+                <ControlPanelSection
                   key={section.title}
                   title={section.title}
-                  links={
-                    section.title === "Settings"
-                      ? [
-                          ...section.items,
-                          ...(includeModerator ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
-                          ...(includeAdmin ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
-                        ]
-                      : section.items
-                  }
+                  links={section.links}
                   onNavigate={() => setOpen(false)}
+                  variant="mobile"
                 />
               ))}
             </nav>
@@ -127,34 +88,6 @@ export function MobileSwipeNav({
         </div>
       ) : null}
     </>
-  );
-}
-
-function Section({
-  title,
-  links,
-  onNavigate,
-}: {
-  title: string;
-  links: [string, string, boolean?][];
-  onNavigate: () => void;
-}) {
-  return (
-    <section className="rounded-[14px] border border-[var(--border)] bg-[#101a2c] p-3">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
-      <div className="grid gap-1">
-        {links.map(([label, href, comingSoon]) => (
-          <Link key={href} href={href} className="flex items-center justify-between rounded-[10px] border border-transparent px-2 py-2 text-[13px] text-slate-300 transition hover:border-[#304058] hover:bg-[#0f1624] hover:text-white" onClick={onNavigate}>
-            <span>{label}</span>
-            {comingSoon ? (
-              <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
-                Coming soon!
-              </span>
-            ) : null}
-          </Link>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -177,4 +110,3 @@ function QuickLink({
     </Link>
   );
 }
-

@@ -7,12 +7,13 @@ import { AdStreamSidebar } from "@/components/ads/ad-stream-sidebar";
 import { AdminModeSessionClient } from "@/components/security/admin-mode-session-client";
 import { MobileSwipeNav } from "@/components/layout/mobile-swipe-nav";
 import { LogoutButton } from "@/components/layout/logout-button";
-import { isGlobalAdminEmail } from "@/lib/auth/admin";
+import { ensureBootstrapAdmins, isAdminUser, isSiteModeratorUser } from "@/lib/auth/admin";
 import { ADMIN_MODE_COOKIE_NAME, hasAdminModeAccess } from "@/lib/security/admin-mode";
 import { CURRENT_TERMS_VERSION } from "@/lib/security/terms";
 import { TermsGateClient } from "@/components/security/terms-gate-client";
 import { GlobalChatDock } from "@/components/messages/global-chat-dock";
-import { canBeSiteModerator, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
+import { buildControlPanelSections } from "@/components/layout/control-panel.config";
+import { ControlPanelSection } from "@/components/layout/control-panel-section";
 
 export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
   const session = await auth();
@@ -29,56 +30,34 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
   let adminAnnouncement: { id: string; body: string; targetUrl: string | null; createdAt: Date } | null = null;
 
   try {
+    await ensureBootstrapAdmins();
+
     if (userId) {
-      const [loadedProfile, loadedUser, loadedCounts, loadedPref] = await Promise.all([
+      const [loadedProfile, loadedCounts, loadedPref, loadedAdminAccess, loadedModeratorAccess, loadedTerms] = await Promise.all([
         prisma.profile.findUnique({ where: { userId }, select: { displayName: true, avatarUrl: true, bannerUrl: true } }),
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: {
-            email: true,
-            role: true,
-            subscriptionTier: true,
-            acceptedTermsVersion: true,
-            siteModeratorAssignments: {
-              where: { status: "ACTIVE" },
-              select: { id: true },
-              take: 1,
-            },
-          },
-        }),
         Promise.all([
           prisma.notification.count({ where: { userId, readAt: null } }),
           prisma.alert.count({ where: { userId, readAt: null } }),
-          prisma.message.count({
-            where: {
-              readAt: null,
-              senderId: { not: userId },
-              thread: { participants: { some: { userId } } },
-            },
-          }),
+          prisma.message.count({ where: { thread: { OR: [{ userAId: userId }, { userBId: userId }] }, readAt: null, senderId: { not: userId } } }),
           prisma.friendRequest.count({ where: { receiverId: userId, status: "PENDING" } }),
         ]),
         prisma.userFeedPreference.findUnique({ where: { userId }, select: { mobileNavSwipeSide: true } }),
+        isAdminUser(userId),
+        isSiteModeratorUser(userId),
+        prisma.user.findUnique({ where: { id: userId }, select: { acceptedTermsVersion: true } }),
       ]);
 
       profile = loadedProfile;
       [unreadNotifications, unreadAlerts, unreadMessages, pendingInvites] = loadedCounts;
       pref = loadedPref;
-      adminAccess = Boolean(loadedUser && (loadedUser.role === "ADMIN" || isGlobalAdminEmail(loadedUser.email)));
-      moderatorAccess = Boolean(
-        loadedUser &&
-          (adminAccess ||
-            (canBeSiteModerator(resolveUserAccessPolicy(loadedUser)) &&
-              loadedUser.siteModeratorAssignments.length > 0)),
-      );
-      needsTermsAcceptance = loadedUser?.acceptedTermsVersion !== CURRENT_TERMS_VERSION;
-      if (unreadNotifications > 0) {
-        adminAnnouncement = await prisma.notification.findFirst({
-          where: { userId, readAt: null, type: "ADMIN_ANNOUNCEMENT" },
-          select: { id: true, body: true, targetUrl: true, createdAt: true },
-          orderBy: { createdAt: "desc" },
-        });
-      }
+      adminAccess = loadedAdminAccess;
+      moderatorAccess = loadedModeratorAccess;
+      needsTermsAcceptance = loadedTerms?.acceptedTermsVersion !== CURRENT_TERMS_VERSION;
+      adminAnnouncement = await prisma.notification.findFirst({
+        where: { userId, readAt: null, type: "ADMIN_ANNOUNCEMENT" },
+        select: { id: true, body: true, targetUrl: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      });
     }
   } catch (error) {
     console.error("[AppShell] fallback render", error);
@@ -88,6 +67,10 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
   const adminModeActive = Boolean(userId && adminAccess && hasAdminModeAccess(userId, adminModeToken));
   const showAdminFeatures = adminAccess && adminModeActive;
   const showModeratorFeatures = moderatorAccess && (!adminAccess || adminModeActive);
+  const controlPanelSections = buildControlPanelSections({
+    includeAdmin: showAdminFeatures,
+    includeModerator: showModeratorFeatures,
+  });
 
   return (
     <div className="min-h-screen">
@@ -106,29 +89,9 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
           </div>
 
           <nav className="space-y-3 text-xs">
-            <Section
-              title="Home"
-              links={[
-                ["My Stream", "/home"],
-                ["My Pics", "/profile/gallery"],
-              ]}
-            />
-            <Section
-              title="Production Zone"
-              links={[
-                ["Production Zone", "/production-zone"],
-              ]}
-            />
-            <Section title="People" links={[["Friends", "/friends"], ["Groups", "/groups"]]} />
-            <Section title="Communications" links={[["Messages", "/messages"], ["Notifications", "/notifications"], ["Alerts", "/alerts"]]} />
-            <Section
-              title="Settings"
-              links={[
-                ["Settings", "/settings"],
-                ...(showModeratorFeatures ? ([["Moderator Dashboard", "/moderation"]] as [string, string][]) : []),
-                ...(showAdminFeatures ? ([["Admin Portal", "/admin"]] as [string, string][]) : []),
-              ]}
-            />
+            {controlPanelSections.map((section) => (
+              <ControlPanelSection key={section.title} title={section.title} links={section.links} />
+            ))}
           </nav>
           <div className="mt-4 border-t border-[var(--border)] pt-3">
             <LogoutButton />
@@ -186,24 +149,3 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
     </div>
   );
 }
-
-function Section({ title, links }: { title: string; links: [string, string, boolean?][] }) {
-  return (
-    <section className="border-t border-[var(--border)] pt-2">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">{title}</p>
-      <div className="grid gap-1">
-        {links.map(([label, href, comingSoon]) => (
-          <Link key={href} href={href} className="flex items-center gap-2 text-[13px] text-slate-300 transition hover:translate-y-[-1px] hover:scale-[1.02] hover:text-white">
-            <span>{label}</span>
-            {comingSoon ? (
-              <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
-                Coming soon!
-              </span>
-            ) : null}
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-

@@ -5,16 +5,22 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GalleryManagerClient } from "@/components/profile/gallery-manager-client";
 import { getStorageLimitBytes, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
+const PERSONAL_GALLERY_EXCLUDED_ALBUMS = ["stream_photos"];
+
 export default async function GalleryPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [albums, profile, tags, joinedGroups, usage, user] = await Promise.all([
+  const [albums, profile, tags, usage, user] = await Promise.all([
     prisma.photoAlbum.findMany({
-      where: { userId: session.user.id },
+      where: {
+        userId: session.user.id,
+        title: { notIn: PERSONAL_GALLERY_EXCLUDED_ALBUMS },
+      },
       include: {
         albumTags: { include: { tag: true } },
         photos: {
+          where: { visibility: { not: "GROUPS" } },
           include: {
             photoTags: { include: { tag: true } },
             comments: {
@@ -42,14 +48,6 @@ export default async function GalleryPage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-    prisma.groupMember.findMany({
-      where: { userId: session.user.id },
-      select: {
-        groupId: true,
-        group: { select: { name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
     prisma.userUploadAsset.aggregate({
       where: { userId: session.user.id },
       _sum: { sizeBytes: true },
@@ -68,7 +66,6 @@ export default async function GalleryPage() {
         initialAvatarUrl={profile?.avatarUrl ?? null}
         initialBannerUrl={profile?.bannerUrl ?? null}
         initialUserTags={tags.map((tag) => tag.name)}
-        initialGroups={joinedGroups.map((entry) => ({ id: entry.groupId, name: entry.group.name }))}
         initialUsageBytes={usage._sum.sizeBytes ?? 0}
         initialLimitBytes={storageLimitBytes}
       />
