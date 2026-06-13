@@ -35,18 +35,18 @@ export function NotificationDingsSettings() {
 
   return (
     <section id="notifications" className="mt-3 rounded border border-[var(--border)] p-3">
-      <h2 className="text-sm font-semibold text-[var(--text-strong)]">Phone Ding Settings</h2>
-      <p className="mt-1 text-xs text-slate-300">Use these to turn the phone ding on or off for Notifications and Alerts.</p>
+      <h2 className="text-sm font-semibold text-[var(--text-strong)]">Phone notifications</h2>
+      <p className="mt-1 text-xs text-slate-300">Turn phone sounds on or off for Notifications and Alerts.</p>
       <label className="mt-2 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={notificationDingsEnabled} onChange={(e) => setNotificationDingsEnabled(e.target.checked)} />
-        Ding my phone for Notifications
+        Sound for Notifications
       </label>
       <label className="mt-2 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={alertDingsEnabled} onChange={(e) => setAlertDingsEnabled(e.target.checked)} />
-        Ding my phone for Alerts
+        Sound for Alerts
       </label>
       <button type="button" onClick={() => void save()} className="mt-2 rounded border px-3 py-1.5 text-sm">
-        Save Ding Settings
+        Save phone notifications
       </button>
       {status ? <p className="mt-1 text-xs text-slate-400">{status}</p> : null}
     </section>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { isAdminUser } from "@/lib/auth/admin";
-import { canCreateBusinessProfile, resolveProductionZoneAccess } from "@/lib/policy/production-zone";
+import { canCreateBusinessProfile, resolveBusinessProfileAccess } from "@/lib/policy/production-zone";
 import { serializeBusinessProfile, serializeBusinessProfiles } from "@/lib/business/business-profile";
 import { ensureUniqueStorefrontSlug } from "@/lib/business/storefront";
 
@@ -16,7 +16,7 @@ export async function GET() {
   });
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
-  const access = resolveProductionZoneAccess(user?.subscriptionTier, isInvitedCreator);
+  const access = resolveBusinessProfileAccess(user?.subscriptionTier, isInvitedCreator);
   const canCreate = isAdmin || canCreateBusinessProfile(user?.subscriptionTier, isInvitedCreator);
 
   const [ownProfile, publicProfiles] = await Promise.all([
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const isAdmin = await isAdminUser(session.user.id);
   const isInvitedCreator = Boolean(user?.iasStatus && user.iasStatus.toUpperCase() === "INVITED_CREATOR");
   if (!isAdmin && !canCreateBusinessProfile(user?.subscriptionTier, isInvitedCreator)) {
-    return NextResponse.json({ error: "Business profile creation is locked." }, { status: 403 });
+    return NextResponse.json({ error: "Biz is required to create a business profile." }, { status: 403 });
   }
 
   const body = (await request.json().catch(() => ({}))) as {

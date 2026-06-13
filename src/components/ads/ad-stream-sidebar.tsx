@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { readAdBoostFactor } from "@/lib/ads/ads";
+import { getProAdCreditBalance, readAdBoostFactor } from "@/lib/ads/ads";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
 function getAdContext(ad: {
   targetType: string;
@@ -22,27 +24,39 @@ function getAdContext(ad: {
 
 export async function AdStreamSidebar() {
   const now = new Date();
-  const ads = await prisma.adPlacement.findMany({
-    where: {
-      status: "ACTIVE",
-      startsAt: { lte: now },
-      OR: [{ endsAt: null }, { endsAt: { gte: now } }],
-    },
-    include: {
-      creator: { select: { username: true } },
-      bazaarListing: { select: { id: true, title: true } },
-      event: { select: { id: true, title: true } },
-      jobListing: { select: { id: true, title: true } },
-    },
-    orderBy: [{ createdAt: "desc" }],
-    take: 12,
-  });
+  const session = await auth();
+  const [ads, user] = await Promise.all([
+    prisma.adPlacement.findMany({
+      where: {
+        status: "ACTIVE",
+        startsAt: { lte: now },
+        OR: [{ endsAt: null }, { endsAt: { gte: now } }],
+      },
+      include: {
+        creator: { select: { username: true } },
+        bazaarListing: { select: { id: true, title: true } },
+        event: { select: { id: true, title: true } },
+        jobListing: { select: { id: true, title: true } },
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: 12,
+    }),
+    session?.user?.id
+      ? prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, subscriptionTier: true } })
+      : null,
+  ]);
+  const policy = session?.user?.id ? resolveMemberAccessPolicy(session.user.id, user) : null;
+  const creditBalance = session?.user?.id && policy && (policy.tier === "PRO" || policy.tier === "AUDITOR")
+    ? await getProAdCreditBalance(session.user.id, policy)
+    : null;
 
   return (
     <section className="space-y-3 text-sm">
       <div>
         <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-strong)]">Ad stream</p>
-        <p className="text-xs text-slate-400">Paid placements on the right.</p>
+        <p className="text-xs text-slate-400">
+          {creditBalance !== null ? `${creditBalance} ad credits ready.` : "Paid placements on the right."}
+        </p>
       </div>
 
       {ads.length ? (
@@ -73,7 +87,14 @@ export async function AdStreamSidebar() {
           })}
         </div>
       ) : (
-        <p className="rounded border border-[var(--border)] bg-[#0d1320] p-3 text-xs text-slate-400">No active ads yet.</p>
+        <article className="rounded border border-[var(--border)] bg-[#0d1320] p-3 text-xs text-slate-300">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Sample placement</p>
+          <p className="mt-1 font-semibold text-slate-100">Promote a Market listing, event, or job post.</p>
+          <p className="mt-2 text-slate-400">Active ads will rotate here once members start running promotions.</p>
+          <Link href="/market" className="mt-3 inline-flex rounded border border-[var(--border)] px-2 py-1 text-[11px] text-amber-200 hover:bg-amber-300/10">
+            Open The Market
+          </Link>
+        </article>
       )}
     </section>
   );

@@ -125,10 +125,10 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
                   <Link href="/groups" className="hover:underline">Groups</Link>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Link href="/notifications?type=messages" className="hover:underline">{`\u{1F4AC}`} {unreadMessages}</Link>
-                  <Link href="/notifications" className="hover:underline">{`\u{1F514}`} {unreadNotifications}</Link>
-                  <Link href="/alerts" className="hover:underline">{`\u{26A0}\u{FE0F}`} {unreadAlerts}</Link>
-                  <Link href="/friends#invites" className="hover:underline">{`\u{1F4E8}`} {pendingInvites}</Link>
+                  <Link href="/notifications?type=messages" title="Unread messages" aria-label={`${unreadMessages} unread messages`} className="hover:underline">Messages {unreadMessages}</Link>
+                  <Link href="/notifications" title="Unread notifications" aria-label={`${unreadNotifications} unread notifications`} className="hover:underline">Notifications {unreadNotifications}</Link>
+                  <Link href="/alerts" title="Unread alerts" aria-label={`${unreadAlerts} unread alerts`} className="hover:underline">Alerts {unreadAlerts}</Link>
+                  <Link href="/friends#invites" title="Pending friend requests" aria-label={`${pendingInvites} pending friend requests`} className="hover:underline">Invites {pendingInvites}</Link>
                 </div>
               </header>
             </div>
