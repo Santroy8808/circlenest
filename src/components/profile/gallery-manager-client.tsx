@@ -42,6 +42,13 @@ type GalleryAlbum = {
   albumTags?: { tag: { id: string; name: string } }[];
 };
 
+type UploadProgressState = {
+  phase: "preparing" | "uploading" | "saving";
+  total: number;
+  completed: number;
+  currentName: string | null;
+};
+
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
 
 async function uploadOne(file: File, options?: UploadImageOptions): Promise<string | null> {
@@ -163,6 +170,7 @@ export function GalleryManagerClient({
   const [storageLimitBytes, setStorageLimitBytes] = useState<number>(initialLimitBytes);
   const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
   const [showTools, setShowTools] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
 
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [bannerUrl, setBannerUrl] = useState(initialBannerUrl);
@@ -317,7 +325,14 @@ export function GalleryManagerClient({
     if (!list.length) return;
 
     setBusy(true);
-    setStatus("Uploading photos...");
+    setShowTools(true);
+    setUploadProgress({
+      phase: "preparing",
+      total: list.length,
+      completed: 0,
+      currentName: list[0]?.name ?? null,
+    });
+    setStatus(`Preparing ${list.length} photo${list.length === 1 ? "" : "s"}...`);
 
     let targetAlbum = activeAlbum;
     if (!targetAlbum) {
@@ -337,22 +352,42 @@ export function GalleryManagerClient({
       setActiveAlbumId(targetAlbum.id);
     }
 
-    const urls = (
-      await Promise.all(
-        list.map((file) =>
-          uploadOne(file, {
-            purpose: "gallery-photo",
-            albumId: targetAlbum!.id,
-          }),
-        ),
-      )
-    ).filter((url): url is string => Boolean(url));
+    const urls: string[] = [];
+    for (const [index, file] of list.entries()) {
+      setUploadProgress({
+        phase: "uploading",
+        total: list.length,
+        completed: index,
+        currentName: file.name,
+      });
+      setStatus(`Uploading ${index + 1} of ${list.length}: ${file.name}`);
+      const uploaded = await uploadOne(file, {
+        purpose: "gallery-photo",
+        albumId: targetAlbum!.id,
+      });
+      if (uploaded) urls.push(uploaded);
+      setUploadProgress({
+        phase: "uploading",
+        total: list.length,
+        completed: index + 1,
+        currentName: file.name,
+      });
+    }
+
     if (!urls.length) {
       setBusy(false);
+      setUploadProgress(null);
       setStatus("Upload failed.");
       return;
     }
 
+    setUploadProgress({
+      phase: "saving",
+      total: list.length,
+      completed: urls.length,
+      currentName: null,
+    });
+    setStatus(`Saving ${urls.length} uploaded photo${urls.length === 1 ? "" : "s"}...`);
     const saveRes = await fetch("/api/gallery/photos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -373,6 +408,7 @@ export function GalleryManagerClient({
         // no-op
       }
       setBusy(false);
+      setUploadProgress(null);
       setStatus(message);
       return;
     }
@@ -392,7 +428,8 @@ export function GalleryManagerClient({
     );
 
     setBusy(false);
-    setStatus(`Uploaded ${createdPhotos.length} photo${createdPhotos.length === 1 ? "" : "s"}.`);
+    setUploadProgress(null);
+    setStatus(`Uploaded ${createdPhotos.length} of ${list.length} photo${list.length === 1 ? "" : "s"}.`);
     void refreshUsage();
   }
 
@@ -735,6 +772,40 @@ export function GalleryManagerClient({
             </button>
           </div>
         </div>
+        {uploadProgress ? (
+          <div className="mt-4 rounded-[14px] border border-[#2b3850] bg-[#111a2a] px-3 py-3">
+            <div className="flex items-center justify-between gap-3 text-sm text-slate-200">
+              <span>
+                {uploadProgress.phase === "preparing"
+                  ? "Preparing upload"
+                  : uploadProgress.phase === "saving"
+                    ? "Saving photos"
+                    : `Uploading ${uploadProgress.completed} of ${uploadProgress.total}`}
+              </span>
+              <span className="text-xs text-slate-400">
+                {uploadProgress.completed}/{uploadProgress.total}
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#1a2538]">
+              <div
+                className="h-full rounded-full bg-[#376ef8] transition-all duration-300"
+                style={{
+                  width: `${Math.max(
+                    uploadProgress.phase === "saving"
+                      ? 96
+                      : Math.round((uploadProgress.completed / Math.max(uploadProgress.total, 1)) * 100),
+                    8,
+                  )}%`,
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              {uploadProgress.currentName ?? "Finalizing your upload..."}
+            </p>
+          </div>
+        ) : status ? (
+          <p className="mt-4 text-sm text-slate-300">{status}</p>
+        ) : null}
       </article>
 
       {showTools ? (
@@ -813,7 +884,6 @@ export function GalleryManagerClient({
                 >
                   Drag photos here or choose photos.
                 </div>
-                {status ? <p className="text-[11px] text-slate-300">{status}</p> : null}
               </div>
             </div>
           </div>
