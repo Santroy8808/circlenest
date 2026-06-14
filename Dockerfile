@@ -10,6 +10,7 @@ RUN npm ci --ignore-scripts
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV PRISMA_GENERATE_SCHEMA=prisma/schema.postgres.prisma
 RUN npx prisma generate --schema prisma/schema.postgres.prisma
 RUN npm run build
 
