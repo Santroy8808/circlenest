@@ -2,15 +2,18 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 function resolveSchemaFromEnv() {
+  const databaseUrl = (process.env.DATABASE_URL || "").trim().toLowerCase();
+  if (databaseUrl.startsWith("file:")) {
+    return path.join("prisma", "schema.prisma");
+  }
   const runningOnRailway = Boolean(
     process.env.RAILWAY_ENVIRONMENT_ID ||
     process.env.RAILWAY_PROJECT_ID ||
     process.env.RAILWAY_SERVICE_ID,
   );
-  if (runningOnRailway) {
+  if (runningOnRailway || process.env.NODE_ENV === "production") {
     return path.join("prisma", "schema.postgres.prisma");
   }
-  const databaseUrl = (process.env.DATABASE_URL || "").trim().toLowerCase();
   if (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://")) {
     return path.join("prisma", "schema.postgres.prisma");
   }
