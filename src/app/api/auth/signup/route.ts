@@ -8,6 +8,7 @@ import { randomToken, sha256 } from "@/lib/security/tokens";
 import { findSignupInvitationByCode } from "@/lib/policy/invitations";
 import { sendEmailVerificationEmail } from "@/lib/email/smtp";
 import { getPublicBaseUrl } from "@/lib/config/public-base-url";
+import { isInternalTestEmail } from "@/lib/security/internal-email";
 import {
   getClientIpFromRequest,
   getUserAgentFromRequest,
@@ -125,8 +126,9 @@ export async function POST(request: Request) {
   const uniqueInterests = Array.from(new Set(parsed.data.interests.map((v) => v.trim()).filter(Boolean)));
 
   const keyMaterial = createAccountCryptoMaterial();
-  const verificationToken = randomToken(24);
-  const verificationTokenHash = sha256(verificationToken);
+  const internalTestEmail = isInternalTestEmail(normalizedEmail);
+  const verificationToken = internalTestEmail ? null : randomToken(24);
+  const verificationTokenHash = verificationToken ? sha256(verificationToken) : null;
 
   const now = new Date();
   let transactionResult;
@@ -202,13 +204,15 @@ export async function POST(request: Request) {
         throw new Error("INVITATION_INVALID");
       }
 
-      await tx.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: verificationTokenHash,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-        },
-      });
+      if (!internalTestEmail && verificationTokenHash) {
+        await tx.emailVerificationToken.create({
+          data: {
+            userId: user.id,
+            tokenHash: verificationTokenHash,
+            expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          },
+        });
+      }
 
       return user;
     });
@@ -224,18 +228,19 @@ export async function POST(request: Request) {
   });
 
   const baseUrl = getPublicBaseUrl(request);
-  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
-
   let emailSent = false;
-  try {
-    await sendEmailVerificationEmail(transactionResult.email, verifyUrl);
-    emailSent = true;
-  } catch (error) {
-    console.error("Email verification send failed", {
-      userId: transactionResult.id,
-      email: transactionResult.email,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  if (!internalTestEmail && verificationToken) {
+    const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
+    try {
+      await sendEmailVerificationEmail(transactionResult.email, verifyUrl);
+      emailSent = true;
+    } catch (error) {
+      console.error("Email verification send failed", {
+        userId: transactionResult.id,
+        email: transactionResult.email,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return NextResponse.json({ id: transactionResult.id, email: transactionResult.email, username: transactionResult.username, emailSent });

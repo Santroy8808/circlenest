@@ -2,6 +2,7 @@ import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { isPasswordExpired } from "@/lib/security/password-policy";
 import { requiresTwoFactorForTier } from "@/lib/policy/tier-policy";
+import { isInternalTestEmail } from "@/lib/security/internal-email";
 
 export type LoginCandidate = {
   id: string;
@@ -48,11 +49,13 @@ export async function resolvePasswordLogin(input: {
   if (!user) return { ok: false, error: "invalid_credentials" };
   if (user.deactivatedAt) return { ok: false, error: "account_deactivated" };
 
-  const pendingVerification = await prisma.emailVerificationToken.findFirst({
-    where: { userId: user.id, expiresAt: { gt: new Date() } },
-    select: { id: true },
-  });
-  if (pendingVerification) return { ok: false, error: "email_not_verified" };
+  if (!isInternalTestEmail(user.email)) {
+    const pendingVerification = await prisma.emailVerificationToken.findFirst({
+      where: { userId: user.id, expiresAt: { gt: new Date() } },
+      select: { id: true },
+    });
+    if (pendingVerification) return { ok: false, error: "email_not_verified" };
+  }
 
   const valid = await compare(input.password, user.passwordHash);
   if (!valid) return { ok: false, error: "invalid_credentials" };
