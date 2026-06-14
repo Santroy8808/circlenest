@@ -59,7 +59,7 @@ export default async function NotificationsPage() {
           </form>
         </div>
         <p className="mb-3 text-sm text-slate-300">
-          Tap any notification to open it. Opening a notification marks it as read automatically.
+          Notifications are the quick activity feed for messages, reactions, requests, and group updates. Alerts live in the separate Alerts inbox.
         </p>
         <div className="space-y-2">
           {notifications.map((n) => (

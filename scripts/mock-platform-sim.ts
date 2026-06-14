@@ -5,7 +5,7 @@ import path from "path";
 
 let prisma: any;
 
-type PlanTier = "FREE" | "PLUS" | "PRO";
+type PlanTier = "FREE" | "CONTRIBUTOR" | "PRO";
 type ActivityBand = "HEAVY" | "MEDIUM" | "LIGHT";
 
 type SeedUserSpec = {
@@ -80,7 +80,7 @@ const HEAVY_COUNT = 20;
 const MEDIUM_COUNT = 60;
 const LIGHT_COUNT = 120;
 const ADMIN_USERNAMES = new Set(["ava", "noah"]);
-const PRICE_CENTS: Record<PlanTier, number> = { FREE: 0, PLUS: 300, PRO: 1000 };
+const PRICE_CENTS: Record<PlanTier, number> = { FREE: 0, CONTRIBUTOR: 300, PRO: 1000 };
 
 const themeSeeds = [
   ["drakudai", "Drakudai", "#0b0b0d", "#d4af37"],
@@ -252,16 +252,16 @@ function signupTierForBand(band: ActivityBand, rng: () => number): PlanTier {
   const roll = rng();
   if (band === "HEAVY") {
     if (roll < 0.35) return "PRO";
-    if (roll < 0.8) return "PLUS";
+    if (roll < 0.8) return "CONTRIBUTOR";
     return "FREE";
   }
   if (band === "MEDIUM") {
     if (roll < 0.15) return "PRO";
-    if (roll < 0.55) return "PLUS";
+    if (roll < 0.55) return "CONTRIBUTOR";
     return "FREE";
   }
   if (roll < 0.07) return "PRO";
-  if (roll < 0.18) return "PLUS";
+  if (roll < 0.18) return "CONTRIBUTOR";
   return "FREE";
 }
 
@@ -305,12 +305,12 @@ function reportMarkdown(report: MonthReport) {
 | Metric | Value |
 | --- | ---: |
 | Free users | ${report.freeUsers} |
-| Plus users | ${report.plusUsers} |
+| Contributor users | ${report.plusUsers} |
 | Pro users | ${report.proUsers} |
 | New signups | ${report.newSignups} |
-| Plus renewals | ${report.plusRenewals} |
+| Contributor renewals | ${report.plusRenewals} |
 | Pro renewals | ${report.proRenewals} |
-| Plus upgrades | ${report.plusUpgrades} |
+| Contributor upgrades | ${report.plusUpgrades} |
 | Pro upgrades | ${report.proUpgrades} |
 | Cancellations | ${report.cancellations} |
 | Revenue | $${(report.revenueCents / 100).toFixed(2)} |
@@ -1089,8 +1089,8 @@ async function processMonthlyBilling(params: {
   for (const user of paidRenewals) {
     const amountCents = priceCents(user.currentTier);
     await upsertMockSubscription(user, user.currentTier, params.monthIndex, "ACTIVE");
-    await logBillingEvent(user.currentTier === "PLUS" ? "subscription.renewed.plus" : "subscription.renewed.pro", user, params.monthIndex, amountCents, "Mock renewal on first of month.");
-    if (user.currentTier === "PLUS") params.stats.plusRenewals += 1;
+    await logBillingEvent(user.currentTier === "CONTRIBUTOR" ? "subscription.renewed.contributor" : "subscription.renewed.pro", user, params.monthIndex, amountCents, "Mock renewal on first of month.");
+    if (user.currentTier === "CONTRIBUTOR") params.stats.plusRenewals += 1;
     if (user.currentTier === "PRO") params.stats.proRenewals += 1;
     params.stats.revenueCents += amountCents;
   }
@@ -1108,17 +1108,17 @@ async function processMonthlyBilling(params: {
   }
 
   const freeUsers = monthUsers.filter((user) => user.currentTier === "FREE");
-  const plusUsers = monthUsers.filter((user) => user.currentTier === "PLUS");
+  const plusUsers = monthUsers.filter((user) => user.currentTier === "CONTRIBUTOR");
   const upgradeFreeToPlus = Math.min(3 + params.monthIndex, freeUsers.length);
   const upgradeFreeToPro = Math.min(Math.max(0, params.monthIndex - 1), Math.max(0, freeUsers.length - upgradeFreeToPlus));
   const upgradePlusToPro = Math.min(Math.max(0, params.monthIndex - 2), plusUsers.length);
 
   for (let i = 0; i < upgradeFreeToPlus; i++) {
     const user = freeUsers[i];
-    await upsertMockSubscription(user, "PLUS", params.monthIndex, "ACTIVE");
-    await logBillingEvent("checkout.upgrade.plus", user, params.monthIndex, priceCents("PLUS"), "Mock Free -> Plus upgrade.");
+    await upsertMockSubscription(user, "CONTRIBUTOR", params.monthIndex, "ACTIVE");
+    await logBillingEvent("checkout.upgrade.contributor", user, params.monthIndex, priceCents("CONTRIBUTOR"), "Mock Free -> Contributor upgrade.");
     params.stats.plusUpgrades += 1;
-    params.stats.revenueCents += priceCents("PLUS");
+    params.stats.revenueCents += priceCents("CONTRIBUTOR");
   }
   for (let i = 0; i < upgradeFreeToPro; i++) {
     const user = freeUsers[upgradeFreeToPlus + i];
@@ -1132,7 +1132,7 @@ async function processMonthlyBilling(params: {
     const user = plusUsers[i];
     if (!user) break;
     await upsertMockSubscription(user, "PRO", params.monthIndex, "ACTIVE");
-    await logBillingEvent("subscription.updated.pro", user, params.monthIndex, priceCents("PRO"), "Mock Plus -> Pro upgrade.");
+    await logBillingEvent("subscription.updated.pro", user, params.monthIndex, priceCents("PRO"), "Mock Contributor -> Pro upgrade.");
     params.stats.proUpgrades += 1;
     params.stats.revenueCents += priceCents("PRO");
   }
@@ -1222,7 +1222,7 @@ async function main() {
 
     const activeUsers = users.filter((user) => user.signupMonthIndex <= monthIndex);
     stats.freeUsers = activeUsers.filter((user) => user.currentTier === "FREE").length;
-    stats.plusUsers = activeUsers.filter((user) => user.currentTier === "PLUS").length;
+    stats.plusUsers = activeUsers.filter((user) => user.currentTier === "CONTRIBUTOR").length;
     stats.proUsers = activeUsers.filter((user) => user.currentTier === "PRO").length;
 
     const bandByUserId = new Map(users.map((user) => [user.id, user.band]));

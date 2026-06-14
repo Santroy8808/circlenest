@@ -101,27 +101,39 @@ function isGroupThread(thread: { kind?: string | null }) {
 }
 
 async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummary[]> {
-  const allThreads = await prisma.messageThread.findMany({
-    where: {
-      participants: { some: { userId: sessionUserId } },
-    },
-    include: {
-      messages: { orderBy: { createdAt: "desc" }, take: 1 },
-      participants: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              fullName: true,
-              profile: { select: { displayName: true, avatarUrl: true } },
-            },
-          },
-        },
+  const [directThreads, groupThreads] = await Promise.all([
+    prisma.messageThread.findMany({
+      where: {
+        kind: "DIRECT",
+        OR: [
+          { userAId: sessionUserId },
+          { userBId: sessionUserId },
+          { participants: { some: { userId: sessionUserId } } },
+        ],
       },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+      include: {
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        userA: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+        userB: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+        participants: { include: { user: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.messageThread.findMany({
+      where: {
+        kind: "GROUP",
+        participants: { some: { userId: sessionUserId } },
+      },
+      include: {
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        createdBy: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+        participants: { include: { user: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+
+  const allThreads = [...directThreads, ...groupThreads];
   const threadIds = allThreads.map((thread) => thread.id);
   const unreadRows = threadIds.length
     ? await prisma.message.groupBy({
@@ -163,10 +175,9 @@ async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummar
         };
       }
 
-      const other =
-        participants.find((participant) => participant.id !== sessionUserId) ?? participants[0];
-      if (!other) return null;
-      const otherDisplay = other.displayName;
+      const directThread = thread as (typeof directThreads)[number];
+      const other = directThread.userAId === sessionUserId ? directThread.userB : directThread.userA;
+      const otherDisplay = getDisplayName(other);
       return {
         id: thread.id,
         kind: thread.kind,
@@ -174,13 +185,25 @@ async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummar
         displayLabel: otherDisplay,
         subtitle: `@${other.username}`,
         participantCount: 2,
-        participants,
+        participants: [
+          {
+            id: directThread.userA.id,
+            username: directThread.userA.username,
+            displayName: getDisplayName(directThread.userA),
+            avatarUrl: directThread.userA.profile?.avatarUrl ?? null,
+          },
+          {
+            id: directThread.userB.id,
+            username: directThread.userB.username,
+            displayName: getDisplayName(directThread.userB),
+            avatarUrl: directThread.userB.profile?.avatarUrl ?? null,
+          },
+        ],
         unread: unreadMap.get(thread.id) ?? 0,
         lastMessageBody: lastMessage?.body ?? "",
         lastMessageAt: (lastMessage?.createdAt ?? thread.updatedAt).toISOString(),
       };
     })
-    .filter((thread): thread is ThreadSummary => Boolean(thread))
     .sort((a, b) => Date.parse(b.lastMessageAt) - Date.parse(a.lastMessageAt));
 }
 

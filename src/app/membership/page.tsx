@@ -29,98 +29,98 @@ export default async function MembershipPage() {
   });
   const currentPolicy = resolveUserAccessPolicy(currentUser);
   const free = getTierPolicy("FREE");
-  const plus = getTierPolicy("PLUS");
+  const contributor = getTierPolicy("CONTRIBUTOR");
   const biz = getTierPolicy("PRO");
   const auditor = getTierPolicy("AUDITOR");
   const rows = [
     {
       label: "Create groups",
       free: yesNo(free.canCreateGroup),
-      plus: yesNo(plus.canCreateGroup),
+      contributor: yesNo(contributor.canCreateGroup),
       biz: yesNo(biz.canCreateGroup),
       auditor: yesNo(auditor.canCreateGroup),
     },
     {
       label: "Group member cap",
       free: free.maxCreatedGroupMembers ? `Up to ${free.maxCreatedGroupMembers}` : "Unlimited",
-      plus: plus.maxCreatedGroupMembers ? `Up to ${plus.maxCreatedGroupMembers}` : "Unlimited",
+      contributor: contributor.maxCreatedGroupMembers ? `Up to ${contributor.maxCreatedGroupMembers}` : "Unlimited",
       biz: biz.maxCreatedGroupMembers ? `Up to ${biz.maxCreatedGroupMembers}` : "Unlimited",
       auditor: auditor.maxCreatedGroupMembers ? `Up to ${auditor.maxCreatedGroupMembers}` : "Unlimited",
     },
     {
       label: "Create events",
       free: yesNo(free.canCreateEvent),
-      plus: yesNo(plus.canCreateEvent),
+      contributor: yesNo(contributor.canCreateEvent),
       biz: yesNo(biz.canCreateEvent),
       auditor: yesNo(auditor.canCreateEvent),
     },
     {
       label: "Market listings",
       free: yesNo(free.canCreateBazaarListing),
-      plus: yesNo(plus.canCreateBazaarListing),
+      contributor: yesNo(contributor.canCreateBazaarListing),
       biz: yesNo(biz.canCreateBazaarListing),
       auditor: yesNo(auditor.canCreateBazaarListing),
     },
     {
-      label: "Hiring posts",
+      label: "Job listings",
       free: yesNo(free.canCreateHiringPost),
-      plus: yesNo(plus.canCreateHiringPost),
+      contributor: yesNo(contributor.canCreateHiringPost),
       biz: yesNo(biz.canCreateHiringPost),
       auditor: yesNo(auditor.canCreateHiringPost),
     },
     {
       label: "Fund raisers",
       free: yesNo(free.canCreateFundRaiser),
-      plus: yesNo(plus.canCreateFundRaiser),
+      contributor: yesNo(contributor.canCreateFundRaiser),
       biz: yesNo(biz.canCreateFundRaiser),
       auditor: yesNo(auditor.canCreateFundRaiser),
     },
     {
       label: "Change feed type",
       free: yesNo(free.canChangeFeedType),
-      plus: yesNo(plus.canChangeFeedType),
+      contributor: yesNo(contributor.canChangeFeedType),
       biz: yesNo(biz.canChangeFeedType),
       auditor: yesNo(auditor.canChangeFeedType),
     },
     {
       label: "Create ads",
       free: yesNo(free.canCreateAds),
-      plus: yesNo(plus.canCreateAds),
+      contributor: yesNo(contributor.canCreateAds),
       biz: yesNo(biz.canCreateAds),
       auditor: yesNo(auditor.canCreateAds),
     },
     {
       label: "Monthly ad credits",
       free: String(free.monthlyAdCredits),
-      plus: String(plus.monthlyAdCredits),
+      contributor: String(contributor.monthlyAdCredits),
       biz: String(biz.monthlyAdCredits),
       auditor: String(auditor.monthlyAdCredits),
     },
     {
       label: "Storage limit",
       free: formatBytes(free.storageLimitBytes),
-      plus: formatBytes(plus.storageLimitBytes),
+      contributor: formatBytes(contributor.storageLimitBytes),
       biz: formatBytes(biz.storageLimitBytes),
       auditor: formatBytes(auditor.storageLimitBytes),
     },
     {
       label: "Assign group moderators",
       free: yesNo(free.canAssignGroupModerators),
-      plus: yesNo(plus.canAssignGroupModerators),
+      contributor: yesNo(contributor.canAssignGroupModerators),
       biz: yesNo(biz.canAssignGroupModerators),
       auditor: yesNo(auditor.canAssignGroupModerators),
     },
     {
       label: "Site moderator eligibility",
       free: yesNo(free.canBeSiteModerator),
-      plus: yesNo(plus.canBeSiteModerator),
+      contributor: yesNo(contributor.canBeSiteModerator),
       biz: yesNo(biz.canBeSiteModerator),
       auditor: yesNo(auditor.canBeSiteModerator),
     },
     {
       label: "Invite rules",
       free: "Separate invite rules",
-      plus: "Separate invite rules",
+      contributor: "Separate invite rules",
       pro: "Separate invite rules",
       auditor: "Separate invite rules",
     },
@@ -133,9 +133,9 @@ export default async function MembershipPage() {
           <div className="inline-flex rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300">
             Membership
           </div>
-          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Compare Free, Activist, Biz, and Auditor</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Compare Free, Contributor, Biz, and Auditor</h1>
           <p className="max-w-3xl text-sm text-slate-300">
-            Free is for browsing, joining, and messaging. Activist adds core creation tools like events, listings, and fund raisers. Biz adds ads, hiring posts, and business workflows. Auditor is a qualified Biz-like tier with boosted ad credits. Admin is a separate role and is not a paid tier.
+            Free is for browsing, joining, and messaging. Contributor adds core creation tools like events, listings, and fund raisers. Biz adds ads, hiring posts, and business workflows. Auditor is a qualified Biz-like tier with boosted ad credits. Admin is a separate role and is not a paid tier.
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export default async function MembershipPage() {
               <tr>
                 <th className="border-b border-[var(--border)] px-3 py-2">Feature</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Free</th>
-                <th className="border-b border-[var(--border)] px-3 py-2">Activist</th>
+                <th className="border-b border-[var(--border)] px-3 py-2">Contributor</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Biz</th>
                 <th className="border-b border-[var(--border)] px-3 py-2">Auditor</th>
               </tr>
@@ -167,7 +167,7 @@ export default async function MembershipPage() {
                           ? freeLabel(row.free, free.canCreateEvent)
                           : row.label === "Market listings"
                             ? freeLabel(row.free, free.canCreateBazaarListing)
-                            : row.label === "Hiring posts"
+                          : row.label === "Job listings"
                           ? freeLabel(row.free, free.canCreateHiringPost)
                           : row.label === "Fund raisers"
                             ? freeLabel(row.free, free.canCreateFundRaiser)
@@ -185,7 +185,7 @@ export default async function MembershipPage() {
                                           ? freeLabel(row.free, free.canBeSiteModerator)
                                           : row.free}
                   </td>
-                  <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.plus}</td>
+                  <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.contributor}</td>
                   <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.biz}</td>
                   <td className="border-b border-[var(--border)] px-3 py-2 text-slate-200">{row.auditor}</td>
                 </tr>

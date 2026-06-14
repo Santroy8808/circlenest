@@ -1,10 +1,14 @@
 import { Prisma } from "@prisma/client";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { GroupsCenterClient } from "@/components/groups/groups-center-client";
-import { canCreateGroup, getMaxCreatedGroupMembers, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
+import { GroupsIndexClient } from "@/components/groups/groups-index-client";
+import { TierGate } from "@/components/policy/tier-gate";
+import { createGroupForUser } from "@/modules/groups/groups.service";
+import { getMaxCreatedGroupMembers, resolveUserAccessPolicy } from "@/lib/policy/tier-policy";
 
 type SearchParams = {
   view?: string | string[];
@@ -13,8 +17,6 @@ type SearchParams = {
   country?: string | string[];
   state?: string | string[];
   city?: string | string[];
-  sort?: string | string[];
-  selected?: string | string[];
 };
 
 type GroupCardRow = {
@@ -22,14 +24,15 @@ type GroupCardRow = {
   name: string;
   description: string | null;
   purpose: string | null;
+  locationCountry: string | null;
+  locationState: string | null;
+  locationCity: string | null;
   visibility: string;
   joinMode: "OPEN" | "REQUEST";
   ownerUsername: string;
   memberCount: number;
   isMember: boolean;
   hasPendingRequest: boolean;
-  createdAt: string;
-  lastActivityAt: string | null;
 };
 
 const groupInclude = {
@@ -38,12 +41,6 @@ const groupInclude = {
   joinRequests: {
     where: { status: "PENDING" },
     select: { id: true, userId: true },
-  },
-  threads: {
-    select: {
-      createdAt: true,
-      updatedAt: true,
-    },
   },
 } satisfies Prisma.GroupInclude;
 
@@ -63,61 +60,176 @@ export default async function GroupsPage({ searchParams }: { searchParams?: Sear
   const country = readParam(searchParams?.country);
   const state = readParam(searchParams?.state);
   const city = readParam(searchParams?.city);
-  const sort = normalizeSort(readParam(searchParams?.sort));
-  const requestedSelectedGroupId = readParam(searchParams?.selected);
   const hasSearch = Boolean(query || purpose || country || state || city);
 
   const [joinedGroups, myGroups, searchedGroups] = await Promise.all([
     view === "my" || hasSearch
       ? []
-      : loadGroups(
-          {
-            members: {
-              some: { userId: session.user.id },
-            },
+      : loadGroups({
+          members: {
+            some: { userId: session.user.id },
           },
-          session.user.id,
-        ),
+        }, session.user.id),
     view === "my"
-      ? loadGroups(
-          {
-            OR: [
-              { ownerId: session.user.id },
-              {
-                members: {
-                  some: { userId: session.user.id, role: "MODERATOR" },
-                },
+      ? loadGroups({
+          OR: [
+            { ownerId: session.user.id },
+            {
+              members: {
+                some: { userId: session.user.id, role: "MODERATOR" },
               },
-            ],
-          },
-          session.user.id,
-        )
+            },
+          ],
+        }, session.user.id)
       : [],
-    hasSearch ? loadGroups(buildSearchWhere({ query, purpose, country, state, city }), session.user.id) : [],
+    hasSearch
+      ? loadGroups(buildSearchWhere({ query, purpose, country, state, city }), session.user.id)
+      : [],
   ]);
 
-  const unsortedGroups = view === "my" ? myGroups : hasSearch ? searchedGroups : joinedGroups;
-  const groups = sortDirectoryGroups(unsortedGroups, sort);
-  const selectedGroupId = requestedSelectedGroupId || groups[0]?.id || null;
-  const selectedGroup = selectedGroupId ? await loadSelectedGroup(selectedGroupId, session.user.id) : null;
+  const groups = view === "my" ? myGroups : hasSearch ? searchedGroups : joinedGroups;
+  const title = view === "my" ? "My Groups" : hasSearch ? "Search Results" : "Joined Groups";
+  const description =
+    view === "my"
+      ? "Groups you created or moderate."
+      : hasSearch
+        ? "Search by group name, purpose, or location."
+        : "Groups you are already in.";
 
   return (
     <AppShell>
-      <GroupsCenterClient
-        directoryGroups={groups}
-        selectedGroup={selectedGroup}
-        selectedGroupId={selectedGroupId}
-        view={view}
-        sort={sort}
-        query={query}
-        purpose={purpose}
-        country={country}
-        state={state}
-        city={city}
-        maxCreatedGroupMembers={canCreateGroup(policy) ? getMaxCreatedGroupMembers(policy) : null}
-        currentUserId={session.user.id}
-      />
+      <div className="space-y-4">
+        <CreateGroupCard maxCreatedGroupMembers={getMaxCreatedGroupMembers(policy)} />
+
+        <section className="card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="mb-1 text-xl font-semibold">{title}</h1>
+              <p className="text-sm text-slate-600">{description}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Link href="/groups" className={`rounded border px-3 py-2 text-sm ${view === "my" ? "border-slate-300" : "border-slate-900 bg-slate-900 text-white"}`}>
+                Joined Groups
+              </Link>
+              <Link href="/groups?view=my" className={`rounded border px-3 py-2 text-sm ${view === "my" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300"}`}>
+                My Groups
+              </Link>
+            </div>
+          </div>
+
+          {view !== "my" ? (
+            <form action="/groups" method="get" className="mt-4 rounded border border-[var(--border)] p-3">
+              <p className="mb-2 text-sm font-medium">Find a group</p>
+              <div className="grid gap-2 md:grid-cols-2">
+                <input name="q" defaultValue={query} placeholder="Group name" className="rounded border border-slate-300 px-3 py-2" />
+                <input name="purpose" defaultValue={purpose} placeholder="Purpose" className="rounded border border-slate-300 px-3 py-2" />
+              </div>
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
+                <input name="country" defaultValue={country} placeholder="Country" className="rounded border border-slate-300 px-3 py-2" />
+                <input name="state" defaultValue={state} placeholder="State" className="rounded border border-slate-300 px-3 py-2" />
+                <input name="city" defaultValue={city} placeholder="City" className="rounded border border-slate-300 px-3 py-2" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-white">
+                  Search groups
+                </button>
+                {hasSearch ? (
+                  <Link href="/groups" className="rounded border border-slate-300 px-3 py-2 text-sm">
+                    Clear search
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+          ) : null}
+        </section>
+
+        <GroupsIndexClient
+          groups={groups}
+          emptyMessage={
+            view === "my"
+              ? "You have not created or moderated any groups yet."
+              : hasSearch
+                ? "No groups match that search."
+                : "You are not in any groups yet."
+          }
+        />
+      </div>
     </AppShell>
+  );
+}
+
+function CreateGroupCard({ maxCreatedGroupMembers }: { maxCreatedGroupMembers: number | null }) {
+  return (
+    <section className="card p-4">
+      <h1 className="mb-2 text-xl font-semibold">Groups</h1>
+      <p className="mb-3 text-sm text-slate-600">Create a group with a clear purpose and location.</p>
+      {!maxCreatedGroupMembers ? (
+        <p className="mb-3 rounded border border-[var(--border)] bg-[#0e1524] px-3 py-2 text-xs text-slate-300">
+          Your tier can create groups without the Free member cap and can assign moderators.
+        </p>
+      ) : null}
+      <form
+        action={async (formData) => {
+          "use server";
+          const session = await auth();
+          if (!session?.user?.id) return;
+
+          const result = await createGroupForUser(session.user.id, {
+            name: String(formData.get("name") ?? "").trim(),
+            purpose: String(formData.get("purpose") ?? "").trim(),
+            locationCountry: String(formData.get("locationCountry") ?? "").trim(),
+            locationState: String(formData.get("locationState") ?? "").trim(),
+            locationCity: String(formData.get("locationCity") ?? "").trim(),
+            description: String(formData.get("description") ?? "").trim(),
+            visibility: String(formData.get("visibility") ?? "PUBLIC") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
+            joinMode: String(formData.get("joinMode") ?? "OPEN") === "REQUEST" ? "REQUEST" : "OPEN",
+          });
+
+          if (!result.ok) return;
+          revalidatePath("/groups");
+          redirect("/groups?view=my");
+        }}
+        className="grid gap-2"
+      >
+        <div className="grid gap-2 md:grid-cols-2">
+          <input name="name" placeholder="Group name" className="rounded border border-slate-300 px-3 py-2" required />
+          <input name="purpose" placeholder="Purpose" className="rounded border border-slate-300 px-3 py-2" required />
+        </div>
+        <div className="grid gap-2 md:grid-cols-3">
+          <input name="locationCountry" placeholder="Country" className="rounded border border-slate-300 px-3 py-2" required />
+          <input name="locationState" placeholder="State" className="rounded border border-slate-300 px-3 py-2" required />
+          <input name="locationCity" placeholder="City" className="rounded border border-slate-300 px-3 py-2" required />
+        </div>
+        <input name="description" placeholder="Group description" className="rounded border border-slate-300 px-3 py-2" />
+        <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+          <select name="visibility" className="rounded border border-slate-300 px-3 py-2">
+            <option value="PUBLIC">Public</option>
+            <option value="PRIVATE">Private</option>
+          </select>
+          <select name="joinMode" className="rounded border border-slate-300 px-3 py-2">
+            <option value="OPEN">Open join</option>
+            <option value="REQUEST">Request to join</option>
+          </select>
+          <button className="rounded bg-slate-900 px-3 py-2 text-white" type="submit">
+            Create
+          </button>
+        </div>
+      </form>
+      {maxCreatedGroupMembers ? (
+        <div className="mt-3">
+          <TierGate
+            variant="info"
+            title="Free group limit"
+            message={`Groups you create are capped at ${maxCreatedGroupMembers} members.`}
+            ctaLabel="Compare memberships"
+            ctaHref="/membership"
+            secondaryLabel="Open subscription"
+            secondaryHref="/settings/subscription"
+            compact
+          />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -126,7 +238,11 @@ function buildSearchWhere(filters: { query: string; purpose: string; country: st
 
   if (filters.query) {
     and.push({
-      OR: [{ name: { contains: filters.query } }, { purpose: { contains: filters.query } }, { description: { contains: filters.query } }],
+      OR: [
+        { name: { contains: filters.query } },
+        { purpose: { contains: filters.query } },
+        { description: { contains: filters.query } },
+      ],
     });
   }
 
@@ -161,113 +277,21 @@ async function loadGroups(where: Prisma.GroupWhereInput, userId: string): Promis
     name: group.name,
     description: group.description,
     purpose: group.purpose,
+    locationCountry: group.locationCountry,
+    locationState: group.locationState,
+    locationCity: group.locationCity,
     visibility: group.visibility,
     joinMode: group.joinMode === "REQUEST" ? "REQUEST" : "OPEN",
     ownerUsername: group.owner.username,
     memberCount: group.members.length,
     isMember: group.members.some((member) => member.userId === userId),
     hasPendingRequest: group.joinRequests.some((request) => request.userId === userId),
-    createdAt: group.createdAt.toISOString(),
-    lastActivityAt: newestActivityAt(group.threads.map((thread) => thread.updatedAt ?? thread.createdAt)),
   }));
-}
-
-async function loadSelectedGroup(groupId: string, userId: string) {
-  const group = await prisma.group.findFirst({
-    where: { id: groupId },
-    include: {
-      owner: { select: { username: true } },
-      members: {
-        include: {
-          user: { select: { id: true, username: true } },
-        },
-      },
-      threads: {
-        include: {
-          author: { select: { username: true } },
-          posts: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
-        },
-        orderBy: { updatedAt: "desc" },
-      },
-    },
-  });
-
-  if (!group) return null;
-
-  const myMembership = group.members.find((member) => member.userId === userId) ?? null;
-  const thread = group.threads[0];
-
-  return {
-    id: group.id,
-    name: group.name,
-    description: group.description,
-    visibility: group.visibility,
-    ownerId: group.ownerId,
-    ownerUsername: group.owner.username,
-    memberCount: group.members.length,
-    isMember: Boolean(myMembership),
-    currentRole: myMembership?.role ?? null,
-    thread: thread
-      ? {
-          id: thread.id,
-          title: thread.title,
-          authorUsername: thread.author.username,
-          allowReplyImages: thread.allowReplyImages,
-          posts: thread.posts.map((post) => ({
-            id: post.id,
-            content: post.content,
-            parentCommentId: post.parentCommentId,
-            mediaUrlsJson: post.mediaUrlsJson,
-            createdAt: post.createdAt.toISOString(),
-            author: { username: post.author.username },
-          })),
-        }
-      : null,
-  };
-}
-
-function sortDirectoryGroups(groups: GroupCardRow[], sort: "active" | "newest" | "members"): GroupCardRow[] {
-  const sorted = [...groups];
-  sorted.sort((a, b) => {
-    if (sort === "members") {
-      return b.memberCount - a.memberCount || compareStrings(a.name, b.name);
-    }
-    if (sort === "newest") {
-      return compareDates(b.createdAt, a.createdAt) || compareStrings(a.name, b.name);
-    }
-    return compareDates(b.lastActivityAt, a.lastActivityAt) || compareDates(b.createdAt, a.createdAt) || compareStrings(a.name, b.name);
-  });
-  return sorted;
-}
-
-function newestActivityAt(values: Array<Date | null | undefined>): string | null {
-  const timestamps = values
-    .filter((value): value is Date => Boolean(value))
-    .map((value) => value.getTime())
-    .filter((value) => Number.isFinite(value));
-  if (!timestamps.length) return null;
-  return new Date(Math.max(...timestamps)).toISOString();
-}
-
-function compareDates(left: string | null, right: string | null): number {
-  const leftTime = left ? new Date(left).getTime() : 0;
-  const rightTime = right ? new Date(right).getTime() : 0;
-  return rightTime - leftTime;
-}
-
-function compareStrings(left: string, right: string): number {
-  return left.localeCompare(right);
 }
 
 function readParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
-}
-
-function normalizeSort(value: string): "active" | "newest" | "members" {
-  if (value === "newest") return "newest";
-  if (value === "members") return "members";
-  return "active";
 }
 
 function normalizeView(value: string): "joined" | "my" {

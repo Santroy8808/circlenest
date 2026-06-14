@@ -59,7 +59,7 @@ export default async function FundraisersPage() {
           <TierGate
             variant="locked"
             title="Fund raiser locked"
-            message="Upgrade to Activist to create fund raisers."
+            message="Upgrade to Contributor to create fund raisers."
             ctaLabel="Open subscription"
             ctaHref="/settings/subscription"
             secondaryLabel="Compare memberships"
@@ -70,7 +70,7 @@ export default async function FundraisersPage() {
           <>
             {limitReached ? (
               <p className="rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
-                Activist fund raisers are limited to {monthlyLimit} per month. You can create another next month.
+                Contributor fund raisers are limited to {monthlyLimit} per month. You can create another next month.
               </p>
             ) : null}
             <FundraiserCreateFormClient canCreate={!limitReached && canCreate} />

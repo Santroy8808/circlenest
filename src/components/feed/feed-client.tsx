@@ -182,19 +182,6 @@ export function FeedClient({
   const modeLabel = useMemo(() => toTitleCase(mode), [mode]);
 
   useEffect(() => {
-    setPosts(initialPosts);
-  }, [initialPosts]);
-
-  useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode]);
-
-  function refreshFeed(statusMessage?: string) {
-    if (statusMessage) setStatus(statusMessage);
-    router.refresh();
-  }
-
-  useEffect(() => {
     const openFromEvent = () => {
       if (allowComposer) {
         setComposerAudience("ALL");
@@ -317,7 +304,6 @@ export function FeedClient({
       setPollStatusByPost((prev) => ({ ...prev, [postId]: body.error ?? "Could not save vote." }));
       return;
     }
-    setPollStatusByPost((prev) => ({ ...prev, [postId]: "Vote saved." }));
     router.refresh();
   }
 
@@ -438,7 +424,7 @@ export function FeedClient({
           </div>
         ) : (
           <div className="flex items-center justify-end rounded-md border border-amber-400/30 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100 shadow-sm">
-            Upgrade to Activist to change feed type.
+            Upgrade to Contributor to change feed type.
           </div>
         )}
       </div>
@@ -464,14 +450,14 @@ export function FeedClient({
           </label>
         ) : (
           <div className="rounded border border-amber-400/30 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
-            Upgrade to Activist to change feed type.
+            Upgrade to Contributor to change feed type.
           </div>
         )}
       </div>
 
       {allowComposer && openComposer ? (
         <div id="communicate" className="fixed inset-0 z-40 flex items-start justify-center bg-black/55 p-4 pt-20">
-          <article className="w-full max-w-3xl rounded-md border border-[var(--border)] bg-[#0f1624] p-3 shadow-2xl">
+          <article className="w-full max-w-3xl rounded-md border border-[var(--border)] bg-[#0f1624] p-3 shadow-2xl md:p-4">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-slate-300">
                 <button type="button" className="underline" onClick={() => insertFormat("**", "**")}>B</button>
@@ -484,7 +470,7 @@ export function FeedClient({
               </div>
               <button type="button" className="text-xs underline" onClick={() => setOpenComposer(false)}>Close</button>
             </div>
-            <textarea id="communicate-editor" value={newPost} onChange={(e) => setNewPost(e.target.value)} className="w-full rounded-md border px-2 py-1.5 text-sm" placeholder="Share an update..." rows={6} />
+            <textarea id="communicate-editor" value={newPost} onChange={(e) => setNewPost(e.target.value)} className="w-full rounded-md border px-2 py-1.5 text-sm md:px-3 md:py-2" placeholder="Share an update..." rows={6} />
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <div className="flex flex-wrap gap-1">
                 {EMOJIS.map((emoji) => (
@@ -633,7 +619,7 @@ export function FeedClient({
                     setPollOptions(["", ""]);
                     setOpenComposer(false);
                     setStatus("Posted");
-                    refreshFeed("Posted");
+                    router.refresh();
                   }}
                 >
                   Post
@@ -649,11 +635,11 @@ export function FeedClient({
         const previewComments = getThreadPreviewComments(post.comments);
 
         return (
-          <article key={post.id} className={`rounded-[10px] px-6 py-5 shadow-sm ${idx % 2 === 0 ? "bg-[#121a2a]" : "bg-[#0f1726]"}`}>
+          <article key={post.id} className={`rounded-[14px] px-4 py-4 shadow-sm sm:px-5 md:px-6 md:py-5 ${idx % 2 === 0 ? "bg-[#121a2a]" : "bg-[#0f1726]"}`}>
             <p className="text-[14px] font-semibold">
               <Link href={`/profile/${post.author.username}`} className="text-slate-100 hover:underline">@{post.author.username}</Link>
             </p>
-            <p className="mt-2 max-w-[65ch] text-[18px] leading-[1.55]">{post.content}</p>
+            <p className="mt-2 max-w-[65ch] text-[16px] leading-[1.55] md:text-[18px]">{post.content}</p>
             {(() => {
               const galleryMeta = parseGalleryTopic(post.topic);
               if (!galleryMeta) return null;
@@ -672,7 +658,7 @@ export function FeedClient({
               const media = parseMedia(post.mediaUrlsJson);
               if (media.length > 0) {
                 return (
-                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                     {media.map((url) => (
                       <button key={url} type="button" className="text-left" onClick={() => openMedia(post.id, url)}>
                         <Image src={url} alt="Post media" width={800} height={600} unoptimized className="h-32 w-full rounded-md object-cover" />
@@ -707,10 +693,10 @@ export function FeedClient({
               </div>
             ) : null}
 
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-slate-300">
-              <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "LIKE" }) }); refreshFeed(); }}>{`\u{2764}\u{FE0F}`} Like {post.reactions.length}</button>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-[13px] text-slate-300 sm:gap-4">
+              <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/reactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "LIKE" }) }); router.refresh(); }}>{`\u{2764}\u{FE0F}`} Like {post.reactions.length}</button>
               {post.allowReshare !== false ? (
-                <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); refreshFeed(); }}>{`\u{1F501}`} Repost</button>
+                <button className="inline-flex items-center gap-1 hover:text-white" onClick={async () => { await fetch(`/api/posts/${post.id}/share`, { method: "POST" }); router.refresh(); }}>{`\u{1F501}`} Repost</button>
               ) : null}
               <button
                 className="inline-flex min-h-10 items-center gap-1 rounded-md border border-[#3d4e6d] bg-[#1a2335] px-3 py-1.5 text-[15px] font-medium text-white hover:border-[#5f769f] hover:bg-[#243149] disabled:cursor-not-allowed disabled:opacity-60"
@@ -734,7 +720,7 @@ export function FeedClient({
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ commentsLocked: !post.commentsLocked }),
                     });
-                    refreshFeed();
+                    router.refresh();
                   }}
                 >
                   {post.commentsLocked ? "\u{1F512}" : "\u{1F513}"} {post.commentsLocked ? "Locked" : "Unlocked"}
@@ -743,7 +729,7 @@ export function FeedClient({
               <details className="relative">
                 <summary className="cursor-pointer list-none text-slate-400 hover:text-white">{`\u{22EF}`}</summary>
                 <div className="absolute right-0 top-5 rounded-md bg-[#0b1220] p-2 shadow-lg">
-                  <button className="text-xs text-slate-200 hover:text-white" onClick={async () => { await patchPrefs({ hidePostId: post.id }); setPosts((current) => current.filter((entry) => entry.id !== post.id)); router.refresh(); }}>Hide post</button>
+                  <button className="text-xs text-slate-200 hover:text-white" onClick={async () => { await patchPrefs({ hidePostId: post.id }); router.refresh(); }}>Hide post</button>
                 </div>
               </details>
             </div>
@@ -789,7 +775,7 @@ export function FeedClient({
                       setCommentMediaByPost((prev) => ({ ...prev, [post.id]: [] }));
                       setReplyPostId(null);
                       setReplyParentByPost((prev) => ({ ...prev, [post.id]: null }));
-                      refreshFeed();
+                      router.refresh();
                     } finally {
                       commentSubmittingRefs.current[post.id] = false;
                       setCommentSubmittingByPost((prev) => ({ ...prev, [post.id]: false }));
@@ -854,7 +840,7 @@ export function FeedClient({
                     ) : null}
                   </div>
                   {(commentMediaByPost[post.id]?.length ?? 0) > 0 ? (
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {(commentMediaByPost[post.id] ?? []).map((url, mediaIndex) => (
                         <div key={`${post.id}-reply-media-${mediaIndex}`} className="relative">
                           <Image src={url} alt="Reply upload" width={240} height={240} unoptimized className="h-16 w-full rounded-md object-cover" />

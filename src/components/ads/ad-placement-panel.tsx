@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { AdPlacementSummary, AdTargetType } from "@/lib/ads/ads";
 
 const AD_FIELD_CLASS =
@@ -29,6 +30,7 @@ export function AdPlacementPanel({
   ads,
   slotIndex,
 }: AdPlacementPanelProps) {
+  const router = useRouter();
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
   const [status, setStatus] = useState("");
@@ -69,7 +71,7 @@ export function AdPlacementPanel({
       }
       setHeadline("");
       setBody("");
-      window.location.reload();
+      router.refresh();
     } finally {
       setSending(false);
     }

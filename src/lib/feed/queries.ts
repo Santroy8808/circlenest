@@ -39,12 +39,6 @@ type FeedContext = {
   followedTopicsValues: string[];
 };
 
-type FeedBundle = {
-  context: FeedContext;
-  where: Prisma.PostWhereInput;
-  fastCutoff: Date;
-};
-
 async function getFeedContext(userId: string): Promise<FeedContext> {
   const [pref, mutedUsers, mutedTopics, friendships, groupMemberships, followedTopics] = await Promise.all([
     prisma.userFeedPreference.findUnique({ where: { userId } }),
@@ -68,56 +62,6 @@ async function getFeedContext(userId: string): Promise<FeedContext> {
 
 function getFastCutoffDate(): Date {
   return new Date(Date.now() - FEED_FAST_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-}
-
-async function getFeedBundle(userId: string, mode: FeedMode): Promise<FeedBundle> {
-  const context = await getFeedContext(userId);
-  return {
-    context,
-    where: buildFeedWhere(userId, mode, context),
-    fastCutoff: getFastCutoffDate(),
-  };
-}
-
-export async function getInitialFeedData(userId: string, mode: FeedMode) {
-  const { context, fastCutoff, where } = await getFeedBundle(userId, mode);
-  const [posts, older] = await Promise.all([
-    prisma.post.findMany({
-      where: {
-        ...where,
-        createdAt: { gte: fastCutoff },
-      },
-      include: {
-        author: { select: { username: true } },
-        comments: {
-          select: {
-            id: true,
-            content: true,
-            parentCommentId: true,
-            createdAt: true,
-            author: { select: { username: true } },
-          },
-          orderBy: { createdAt: "asc" },
-        },
-        reactions: true,
-        poll: { include: { options: { include: { _count: { select: { votes: true } } } } } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: FEED_PAGE_SIZE,
-    }),
-    prisma.post.findFirst({
-      where: {
-        ...where,
-        createdAt: { lt: fastCutoff },
-      },
-      select: { id: true },
-    }),
-  ]);
-
-  return {
-    posts: decoratePosts(posts, mode, context.topicWeights),
-    hasOlderArchive: Boolean(older),
-  };
 }
 
 function buildFeedWhere(userId: string, mode: FeedMode, context: FeedContext): Prisma.PostWhereInput {
@@ -172,7 +116,9 @@ function decoratePosts<T extends { topic: string | null }>(
 }
 
 export async function getFeedPosts(userId: string, mode: FeedMode) {
-  const { context, fastCutoff, where } = await getFeedBundle(userId, mode);
+  const context = await getFeedContext(userId);
+  const fastCutoff = getFastCutoffDate();
+  const where = buildFeedWhere(userId, mode, context);
 
   const posts = await prisma.post.findMany({
     where: {
@@ -202,7 +148,9 @@ export async function getFeedPosts(userId: string, mode: FeedMode) {
 }
 
 export async function hasArchivePosts(userId: string, mode: FeedMode): Promise<boolean> {
-  const { where, fastCutoff } = await getFeedBundle(userId, mode);
+  const context = await getFeedContext(userId);
+  const where = buildFeedWhere(userId, mode, context);
+  const fastCutoff = getFastCutoffDate();
 
   const older = await prisma.post.findFirst({
     where: {
@@ -215,7 +163,9 @@ export async function hasArchivePosts(userId: string, mode: FeedMode): Promise<b
 }
 
 export async function getArchiveFeedPosts(userId: string, mode: FeedMode, before?: Date, take = FEED_ARCHIVE_PAGE_SIZE) {
-  const { context, where, fastCutoff } = await getFeedBundle(userId, mode);
+  const context = await getFeedContext(userId);
+  const where = buildFeedWhere(userId, mode, context);
+  const fastCutoff = getFastCutoffDate();
   const upperBound = before && before < fastCutoff ? before : fastCutoff;
 
   const rows = await prisma.post.findMany({

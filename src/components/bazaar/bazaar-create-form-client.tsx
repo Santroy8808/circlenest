@@ -42,8 +42,33 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
     };
   }, [selectedImages]);
 
+  if (!canCreate) {
+    return (
+      <section className="rounded border border-[var(--border)] bg-[#0d1320] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Create listing</p>
+            <h2 className="text-lg font-semibold text-[var(--text-strong)]">Post a listing on The Market</h2>
+            <p className="text-sm text-slate-400">This is what a completed listing looks like.</p>
+          </div>
+          {listingLimitNote ? <p className="max-w-sm text-xs text-slate-400">{listingLimitNote}</p> : null}
+        </div>
+        <div className="mt-4 rounded border border-[var(--border)] bg-[#111a2a] p-4">
+          <p className="text-base font-semibold text-[var(--text-strong)]">Example The Market listing</p>
+          <p className="mt-1 text-sm text-slate-300">Vintage leather chair, $125, local pickup, 3 photos, 2 week run.</p>
+          <p className="mt-2 text-xs text-slate-400">Browse is open to everyone. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="rounded border border-[var(--border)] bg-[#182232] px-3 py-2 text-xs text-slate-300">Clear title</div>
+            <div className="rounded border border-[var(--border)] bg-[#182232] px-3 py-2 text-xs text-slate-300">Up to your tier&apos;s photo limit</div>
+            <div className="rounded border border-[var(--border)] bg-[#182232] px-3 py-2 text-xs text-slate-300">Optional ad add-on after listing</div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   async function uploadListingPhoto(file: File) {
-    const result = await uploadImageWithCompression(file, { purpose: "bazaar-listing-photo" });
+    const result = await uploadImageWithCompression(file, { purpose: "market-listing-photo" });
     if (!result.url) {
       throw new Error("Could not upload listing photo.");
     }
@@ -69,7 +94,7 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
         imageUrls.push(url);
       }
 
-      const response = await fetch("/api/bazaar", {
+      const response = await fetch("/api/market", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -86,7 +111,7 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
         setStatus(payload.error ?? "Could not create listing.");
         return;
       }
-      router.push("/bazaar?created=1");
+      router.push("/market?created=1");
       router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not create listing.");
@@ -100,7 +125,7 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Create listing</p>
-          <h2 className="text-lg font-semibold text-[var(--text-strong)]">Post a Market listing</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-strong)]">Post a listing on The Market</h2>
           <p className="text-sm text-slate-400">Keep it short, clear, and honest.</p>
         </div>
         <div className="text-right text-xs text-slate-400">
@@ -128,7 +153,7 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
           <span className="text-slate-300">Description</span>
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!canCreate || submitting} className={`${BAZAAR_FIELD_CLASS} min-h-24`} placeholder="Tell people what you’re listing" />
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!canCreate || submitting} className={`${BAZAAR_FIELD_CLASS} min-h-24`} placeholder="Tell people what you're listing" />
         </label>
         <label className="space-y-2 text-sm md:col-span-2">
           <span className="text-slate-300">Listing photos</span>

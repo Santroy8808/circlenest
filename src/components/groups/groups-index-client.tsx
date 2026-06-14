@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type GroupIndexRow = {
   id: string;
@@ -20,6 +21,7 @@ type GroupIndexRow = {
 };
 
 export function GroupsIndexClient({ groups, emptyMessage = "No groups found." }: { groups: GroupIndexRow[]; emptyMessage?: string }) {
+  const router = useRouter();
   const [statusByGroup, setStatusByGroup] = useState<Record<string, string>>({});
 
   async function join(groupId: string) {
@@ -34,7 +36,7 @@ export function GroupsIndexClient({ groups, emptyMessage = "No groups found." }:
       ...prev,
       [groupId]: body.status === "REQUESTED" ? "Join request sent." : "You joined this group.",
     }));
-    window.location.reload();
+    router.refresh();
   }
 
   return (

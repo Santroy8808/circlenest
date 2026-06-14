@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import { ADMIN_MODE_IDLE_MINUTES } from "@/lib/security/admin-mode.shared";
 
@@ -8,6 +9,7 @@ const IDLE_MS = ADMIN_MODE_IDLE_MINUTES * 60 * 1000;
 const REFRESH_INTERVAL_MS = 60 * 1000;
 
 export function AdminModeSessionClient() {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
@@ -25,7 +27,7 @@ export function AdminModeSessionClient() {
         window.location.assign("/settings/account#administrator-mode");
         return;
       }
-      window.location.reload();
+      router.refresh();
     };
 
     const revoke = () => {
@@ -77,7 +79,7 @@ export function AdminModeSessionClient() {
       }
       window.removeEventListener("pagehide", handlePageHide);
     };
-  }, [nextPath, pathname]);
+  }, [nextPath, pathname, router]);
 
   return null;
 }

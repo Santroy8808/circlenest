@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
   if (!canCreateHiringPost(policy)) {
-    return NextResponse.json({ error: "Hiring post creation is not allowed on this tier." }, { status: 403 });
+    return NextResponse.json({ error: "Free and Contributor members can browse jobs. Only Biz members can post jobs." }, { status: 403 });
   }
 
   const body = (await request.json()) as {

@@ -38,7 +38,8 @@ export function buildControlPanelSections({
     {
       title: "Communications",
       links: [
-        { label: "Messages", href: "/messages" },
+        { label: "Chat", href: "/messages" },
+        { label: "Mail", href: "/mail" },
         { label: "Notifications", href: "/notifications" },
         { label: "Alerts", href: "/alerts" },
       ],
@@ -53,4 +54,3 @@ export function buildControlPanelSections({
     },
   ];
 }
-

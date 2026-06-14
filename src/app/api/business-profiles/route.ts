@@ -22,11 +22,21 @@ export async function GET() {
   const [ownProfile, publicProfiles] = await Promise.all([
     prisma.businessProfile.findUnique({
       where: { ownerId: session.user.id },
-      include: { owner: { select: { id: true, username: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
     }),
     prisma.businessProfile.findMany({
       where: { isPublic: true, NOT: { ownerId: session.user.id } },
-      include: { owner: { select: { id: true, username: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
@@ -58,16 +68,32 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as {
     businessName?: string;
+    legalBusinessName?: string | null;
+    dbaName?: string | null;
+    entityType?: string | null;
+    industry?: string | null;
     tagline?: string | null;
     description?: string | null;
     websiteUrl?: string | null;
     contactEmail?: string | null;
+    supportEmail?: string | null;
+    publicContactEmail?: string | null;
+    publicContactPhone?: string | null;
     contactPhone?: string | null;
+    businessPhone?: string | null;
     category?: string | null;
     location?: string | null;
     country?: string | null;
     state?: string | null;
     city?: string | null;
+    postalCode?: string | null;
+    streetAddress1?: string | null;
+    streetAddress2?: string | null;
+    timezone?: string | null;
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
+    processorProvider?: string | null;
+    processorOnboardingStatus?: string | null;
     isPublic?: boolean;
     storefrontSlug?: string | null;
     storefrontEnabled?: boolean;
@@ -78,7 +104,17 @@ export async function POST(request: Request) {
 
   const existingProfile = await prisma.businessProfile.findUnique({
     where: { ownerId: session.user.id },
-    select: { id: true, storefrontSlug: true, storefrontEnabled: true },
+    select: {
+      id: true,
+      storefrontSlug: true,
+      storefrontEnabled: true,
+      complianceProfile: {
+        select: {
+          processorProvider: true,
+          processorOnboardingStatus: true,
+        },
+      },
+    },
   });
   const requestedStorefrontSlug = String(body.storefrontSlug ?? existingProfile?.storefrontSlug ?? businessName ?? user?.username ?? "").trim();
   const storefrontSlug = await ensureUniqueStorefrontSlug(
@@ -92,43 +128,89 @@ export async function POST(request: Request) {
     })),
   );
   const storefrontEnabled = body.storefrontEnabled ?? existingProfile?.storefrontEnabled ?? false;
+  const clean = (value: unknown) => String(value ?? "").trim() || null;
+  const profileData = {
+    businessName,
+    legalBusinessName: clean(body.legalBusinessName),
+    dbaName: clean(body.dbaName),
+    entityType: clean(body.entityType),
+    industry: clean(body.industry),
+    tagline: clean(body.tagline),
+    description: clean(body.description),
+    websiteUrl: clean(body.websiteUrl),
+    contactEmail: clean(body.contactEmail),
+    supportEmail: clean(body.supportEmail),
+    publicContactEmail: clean(body.publicContactEmail),
+    publicContactPhone: clean(body.publicContactPhone),
+    contactPhone: clean(body.contactPhone),
+    businessPhone: clean(body.businessPhone),
+    category: clean(body.category),
+    location: clean(body.location),
+    country: clean(body.country),
+    state: clean(body.state),
+    city: clean(body.city),
+    postalCode: clean(body.postalCode),
+    streetAddress1: clean(body.streetAddress1),
+    streetAddress2: clean(body.streetAddress2),
+    timezone: clean(body.timezone),
+    logoUrl: clean(body.logoUrl),
+    bannerUrl: clean(body.bannerUrl),
+    isPublic: body.isPublic ?? true,
+    storefrontSlug,
+    storefrontEnabled,
+  };
+  const processorProvider = existingProfile?.complianceProfile?.processorProvider ?? "STRIPE";
+  const processorOnboardingStatus = existingProfile?.complianceProfile?.processorOnboardingStatus ?? "NOT_STARTED";
 
-  const profile = await prisma.businessProfile.upsert({
-    where: { ownerId: session.user.id },
-    create: {
-      ownerId: session.user.id,
-      businessName,
-      tagline: String(body.tagline ?? "").trim() || null,
-      description: String(body.description ?? "").trim() || null,
-      websiteUrl: String(body.websiteUrl ?? "").trim() || null,
-      contactEmail: String(body.contactEmail ?? "").trim() || null,
-      contactPhone: String(body.contactPhone ?? "").trim() || null,
-      category: String(body.category ?? "").trim() || null,
-      location: String(body.location ?? "").trim() || null,
-      country: String(body.country ?? "").trim() || null,
-      state: String(body.state ?? "").trim() || null,
-      city: String(body.city ?? "").trim() || null,
-      isPublic: body.isPublic ?? true,
-      storefrontSlug,
-      storefrontEnabled,
-    },
-    update: {
-      businessName,
-      tagline: String(body.tagline ?? "").trim() || null,
-      description: String(body.description ?? "").trim() || null,
-      websiteUrl: String(body.websiteUrl ?? "").trim() || null,
-      contactEmail: String(body.contactEmail ?? "").trim() || null,
-      contactPhone: String(body.contactPhone ?? "").trim() || null,
-      category: String(body.category ?? "").trim() || null,
-      location: String(body.location ?? "").trim() || null,
-      country: String(body.country ?? "").trim() || null,
-      state: String(body.state ?? "").trim() || null,
-      city: String(body.city ?? "").trim() || null,
-      isPublic: body.isPublic ?? true,
-      storefrontSlug,
-      storefrontEnabled,
-    },
-    include: { owner: { select: { id: true, username: true, fullName: true } } },
+  const profile = await prisma.$transaction(async (tx) => {
+    const savedProfile = await tx.businessProfile.upsert({
+      where: { ownerId: session.user.id },
+      create: {
+        ownerId: session.user.id,
+        ...profileData,
+      },
+      update: profileData,
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
+    });
+
+    await tx.businessComplianceProfile.upsert({
+      where: { businessProfileId: savedProfile.id },
+      create: {
+        businessProfileId: savedProfile.id,
+        processorProvider,
+        processorOnboardingStatus,
+      },
+      update: {
+        processorProvider,
+        processorOnboardingStatus,
+      },
+    });
+
+    await tx.businessProfileAuditLog.create({
+      data: {
+        businessProfileId: savedProfile.id,
+        actorUserId: session.user.id,
+        action: existingProfile ? "BUSINESS_PROFILE_UPDATED" : "BUSINESS_PROFILE_CREATED",
+        previousStatus: existingProfile ? "EXISTING" : null,
+        nextStatus: "SAVED",
+        metadataJson: JSON.stringify({ storefrontEnabled, processorOnboardingStatus }),
+      },
+    });
+
+    return tx.businessProfile.findUniqueOrThrow({
+      where: { id: savedProfile.id },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
+    });
   });
 
   return NextResponse.json({ ok: true, profile: serializeBusinessProfile(profile) });

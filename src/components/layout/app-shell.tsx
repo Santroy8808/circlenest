@@ -12,6 +12,8 @@ import { ADMIN_MODE_COOKIE_NAME, hasAdminModeAccess } from "@/lib/security/admin
 import { CURRENT_TERMS_VERSION } from "@/lib/security/terms";
 import { TermsGateClient } from "@/components/security/terms-gate-client";
 import { GlobalChatDock } from "@/components/messages/global-chat-dock";
+import { GlobalMailDock } from "@/components/mail/global-mail-dock";
+import { MailLaunchButton } from "@/components/mail/mail-launch-button";
 import { buildControlPanelSections } from "@/components/layout/control-panel.config";
 import { ControlPanelSection } from "@/components/layout/control-panel-section";
 
@@ -125,7 +127,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
                   <Link href="/groups" className="hover:underline">Groups</Link>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Link href="/notifications?type=messages" title="Unread messages" aria-label={`${unreadMessages} unread messages`} className="hover:underline">Messages {unreadMessages}</Link>
+                  <MailLaunchButton unreadCount={unreadMessages} />
                   <Link href="/notifications" title="Unread notifications" aria-label={`${unreadNotifications} unread notifications`} className="hover:underline">Notifications {unreadNotifications}</Link>
                   <Link href="/alerts" title="Unread alerts" aria-label={`${unreadAlerts} unread alerts`} className="hover:underline">Alerts {unreadAlerts}</Link>
                   <Link href="/friends#invites" title="Pending friend requests" aria-label={`${pendingInvites} pending friend requests`} className="hover:underline">Invites {pendingInvites}</Link>
@@ -141,6 +143,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
         </aside>
       </div>
       {userId ? <GlobalChatDock myUserId={userId} /> : null}
+      {userId ? <GlobalMailDock myUserId={userId} /> : null}
       <MobileSwipeNav
         side={pref?.mobileNavSwipeSide === "LEFT" ? "LEFT" : "RIGHT"}
         includeAdmin={showAdminFeatures}

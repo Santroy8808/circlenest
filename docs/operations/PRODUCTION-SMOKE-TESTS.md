@@ -95,7 +95,7 @@ Use this after a production deploy.
 ## 13) Tier gates
 
 - Confirm Free users see locked controls.
-- Confirm Plus users can create events, Bazaar listings, and jobs.
+- Confirm Contributor users can create events, Bazaar listings, and jobs.
 - Confirm Pro users see ad-credit behavior.
 - Confirm Admin stays separate from paid tiers.
 

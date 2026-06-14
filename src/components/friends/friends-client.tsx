@@ -1,29 +1,19 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
 
-type FriendCard = {
+type UserRef = {
   id: string;
   username: string;
   fullName?: string | null;
-  displayName?: string | null;
-  avatarUrl?: string | null;
-  locationLabel?: string | null;
-  relationshipStatus?: string | null;
-  lastInteractionAt?: string | null;
+  profile?: { displayName?: string | null; avatarUrl?: string | null } | null;
 };
-
-function displayName(person: FriendCard) {
-  return person.displayName || person.fullName || `@${person.username}`;
-}
-
-function initials(person: FriendCard) {
-  return displayName(person).charAt(0).toUpperCase();
-}
+type Incoming = { id: string; sender: UserRef };
+type Outgoing = { id: string; receiver: UserRef };
 
 async function runBulk(action: "FOLLOW" | "UNFOLLOW" | "SEND_REQUEST" | "UNFRIEND", userIds: string[]) {
   await fetch("/api/connections/bulk", {
@@ -31,24 +21,34 @@ async function runBulk(action: "FOLLOW" | "UNFOLLOW" | "SEND_REQUEST" | "UNFRIEN
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, userIds }),
   });
-  window.location.reload();
 }
 
 export function FriendsClient({
   friends,
+  incoming,
+  outgoing,
   suggestions,
   followingIds,
-  sort,
 }: {
-  friends: FriendCard[];
-  suggestions: FriendCard[];
+  friends: UserRef[];
+  incoming: Incoming[];
+  outgoing: Outgoing[];
+  suggestions: UserRef[];
   followingIds: string[];
-  sort: "alpha" | "family" | "interacted" | "location";
 }) {
   const router = useRouter();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<FriendCard[]>([]);
+  const [searchResults, setSearchResults] = useState<UserRef[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
+
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const isSelected = (id: string) => selectedSet.has(id);
+
+  function toggle(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   async function runSearch() {
     const q = search.trim();
@@ -64,187 +64,165 @@ export function FriendsClient({
         setSearchStatus("Could not search right now.");
         return;
       }
-      const body = (await res.json()) as { people?: FriendCard[] };
+      const body = (await res.json()) as { people?: UserRef[] };
       const rows = Array.isArray(body.people) ? body.people : [];
-      setSearchResults(rows.map((person) => ({ ...person, locationLabel: "" })));
+      setSearchResults(rows);
       setSearchStatus(rows.length ? `Found ${rows.length}` : "No matches found.");
     } catch {
       setSearchStatus("Could not search right now.");
     }
   }
 
-  const sortLabels: Record<typeof sort, string> = {
-    alpha: "Alphabetical",
-    family: "Family first",
-    interacted: "Most interacted",
-    location: "Location",
-  };
+  async function refreshAfter(action: Promise<unknown>) {
+    await action;
+    router.refresh();
+  }
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Friends</h1>
-            <p className="text-sm text-slate-400">A visual view of the people you connect with.</p>
-          </div>
-          <label className="grid gap-1 text-xs uppercase tracking-[0.16em] text-slate-500">
-            Sort by
-            <select
-              value={sort}
-              onChange={(event) => router.push(`/friends?sort=${encodeURIComponent(event.target.value)}`)}
-              className="rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-[var(--accent)]/50"
-            >
-              <option value="alpha">Alphabetical</option>
-              <option value="family">Family first</option>
-              <option value="interacted">Most interacted with</option>
-              <option value="location">Location</option>
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4">
-        <h2 className="mb-2 text-lg font-semibold text-[var(--text-strong)]">Find People</h2>
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Find People</h2>
         <div className="flex gap-2">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 outline-none transition focus:border-[var(--accent)]/50"
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
             placeholder="Search by username, name, or email"
           />
-          <button className="rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white" onClick={() => void runSearch()}>
+          <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => void runSearch()}>
             Search
           </button>
         </div>
-        {searchStatus ? <p className="mt-2 text-xs text-slate-400">{searchStatus}</p> : null}
+        {searchStatus ? <p className="mt-2 text-xs text-slate-500">{searchStatus}</p> : null}
         {searchResults.length ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-2 space-y-2">
             {searchResults.map((person) => (
-              <FriendCardView key={person.id} person={person} actions={
-                <>
-                  <Link href={`/profile/${person.username}`} className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white">
-                    View
-                  </Link>
-                  <DirectMessageButton username={person.username} className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white" />
-                  <button className="rounded-full bg-[#376ef8] px-3 py-1.5 text-xs font-semibold text-white" onClick={async () => { await fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
+              <div key={person.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
+                <div>
+                  <p className="text-sm">{person.fullName || `@${person.username}`}</p>
+                  <p className="text-xs text-slate-500">@{person.username}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Link href={`/profile/${person.username}`} className="rounded border border-slate-300 px-2 py-1 text-xs">View</Link>
+                  <DirectMessageButton username={person.username} className="rounded border border-[var(--border)] px-2 py-1 text-xs" />
+                  <button className="rounded bg-blue-600 px-2 py-1 text-xs text-white" onClick={() => void refreshAfter(fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))}>
                     Add Friend
                   </button>
-                  <button className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-300 hover:text-white" onClick={async () => { await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
+                  <button className="rounded border border-red-400 px-2 py-1 text-xs text-red-300" onClick={() => void refreshAfter(fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))}>
                     Block
                   </button>
-                </>
-              } />
+                </div>
+              </div>
             ))}
           </div>
         ) : null}
       </section>
 
-      <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--text-strong)]">Friends</h2>
-            <p className="text-sm text-slate-400">{friends.length} friends sorted by {sortLabels[sort].toLowerCase()}.</p>
-          </div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">No bulk controls here</p>
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Mass Controls</h2>
+        <p className="mb-3 text-sm text-slate-600">Select people below, then run one action for everyone selected.</p>
+        <div className="flex flex-wrap gap-2">
+          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { setStatus("Working..."); await runBulk("FOLLOW", selected); setStatus("Followed selected users."); }}>Follow</button>
+          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { setStatus("Working..."); await runBulk("UNFOLLOW", selected); setStatus("Unfollowed selected users."); }}>Unfollow</button>
+          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { setStatus("Working..."); await runBulk("SEND_REQUEST", selected); setStatus("Sent friend requests where possible."); }}>Send Friend Request</button>
+          <button className="rounded border border-red-300 px-2 py-1 text-sm text-red-700" onClick={async () => { setStatus("Working..."); await runBulk("UNFRIEND", selected); setStatus("Unfriended selected users."); }}>Unfriend</button>
+          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={() => setSelected([])}>Clear selection</button>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {friends.map((friend) => (
-            <FriendCardView
-              key={friend.id}
-              person={friend}
-              actions={
-                <>
-                  <Link href={`/profile/${friend.username}`} className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white">
-                    View
-                  </Link>
-                  <DirectMessageButton username={friend.username} className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white" />
-                  <button className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-300 hover:text-white" onClick={async () => { await fetch("/api/friends/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ friendUserId: friend.id }) }); window.location.reload(); }}>
-                    Remove
-                  </button>
-                  <button className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-300 hover:text-white" onClick={async () => { await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: friend.id }) }); window.location.reload(); }}>
-                    Block
-                  </button>
-                </>
-              }
-            />
+        <p className="mt-2 text-xs text-slate-500">{selected.length} selected</p>
+        {status ? <p className="mt-1 text-sm text-slate-600">{status}</p> : null}
+      </section>
+
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Incoming Requests</h2>
+        <div className="space-y-2">
+          {incoming.map((r) => (
+            <div key={r.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
+              <span>@{r.sender.username}</span>
+              <div className="flex gap-2">
+                <button className="rounded bg-green-600 px-2 py-1 text-sm text-white" onClick={() => void refreshAfter(fetch(`/api/friends/request/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ACCEPT" }) }))}>Accept</button>
+                <button className="rounded bg-slate-200 px-2 py-1 text-sm" onClick={() => void refreshAfter(fetch(`/api/friends/request/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "DECLINE" }) }))}>Decline</button>
+              </div>
+            </div>
           ))}
-          {friends.length === 0 ? <p className="text-sm text-slate-400">No friends yet.</p> : null}
+          {incoming.length === 0 ? <p className="text-sm text-slate-600">No incoming requests.</p> : null}
         </div>
       </section>
 
-      <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4">
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-[var(--text-strong)]">Suggested Friends</h2>
-          <p className="text-sm text-slate-400">A few people you may want to connect with next.</p>
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Outgoing Requests</h2>
+        <div className="space-y-2">
+          {outgoing.map((r) => <p key={r.id} className="text-sm">Pending: @{r.receiver.username}</p>)}
+          {outgoing.length === 0 ? <p className="text-sm text-slate-600">No outgoing requests.</p> : null}
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {suggestions.map((person) => {
-            const following = followingIds.includes(person.id);
+      </section>
+
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Friends</h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {friends.map((f) => (
+            <div key={f.id} className="rounded-lg bg-[#111a2a] p-2">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="inline-flex items-center gap-1 text-xs text-slate-400">
+                  <input type="checkbox" checked={isSelected(f.id)} onChange={() => toggle(f.id)} />
+                  <span>Select</span>
+                </label>
+                <button className="text-xs text-red-300 underline" onClick={() => void refreshAfter(fetch("/api/friends/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ friendUserId: f.id }) }))}>Remove</button>
+              </div>
+              <Link href={`/profile/${f.username}`} className="block overflow-hidden rounded-md">
+                {f.profile?.avatarUrl ? (
+                  <Image
+                    src={f.profile.avatarUrl}
+                    alt={f.profile?.displayName || f.username}
+                    width={500}
+                    height={500}
+                    unoptimized
+                    className="aspect-square w-full rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-square w-full items-center justify-center rounded-md bg-[#2a3346] text-xl text-[var(--text-strong)]">
+                    {(f.profile?.displayName || f.fullName || f.username).charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </Link>
+              <div className="mt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-medium text-slate-100">
+                    {f.profile?.displayName || f.fullName || `@${f.username}`}
+                  </p>
+                <div className="flex items-center gap-2">
+                    <DirectMessageButton username={f.username} className="text-xs underline" />
+                    <button className="text-xs text-red-300 underline" onClick={() => void refreshAfter(fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: f.id }) }))}>Block</button>
+                  </div>
+                </div>
+                <p className="truncate text-xs text-slate-400">@{f.username}</p>
+              </div>
+            </div>
+          ))}
+          {friends.length === 0 ? <p className="text-sm text-slate-600">No friends yet.</p> : null}
+        </div>
+      </section>
+
+      <section className="card p-4">
+        <h2 className="mb-2 text-lg font-semibold">Suggested Friends</h2>
+        <div className="space-y-2">
+          {suggestions.map((s) => {
+            const following = followingIds.includes(s.id);
             return (
-              <FriendCardView
-                key={person.id}
-                person={person}
-                actions={
-                  <>
-                    <Link href={`/profile/${person.username}`} className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white">
-                      View
-                    </Link>
-                    <DirectMessageButton username={person.username} className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white" />
-                    <button className="rounded-full bg-[#376ef8] px-3 py-1.5 text-xs font-semibold text-white" onClick={async () => { await fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }); window.location.reload(); }}>
-                      Add Friend
-                    </button>
-                    <button className="rounded-full border border-[#304058] px-3 py-1.5 text-xs text-slate-200 transition hover:border-[#4a5a78] hover:text-white" onClick={async () => { await runBulk(following ? "UNFOLLOW" : "FOLLOW", [person.id]); }}>
-                      {following ? "Unfollow" : "Follow"}
-                    </button>
-                  </>
-                }
-              />
+              <div key={s.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={isSelected(s.id)} onChange={() => toggle(s.id)} />
+                  <span>@{s.username}</span>
+                </label>
+                <div className="flex gap-2">
+                  <DirectMessageButton username={s.username} className="rounded border border-[var(--border)] px-2 py-1 text-sm" />
+                  <button className="rounded bg-blue-600 px-2 py-1 text-sm text-white" onClick={() => void refreshAfter(fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: s.username }) }))}>Add Friend</button>
+                  <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { await runBulk(following ? "UNFOLLOW" : "FOLLOW", [s.id]); }}>{following ? "Unfollow" : "Follow"}</button>
+                </div>
+              </div>
             );
           })}
         </div>
       </section>
     </div>
-  );
-}
-
-function FriendCardView({
-  person,
-  actions,
-}: {
-  person: FriendCard;
-  actions: ReactNode;
-}) {
-  return (
-    <article className="group overflow-hidden rounded-[18px] border border-[#273449] bg-[#111a2a] transition hover:-translate-y-0.5 hover:border-[#3b4f6c] hover:bg-[#162033] hover:shadow-[0_18px_36px_rgba(0,0,0,0.25)]">
-      <Link href={`/profile/${person.username}`} className="block p-3">
-        <div className="overflow-hidden rounded-[14px] border border-[#304058] bg-[#182232]">
-          {person.avatarUrl ? (
-            <Image
-              src={person.avatarUrl}
-              alt={displayName(person)}
-              width={640}
-              height={640}
-              unoptimized
-              className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-            />
-          ) : (
-            <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-[#25324a] to-[#131d2c] text-4xl font-semibold text-[var(--text-strong)]">
-              {initials(person)}
-            </div>
-          )}
-        </div>
-        <div className="mt-3 space-y-1">
-          <p className="truncate text-sm font-semibold text-[var(--text-strong)]">{displayName(person)}</p>
-          <p className="truncate text-xs uppercase tracking-[0.14em] text-slate-400">@{person.username}</p>
-          {person.locationLabel ? <p className="truncate text-xs text-slate-400">{person.locationLabel}</p> : null}
-          {person.relationshipStatus ? <p className="truncate text-xs text-amber-200">{person.relationshipStatus}</p> : null}
-          {person.lastInteractionAt ? <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Last interacted {new Date(person.lastInteractionAt).toLocaleDateString()}</p> : null}
-        </div>
-      </Link>
-      <div className="flex flex-wrap gap-2 border-t border-[#273449] px-3 py-3">
-        {actions}
-      </div>
-    </article>
   );
 }

@@ -25,7 +25,7 @@ export function resolveBusinessProfileAccess(subscriptionTier: string | null | u
   return {
     canBrowse: true,
     canCreate: false,
-    reason: tier === "FREE" || tier === "PLUS"
+    reason: tier === "FREE" || tier === "CONTRIBUTOR"
       ? "Biz is required to create a business profile and storefront."
       : "Business profile creation is locked for this account.",
   };

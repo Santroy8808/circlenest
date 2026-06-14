@@ -25,6 +25,7 @@ async function targetExists(targetType: string, targetId: string): Promise<boole
       return Boolean(await prisma.group.findUnique({ where: { id: targetId }, select: { id: true } }));
     case "EVENT":
       return Boolean(await prisma.event.findUnique({ where: { id: targetId }, select: { id: true } }));
+    case "MARKET_LISTING":
     case "BAZAAR_LISTING":
       return Boolean(await prisma.bazaarListing.findUnique({ where: { id: targetId }, select: { id: true } }));
     case "JOB_LISTING":

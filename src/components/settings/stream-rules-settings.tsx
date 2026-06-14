@@ -49,7 +49,7 @@ export function StreamRulesSettings({ canChangeFeedType }: { canChangeFeedType: 
           <TierGate
             variant="locked"
             title="Feed mode locked"
-            message="Upgrade to Activist to change feed type."
+            message="Upgrade to Contributor to change feed type."
             ctaLabel="Open subscription"
             ctaHref="/settings/subscription"
             secondaryLabel="Compare memberships"

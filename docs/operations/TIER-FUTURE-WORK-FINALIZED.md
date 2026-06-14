@@ -16,7 +16,7 @@ This pass closed out two of the highest-value phase-7 foundation items:
 These items remain future work and should be handled as separate follow-up phases:
 
 - Invite-only membership system
-- Plus invite eligibility after 6 months
+- Contributor invite eligibility after 6 months
 - Qualified invite approval flow
 - Billing and subscription sync
 - Storage enforcement UX beyond the current limit display

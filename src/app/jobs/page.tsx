@@ -69,8 +69,8 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
         ? `Biz ad credits: ${adCreditBalance ?? 0}`
         : policy.tier === "AUDITOR"
           ? `Auditor ad credits: ${adCreditBalance ?? 0}`
-          : policy.tier === "PLUS"
-            ? "Activist members need Biz or Auditor for job ads."
+        : policy.tier === "CONTRIBUTOR"
+            ? "Free and Contributor members can browse jobs. Only Biz members can post jobs."
             : "Upgrade to be able to create ads.";
   const showAdCreditLabel = canCreate || policy.canCreateAds || policy.isAdmin;
 
@@ -98,7 +98,7 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
       <section className="card space-y-4 p-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Find a job</h1>
-          <p className="text-sm text-slate-500">Browse member job listings and open each post for full details.</p>
+          <p className="text-sm text-slate-500">Free and Contributor members can browse jobs. Only Biz members can post jobs.</p>
         </div>
         <form method="get" className="grid gap-2 rounded border border-[var(--border)] p-3 md:grid-cols-6">
           <input name="q" defaultValue={q} placeholder="Search title, company, duties" className="rounded border px-3 py-2 text-sm md:col-span-2" />
@@ -115,20 +115,16 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
                 Clear
               </Link>
             ) : null}
-            {canCreate ? (
-              <Link href="/jobs/new" className="rounded border border-[var(--border)] px-3 py-2 text-sm">
-                Create job listing
-              </Link>
-            ) : (
-              <Link href="/settings/subscription" className="rounded border border-amber-400/40 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
-                Upgrade to be able to post jobs
-              </Link>
-            )}
+            <Link href="/jobs/new" className="rounded border border-[var(--border)] px-3 py-2 text-sm">
+              Create job listing
+            </Link>
+            <span className="inline-flex items-center rounded border border-[var(--border)] px-3 py-2 text-sm text-slate-400">
+              Biz only
+            </span>
           </div>
         </form>
         {searchParams?.created ? <p className="rounded border border-emerald-400/40 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-200">Job posted.</p> : null}
         {showAdCreditLabel ? <p className="text-xs text-slate-400">{adCreditLabel}</p> : null}
-        {!canCreate ? <p className="rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">Upgrade to be able to post a job listing.</p> : null}
         <JobsBoardClient jobs={boardJobs} ads={adPool} adSeed={adSeed} />
       </section>
     </AppShell>

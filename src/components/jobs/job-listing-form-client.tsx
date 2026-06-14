@@ -35,6 +35,23 @@ export function JobListingFormClient({ canCreate }: JobListingFormClientProps) {
     return payload.url;
   }
 
+  if (!canCreate) {
+    return (
+      <section className="grid gap-3 rounded border border-[var(--border)] bg-[#0d1320] p-4">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.18em] text-amber-200">Create a job listing</p>
+          <h2 className="text-lg font-semibold text-[var(--text-strong)]">Example job board post</h2>
+          <p className="text-sm text-slate-400">This is what the job board creator looks like when you have access.</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[#111a2a] p-4 text-sm text-slate-300">
+          <p className="font-semibold text-[var(--text-strong)]">Assistant office manager</p>
+          <p className="mt-1">Compass Managed IT, Rochester, full-time, 40 hours/week.</p>
+          <p className="mt-2 text-xs text-slate-400">Includes company, title, description, requirements, pay range, and optional photo.</p>
+        </div>
+      </section>
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canCreate) return;

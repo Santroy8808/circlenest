@@ -8,7 +8,7 @@ Build the membership tier foundation that lets Theta-Space grow cleanly.
 
 Primary goal:
 
-- Create one central policy source for Free, Plus, Pro, and Admin access.
+- Create one central policy source for Free, Contributor, Pro, and Admin access.
 
 Secondary goals:
 
@@ -24,7 +24,7 @@ Theta-Space is a private, invitation-based, multi-tier social platform for Scien
 Current tiers:
 
 - Free: limited access, limited storage, can message/comment/post, create a group up to 10 people, join groups, view hiring board, find an auditor, view Bazaar listings.
-- Plus: can create Bazaar listings, hiring posts, events, ads for Bazaar/event listings, unlimited-size groups, assign group moderators, increased storage, possible site moderator by invite, invite qualified people after 6 months.
+- Contributor: can create Bazaar listings, hiring posts, events, ads for Bazaar/event listings, unlimited-size groups, assign group moderators, increased storage, possible site moderator by invite, invite qualified people after 6 months.
 - Pro: full non-admin access, can be moderator, monthly ad credits.
 - Admin: separate from paid tier, global full access.
 
@@ -87,7 +87,7 @@ Implementation shape:
 
 - Define a normalized tier type:
   - `FREE`
-  - `PLUS`
+  - `CONTRIBUTOR`
   - `PRO`
   - `ADMIN`
 - Normalize unknown/null tiers to `FREE`.
@@ -127,7 +127,7 @@ Initial policy values:
   - can create ads: false
   - monthly ad credits: 0
   - storage limit: choose existing Free/default storage behavior if already defined, otherwise leave as a named constant.
-- Plus:
+- Contributor:
   - can create group: true
   - max created group members: null/unlimited
   - can assign group moderators: true
@@ -140,7 +140,7 @@ Initial policy values:
   - monthly ad credits: 0 unless later defined
   - storage limit: increased but undefined, use named placeholder constant.
 - Pro:
-  - includes Plus
+  - includes Contributor
   - can be site moderator: true by invite
   - can create ads: true
   - monthly ad credits: named placeholder constant
@@ -182,10 +182,10 @@ Rules to enforce:
 - Free can create groups, but created groups should be capped at 10 members.
 - Free cannot assign group moderators.
 - Free cannot change feed type.
-- Plus/Pro can create events.
-- Plus/Pro can create Bazaar listings.
-- Plus/Pro can create hiring posts.
-- Plus/Pro can assign moderators in groups they are allowed to moderate.
+- Contributor/Pro can create events.
+- Contributor/Pro can create Bazaar listings.
+- Contributor/Pro can create hiring posts.
+- Contributor/Pro can assign moderators in groups they are allowed to moderate.
 - Admin bypasses tier restrictions.
 
 Implementation notes:
@@ -224,7 +224,7 @@ Target code:
 Rules:
 
 - If group owner/creator is Free, group membership cannot exceed 10 people.
-- Plus/Pro/Admin group creators can have unlimited group members.
+- Contributor/Pro/Admin group creators can have unlimited group members.
 - Admin can override if needed.
 - Pending join requests can exist, but approval should fail if approving would exceed the cap.
 
@@ -289,7 +289,7 @@ Verification:
 - `npm run build`
 - Manual browser smoke:
   - Free user sees locked controls.
-  - Plus/Pro user sees enabled controls.
+  - Contributor/Pro user sees enabled controls.
   - Admin sees full access.
 
 ## Phase 5: Admin Tier Management
@@ -308,7 +308,7 @@ Needed features:
 
 - Admin-only list/search users.
 - Show email, username, role, subscription tier, created date.
-- Change subscription tier between Free, Plus, Pro.
+- Change subscription tier between Free, Contributor, Pro.
 - Do not allow paid tier to grant Admin.
 - Admin role changes should remain separate and deliberate.
 
@@ -344,15 +344,15 @@ Suggested files:
 Minimum coverage:
 
 - Free cannot create event.
-- Plus can create event.
+- Contributor can create event.
 - Free cannot create Bazaar listing.
-- Plus can create Bazaar listing.
+- Contributor can create Bazaar listing.
 - Free cannot create hiring post.
-- Plus can create hiring post.
+- Contributor can create hiring post.
 - Free cannot change feed type.
 - Free group cannot exceed 10 members.
 - Free group creator cannot assign moderator role.
-- Plus group creator can assign moderator role.
+- Contributor group creator can assign moderator role.
 - Admin bypasses tier restrictions.
 
 Deliverable:
@@ -369,7 +369,7 @@ Verification:
 Do after Phases 1-6:
 
 - Invite-only membership system.
-- Plus 6-month invite eligibility.
+- Contributor 6-month invite eligibility.
 - Qualified-invite approval flow.
 - Paid subscription/billing integration.
 - Subscription status sync and downgrade handling.
@@ -427,7 +427,7 @@ The tier foundation is done when:
 
 - One central policy file controls tier capabilities.
 - The main APIs enforce tier capabilities.
-- Free, Plus, Pro, and Admin behavior is consistent across events, Bazaar, jobs, groups, and feed settings.
+- Free, Contributor, Pro, and Admin behavior is consistent across events, Bazaar, jobs, groups, and feed settings.
 - UI does not invite users to perform actions the server will reject.
 - Admin can change member tiers.
 - A repeatable smoke checklist or test suite covers the core tier gates.
@@ -445,6 +445,6 @@ The following feature areas are now part of the active dev surface around the ti
 - Separate Production Zone surfaces for Bazaar, Hiring Board, Find an Auditor, I'm an Auditor, Business Profile, and Writers Studio.
 - Message, thread, notification, and mobile navigation refinements.
 - Media upload, compression, and storage quota handling.
-- Auditor tier behavior alongside Free, Plus, Pro, and Admin.
+- Auditor tier behavior alongside Free, Contributor, Pro, and Admin.
 
 Future policy updates should continue to treat these surfaces as first-class neighbors to the tier system, even when they are not directly enforced by Phase 1-6.

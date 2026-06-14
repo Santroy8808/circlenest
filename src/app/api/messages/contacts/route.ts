@@ -6,10 +6,13 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const me = session.user.id;
-  const links = await prisma.friendship.findMany({ where: { OR: [{ userAId: me }, { userBId: me }] } });
-  const friendIds = links.map((link) => (link.userAId === me ? link.userBId : link.userAId));
-  const friends = await prisma.user.findMany({
+  const links = await prisma.friendship.findMany({
+    where: { OR: [{ userAId: session.user.id }, { userBId: session.user.id }] },
+    select: { userAId: true, userBId: true },
+  });
+  const friendIds = links.map((link) => (link.userAId === session.user.id ? link.userBId : link.userAId));
+
+  const contacts = await prisma.user.findMany({
     where: { id: { in: friendIds } },
     select: {
       id: true,
@@ -17,8 +20,8 @@ export async function GET() {
       fullName: true,
       profile: { select: { displayName: true, avatarUrl: true } },
     },
-    orderBy: { username: "asc" },
+    orderBy: [{ username: "asc" }],
   });
 
-  return NextResponse.json(friends);
+  return NextResponse.json(contacts);
 }

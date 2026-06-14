@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { AdPlacementCard } from "@/components/ads/ad-placement-card";
 import { ReportControl } from "@/components/reports/report-control";
 import { pickRotatingAd, resolveAdRotationSeed } from "@/lib/ads/ad-selection";
@@ -37,6 +38,7 @@ type BazaarClientProps = {
 };
 
 export function BazaarClient({ initialListings, currentUserId }: BazaarClientProps) {
+  const router = useRouter();
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [q, setQ] = useState("");
   const [location, setLocation] = useState("");
@@ -56,28 +58,28 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
     if (location.trim()) params.set("location", location.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
-    const response = await fetch(`/api/bazaar?${params.toString()}`, { cache: "no-store" });
+    const response = await fetch(`/api/market?${params.toString()}`, { cache: "no-store" });
     const data = (await response.json().catch(() => [])) as Listing[];
     setListings(Array.isArray(data) ? data : []);
     setStatus("");
   }
 
   async function saveEdit(listingId: string) {
-    await fetch(`/api/bazaar/${listingId}`, {
+    await fetch(`/api/market/${listingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: editTitle, price: Number(editPrice) }),
     });
-    window.location.reload();
+    router.refresh();
   }
 
   async function renewListing(listingId: string) {
-    await fetch(`/api/bazaar/${listingId}`, {
+    await fetch(`/api/market/${listingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "RENEW" }),
     });
-    window.location.reload();
+    router.refresh();
   }
 
   const cards: ReactNode[] = [];
@@ -100,7 +102,7 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
               {listing.category || "Uncategorized"}
             </span>
             <ReportControl
-              targetType="BAZAAR_LISTING"
+              targetType="MARKET_LISTING"
               targetId={listing.id}
               label="Report listing"
               compact
@@ -164,13 +166,13 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
                 >
                   Edit
                 </button>
-                <button
-                  className="rounded border border-red-400 px-2 py-1 text-xs text-red-300"
-                  onClick={async () => {
-                    await fetch(`/api/bazaar/${listing.id}`, { method: "DELETE" });
-                    window.location.reload();
-                  }}
-                >
+                  <button
+                    className="rounded border border-red-400 px-2 py-1 text-xs text-red-300"
+                    onClick={async () => {
+                      await fetch(`/api/market/${listing.id}`, { method: "DELETE" });
+                      router.refresh();
+                    }}
+                  >
                   Delete
                 </button>
               </>

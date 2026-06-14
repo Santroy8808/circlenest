@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 import { CommentThread } from "@/components/comments/comment-thread";
+import { GalleryUploadSurfaceClient } from "@/components/profile/gallery-upload-surface-client";
 
 type Visibility = "PUBLIC" | "FRIENDS_FAMILY" | "PRIVATE";
-type AlbumVisibility = "PUBLIC" | "FRIENDS" | "FAMILY" | "FRIENDS_FAMILY" | "PRIVATE";
 
 type GalleryComment = {
   id: string;
@@ -39,13 +40,6 @@ type GalleryAlbum = {
   createdAt: string | Date;
   photos: GalleryPhoto[];
   albumTags?: { tag: { id: string; name: string } }[];
-};
-
-type UploadProgressState = {
-  phase: "preparing" | "uploading" | "saving";
-  total: number;
-  completed: number;
-  currentName: string | null;
 };
 
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
@@ -102,11 +96,6 @@ function normalizeVisibility(value: string | null | undefined): Visibility {
   return "PUBLIC";
 }
 
-function normalizeAlbumVisibility(value: string | null | undefined): AlbumVisibility {
-  if (value === "PRIVATE" || value === "FRIENDS_FAMILY" || value === "FRIENDS" || value === "FAMILY") return value;
-  return "PUBLIC";
-}
-
 function parseAlbumTagNames(album: GalleryAlbum | null | undefined): string[] {
   return album?.albumTags?.map((entry) => entry.tag.name) ?? [];
 }
@@ -120,13 +109,9 @@ function parsePhotoTagNames(photo: GalleryPhoto | null | undefined): string[] {
 export function GalleryManagerClient({
   initialAlbums,
   initialUserTags,
-  initialUsageBytes,
-  initialLimitBytes,
 }: {
   initialAlbums: GalleryAlbum[];
   initialUserTags: string[];
-  initialUsageBytes: number;
-  initialLimitBytes: number;
 }) {
   const shellCardClass = "rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)]";
   const insetCardClass = "rounded-[14px] border border-[var(--border)] bg-[#111a2a] p-3";
@@ -136,16 +121,10 @@ export function GalleryManagerClient({
   const [albums, setAlbums] = useState(initialAlbums);
   const [activeAlbumId, setActiveAlbumId] = useState(initialAlbums[0]?.id ?? "");
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [notifyFriendsAndFamily, setNotifyFriendsAndFamily] = useState(true);
-  const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
   const [tagFilter, setTagFilter] = useState<string>("ALL");
   const [userTags, setUserTags] = useState<string[]>(initialUserTags);
-  const [usageBytes, setUsageBytes] = useState<number>(initialUsageBytes);
-  const [storageLimitBytes, setStorageLimitBytes] = useState<number>(initialLimitBytes);
   const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
-  const [showUploadPanel, setShowUploadPanel] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Record<string, boolean>>({});
   const [starredPhotoIds, setStarredPhotoIds] = useState<Record<string, boolean>>({});
@@ -163,6 +142,7 @@ export function GalleryManagerClient({
   const [zoomed, setZoomed] = useState(false);
 
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter();
 
   const allPhotos = useMemo(() => flattenPhotos(albums), [albums]);
   const activeAlbum = useMemo(
@@ -221,16 +201,6 @@ export function GalleryManagerClient({
     [selectedPhotoIds],
   );
 
-  const storageUsedMb = useMemo(() => (usageBytes / (1024 * 1024)).toFixed(2), [usageBytes]);
-  const storageLimitLabel = useMemo(() => {
-    if (storageLimitBytes >= Number.MAX_SAFE_INTEGER / 2) return "Unlimited";
-    return `${(storageLimitBytes / (1024 * 1024)).toFixed(0)}MB`;
-  }, [storageLimitBytes]);
-  const storagePercent = useMemo(
-    () => (storageLimitBytes >= Number.MAX_SAFE_INTEGER / 2 ? 0 : Math.min(100, Math.round((usageBytes / storageLimitBytes) * 100))),
-    [usageBytes, storageLimitBytes],
-  );
-
   useEffect(() => {
     if (!openPhoto) return;
     setModalCaption(openPhoto.caption ?? "");
@@ -248,16 +218,6 @@ export function GalleryManagerClient({
     if (!modalReplyToId) return;
     commentInputRef.current?.focus();
   }, [openPhoto, modalReplyToId]);
-
-  async function refreshUsage() {
-    const res = await fetch("/api/gallery/usage", { cache: "no-store" });
-    if (!res.ok) return;
-    const body = (await res.json()) as { usedBytes?: number; limitBytes?: number };
-    setUsageBytes(body.usedBytes ?? 0);
-    if (typeof body.limitBytes === "number") {
-      setStorageLimitBytes(body.limitBytes);
-    }
-  }
 
   function updatePhotoLocally(photoId: string, updater: (photo: GalleryPhoto) => GalleryPhoto) {
     setAlbums((previous) =>
@@ -283,120 +243,6 @@ export function GalleryManagerClient({
     if (openPhotoId === photoId) setOpenPhotoId(null);
   }
 
-  async function uploadFiles(files: FileList | File[]) {
-    const list = Array.from(files);
-    if (!list.length) return;
-
-    setBusy(true);
-    setShowUploadPanel(true);
-    setUploadProgress({
-      phase: "preparing",
-      total: list.length,
-      completed: 0,
-      currentName: list[0]?.name ?? null,
-    });
-    setStatus(`Preparing ${list.length} photo${list.length === 1 ? "" : "s"}...`);
-
-    let targetAlbum = activeAlbum;
-    if (!targetAlbum) {
-      const createdAlbumRes = await fetch("/api/gallery/albums", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "My Pics" }),
-      });
-      if (!createdAlbumRes.ok) {
-        setBusy(false);
-        setStatus("Could not create a default album.");
-        return;
-      }
-      const createdAlbum = (await createdAlbumRes.json()) as GalleryAlbum;
-      targetAlbum = { ...createdAlbum, photos: [] };
-      setAlbums((previous) => [targetAlbum!, ...previous]);
-      setActiveAlbumId(targetAlbum.id);
-    }
-
-    const urls: string[] = [];
-    for (const [index, file] of list.entries()) {
-      setUploadProgress({
-        phase: "uploading",
-        total: list.length,
-        completed: index,
-        currentName: file.name,
-      });
-      setStatus(`Uploading ${index + 1} of ${list.length}: ${file.name}`);
-      const uploaded = await uploadOne(file, {
-        purpose: "gallery-photo",
-        albumId: targetAlbum!.id,
-      });
-      if (uploaded) urls.push(uploaded);
-      setUploadProgress({
-        phase: "uploading",
-        total: list.length,
-        completed: index + 1,
-        currentName: file.name,
-      });
-    }
-
-    if (!urls.length) {
-      setBusy(false);
-      setUploadProgress(null);
-      setStatus("Upload failed.");
-      return;
-    }
-
-    setUploadProgress({
-      phase: "saving",
-      total: list.length,
-      completed: urls.length,
-      currentName: null,
-    });
-    setStatus(`Saving ${urls.length} uploaded photo${urls.length === 1 ? "" : "s"}...`);
-    const saveRes = await fetch("/api/gallery/photos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        albumId: targetAlbum.id,
-        urls,
-        notifyFriendsAndFamily,
-        visibility,
-      }),
-    });
-
-    if (!saveRes.ok) {
-      let message = "Could not save uploaded photos.";
-      try {
-        const body = (await saveRes.json()) as { error?: string };
-        if (body.error) message = body.error;
-      } catch {
-        // no-op
-      }
-      setBusy(false);
-      setUploadProgress(null);
-      setStatus(message);
-      return;
-    }
-
-    const payload = (await saveRes.json()) as { photos: GalleryPhoto[] };
-    const createdPhotos = (Array.isArray(payload.photos) ? payload.photos : []).map((photo) => ({
-      ...photo,
-      comments: Array.isArray(photo.comments) ? photo.comments : [],
-    }));
-
-    setAlbums((previous) =>
-      previous.map((album) =>
-        album.id === targetAlbum!.id
-          ? { ...album, photos: [...createdPhotos, ...album.photos] }
-          : album,
-      ),
-    );
-
-    setBusy(false);
-    setUploadProgress(null);
-    setShowUploadPanel(false);
-    setStatus(`Uploaded ${createdPhotos.length} of ${list.length} photo${list.length === 1 ? "" : "s"}.`);
-    void refreshUsage();
-  }
-
   async function deletePhoto(photoId: string) {
     const res = await fetch(`/api/gallery/photos/${photoId}`, { method: "DELETE" });
     if (!res.ok) {
@@ -405,7 +251,24 @@ export function GalleryManagerClient({
     }
     removePhotoLocally(photoId);
     setStatus("Photo deleted.");
-    void refreshUsage();
+  }
+
+  async function assignPhotoAs(type: "avatar" | "banner") {
+    if (!openPhoto) return;
+    const payload = type === "avatar" ? { avatarUrl: openPhoto.url } : { bannerUrl: openPhoto.url };
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      setStatus(`Could not update ${type}.`);
+      return;
+    }
+
+    setStatus(`${type === "avatar" ? "Avatar" : "Banner"} updated from this photo.`);
+    router.refresh();
   }
 
   async function saveModalMetadata() {
@@ -523,7 +386,17 @@ export function GalleryManagerClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={primaryButtonClass} onClick={() => setShowUploadPanel(true)}>
+            <button
+              type="button"
+              className={primaryButtonClass}
+              onClick={() => {
+                if (typeof window !== "undefined" && window.matchMedia("(max-width: 699px)").matches) {
+                  router.push("/profile/gallery/upload");
+                  return;
+                }
+                setShowUploadModal(true);
+              }}
+            >
               Upload
             </button>
             <Link href="/profile/gallery/albums" className={ghostButtonClass}>
@@ -564,108 +437,10 @@ export function GalleryManagerClient({
             ) : null}
           </div>
         </div>
-        {uploadProgress ? (
-          <div className="mt-4 rounded-[14px] border border-[#2b3850] bg-[#111a2a] px-3 py-3">
-            <div className="flex items-center justify-between gap-3 text-sm text-slate-200">
-              <span>
-                {uploadProgress.phase === "preparing"
-                  ? "Preparing upload"
-                  : uploadProgress.phase === "saving"
-                    ? "Saving photos"
-                    : `Uploading ${uploadProgress.completed} of ${uploadProgress.total}`}
-              </span>
-              <span className="text-xs text-slate-400">
-                {uploadProgress.completed}/{uploadProgress.total}
-              </span>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#1a2538]">
-              <div
-                className="h-full rounded-full bg-[#376ef8] transition-all duration-300"
-                style={{
-                  width: `${Math.max(
-                    uploadProgress.phase === "saving"
-                      ? 96
-                      : Math.round((uploadProgress.completed / Math.max(uploadProgress.total, 1)) * 100),
-                    8,
-                  )}%`,
-                }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-slate-400">
-              {uploadProgress.currentName ?? "Finalizing your upload..."}
-            </p>
-          </div>
-        ) : status ? (
+        {status ? (
           <p className="mt-4 text-sm text-slate-300">{status}</p>
         ) : null}
       </article>
-
-      {showUploadPanel ? (
-        <article className={shellCardClass}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="gallery-upload-input" className={`${primaryButtonClass} cursor-pointer`}>
-              Choose photos
-            </label>
-            <input
-              id="gallery-upload-input"
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(event) => {
-                if (!event.currentTarget.files) return;
-                void uploadFiles(event.currentTarget.files);
-                event.currentTarget.value = "";
-              }}
-            />
-            <button type="button" className={ghostButtonClass} onClick={() => void shareAlbum()}>
-              Share album
-            </button>
-            </div>
-            <button type="button" className={ghostButtonClass} onClick={() => setShowUploadPanel(false)}>
-              Close
-            </button>
-          </div>
-
-          <div className="mt-3 grid gap-3">
-            <div className="rounded-[14px] border border-[#273449] bg-[#111a2a] p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-strong)]">Upload settings</p>
-              <div className="grid gap-3">
-                <div className="rounded-[12px] border border-[#2b3850] bg-[#0f1624] px-3 py-2 text-[11px] text-slate-300">
-                  Storage: {storageUsedMb}MB / {storageLimitLabel}
-                  {storagePercent > 0 ? ` (${storagePercent}%)` : ""}
-                </div>
-                <label className="flex items-center gap-2 text-[12px] text-slate-300">
-                  <input type="checkbox" checked={notifyFriendsAndFamily} onChange={(event) => setNotifyFriendsAndFamily(event.target.checked)} />
-                  Notify Friends and Family
-                </label>
-                <label className="flex items-center gap-2 text-[12px] text-slate-300">
-                  Visibility
-                  <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} className={inputClass}>
-                    <option value="PUBLIC">Public</option>
-                    <option value="FRIENDS_FAMILY">Friends & Family</option>
-                    <option value="PRIVATE">Private</option>
-                  </select>
-                </label>
-                <div
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (busy) return;
-                    if (event.dataTransfer.files?.length) {
-                      void uploadFiles(event.dataTransfer.files);
-                    }
-                  }}
-                  className="rounded-[16px] border border-dashed border-[#304058] bg-[#111a2a] px-3 py-5 text-center text-[12px] text-slate-300"
-                >
-                  Drag photos here or choose photos.
-                </div>
-              </div>
-            </div>
-          </div>
-        </article>
-      ) : null}
 
       {activeAlbum ? (
         <article className={shellCardClass}>
@@ -869,6 +644,12 @@ export function GalleryManagerClient({
                 <button type="button" className="hover:underline" onClick={() => void saveModalMetadata()}>
                   Save
                 </button>
+                <button type="button" className="hover:underline" onClick={() => void assignPhotoAs("avatar")}>
+                  Set as avatar
+                </button>
+                <button type="button" className="hover:underline" onClick={() => void assignPhotoAs("banner")}>
+                  Set as banner
+                </button>
                 <button
                   type="button"
                   className="rounded-full border border-red-400/60 px-3 py-1.5 text-red-200 transition hover:border-red-300 hover:text-white"
@@ -989,6 +770,19 @@ export function GalleryManagerClient({
             </aside>
           </div>
         </div>
+      ) : null}
+
+      {showUploadModal ? (
+        <GalleryUploadSurfaceClient
+          mode="modal"
+          albums={albums.map((album) => ({ id: album.id, title: album.title }))}
+          defaultAlbumId={activeAlbum?.id}
+          onClose={() => setShowUploadModal(false)}
+          onUploaded={() => {
+            setShowUploadModal(false);
+            router.refresh();
+          }}
+        />
       ) : null}
     </section>
   );

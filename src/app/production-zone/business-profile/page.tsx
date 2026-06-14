@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/prisma";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { BusinessProfileManager } from "@/components/business/business-profile-manager";
 import { canCreateBusinessProfile, resolveBusinessProfileAccess } from "@/lib/policy/production-zone";
@@ -24,11 +24,21 @@ export default async function BusinessProfilePage() {
   const [ownProfile, publicProfiles] = await Promise.all([
     prisma.businessProfile.findUnique({
       where: { ownerId: session.user.id },
-      include: { owner: { select: { id: true, username: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
     }),
     prisma.businessProfile.findMany({
       where: { isPublic: true, NOT: { ownerId: session.user.id } },
-      include: { owner: { select: { id: true, username: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { BusinessProfileSummary } from "@/lib/business/business-profile";
 import type { BusinessStorefrontInquirySummary } from "@/lib/business/storefront";
 
@@ -14,10 +15,12 @@ const inputClassName =
   "w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100";
 
 export function BusinessStorefrontManager({ ownProfile, inquiries }: Props) {
+  const router = useRouter();
   const [storefrontSlug, setStorefrontSlug] = useState(ownProfile?.storefrontSlug ?? "");
   const [storefrontEnabled, setStorefrontEnabled] = useState(ownProfile?.storefrontEnabled ?? false);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const profileReady = Boolean(ownProfile?.completion.reviewReady);
 
   const publicPath = useMemo(() => {
     const slug = storefrontSlug.trim() || ownProfile?.storefrontSlug?.trim() || "";
@@ -41,7 +44,7 @@ export function BusinessStorefrontManager({ ownProfile, inquiries }: Props) {
         setStatus(payload.error ?? "Could not save storefront settings.");
         return;
       }
-      window.location.reload();
+      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -76,6 +79,7 @@ export function BusinessStorefrontManager({ ownProfile, inquiries }: Props) {
                 type="checkbox"
                 checked={storefrontEnabled}
                 onChange={(event) => setStorefrontEnabled(event.target.checked)}
+                disabled={!profileReady}
               />
               Enable public storefront
             </label>
@@ -85,6 +89,12 @@ export function BusinessStorefrontManager({ ownProfile, inquiries }: Props) {
             Create your business profile first before enabling a storefront.
           </p>
         )}
+
+        {ownProfile && !profileReady ? (
+          <p className="rounded border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+            Complete the Company Profile checklist before publishing this storefront.
+          </p>
+        ) : null}
 
         {publicPath ? (
           <div className="rounded border border-[var(--border)] bg-[color:var(--card-alt)] p-3 text-sm text-slate-300">
@@ -104,7 +114,7 @@ export function BusinessStorefrontManager({ ownProfile, inquiries }: Props) {
 
         <button
           type="button"
-          disabled={!ownProfile || saving}
+          disabled={!ownProfile || saving || (storefrontEnabled && !profileReady)}
           onClick={() => void saveStorefront()}
           className="rounded bg-[#8f7228] px-3 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
         >

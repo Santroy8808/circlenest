@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import {
-  canCreateBazaarListing,
-  getBazaarListingLifetimeDays,
-  getBazaarListingMaxImageCount,
-  getBazaarListingRollingLimit,
-  getBazaarListingWeeklyLimit,
-} from "@/lib/policy/tier-policy";
+  canCreateMarketListing,
+  getMarketListingLifetimeDays,
+  getMarketListingMaxImageCount,
+  getMarketListingRollingLimit,
+} from "@/lib/policy/market";
+import { evaluateMarketListingQuota } from "@/lib/policy/market-limits";
 import { serializeAdPlacements } from "@/lib/ads/ads";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
@@ -102,8 +102,11 @@ export async function POST(request: Request) {
     select: { role: true, subscriptionTier: true },
   });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
-  if (!canCreateBazaarListing(policy)) {
-    return NextResponse.json({ error: "Market listing creation is not allowed on this tier." }, { status: 403 });
+  if (!canCreateMarketListing(policy)) {
+    return NextResponse.json(
+      { error: "Free members can browse The Market. Contributor members can create listings, and Biz members can post unlimited marketplace listings." },
+      { status: 403 },
+    );
   }
 
   const body = (await request.json()) as {
@@ -119,25 +122,18 @@ export async function POST(request: Request) {
   const price = Number(body.price);
   if (!title || Number.isNaN(price) || price < 0) return NextResponse.json({ error: "Valid title and price are required" }, { status: 400 });
   const imageUrls = parseImageUrls(body.imageUrls);
-  const maxImages = getBazaarListingMaxImageCount(policy);
+  const maxImages = getMarketListingMaxImageCount(policy);
   if (maxImages !== null && imageUrls.length > maxImages) {
     return NextResponse.json({ error: `Market listings can include up to ${maxImages} photos on this tier.` }, { status: 400 });
   }
-  const weeklyLimit = getBazaarListingWeeklyLimit(policy);
-  const rollingLimit = getBazaarListingRollingLimit(policy);
-  if (weeklyLimit !== null || rollingLimit !== null) {
+  const rollingLimit = getMarketListingRollingLimit(policy);
+  if (rollingLimit !== null) {
     const now = new Date();
-    const weekAgo = addDays(now, -7);
     const twoWeeksAgo = addDays(now, -14);
-    const [lastWeekCount, lastTwoWeeksCount] = await Promise.all([
-      prisma.bazaarListing.count({ where: { sellerId: session.user.id, createdAt: { gte: weekAgo } } }),
-      prisma.bazaarListing.count({ where: { sellerId: session.user.id, createdAt: { gte: twoWeeksAgo } } }),
-    ]);
-    if (weeklyLimit !== null && lastWeekCount >= weeklyLimit) {
-      return NextResponse.json({ error: `Activist Market listings are limited to ${weeklyLimit} per week.` }, { status: 409 });
-    }
-    if (rollingLimit !== null && lastTwoWeeksCount >= rollingLimit) {
-      return NextResponse.json({ error: `Activist Market listings are limited to ${rollingLimit} in any 2-week period.` }, { status: 409 });
+    const lastTwoWeeksCount = await prisma.bazaarListing.count({ where: { sellerId: session.user.id, createdAt: { gte: twoWeeksAgo } } });
+    const quota = evaluateMarketListingQuota(policy, { createdInRollingWindow: lastTwoWeeksCount });
+    if (!quota.allowed) {
+      return NextResponse.json({ error: quota.error }, { status: 409 });
     }
   }
 
@@ -150,7 +146,7 @@ export async function POST(request: Request) {
       location: String(body.location ?? "").trim() || null,
       category: String(body.category ?? "").trim() || null,
       imageUrlsJson: imageUrls.length ? JSON.stringify(imageUrls.slice(0, 3)) : null,
-      expiresAt: policy.tier === "PLUS" ? addDays(new Date(), getBazaarListingLifetimeDays(policy) ?? 14) : null,
+      expiresAt: policy.tier === "CONTRIBUTOR" ? addDays(new Date(), getMarketListingLifetimeDays(policy) ?? 14) : null,
     },
     include: { seller: { select: { id: true, username: true } } },
   });

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { getPublicBaseUrl } from "@/lib/config/public-base-url";
 
-export type BillingPlanTier = "PLUS" | "PRO";
+export type BillingPlanTier = "CONTRIBUTOR" | "PRO";
 export type BillingSubscriptionStatus =
   | "ACTIVE"
   | "TRIALING"
@@ -16,7 +16,7 @@ export type BillingSubscriptionStatus =
 export type StripeBillingConfig = Readonly<{
   secretKey: string;
   webhookSecret: string;
-  priceIdPlus: string;
+  priceIdContributor: string;
   priceIdPro: string;
   portalReturnUrl: string | null;
 }>;
@@ -35,11 +35,12 @@ export type BillingSubscriptionSnapshot = Readonly<{
   pausedAt: Date | null;
 }>;
 
-const BILLING_PLAN_TIERS: BillingPlanTier[] = ["PLUS", "PRO"];
+const BILLING_PLAN_TIERS: BillingPlanTier[] = ["CONTRIBUTOR", "PRO"];
 const STRIPE_WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 
 export function normalizeBillingPlanTier(value: string | null | undefined): BillingPlanTier | null {
   const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "PLUS" || normalized === "ACTIVIST") return "CONTRIBUTOR";
   return BILLING_PLAN_TIERS.includes(normalized as BillingPlanTier) ? (normalized as BillingPlanTier) : null;
 }
 
@@ -47,14 +48,14 @@ export function getStripeBillingConfig(): StripeBillingConfig {
   return {
     secretKey: process.env.STRIPE_SECRET_KEY?.trim() ?? "",
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? "",
-    priceIdPlus: process.env.STRIPE_PRICE_ID_PLUS?.trim() ?? "",
+    priceIdContributor: process.env.STRIPE_PRICE_ID_CONTRIBUTOR?.trim() ?? process.env.STRIPE_PRICE_ID_PLUS?.trim() ?? "",
     priceIdPro: process.env.STRIPE_PRICE_ID_PRO?.trim() ?? "",
     portalReturnUrl: process.env.STRIPE_PORTAL_RETURN_URL?.trim() || null,
   };
 }
 
 export function resolveStripePriceId(tier: BillingPlanTier, config = getStripeBillingConfig()) {
-  return tier === "PLUS" ? config.priceIdPlus : config.priceIdPro;
+  return tier === "CONTRIBUTOR" ? config.priceIdContributor : config.priceIdPro;
 }
 
 export function normalizeBillingStatus(value: string | null | undefined): BillingSubscriptionStatus {
@@ -75,7 +76,7 @@ export function normalizeBillingStatus(value: string | null | undefined): Billin
 }
 
 export function resolveEffectiveAccessTier(snapshot: BillingSubscriptionSnapshot): BillingPlanTier | "FREE" {
-  const planTier = normalizeBillingPlanTier(snapshot.subscriptionTier) ?? "PLUS";
+  const planTier = normalizeBillingPlanTier(snapshot.subscriptionTier) ?? "CONTRIBUTOR";
   if (snapshot.status === "ACTIVE" || snapshot.status === "TRIALING") {
     return planTier;
   }
@@ -144,7 +145,8 @@ export function resolveSubscriptionTierFromStripe(input: {
   if (metadataTier) return metadataTier;
 
   if (input.priceId) {
-    if (input.priceId === process.env.STRIPE_PRICE_ID_PLUS?.trim()) return "PLUS";
+    if (input.priceId === process.env.STRIPE_PRICE_ID_CONTRIBUTOR?.trim()) return "CONTRIBUTOR";
+    if (input.priceId === process.env.STRIPE_PRICE_ID_PLUS?.trim()) return "CONTRIBUTOR";
     if (input.priceId === process.env.STRIPE_PRICE_ID_PRO?.trim()) return "PRO";
   }
 

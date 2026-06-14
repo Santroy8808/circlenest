@@ -48,6 +48,11 @@ export function ControlPanelSection({
             key={link.href}
             href={link.href}
             className="flex items-center gap-2 text-[13px] text-slate-300 transition hover:translate-y-[-1px] hover:scale-[1.02] hover:text-white"
+            onClick={(event) => {
+              if (link.href !== "/mail") return;
+              event.preventDefault();
+              window.dispatchEvent(new Event("theta-mail-open"));
+            }}
           >
             <span>{link.label}</span>
             {link.comingSoon ? (

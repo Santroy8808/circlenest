@@ -107,9 +107,9 @@ export function CommentThread<T extends CommentThreadItem>({
   function renderNode(node: CommentNode<T>, depth = 0): ReactNode {
     const collapsed = Boolean(collapsedIds[node.id]);
     const media = parseMedia(node.mediaUrlsJson);
-    const bubbleTone = depth > 0 ? "bg-[#122033]" : "bg-[#0f1827]";
+    const bubbleTone = depth > 0 ? "bg-[#132136]" : "bg-[#0f1726]";
     const bubblePadding = compact ? "p-[4px]" : "p-[5px]";
-    const shellTone = depth > 0 ? "bg-[#111b2b]" : "bg-[#121d2f]";
+    const shellTone = depth > 0 ? "bg-[#101b2b]" : "bg-[#111b2d]";
     const contentSize = compact ? "text-[11px]" : "text-[12px]";
     const metaSize = compact ? "text-[10px]" : "text-[11px]";
     const mediaHeight = compact ? "h-[72px]" : "h-[88px]";
@@ -117,11 +117,11 @@ export function CommentThread<T extends CommentThreadItem>({
     return (
       <div
         key={node.id}
-        className={`${depth > 0 ? "border-l border-white/10 pl-3" : ""} ${compact ? "space-y-1.5" : "space-y-2.5"}`}
+        className={`${depth > 0 ? "border-l border-white/10 pl-3" : ""} ${compact ? "space-y-1.5" : "space-y-2"}`}
         style={{ marginLeft: depth ? `${Math.min(depth, 5) * (compact ? 10 : 12)}px` : 0 }}
       >
-        <article className={`rounded-[16px] border border-[var(--border)] ${bubbleTone} ${bubblePadding} shadow-[0_8px_22px_rgba(0,0,0,0.22)]`}>
-          <div className={`rounded-[12px] border border-white/5 ${shellTone} px-2.5 py-2`}>
+        <article className={`rounded-[16px] border border-[var(--border)] ${bubbleTone} ${bubblePadding} shadow-[0_8px_20px_rgba(0,0,0,0.18)]`}>
+          <div className={`rounded-[12px] border border-white/5 ${shellTone} px-2 py-2`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${metaSize} text-slate-400`}>

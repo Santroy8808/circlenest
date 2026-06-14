@@ -25,7 +25,7 @@ export type MonthlyFinancialReportRow = Readonly<{
 }>;
 
 const TIER_PRICE_CENTS: Record<string, number> = {
-  PLUS: 300,
+  CONTRIBUTOR: 300,
   PRO: 1000,
   AUDITOR: 1000,
 };
@@ -72,11 +72,11 @@ export async function resolveMonthlyFinancialReports(monthCount = 6): Promise<Mo
     const monthSubscriptions = billingSubscriptions.filter((row) => isWithinMonth(row.createdAt, start, end));
     const monthLedger = adLedgerEntries.filter((row) => isWithinMonth(row.createdAt, start, end));
 
-    const plusSignups = monthSubscriptions.filter((row) => row.subscriptionTier === "PLUS" && row.status !== "INACTIVE").length;
+    const plusSignups = monthSubscriptions.filter((row) => row.subscriptionTier === "CONTRIBUTOR" && row.status !== "INACTIVE").length;
     const proSignups = monthSubscriptions.filter((row) => row.subscriptionTier === "PRO" && row.status !== "INACTIVE").length;
     const auditorSignups = monthSubscriptions.filter((row) => row.subscriptionTier === "AUDITOR" && row.status !== "INACTIVE").length;
     const estimatedRevenueCents =
-      plusSignups * TIER_PRICE_CENTS.PLUS +
+      plusSignups * TIER_PRICE_CENTS.CONTRIBUTOR +
       proSignups * TIER_PRICE_CENTS.PRO +
       auditorSignups * TIER_PRICE_CENTS.AUDITOR;
     const adSpendCredits = Math.abs(monthLedger.filter((row) => row.entryType === "AD_SPEND" && row.credits < 0).reduce((sum, row) => sum + row.credits, 0));

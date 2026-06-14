@@ -48,6 +48,9 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     exportedAt: new Date().toISOString(),
-    user,
+    user: {
+      ...user,
+      marketListings: user.bazaarListings,
+    },
   });
 }

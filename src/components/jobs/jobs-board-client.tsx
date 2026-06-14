@@ -133,7 +133,14 @@ export function JobsBoardClient({ jobs, ads, adSeed }: JobsBoardClientProps) {
     <>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {boardItems}
-        {!boardItems.length ? <p className="text-sm text-slate-500">No listings match current filters.</p> : null}
+        {!boardItems.length ? (
+          <article className="rounded border border-[var(--border)] bg-[#0d1320] p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Example job post</p>
+            <p className="mt-2 text-lg font-semibold text-[var(--text-strong)]">Assistant Office Manager</p>
+            <p className="mt-1 text-sm text-slate-300">Part-time, local hybrid support role for scheduling, calls, and admin follow-up.</p>
+            <p className="mt-3 text-xs text-slate-500">Use the filters above to search real openings. Biz members can publish listings from the create flow.</p>
+          </article>
+        ) : null}
       </div>
 
       {selectedJob ? (
