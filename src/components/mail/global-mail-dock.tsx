@@ -226,9 +226,11 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
   }, [contactSearch, friends]);
 
   const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? null;
+  const selectedContact = activeThread?.participants.find((participant) => participant.id !== myUserId) ?? null;
 
   const startMailToContact = useCallback(async (friend: FriendRef) => {
     setStatus("");
+    setSubject((current) => current || `Message to ${displayNameForUser(friend)}`);
     const res = await fetch("/api/messages/threads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -241,7 +243,8 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
     }
     await loadDirectory();
     setActiveThreadId(body.id);
-    setSubject(`Message to ${displayNameForUser(friend)}`);
+    setStatus(`Ready to mail ${displayNameForUser(friend)}.`);
+    if (window.innerWidth < 900) setDrawerOpen(false);
   }, [loadDirectory]);
 
   const sendMail = useCallback(async () => {
@@ -312,10 +315,20 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
             <p className="truncate text-xs text-slate-400">Inbox, contacts, and formal messages</p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" className="rounded-[10px] border border-[#2c3951] px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5" onClick={() => setDrawerOpen((value) => !value)}>
-              Drawer
+            <button
+              type="button"
+              className="rounded-[10px] border border-[#2c3951] px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => setDrawerOpen((value) => !value)}
+            >
+              Contacts
             </button>
-            <button type="button" className="rounded-[10px] border border-[#2c3951] px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5" onClick={() => setOpen(false)}>
+            <button
+              type="button"
+              className="rounded-[10px] border border-[#2c3951] px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => setOpen(false)}
+            >
               Close
             </button>
           </div>
@@ -400,10 +413,43 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
           <section className="flex min-h-0 flex-col bg-[#0b1422]">
             <div className="border-b border-[var(--border)] px-4 py-3">
               <p className="truncate text-sm font-semibold text-[var(--text-strong)]">{activeThread ? threadTitle(activeThread) : "Select a thread or contact"}</p>
-              <p className="truncate text-xs text-slate-400">{activeThread?.subtitle ?? "Use the drawer to pick a contact or folder."}</p>
+              <p className="truncate text-xs text-slate-400">{activeThread?.subtitle ?? "Pick a recipient from Contacts, then write your mail."}</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
               <div className="space-y-3">
+                {!activeThread ? (
+                  <div className="rounded-[14px] border border-[#273449] bg-[#101a2c] p-3">
+                    <p className="text-sm font-semibold text-[#f0d878]">Who is this mail to?</p>
+                    <p className="mt-1 text-xs text-slate-400">Search or pick a contact. This opens a formal mail thread before you send.</p>
+                    <input
+                      value={contactSearch}
+                      onChange={(event) => setContactSearch(event.target.value)}
+                      placeholder="Search contacts by name or username"
+                      className="mt-3 w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-400"
+                    />
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {filteredFriends.slice(0, 8).map((friend) => (
+                        <button
+                          key={friend.id}
+                          type="button"
+                          className="flex items-center gap-2 rounded-[12px] border border-[#273449] bg-[#111a2a] px-3 py-2 text-left transition hover:border-[#d6b24a66] hover:bg-[#162033]"
+                          onClick={() => void startMailToContact(friend)}
+                        >
+                          {friend.profile?.avatarUrl ? (
+                            <Image src={friend.profile.avatarUrl} alt={displayNameForUser(friend)} width={34} height={34} unoptimized className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#24334d] text-xs font-semibold text-white">{displayNameForUser(friend).charAt(0).toUpperCase()}</span>
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm text-slate-100">{displayNameForUser(friend)}</span>
+                            <span className="block truncate text-[11px] text-slate-400">@{friend.username}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {filteredFriends.length === 0 ? <p className="mt-3 text-sm text-slate-400">No contacts found.</p> : null}
+                  </div>
+                ) : null}
                 {messages.map((message) => {
                   const mine = message.sender.id === myUserId;
                   return (
@@ -420,6 +466,15 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
               </div>
             </div>
             <div className="border-t border-[var(--border)] bg-[#0f1728] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3 rounded-[10px] border border-[#273449] bg-[#101a2c] px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f0d878]">To</p>
+                  <p className="truncate text-sm text-slate-100">{selectedContact ? `${selectedContact.displayName} (@${selectedContact.username})` : "Choose a contact first"}</p>
+                </div>
+                <button type="button" className="shrink-0 rounded-[10px] border border-[#2c3951] px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5" onClick={() => setDrawerOpen(true)}>
+                  Pick contact
+                </button>
+              </div>
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}

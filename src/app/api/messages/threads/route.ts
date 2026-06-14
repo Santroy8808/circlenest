@@ -239,11 +239,6 @@ export async function POST(request: Request) {
     if (!other) return NextResponse.json({ error: "User not found" }, { status: 404 });
     if (other.id === session.user.id) return NextResponse.json({ error: "Invalid target" }, { status: 400 });
 
-    const friendIds = await loadFriendIds(session.user.id);
-    if (friendIds.has(other.id)) {
-      return NextResponse.json({ error: "Use a group chat for friends/family." }, { status: 403 });
-    }
-
     const blockedIds = await loadBlockedIds(session.user.id, [other.id]);
     if (blockedIds.has(other.id)) return NextResponse.json({ error: "Messaging blocked by user settings." }, { status: 403 });
 
