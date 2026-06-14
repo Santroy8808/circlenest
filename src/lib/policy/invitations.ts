@@ -57,13 +57,13 @@ export function resolveInvitationCreatorAccess(user: InvitationCreatorPolicySour
     };
   }
 
-  if (policy.tier === "PLUS" || policy.tier === "PRO" || policy.tier === "AUDITOR") {
+  if (policy.tier === "CONTRIBUTOR" || policy.tier === "PRO" || policy.tier === "AUDITOR") {
     if (!isAtLeastSixMonthsOld(user?.createdAt)) {
       return {
         canInvite: false,
         inviteLimit: NORMAL_MEMBER_INVITE_LIMIT,
         hasInviteLimitException,
-        reason: "Invite access unlocks after 6 months for Activist and higher tiers.",
+        reason: "Invite access unlocks after 6 months for Contributor and higher tiers.",
       };
     }
 

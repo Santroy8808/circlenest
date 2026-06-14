@@ -4,7 +4,6 @@ export {
   getBazaarListingLifetimeDays as getMarketListingLifetimeDays,
   getBazaarListingMaxImageCount as getMarketListingMaxImageCount,
   getBazaarListingRollingLimit as getMarketListingRollingLimit,
-  getBazaarListingWeeklyLimit as getMarketListingWeeklyLimit,
 } from "./tier-policy";
 
 export function canCreateMarketListing(input: TierPolicy | string | null | undefined) {

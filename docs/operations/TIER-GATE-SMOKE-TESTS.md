@@ -4,7 +4,7 @@ Last updated: 2026-06-02
 
 ## Purpose
 
-Use this checklist to verify the core tier gates for Free, Plus, Pro, and Admin without relying on manual database edits.
+Use this checklist to verify the core tier gates for Free, Contributor, Pro, and Admin without relying on manual database edits.
 
 ## Scope
 
@@ -23,7 +23,7 @@ This checklist covers:
 - Local dev app running or a deployed dev build available.
 - One test account for each tier if possible:
   - Free
-  - Plus
+  - Contributor
   - Pro
   - Admin
 - If tier accounts are not available, use the Admin portal to set the `subscriptionTier` before each run.
@@ -31,7 +31,7 @@ This checklist covers:
 
 ## Expected Tier Rules
 
-| Capability | Free | Plus | Pro | Admin |
+| Capability | Free | Contributor | Pro | Admin |
 | --- | --- | --- | --- | --- |
 | Create event | Blocked | Allowed | Allowed | Allowed |
 | Create Bazaar listing | Blocked | Allowed | Allowed | Allowed |
@@ -55,9 +55,9 @@ Expected:
 - UI blocks creation.
 - API returns `403`.
 
-### 2. Plus tier: event creation
+### 2. Contributor tier: event creation
 
-1. Sign in as a Plus user.
+1. Sign in as a Contributor user.
 2. Open `/events`.
 3. Create a simple event.
 
@@ -77,9 +77,9 @@ Expected:
 - UI blocks creation.
 - API returns `403`.
 
-### 4. Plus tier: Bazaar listing creation
+### 4. Contributor tier: Bazaar listing creation
 
-1. Sign in as a Plus user.
+1. Sign in as a Contributor user.
 2. Open `/bazaar`.
 3. Create a basic listing.
 
@@ -99,9 +99,9 @@ Expected:
 - UI blocks creation.
 - API returns `403`.
 
-### 6. Plus tier: hiring post creation
+### 6. Contributor tier: hiring post creation
 
-1. Sign in as a Plus user.
+1. Sign in as a Contributor user.
 2. Open `/jobs`.
 3. Create a basic job post.
 
@@ -145,9 +145,9 @@ Expected:
 - The UI blocks the assignment.
 - API returns `403`.
 
-### 10. Plus/Pro tier: group moderator assignment
+### 10. Contributor/Pro tier: group moderator assignment
 
-1. Sign in as a Plus or Pro group creator.
+1. Sign in as a Contributor or Pro group creator.
 2. Open the group management surface.
 3. Assign another member as moderator.
 
@@ -170,7 +170,7 @@ Expected:
 The tier gate pass is complete when:
 
 - Free is blocked where expected.
-- Plus and Pro are allowed where expected.
+- Contributor and Pro are allowed where expected.
 - Admin bypass works where expected.
 - Free-created groups stop at 10 members.
 - The UI matches the API behavior.

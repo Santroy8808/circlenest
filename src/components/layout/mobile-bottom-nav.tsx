@@ -8,7 +8,7 @@ export function MobileBottomNav() {
         <Link className="rounded px-1 py-1 text-[var(--text-strong)]" href="/friends" prefetch={false}>Friends</Link>
         <Link className="rounded px-1 py-1 text-[var(--text-strong)]" href="/profile/edit" prefetch={false}>Profile</Link>
         <Link className="rounded px-1 py-1 text-[var(--text-strong)]" href="/groups" prefetch={false}>Groups</Link>
-        <Link className="rounded px-1 py-1 text-[var(--text-strong)]" href="/messages" prefetch={false}>Inbox</Link>
+        <Link className="rounded px-1 py-1 text-[var(--text-strong)]" href="/mail" prefetch={false}>Mail</Link>
       </div>
     </nav>
   );

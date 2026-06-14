@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       },
     });
     if (monthCount >= monthlyLimit) {
-      return NextResponse.json({ error: `Activist fund raisers are limited to ${monthlyLimit} per month.` }, { status: 409 });
+      return NextResponse.json({ error: `Contributor fund raisers are limited to ${monthlyLimit} per month.` }, { status: 409 });
     }
   }
 

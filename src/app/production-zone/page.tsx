@@ -42,12 +42,12 @@ export default async function ProductionZonePage() {
     },
     {
       title: "Market",
-      description: "Browse listings, create a listing if your tier allows it, and see how Biz removes Market limits and unlocks job posting.",
+      description: "Browse The Market freely. Contributor members can post 6 marketplace listings every 2 weeks, and Biz members can post unlimited marketplace listings.",
       href: "/production-zone/market",
     },
     {
       title: "Find a Job",
-      description: "Browse job listings freely. Only Biz can create a new job posting.",
+      description: "Free and Contributor members can browse jobs. Only Biz members can post jobs.",
       href: "/production-zone/jobs",
     },
     {

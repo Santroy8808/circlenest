@@ -10,6 +10,7 @@ const protectedPrefixes = [
   "/settings/theme",
   "/friends",
   "/messages",
+  "/mail",
   "/groups",
   "/notifications",
   "/alerts",

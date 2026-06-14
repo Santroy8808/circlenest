@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ThreadClient } from "@/components/messages/thread-client";
 
@@ -65,6 +66,7 @@ function threadChip(kind: ThreadSummary["kind"]) {
 }
 
 export function GlobalChatDock({ myUserId }: { myUserId: string }) {
+  const pathname = usePathname();
   const windowRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
@@ -165,6 +167,10 @@ export function GlobalChatDock({ myUserId }: { myUserId: string }) {
   }, [activeThreadId, position.x, position.y, size.height, size.width]);
 
   useEffect(() => {
+    if (pathname === "/mail") {
+      closeChat();
+      return;
+    }
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) setActiveThreadId(stored);
@@ -202,7 +208,7 @@ export function GlobalChatDock({ myUserId }: { myUserId: string }) {
       window.removeEventListener("theta-chat-close", handleClose);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [closeChat, openChat]);
+  }, [closeChat, openChat, pathname]);
 
   useEffect(() => {
     function handleMove(event: PointerEvent) {

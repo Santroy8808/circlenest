@@ -424,7 +424,7 @@ export function FeedClient({
           </div>
         ) : (
           <div className="flex items-center justify-end rounded-md border border-amber-400/30 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100 shadow-sm">
-            Upgrade to Activist to change feed type.
+            Upgrade to Contributor to change feed type.
           </div>
         )}
       </div>
@@ -450,7 +450,7 @@ export function FeedClient({
           </label>
         ) : (
           <div className="rounded border border-amber-400/30 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
-            Upgrade to Activist to change feed type.
+            Upgrade to Contributor to change feed type.
           </div>
         )}
       </div>

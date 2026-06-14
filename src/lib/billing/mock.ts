@@ -48,9 +48,9 @@ export function resolveBillingMode() {
 
   if (process.env.NODE_ENV !== "production") {
     const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim();
-    const plusPrice = process.env.STRIPE_PRICE_ID_PLUS?.trim();
+    const contributorPrice = process.env.STRIPE_PRICE_ID_CONTRIBUTOR?.trim() ?? process.env.STRIPE_PRICE_ID_PLUS?.trim();
     const proPrice = process.env.STRIPE_PRICE_ID_PRO?.trim();
-    if (!stripeSecret || !plusPrice || !proPrice) return "MOCK" as const;
+    if (!stripeSecret || !contributorPrice || !proPrice) return "MOCK" as const;
   }
 
   return "STRIPE" as const;
@@ -61,7 +61,7 @@ export function isMockBillingMode() {
 }
 
 export function resolveMockBillingPriceCents(tier: BillingPlanTier) {
-  return tier === "PLUS" ? 300 : 1000;
+  return tier === "CONTRIBUTOR" ? 300 : 1000;
 }
 
 export function resolveMockBillingMonthKey(date: Date) {
@@ -195,10 +195,10 @@ export async function handleMockPortal(request: Request, userId: string) {
     userId: user.id,
     username: user.username,
     email: user.email,
-    tier: normalizeBillingPlanTier(user.billingSubscription?.subscriptionTier) ?? "PLUS",
+    tier: normalizeBillingPlanTier(user.billingSubscription?.subscriptionTier) ?? "CONTRIBUTOR",
     amountCents: 0,
     providerCustomerId: user.billingSubscription?.providerCustomerId ?? buildMockBillingCustomerId(user.id),
-    providerSubscriptionId: user.billingSubscription?.providerSubscriptionId ?? buildMockBillingSubscriptionId(user.id, normalizeBillingPlanTier(user.billingSubscription?.subscriptionTier) ?? "PLUS"),
+    providerSubscriptionId: user.billingSubscription?.providerSubscriptionId ?? buildMockBillingSubscriptionId(user.id, normalizeBillingPlanTier(user.billingSubscription?.subscriptionTier) ?? "CONTRIBUTOR"),
     status: user.billingSubscription?.status ?? "ACTIVE",
     monthKey: resolveMockBillingMonthKey(now),
     note: "Mock billing portal opened without Stripe.",

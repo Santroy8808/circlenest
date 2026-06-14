@@ -44,8 +44,8 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
       ? `Biz ad credits: ${adCreditBalance ?? 0}`
       : policy.tier === "AUDITOR"
         ? `Auditor ad credits: ${adCreditBalance ?? 0}`
-      : policy.tier === "PLUS"
-        ? "Activist members need Biz or Auditor for ads."
+      : policy.tier === "CONTRIBUTOR"
+        ? "Contributor members need Biz or Auditor for ads."
         : policy.tier === "ADMIN"
           ? "Admin ad access: unlimited."
           : "Upgrade to Biz or Auditor to create ads.";
@@ -67,7 +67,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
           <TierGate
             variant="locked"
             title="Events locked"
-            message="Upgrade to Activist to create events."
+            message="Upgrade to Contributor to create events."
             ctaLabel="Open subscription"
             ctaHref="/settings/subscription"
             secondaryLabel="Compare memberships"
@@ -160,7 +160,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
             <p className="mt-1 text-sm text-slate-400">Invite-only events show a title, time, location, description, moderators, and optional ad tools.</p>
             <div className="mt-4 rounded border border-[var(--border)] bg-[#111a2a] p-4 text-sm text-slate-300">
               <p className="font-semibold text-[var(--text-strong)]">Private dinner meetup</p>
-              <p className="mt-1">Tuesday, 7:00 PM • Downtown • Created by @host</p>
+              <p className="mt-1">Tuesday, 7:00 PM â€¢ Downtown â€¢ Created by @host</p>
               <p className="mt-2 text-xs text-slate-400">Invite names, assign moderators, and manage ads from this card.</p>
             </div>
           </div>

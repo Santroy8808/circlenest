@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
+import { AdminOperationsPanel } from "@/components/admin/admin-operations-panel";
 import { InvitationManagementPanel } from "@/components/invitations/invitation-management-panel";
 import { hasFreshPrivilegedActionAccess } from "@/lib/security/action-access";
 import { requireAdminModePage } from "@/lib/security/admin-mode-guards";
@@ -31,6 +32,7 @@ type AdminPageProps = {
     groupQ?: string;
     adQ?: string;
     reportMonths?: string;
+    previewRole?: string;
   };
 };
 
@@ -60,6 +62,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const groupQ = String(searchParams?.groupQ ?? "").trim();
   const adQ = String(searchParams?.adQ ?? "").trim();
   const reportMonths = Math.min(12, Math.max(1, Number(searchParams?.reportMonths ?? "6") || 6));
+  const previewRole = normalizePreviewRole(searchParams?.previewRole);
   const userWhere = q
     ? {
         OR: [
@@ -172,6 +175,35 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     }),
     resolveMonthlyFinancialReports(reportMonths),
   ]);
+  const [
+    securityEvents,
+    featureFlags,
+    platformCategories,
+    platformAnnouncements,
+    businessProfiles,
+    supportNotes,
+    webhookReplays,
+    dataPrivacyRequests,
+    throttles,
+  ] = await Promise.all([
+    prisma.authSecurityEvent.findMany({
+      include: { user: { select: { username: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.platformFeatureFlag.findMany({ orderBy: { updatedAt: "desc" }, take: 25 }),
+    prisma.platformCategory.findMany({ orderBy: [{ area: "asc" }, { sortOrder: "asc" }, { name: "asc" }], take: 100 }),
+    prisma.platformAnnouncement.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.businessProfile.findMany({
+      include: { owner: { select: { username: true, email: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    }),
+    prisma.adminSupportNote.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.webhookReplayRequest.findMany({ orderBy: { requestedAt: "desc" }, take: 20 }),
+    prisma.dataPrivacyRequest.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.platformThrottle.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
+  ]);
 
   const inviteRows = invites.map((invite) => ({
     id: invite.id,
@@ -260,12 +292,91 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <h1 className="text-xl font-semibold">Admin Portal</h1>
           <p className="text-sm text-slate-500">Admin role is separate from subscription tier.</p>
         </div>
+        <Link
+          href="/admin/console"
+          className="inline-flex w-fit rounded-full border border-[#52647f] px-4 py-2 text-sm font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-[#f0d878]"
+        >
+          Open guided admin console
+        </Link>
+
+        <AdminOperationsPanel
+          users={users.map((user) => ({
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            subscriptionTier: user.subscriptionTier,
+          }))}
+          securityEvents={securityEvents.map((event) => ({
+            id: event.id,
+            eventType: event.eventType,
+            createdAt: event.createdAt.toISOString(),
+            user: event.user ? { username: event.user.username, email: event.user.email } : null,
+            ipAddress: event.ipAddress,
+            metadata: event.metadata,
+          }))}
+          featureFlags={featureFlags.map((flag) => ({
+            id: flag.id,
+            key: flag.key,
+            enabled: flag.enabled,
+            description: flag.description,
+            updatedAt: flag.updatedAt.toISOString(),
+          }))}
+          categories={platformCategories.map((category) => ({
+            id: category.id,
+            area: category.area,
+            name: category.name,
+            slug: category.slug,
+            isActive: category.isActive,
+            sortOrder: category.sortOrder,
+          }))}
+          announcements={platformAnnouncements.map((announcement) => ({
+            id: announcement.id,
+            headline: announcement.headline,
+            audienceType: announcement.audienceType,
+            status: announcement.status,
+            publishedAt: announcement.publishedAt?.toISOString() ?? null,
+            createdAt: announcement.createdAt.toISOString(),
+          }))}
+          businesses={businessProfiles.map((business) => ({
+            id: business.id,
+            businessName: business.businessName,
+            status: business.status,
+            verificationStatus: business.verificationStatus,
+            owner: { username: business.owner.username, email: business.owner.email },
+          }))}
+          supportNotes={supportNotes.map((note) => ({
+            id: note.id,
+            label: `${note.targetType}:${note.targetId}`,
+            status: "NOTE",
+            createdAt: note.createdAt.toISOString(),
+          }))}
+          webhookReplays={webhookReplays.map((replay) => ({
+            id: replay.id,
+            label: `${replay.provider}:${replay.eventId}`,
+            status: replay.status,
+            createdAt: replay.requestedAt.toISOString(),
+          }))}
+          dataRequests={dataPrivacyRequests.map((request) => ({
+            id: request.id,
+            label: `${request.requestType}:${request.requesterEmail ?? request.requesterId ?? "unknown"}`,
+            status: request.status,
+            createdAt: request.createdAt.toISOString(),
+          }))}
+          throttles={throttles.map((throttle) => ({
+            id: throttle.id,
+            label: `${throttle.targetType}:${throttle.targetId}`,
+            status: throttle.status,
+            createdAt: throttle.createdAt.toISOString(),
+          }))}
+          previewRole={previewRole}
+        />
 
         <section id="site-moderators" className="space-y-3 rounded border border-[var(--border)] p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Site moderators</h2>
-              <p className="text-xs text-slate-500">Invite Activist, Biz, or Auditor users, then grant or revoke moderator status.</p>
+              <p className="text-xs text-slate-500">Invite Contributor, Biz, or Auditor users, then grant or revoke moderator status.</p>
             </div>
             <form action="/api/admin/site-moderators" method="post" className="flex flex-wrap items-center gap-2">
               <input
@@ -303,18 +414,18 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 <p className="mt-2 text-xs text-slate-400">Tier: {assignment.user.subscriptionTier}</p>
                 <p className="text-xs text-slate-400">
                   Invited {new Date(assignment.invitedAt).toLocaleString()}
-                  {assignment.invitedBy ? ` • by @${assignment.invitedBy.username}` : ""}
+                  {assignment.invitedBy ? ` â€¢ by @${assignment.invitedBy.username}` : ""}
                 </p>
                 {assignment.grantedAt ? (
                   <p className="text-xs text-slate-400">
                     Granted {new Date(assignment.grantedAt).toLocaleString()}
-                    {assignment.grantedBy ? ` • by @${assignment.grantedBy.username}` : ""}
+                    {assignment.grantedBy ? ` â€¢ by @${assignment.grantedBy.username}` : ""}
                   </p>
                 ) : null}
                 {assignment.revokedAt ? (
                   <p className="text-xs text-slate-400">
                     Revoked {new Date(assignment.revokedAt).toLocaleString()}
-                    {assignment.revokedBy ? ` • by @${assignment.revokedBy.username}` : ""}
+                    {assignment.revokedBy ? ` â€¢ by @${assignment.revokedBy.username}` : ""}
                   </p>
                 ) : null}
                 {assignment.reason ? <p className="text-xs text-slate-400">Note: {assignment.reason}</p> : null}
@@ -542,7 +653,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
               <article key={entry.id} className="rounded border border-[var(--border)] p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">{entry.entryType}</p>
-                  <span className="text-xs text-slate-400">{entry.periodKey || "—"}</span>
+                  <span className="text-xs text-slate-400">{entry.periodKey || "â€”"}</span>
                 </div>
                 <p className="text-xs text-slate-500">
                   @{entry.user.username} | {entry.credits} credits | {entry.sourceType || "SYSTEM"}{entry.sourceId ? `:${entry.sourceId}` : ""}
@@ -670,4 +781,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       </section>
     </AppShell>
   );
+}
+
+function normalizePreviewRole(value: string | undefined): "FREE" | "CONTRIBUTOR" | "PRO" | "AUDITOR" | "ADMIN" {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "CONTRIBUTOR" || normalized === "PRO" || normalized === "AUDITOR" || normalized === "ADMIN") return normalized;
+  return "FREE";
 }

@@ -19,11 +19,11 @@ Read these first:
 - docs/operations/HANDOFF-2026-06-02.md
 
 Goal:
-Create the central tier policy matrix for Free, Plus, Pro, and Admin.
+Create the central tier policy matrix for Free, Contributor, Pro, and Admin.
 
 Requirements:
 - Add src/lib/policy/tier-policy.ts
-- Define normalized tiers: FREE, PLUS, PRO, ADMIN
+- Define normalized tiers: FREE, CONTRIBUTOR, PRO, ADMIN
 - Normalize unknown/null tiers to FREE
 - Treat User.role === "ADMIN" as admin override
 - Keep paid tier and admin role separate
@@ -68,7 +68,7 @@ Rules:
 - Free can create groups, but group size cap is handled in the next phase
 - Free cannot assign group moderators
 - Free cannot change feed type
-- Plus and Pro can create events, Bazaar listings, hiring posts, and assign group moderators where otherwise authorized
+- Contributor and Pro can create events, Bazaar listings, hiring posts, and assign group moderators where otherwise authorized
 - Admin bypasses tier restrictions
 - Preserve existing auth and scoped moderation checks
 - Do not edit production
@@ -102,7 +102,7 @@ Target files:
 
 Rules:
 - If a group owner/creator is Free, the group cannot exceed 10 members
-- Plus, Pro, and Admin group creators can have unlimited group members
+- Contributor, Pro, and Admin group creators can have unlimited group members
 - Pending join requests may still exist
 - Approval or direct join should fail if adding the member would exceed the Free-tier cap
 - Return 409 for group capacity conflicts
@@ -144,7 +144,7 @@ Rules:
 - Free group creators see the 10-member group limit
 - Free group creators cannot assign moderators in UI
 - Free users cannot change feed type in UI
-- Plus, Pro, and Admin users see enabled controls
+- Contributor, Pro, and Admin users see enabled controls
 - Keep copy short and direct
 - Do not add billing, pricing pages, invites, ads, or storage enforcement
 - Do not edit production
@@ -179,7 +179,7 @@ Target files:
 Requirements:
 - Admin-only user list or search
 - Show email, username, role, subscription tier, and created date
-- Allow changing subscription tier between FREE, PLUS, and PRO
+- Allow changing subscription tier between FREE, CONTRIBUTOR, and PRO
 - Do not allow paid tier to grant ADMIN
 - Keep admin role changes separate
 - Add an audit log entry when a member tier changes
@@ -210,7 +210,7 @@ Add repeatable tier gate verification.
 Requirements:
 - If a test framework exists, add focused tests for tier policy and key gates
 - If no test framework exists, add docs/operations/TIER-GATE-SMOKE-TESTS.md
-- Cover Free, Plus, Pro, and Admin behavior
+- Cover Free, Contributor, Pro, and Admin behavior
 - Include events, Bazaar, hiring, feed type, group moderator assignment, and Free group cap
 - Do not edit production
 
@@ -283,10 +283,10 @@ Build invite creation and admin review APIs.
 
 Requirements:
 - Free members cannot invite
-- Plus members may invite only after 6 months
+- Contributor members may invite only after 6 months
 - Pro members may invite only after 6 months
 - Admins can always invite
-- Eligible Plus/Pro member invites do not require admin approval by default
+- Eligible Contributor/Pro member invites do not require admin approval by default
 - Admins can create, approve, reject, revoke, expire, and resubmit invites
 - Admins can assign or remove Prophet invite-limit exception status if the data model supports it
 - Normal members should be subject to invite limits
@@ -358,7 +358,7 @@ Requirements:
 - Admins can view, approve, reject, revoke, resubmit, and create invites
 - Admins can view invite audit history where practical
 - Admins can assign Prophet invite-limit exception status if implemented
-- Eligible Plus/Pro members can send invites from settings after 6 months
+- Eligible Contributor/Pro members can send invites from settings after 6 months
 - Free members see locked invite access
 - Members who are not yet 6-month eligible see locked invite access
 - Normal invite limits should be visible where practical
@@ -417,7 +417,7 @@ Read these first:
 - docs/PROJECT-PLAN-TIER-POLICY.md
 
 Goal:
-Add checkout and billing portal endpoints for Plus and Pro.
+Add checkout and billing portal endpoints for Contributor and Pro.
 
 Requirements:
 - Add server routes for starting checkout
@@ -476,7 +476,7 @@ Add tier-aware billing controls.
 
 Requirements:
 - Show current tier and subscription status in settings
-- Add upgrade buttons for Plus and Pro
+- Add upgrade buttons for Contributor and Pro
 - Add manage billing button for paid members
 - Show downgrade/cancellation state
 - Do not edit production
@@ -592,7 +592,7 @@ Create a clear site-wide moderator model separate from Admin and scoped group/ev
 
 Requirements:
 - Add site moderator data model or role assignment model
-- Only Plus/Pro users can be invited as site moderators
+- Only Contributor/Pro users can be invited as site moderators
 - Free users can never be site moderators
 - Admin remains separate and full access
 - Do not edit production
@@ -788,7 +788,7 @@ Requirements:
 - Model ads for Bazaar listings and event listings
 - Model monthly ad credit balance or ledger
 - Free cannot create ads
-- Plus can create Bazaar/event listing ads
+- Contributor can create Bazaar/event listing ads
 - Pro receives monthly ad credits
 - Business ads remain unavailable unless business permissions are added later
 - Do not edit production
@@ -818,7 +818,7 @@ Add ad creation APIs for Bazaar and event listings.
 Requirements:
 - Enforce tier policy
 - Free cannot create ads
-- Plus can create Bazaar/event ads without monthly credits
+- Contributor can create Bazaar/event ads without monthly credits
 - Pro can use monthly ad credits
 - Validate ownership of the listing/event
 - Do not edit production
@@ -990,7 +990,7 @@ Add tier-aware onboarding after signup/login.
 Requirements:
 - Show new members key next steps
 - Explain Free limits briefly
-- Guide Plus/Pro users to creation tools
+- Guide Contributor/Pro users to creation tools
 - Do not add billing unless already implemented
 - Do not edit production
 
@@ -1015,7 +1015,7 @@ Goal:
 Add a membership comparison page.
 
 Requirements:
-- Compare Free, Plus, and Pro
+- Compare Free, Contributor, and Pro
 - Make clear that Admin is separate and not a paid tier
 - Include groups, events, Bazaar, hiring, ads, storage, invites, and moderator eligibility
 - Keep copy direct

@@ -1,4 +1,4 @@
-export type MembershipTier = "FREE" | "PLUS" | "PRO" | "AUDITOR" | "ADMIN";
+export type MembershipTier = "FREE" | "CONTRIBUTOR" | "PRO" | "AUDITOR" | "ADMIN";
 
 export type TierPolicy = Readonly<{
   tier: MembershipTier;
@@ -23,17 +23,17 @@ type UserPolicySource = {
 } | null | undefined;
 
 const FREE_STORAGE_LIMIT_BYTES = 100 * 1024 * 1024;
-const PLUS_STORAGE_LIMIT_BYTES = 250 * 1024 * 1024; // Placeholder until the tier quota is finalized.
+const CONTRIBUTOR_STORAGE_LIMIT_BYTES = 250 * 1024 * 1024; // Placeholder until the tier quota is finalized.
 const PRO_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024; // Placeholder until the tier quota is finalized.
 const AUDITOR_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024; // Same as Pro until a separate quota is defined.
 const ADMIN_STORAGE_LIMIT_BYTES = Number.MAX_SAFE_INTEGER;
-const ACTIVIST_BAZAAR_WEEKLY_LIMIT = 3;
-const ACTIVIST_BAZAAR_ROLLING_LIMIT = 6;
-const ACTIVIST_BAZAAR_MAX_IMAGES = 3;
-const ACTIVIST_BAZAAR_LIFETIME_DAYS = 14;
-const ACTIVIST_FUNDRAISER_MONTHLY_LIMIT = 1;
+const CONTRIBUTOR_MARKET_WEEKLY_LIMIT = 3;
+const CONTRIBUTOR_MARKET_ROLLING_LIMIT = 6;
+const CONTRIBUTOR_MARKET_MAX_IMAGES = 3;
+const CONTRIBUTOR_MARKET_LIFETIME_DAYS = 14;
+const CONTRIBUTOR_FUNDRAISER_MONTHLY_LIMIT = 1;
 
-const PLUS_MONTHLY_AD_CREDITS = 0;
+const CONTRIBUTOR_MONTHLY_AD_CREDITS = 0;
 const PRO_MONTHLY_AD_CREDITS = 25; // Placeholder until ad-credit policy is finalized.
 const AUDITOR_MONTHLY_AD_CREDITS = 50; // Auditors receive a boosted monthly ad grant.
 const ADMIN_MONTHLY_AD_CREDITS = Number.MAX_SAFE_INTEGER;
@@ -55,8 +55,8 @@ const TIER_POLICY_MATRIX: Record<MembershipTier, TierPolicy> = {
     monthlyAdCredits: 0,
     storageLimitBytes: FREE_STORAGE_LIMIT_BYTES,
   },
-  PLUS: {
-    tier: "PLUS",
+  CONTRIBUTOR: {
+    tier: "CONTRIBUTOR",
     isAdmin: false,
     canCreateEvent: true,
     canCreateBazaarListing: true,
@@ -68,8 +68,8 @@ const TIER_POLICY_MATRIX: Record<MembershipTier, TierPolicy> = {
     canAssignGroupModerators: true,
     canBeSiteModerator: true,
     canCreateAds: false,
-    monthlyAdCredits: PLUS_MONTHLY_AD_CREDITS,
-    storageLimitBytes: PLUS_STORAGE_LIMIT_BYTES,
+    monthlyAdCredits: CONTRIBUTOR_MONTHLY_AD_CREDITS,
+    storageLimitBytes: CONTRIBUTOR_STORAGE_LIMIT_BYTES,
   },
   PRO: {
     tier: "PRO",
@@ -122,8 +122,11 @@ const TIER_POLICY_MATRIX: Record<MembershipTier, TierPolicy> = {
 };
 
 const LEGACY_TIER_ALIASES: Record<string, MembershipTier> = {
-  BUSINESS: "PLUS",
-  SILVER: "PLUS",
+  BUSINESS: "CONTRIBUTOR",
+  SILVER: "CONTRIBUTOR",
+  PLUS: "CONTRIBUTOR",
+  ACTIVIST: "CONTRIBUTOR",
+  TIERPLUS: "CONTRIBUTOR",
   GOLD: "PRO",
   DIAMOND: "PRO",
 };
@@ -187,7 +190,7 @@ export function canAssignGroupModerators(policy: TierPolicy) {
 
 export function requiresTwoFactorForTier(tier: MembershipTier | string | null | undefined) {
   const normalized = normalizeMembershipTier(tier);
-  return normalized === "PLUS" || normalized === "PRO" || normalized === "AUDITOR";
+  return normalized === "CONTRIBUTOR" || normalized === "PRO" || normalized === "AUDITOR";
 }
 
 export function canBeSiteModerator(policy: TierPolicy) {
@@ -209,28 +212,28 @@ export function getStorageLimitBytes(policy: TierPolicy) {
 export function getDisplayMembershipTierName(tier: MembershipTier | string | null | undefined) {
   const normalized = normalizeMembershipTier(tier);
   if (normalized === "FREE") return "Free";
-  if (normalized === "PLUS") return "Activist";
+  if (normalized === "CONTRIBUTOR") return "Contributor";
   if (normalized === "PRO") return "Biz";
   if (normalized === "AUDITOR") return "Auditor";
   return "Admin";
 }
 
 export function getBazaarListingWeeklyLimit(policy: TierPolicy) {
-  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_WEEKLY_LIMIT : null;
+  return policy.tier === "CONTRIBUTOR" ? CONTRIBUTOR_MARKET_WEEKLY_LIMIT : null;
 }
 
 export function getBazaarListingRollingLimit(policy: TierPolicy) {
-  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_ROLLING_LIMIT : null;
+  return policy.tier === "CONTRIBUTOR" ? CONTRIBUTOR_MARKET_ROLLING_LIMIT : null;
 }
 
 export function getBazaarListingMaxImageCount(policy: TierPolicy) {
-  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_MAX_IMAGES : null;
+  return policy.tier === "CONTRIBUTOR" ? CONTRIBUTOR_MARKET_MAX_IMAGES : null;
 }
 
 export function getBazaarListingLifetimeDays(policy: TierPolicy) {
-  return policy.tier === "PLUS" ? ACTIVIST_BAZAAR_LIFETIME_DAYS : null;
+  return policy.tier === "CONTRIBUTOR" ? CONTRIBUTOR_MARKET_LIFETIME_DAYS : null;
 }
 
 export function getMonthlyFundraiserLimit(policy: TierPolicy) {
-  return policy.tier === "PLUS" ? ACTIVIST_FUNDRAISER_MONTHLY_LIMIT : null;
+  return policy.tier === "CONTRIBUTOR" ? CONTRIBUTOR_FUNDRAISER_MONTHLY_LIMIT : null;
 }

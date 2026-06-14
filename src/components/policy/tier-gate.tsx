@@ -56,7 +56,7 @@ export function TierGate({
         <div className="mt-3 flex flex-wrap gap-2">
           {ctaHref ? (
             <Link href={ctaHref} className={`rounded border ${styles.button}`}>
-              {ctaLabel ?? (variant === "locked" ? "Upgrade to Activist" : "Compare memberships")}
+              {ctaLabel ?? (variant === "locked" ? "Upgrade to Contributor" : "Compare memberships")}
             </Link>
           ) : null}
           {secondaryHref ? (

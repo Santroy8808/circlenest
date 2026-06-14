@@ -9,6 +9,8 @@
     "postinstall": "node scripts/prisma-generate.js",
     "start": "next start",
     "lint": "next lint",
+    "test:phase1": "tsx scripts/phase1-tier-policy-smoke.ts",
+    "test:phase8": "tsx scripts/phase8-acceptance-smoke.ts",
     "db:generate": "node scripts/prisma-generate.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { MarketClient } from "@/components/market/market-client";
 import { MarketCreateFormClient } from "@/components/market/market-create-form-client";
-import { canCreateMarketListing, getMarketListingLifetimeDays, getMarketListingMaxImageCount, getMarketListingRollingLimit, getMarketListingWeeklyLimit } from "@/lib/policy/market";
+import { canCreateMarketListing, getMarketListingLifetimeDays, getMarketListingMaxImageCount, getMarketListingRollingLimit } from "@/lib/policy/market";
 import { getProAdCreditBalance, serializeAdPlacements } from "@/lib/ads/ads";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
@@ -48,36 +48,34 @@ export default async function MarketPage({ searchParams }: { searchParams?: { cr
   const canCreate = canCreateMarketListing(policy);
   const maxImages = getMarketListingMaxImageCount(policy);
   const now = new Date();
-  const weekAgo = addDays(now, -7);
   const twoWeeksAgo = addDays(now, -14);
-  const [createdThisWeek, createdInTwoWeeks] = await Promise.all([
-    prisma.bazaarListing.count({ where: { sellerId: session.user.id, createdAt: { gte: weekAgo } } }),
-    prisma.bazaarListing.count({ where: { sellerId: session.user.id, createdAt: { gte: twoWeeksAgo } } }),
-  ]);
-  const weeklyLimit = getMarketListingWeeklyLimit(policy);
   const rollingLimit = getMarketListingRollingLimit(policy);
+  const createdInTwoWeeks =
+    rollingLimit !== null
+      ? await prisma.bazaarListing.count({ where: { sellerId: session.user.id, createdAt: { gte: twoWeeksAgo } } })
+      : 0;
   const marketQuotaWidget =
-    policy.tier === "PLUS"
-      ? `Activist quota: ${createdThisWeek}/${weeklyLimit ?? 0} this week (${Math.max((weeklyLimit ?? 0) - createdThisWeek, 0)} left). ${createdInTwoWeeks}/${rollingLimit ?? 0} in the current 2-week window (${Math.max((rollingLimit ?? 0) - createdInTwoWeeks, 0)} left).`
+    policy.tier === "CONTRIBUTOR"
+      ? `Contributor Market listings: ${createdInTwoWeeks}/${rollingLimit ?? 0} used in the current 2-week window (${Math.max((rollingLimit ?? 0) - createdInTwoWeeks, 0)} left).`
       : policy.tier === "PRO" || policy.tier === "AUDITOR" || policy.tier === "ADMIN"
-        ? "Biz listings are unlimited, and Biz also unlocks job posting."
-        : "Browse The Market freely. Upgrade to Activist to create listings, or Biz to remove Market limits and post jobs.";
+        ? "Biz members can post unlimited marketplace listings."
+        : "Browse The Market freely. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.";
   const marketLimitNote =
-    policy.tier === "PLUS"
-      ? `Activist listings on The Market are limited to ${weeklyLimit ?? 0} per week, ${rollingLimit ?? 0} in any 2-week window, ${maxImages ?? 0} photos per listing, and last ${getMarketListingLifetimeDays(policy) ?? 14} days. Biz removes those limits and can post jobs.`
+    policy.tier === "CONTRIBUTOR"
+      ? `Contributor members can post ${rollingLimit ?? 6} marketplace listings every 2 weeks, with ${maxImages ?? 0} photos per listing, and listings last ${getMarketListingLifetimeDays(policy) ?? 14} days. Biz members can post unlimited marketplace listings.`
       : policy.tier === "PRO" || policy.tier === "AUDITOR"
-        ? "Biz listings are unlimited, and Biz also unlocks job posting."
+        ? "Biz members can post unlimited marketplace listings."
         : policy.tier === "ADMIN"
           ? "Admin listings are unlimited."
-          : "Browse The Market freely. Only Activist and above can create listings.";
+          : "Browse The Market freely. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.";
   const adCreditBalance = policy.tier === "PRO" || policy.tier === "AUDITOR" ? await getProAdCreditBalance(session.user.id, policy) : null;
   const adCreditLabel =
     policy.tier === "PRO"
       ? `Biz ad credits: ${adCreditBalance ?? 0}`
       : policy.tier === "AUDITOR"
         ? `Auditor ad credits: ${adCreditBalance ?? 0}`
-      : policy.tier === "PLUS"
-        ? "Activist members need Biz or Auditor for ads."
+      : policy.tier === "CONTRIBUTOR"
+        ? "Contributor members need Biz or Auditor for ads."
         : policy.tier === "ADMIN"
           ? "Admin ad access: unlimited."
           : "Upgrade to Biz or Auditor to create ads.";

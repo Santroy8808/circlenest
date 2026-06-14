@@ -18,7 +18,7 @@ const STORAGE_PREFIX = "theta.onboarding.dismissed.";
 function formatTierName(policy: TierPolicy) {
   if (policy.isAdmin) return "Admin";
   if (policy.tier === "AUDITOR") return "Auditor";
-  if (policy.tier === "PLUS") return "Activist";
+  if (policy.tier === "CONTRIBUTOR") return "Contributor";
   if (policy.tier === "PRO") return "Biz";
   return "Free";
 }
@@ -50,7 +50,7 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
           { href: "/groups", label: "Join groups" },
           { href: "/friends", label: "Find people" },
         ]
-      : policy.tier === "PLUS"
+      : policy.tier === "CONTRIBUTOR"
         ? [
             { href: "/production-zone/events", label: "Create an event" },
             { href: "/production-zone/market", label: "Create a listing" },
@@ -79,13 +79,13 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
       ? [
           "Free lets you browse the stream, join groups, and message friends.",
           "Free cannot create events, Market listings, fund raisers, or hiring posts.",
-          "Open Compare memberships to see what Activist and Biz add.",
+          "Open Compare memberships to see what Contributor and Biz add.",
         ]
-      : policy.tier === "PLUS"
+      : policy.tier === "CONTRIBUTOR"
         ? [
             "You can create events, Market listings, and fund raisers.",
             "Open Compare memberships to see Biz, Auditor, and ad tools.",
-            "Activist keeps feed controls and moderation tools open.",
+            "Contributor keeps feed controls and moderation tools open.",
           ]
       : policy.tier === "PRO"
         ? [
@@ -110,7 +110,7 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
   const secondaryHref =
     policy.tier === "FREE"
       ? "/settings/subscription"
-      : policy.tier === "PLUS"
+      : policy.tier === "CONTRIBUTOR"
         ? "/fundraisers"
         : policy.tier === "PRO" || policy.tier === "AUDITOR"
           ? "/fundraisers"
@@ -118,7 +118,7 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
   const secondaryLabel =
     policy.tier === "FREE"
       ? "Open settings"
-      : policy.tier === "PLUS"
+      : policy.tier === "CONTRIBUTOR"
         ? "Create a fund raiser"
         : policy.tier === "PRO"
           ? "Open fund raisers"
@@ -136,7 +136,7 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
           <div>
             <h2 className="text-lg font-semibold text-[var(--text-strong)]">Welcome, {name}</h2>
             <p className="text-sm text-slate-300">
-              Your current plan is {tierName}. Here’s the fastest way to get rolling.
+              Your current plan is {tierName}. Hereâ€™s the fastest way to get rolling.
             </p>
           </div>
         </div>

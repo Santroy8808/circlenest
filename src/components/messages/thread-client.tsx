@@ -177,12 +177,12 @@ export function ThreadClient({
 
   const otherPresence = useMemo(() => presence.find((row) => row.userId !== myUserId) ?? null, [myUserId, presence]);
   const isGroupThread = meta?.kind === "GROUP";
-  const threadLabel = isGroupThread ? meta?.title ?? "Group chat" : meta?.other?.displayName ?? "Direct Message";
+  const threadLabel = isGroupThread ? meta?.title ?? "Group chat" : meta?.other?.displayName ?? "Direct Chat";
   const threadSubtitle = isGroupThread
     ? `${meta?.participants?.length ?? 0} participants`
     : meta?.other
       ? `@${meta.other.username}`
-      : "Inbox chat";
+      : "Chat";
   const otherTyping = Boolean(
     otherPresence?.isTyping &&
       otherPresence.lastTypedAt &&
@@ -210,7 +210,7 @@ export function ThreadClient({
     });
   }, [messages]);
 
-  const headerStatus = otherTyping ? "Typing..." : isGroupThread ? `${meta?.participants?.length ?? 0} participants` : otherActive ? "Active now" : "Inbox chat";
+  const headerStatus = otherTyping ? "Typing..." : isGroupThread ? `${meta?.participants?.length ?? 0} participants` : otherActive ? "Active now" : "Chat";
 
   const getOwnMessageStatus = useCallback(
     (message: Msg) => {
@@ -256,7 +256,7 @@ export function ThreadClient({
         <div className="flex min-w-0 items-center gap-3">
           {!embedded ? (
             <Link href="/messages" className="rounded border border-[var(--border)] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/5">
-              ← Messages
+              Back to Chat
             </Link>
           ) : null}
           {isGroupThread ? (
@@ -473,7 +473,7 @@ export function ThreadClient({
             })
           ) : (
             <div className="rounded border border-[var(--border)] bg-[#0d1626] px-3 py-2 text-xs text-slate-400">
-              No messages yet. Send the first inbox message below.
+              No chats yet. Send the first message below.
             </div>
           )}
         </div>

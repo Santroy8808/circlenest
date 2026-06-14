@@ -25,7 +25,7 @@ export default async function MessagesPage() {
   return (
     <AppShell>
       <div className="card p-4">
-        <h1 className="mb-3 text-xl font-semibold">Messages</h1>
+        <h1 className="mb-3 text-xl font-semibold">Chat</h1>
         <div className="space-y-4">
           <MessagesClient myUserId={me} friends={friends} />
           <PushSubscriptionClient />

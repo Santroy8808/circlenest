@@ -56,7 +56,7 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
         <div className="mt-4 rounded border border-[var(--border)] bg-[#111a2a] p-4">
           <p className="text-base font-semibold text-[var(--text-strong)]">Example The Market listing</p>
           <p className="mt-1 text-sm text-slate-300">Vintage leather chair, $125, local pickup, 3 photos, 2 week run.</p>
-          <p className="mt-2 text-xs text-slate-400">Browse is open to everyone. Activist can post within the Market cap, and Biz removes the cap and unlocks job posting.</p>
+          <p className="mt-2 text-xs text-slate-400">Browse is open to everyone. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <div className="rounded border border-[var(--border)] bg-[#182232] px-3 py-2 text-xs text-slate-300">Clear title</div>
             <div className="rounded border border-[var(--border)] bg-[#182232] px-3 py-2 text-xs text-slate-300">Up to your tier&apos;s photo limit</div>
@@ -153,7 +153,7 @@ export function BazaarCreateFormClient({ canCreate, maxImages, listingLimitNote 
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
           <span className="text-slate-300">Description</span>
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!canCreate || submitting} className={`${BAZAAR_FIELD_CLASS} min-h-24`} placeholder="Tell people what you’re listing" />
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!canCreate || submitting} className={`${BAZAAR_FIELD_CLASS} min-h-24`} placeholder="Tell people what you're listing" />
         </label>
         <label className="space-y-2 text-sm md:col-span-2">
           <span className="text-slate-300">Listing photos</span>

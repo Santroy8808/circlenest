@@ -132,8 +132,8 @@ export function MessagesClient({ friends }: { myUserId: string; friends: FriendR
       <section className="rounded-[18px] border border-[var(--border)] bg-[#0f1523] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-[var(--text-strong)]">Mailbox</h2>
-            <p className="text-sm text-slate-400">Open any direct or group chat in the pop-out window.</p>
+            <h2 className="text-xl font-semibold text-[var(--text-strong)]">Chat</h2>
+            <p className="text-sm text-slate-400">Open direct or group chats in the pop-out window.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
             <span className="rounded-full border border-[#304058] bg-[#111a2a] px-3 py-1.5">{threads.length} chats</span>
@@ -224,7 +224,7 @@ export function MessagesClient({ friends }: { myUserId: string; friends: FriendR
               </button>
             );
           })}
-          {threads.length === 0 ? <p className="px-3 py-8 text-sm text-slate-400">No messages yet.</p> : null}
+          {threads.length === 0 ? <p className="px-3 py-8 text-sm text-slate-400">No chats yet.</p> : null}
           {threads.length > 0 && filteredThreads.length === 0 ? <p className="px-3 py-8 text-sm text-slate-400">No matching chats.</p> : null}
         </div>
       </section>

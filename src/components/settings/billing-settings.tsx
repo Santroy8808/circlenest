@@ -24,7 +24,7 @@ type BillingSettingsProps = {
   billingSubscription: BillingView;
 };
 
-type BillingTier = "PLUS" | "PRO";
+type BillingTier = "CONTRIBUTOR" | "PRO";
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "-";
@@ -34,7 +34,7 @@ function formatDate(value: string | null | undefined) {
 
 function tierLabel(tier: string) {
   const normalized = tier.trim().toUpperCase();
-  if (normalized === "PLUS") return "Activist";
+  if (normalized === "CONTRIBUTOR") return "Contributor";
   if (normalized === "PRO") return "Biz";
   if (normalized === "AUDITOR") return "Auditor";
   return "Free";
@@ -68,9 +68,9 @@ export function BillingSettings({ role, subscriptionTier, billingSubscription }:
   const currentTier = subscriptionTier.trim().toUpperCase();
   const currentBillingStatus = billingSubscription?.status ?? "INACTIVE";
   const currentBillingProvider = billingSubscription?.provider?.trim().toUpperCase() ?? "NONE";
-  const hasPlusOrHigher = currentTier === "PLUS" || currentTier === "PRO" || currentTier === "ADMIN";
+  const hasContributorOrHigher = currentTier === "CONTRIBUTOR" || currentTier === "PRO" || currentTier === "ADMIN";
 
-  const isPaidTier = useMemo(() => ["PLUS", "PRO"].includes(currentTier), [currentTier]);
+  const isPaidTier = useMemo(() => ["CONTRIBUTOR", "PRO"].includes(currentTier), [currentTier]);
   const currentPeriodText = billingSubscription?.currentPeriodEnd ? formatDate(billingSubscription.currentPeriodEnd) : "-";
   const cancelText = billingSubscription?.cancelAtPeriodEnd ? `Downgrade at period end: ${currentPeriodText}` : null;
   const trialText = billingSubscription?.trialEndsAt ? `Trial ends: ${formatDate(billingSubscription.trialEndsAt)}` : null;
@@ -133,11 +133,11 @@ export function BillingSettings({ role, subscriptionTier, billingSubscription }:
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={hasPlusOrHigher}
-          onClick={() => void startCheckout("PLUS")}
+          disabled={hasContributorOrHigher}
+          onClick={() => void startCheckout("CONTRIBUTOR")}
           className="rounded border border-[var(--border)] bg-[#8f7228] px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {currentTier === "PLUS" ? "Activist current" : hasPlusOrHigher ? "Activist included" : "Upgrade to Activist"}
+          {currentTier === "CONTRIBUTOR" ? "Contributor current" : hasContributorOrHigher ? "Contributor included" : "Upgrade to Contributor"}
         </button>
         <button
           type="button"

@@ -9,7 +9,7 @@ const BOOTSTRAP_ADMIN_EMAILS = new Set([
 let bootstrapAdminsSyncPromise: Promise<void> | null = null;
 let bootstrapAdminsSynced = false;
 
-export const MANAGED_SUBSCRIPTION_TIERS = ["FREE", "PLUS", "PRO", "AUDITOR"] as const;
+export const MANAGED_SUBSCRIPTION_TIERS = ["FREE", "CONTRIBUTOR", "PRO", "AUDITOR"] as const;
 export type ManagedSubscriptionTier = (typeof MANAGED_SUBSCRIPTION_TIERS)[number];
 export const SITE_MODERATOR_ASSIGNMENT_STATUSES = ["PENDING", "ACTIVE", "REVOKED"] as const;
 export type SiteModeratorAssignmentStatus = (typeof SITE_MODERATOR_ASSIGNMENT_STATUSES)[number];
@@ -24,8 +24,8 @@ export function isGlobalAdminEmail(email: string | null | undefined) {
 
 export function normalizeManagedSubscriptionTier(value: string | null | undefined): ManagedSubscriptionTier | null {
   const normalized = (value ?? "").trim().toUpperCase();
-  if (normalized === "FREE" || normalized === "PLUS" || normalized === "PRO" || normalized === "AUDITOR") return normalized;
-  if (normalized === "BUSINESS" || normalized === "SILVER") return "PLUS";
+  if (normalized === "FREE" || normalized === "CONTRIBUTOR" || normalized === "PRO" || normalized === "AUDITOR") return normalized;
+  if (normalized === "BUSINESS" || normalized === "SILVER") return "CONTRIBUTOR";
   if (normalized === "GOLD" || normalized === "DIAMOND") return "PRO";
   return null;
 }

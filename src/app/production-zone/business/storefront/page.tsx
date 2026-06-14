@@ -22,7 +22,12 @@ export default async function ProductionZoneBusinessStorefrontPage() {
 
   const ownProfile = await prisma.businessProfile.findUnique({
     where: { ownerId: session.user.id },
-    include: { owner: { select: { id: true, username: true, fullName: true } } },
+    include: {
+      owner: { select: { id: true, username: true, fullName: true } },
+      complianceProfile: {
+        select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+      },
+    },
   });
   const inquiries = ownProfile
     ? await prisma.businessStorefrontInquiry.findMany({

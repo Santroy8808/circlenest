@@ -24,11 +24,21 @@ export default async function BusinessProfilePage() {
   const [ownProfile, publicProfiles] = await Promise.all([
     prisma.businessProfile.findUnique({
       where: { ownerId: session.user.id },
-      include: { owner: { select: { id: true, username: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
     }),
     prisma.businessProfile.findMany({
       where: { isPublic: true, NOT: { ownerId: session.user.id } },
-      include: { owner: { select: { id: true, username: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, username: true, fullName: true } },
+        complianceProfile: {
+          select: { processorOnboardingStatus: true, processorChargesEnabled: true, processorPayoutsEnabled: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),

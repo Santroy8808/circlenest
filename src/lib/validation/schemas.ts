@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { validateStrongPassword } from "@/lib/security/password-policy";
 
-const subscriptionTiers = ["FREE", "PLUS", "PRO", "ADMIN"] as const;
+const subscriptionTiers = ["FREE", "CONTRIBUTOR", "PRO", "AUDITOR", "ADMIN"] as const;
 const nullOrEmptyToUndefined = (value: unknown) =>
   value === null || value === undefined || (typeof value === "string" && value.trim() === "")
     ? undefined

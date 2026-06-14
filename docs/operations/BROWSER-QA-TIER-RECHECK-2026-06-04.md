@@ -18,7 +18,7 @@ Retest goals:
 Accounts used:
 
 - Free: `tierfree@theta-space.dev`
-- Activist: `tieractivist@theta-space.dev`
+- Contributor: `tieractivist@theta-space.dev`
 - Biz: `tierbiz@theta-space.dev`
 - Admin: `tieradmin@theta-space.dev`
 
@@ -26,7 +26,7 @@ Accounts used:
 
 - Major previously reported issues were fixed.
 - No tier-bypass was observed in this recheck.
-- Core gated create flows behaved correctly for Free, Plus, Pro, and Admin.
+- Core gated create flows behaved correctly for Free, Contributor, Pro, and Admin.
 - Admin secure-area flow now returns to the correct destination.
 
 ## Fixed Since Last Pass
@@ -56,7 +56,7 @@ Accounts used:
 
 - Status: Fixed
 - What happened:
-  - Plus and Pro opened `/events`, `/bazaar`, and `/jobs`
+  - Contributor and Pro opened `/events`, `/bazaar`, and `/jobs`
   - Only one primary create control set was found on each page:
     - `Event title`: 1
     - `Listing title`: 1
@@ -64,11 +64,11 @@ Accounts used:
 - Result:
   - The duplicate main create forms are no longer present
 
-### 4. Plus Invite Navigation
+### 4. Contributor Invite Navigation
 
 - Status: Fixed
 - What happened:
-  - Plus unlocked `/settings`
+  - Contributor unlocked `/settings`
   - `Invites` now routes to `http://localhost:3000/settings#invitations`
   - Invite UI was visible in settings with invite limit and 6-month messaging
 - Result:
@@ -78,7 +78,7 @@ Accounts used:
 
 - Status: Fixed
 - What happened:
-  - Plus opened `My Subscription`
+  - Contributor opened `My Subscription`
   - Settings showed current tier, billing status, upgrade controls, and billing state copy
 - Result:
   - Subscription details are now clearly surfaced
@@ -87,7 +87,7 @@ Accounts used:
 
 - Status: Fixed
 - What happened:
-  - Free, Plus, and Pro opened `/admin`
+  - Free, Contributor, and Pro opened `/admin`
   - Each saw an explicit deny state with `Admin access only.`
 - Result:
   - Non-admin users no longer get a confusing silent redirect
@@ -119,10 +119,10 @@ Result:
 
 - Free tier gates behaved correctly in this pass
 
-### Plus
+### Contributor
 
 - `/events`, `/bazaar`, and `/jobs` create controls were enabled
-- Plus successfully created:
+- Contributor successfully created:
   - event
   - Bazaar listing
   - job post
@@ -133,7 +133,7 @@ Result:
 
 Result:
 
-- Plus feature access behaved correctly in this pass
+- Contributor feature access behaved correctly in this pass
 
 ### Pro
 
@@ -172,7 +172,7 @@ Observed result:
 - Free could not create hiring posts
 - Free did not see the home feed-type control
 - Non-admin users were blocked from admin functionality
-- Plus and Pro could access their expected create surfaces
+- Contributor and Pro could access their expected create surfaces
 - Admin-only functions stayed behind admin access
 
 Result:

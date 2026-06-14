@@ -226,7 +226,7 @@ async function logSignup(user: SimUser, occurredAt: Date) {
     tier: "FREE",
     amountCents: 0,
     providerCustomerId: buildMockBillingCustomerId(user.id),
-    providerSubscriptionId: buildMockBillingSubscriptionId(user.id, "PLUS"),
+    providerSubscriptionId: buildMockBillingSubscriptionId(user.id, "CONTRIBUTOR"),
     status: "FREE",
     monthKey: resolveMockBillingMonthKey(occurredAt),
     note: `Mock signup created for ${user.fullName}.`,
@@ -265,12 +265,12 @@ function makeReportMarkdown(report: MonthReport) {
 | Metric | Value |
 | --- | ---: |
 | Free users | ${report.freeUsers} |
-| Plus users | ${report.plusUsers} |
+| Contributor users | ${report.plusUsers} |
 | Pro users | ${report.proUsers} |
 | New signups | ${report.newSignups} |
-| Plus renewals | ${report.plusRenewals} |
+| Contributor renewals | ${report.plusRenewals} |
 | Pro renewals | ${report.proRenewals} |
-| Plus upgrades | ${report.plusUpgrades} |
+| Contributor upgrades | ${report.plusUpgrades} |
 | Pro upgrades | ${report.proUpgrades} |
 | Cancellations | ${report.cancellations} |
 | Revenue | ${formatDollars(report.revenueCents)} |
@@ -311,7 +311,7 @@ async function main() {
   const reports: MonthReport[] = [];
   let initialLedgerEntries = 0;
 
-  const initialCohort: Array<SimUser["tier"]> = ["FREE", "FREE", "FREE", "FREE", "FREE", "FREE", "PLUS", "PLUS", "PLUS", "PRO", "PRO", "FREE"];
+  const initialCohort: Array<SimUser["tier"]> = ["FREE", "FREE", "FREE", "FREE", "FREE", "FREE", "CONTRIBUTOR", "CONTRIBUTOR", "CONTRIBUTOR", "PRO", "PRO", "FREE"];
   for (let i = 0; i < initialCohort.length; i++) {
     const createdAt = new Date(startMonth.getFullYear(), startMonth.getMonth(), 1, 9, 0, 0);
     const user = await ensureUser(i, initialCohort[i], createdAt);
@@ -351,13 +351,13 @@ async function main() {
     let revenueCents = 0;
 
     const activePaidBeforeMonth = users.filter(
-      (user) => user.billingActive && (user.tier === "PLUS" || user.tier === "PRO") && (user.lastChargeMonthIndex ?? -1) < monthIndex,
+      (user) => user.billingActive && (user.tier === "CONTRIBUTOR" || user.tier === "PRO") && (user.lastChargeMonthIndex ?? -1) < monthIndex,
     );
     for (const user of activePaidBeforeMonth) {
       const paidTier = user.tier as BillingPlanTier;
       const amountCents = resolveMockBillingPriceCents(paidTier);
       revenueCents += amountCents;
-      if (paidTier === "PLUS") plusRenewals += 1;
+      if (paidTier === "CONTRIBUTOR") plusRenewals += 1;
       if (paidTier === "PRO") proRenewals += 1;
       await upsertSubscription(user, paidTier, "ACTIVE", month, monthIndex);
       await logBillingEvent("subscription.renewed", user, paidTier, amountCents, month, "ACTIVE", `${paidTier} renewal for ${monthKey}.`);
@@ -376,7 +376,7 @@ async function main() {
     }
 
     const freeUsers = users.filter((user) => user.tier === "FREE");
-    const plusUsers = users.filter((user) => user.tier === "PLUS");
+    const plusUsers = users.filter((user) => user.tier === "CONTRIBUTOR");
 
     const monthPlan = upgradePlan[monthIndex];
     const freeUpgradePool = [...freeUsers];
@@ -384,12 +384,12 @@ async function main() {
     for (let i = 0; i < monthPlan.freeToPlus && freeUpgradePool.length; i++) {
       const user = freeUpgradePool.shift()!;
       const chargeDate = new Date(month.getFullYear(), month.getMonth(), 12, 12, 0, 0);
-      await upsertSubscription(user, "PLUS", "ACTIVE", chargeDate, monthIndex);
-      const amountCents = resolveMockBillingPriceCents("PLUS");
+      await upsertSubscription(user, "CONTRIBUTOR", "ACTIVE", chargeDate, monthIndex);
+      const amountCents = resolveMockBillingPriceCents("CONTRIBUTOR");
       revenueCents += amountCents;
       plusUpgrades += 1;
-      notes.push(`@${user.username} upgraded from Free to Plus.`);
-      await logBillingEvent("checkout.completed", user, "PLUS", amountCents, chargeDate, "ACTIVE", "Mock upgrade checkout completed.");
+      notes.push(`@${user.username} upgraded from Free to Contributor.`);
+      await logBillingEvent("checkout.completed", user, "CONTRIBUTOR", amountCents, chargeDate, "ACTIVE", "Mock upgrade checkout completed.");
       ledgerEntriesThisMonth += 1;
     }
 
@@ -412,13 +412,13 @@ async function main() {
       const amountCents = resolveMockBillingPriceCents("PRO");
       revenueCents += amountCents;
       proUpgrades += 1;
-      notes.push(`@${user.username} upgraded from Plus to Pro.`);
+      notes.push(`@${user.username} upgraded from Contributor to Pro.`);
       await logBillingEvent("subscription.updated", user, "PRO", amountCents, chargeDate, "ACTIVE", "Mock tier change to Pro.");
       ledgerEntriesThisMonth += 1;
     }
 
     const cancelTargets = users
-      .filter((user) => user.billingActive && (user.tier === "PLUS" || user.tier === "PRO"))
+      .filter((user) => user.billingActive && (user.tier === "CONTRIBUTOR" || user.tier === "PRO"))
       .slice(0, monthPlan.cancellations);
     for (const user of cancelTargets) {
       cancellations += 1;
@@ -432,12 +432,12 @@ async function main() {
       });
       user.billingActive = false;
       notes.push(`@${user.username} set to cancel at period end.`);
-      await logBillingEvent("subscription.canceled", user, user.tier === "FREE" ? "PLUS" : user.tier, 0, nextMonthStart, "CANCELED", "Mock cancellation scheduled.");
+      await logBillingEvent("subscription.canceled", user, user.tier === "FREE" ? "CONTRIBUTOR" : user.tier, 0, nextMonthStart, "CANCELED", "Mock cancellation scheduled.");
       ledgerEntriesThisMonth += 1;
     }
 
     const freeCount = users.filter((user) => user.tier === "FREE").length;
-    const plusCount = users.filter((user) => user.tier === "PLUS").length;
+    const plusCount = users.filter((user) => user.tier === "CONTRIBUTOR").length;
     const proCount = users.filter((user) => user.tier === "PRO").length;
 
     reports.push({

@@ -69,8 +69,8 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
         ? `Biz ad credits: ${adCreditBalance ?? 0}`
         : policy.tier === "AUDITOR"
           ? `Auditor ad credits: ${adCreditBalance ?? 0}`
-        : policy.tier === "PLUS"
-            ? "Activist members can browse jobs; Biz can post jobs and run job ads."
+        : policy.tier === "CONTRIBUTOR"
+            ? "Free and Contributor members can browse jobs. Only Biz members can post jobs."
             : "Upgrade to be able to create ads.";
   const showAdCreditLabel = canCreate || policy.canCreateAds || policy.isAdmin;
 
@@ -98,7 +98,7 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
       <section className="card space-y-4 p-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Find a job</h1>
-          <p className="text-sm text-slate-500">Browse every job listing here. Free and Activist users can search the board, and only Biz can post new jobs or remove Market limits.</p>
+          <p className="text-sm text-slate-500">Free and Contributor members can browse jobs. Only Biz members can post jobs.</p>
         </div>
         <form method="get" className="grid gap-2 rounded border border-[var(--border)] p-3 md:grid-cols-6">
           <input name="q" defaultValue={q} placeholder="Search title, company, duties" className="rounded border px-3 py-2 text-sm md:col-span-2" />

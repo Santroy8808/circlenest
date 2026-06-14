@@ -24,7 +24,7 @@ export default async function ProductionZoneMarketPage() {
       <section className="card space-y-4 p-4">
         <div>
           <h1 className="text-xl font-semibold">Production Zone: Market</h1>
-          <p className="text-sm text-slate-400">Start with browsing The Market, then open the Market page to create listings and listing ads if your tier supports them.</p>
+          <p className="text-sm text-slate-400">Browse The Market freely. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <Link
@@ -40,10 +40,10 @@ export default async function ProductionZoneMarketPage() {
           >
             <h2 className="text-base font-semibold text-[var(--text-strong)]">Create listing</h2>
             <p className="mt-1 text-sm text-slate-400">
-              {canCreateListing ? "Your tier can create Market listings on the main Market page." : "Your tier cannot create Market listings yet."}
+              {canCreateListing ? "Create Market listings on the main Market page." : "Free members can browse The Market. Contributor and Biz members can create listings."}
             </p>
             <span className="mt-3 inline-flex rounded border border-[var(--border)] px-3 py-2 text-sm text-slate-400">
-              {canCreateListingAds ? "Create ad option is available after listing creation." : "Biz removes Market limits and unlocks job posting."}
+              {canCreateListingAds ? "Create ad option is available after listing creation." : "Biz members can post unlimited marketplace listings."}
             </span>
           </Link>
         </div>

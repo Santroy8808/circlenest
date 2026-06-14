@@ -18,7 +18,7 @@ Test goals:
 Accounts used:
 
 - Free: `tierfree@theta-space.dev`
-- Activist: `tieractivist@theta-space.dev`
+- Contributor: `tieractivist@theta-space.dev`
 - Biz: `tierbiz@theta-space.dev`
 - Admin: `tieradmin@theta-space.dev`
 
@@ -69,11 +69,11 @@ Accounts used:
   - Show a compact tier-lock message instead
   - Keep server enforcement as the final guard
 
-### 3. Plus, Pro, And Admin Create Screens Render Duplicate Forms
+### 3. Contributor, Pro, And Admin Create Screens Render Duplicate Forms
 
 - Severity: High
 - Area: Visual UX / Workflow
-- Tiers: Plus, Pro, Admin
+- Tiers: Contributor, Pro, Admin
 - What happened:
   - On `/events`, two `Event title` inputs were present
   - On `/bazaar`, two `Listing title` inputs were present
@@ -153,18 +153,18 @@ Accounts used:
   - Preserve and honor the `next` target during secure-area unlock
   - Add a browser test for `/admin` -> secure area -> `/admin`
 
-### 8. Plus `Invites` Navigation Is Misplaced Or Incomplete
+### 8. Contributor `Invites` Navigation Is Misplaced Or Incomplete
 
 - Severity: Medium
 - Area: Invitation Workflow / Navigation
-- Tiers: Plus
+- Tiers: Contributor
 - What happened:
-  - Unlocked settings as Plus
+  - Unlocked settings as Contributor
   - Clicked `Invites`
   - Browser went to `/friends#invites`
   - The page behaved like friends UI, not a dedicated invitation-management surface
 - Expected:
-  - Plus users should have a clear invite-management page or section with invite-specific actions and status
+  - Contributor users should have a clear invite-management page or section with invite-specific actions and status
 - Risk:
   - Invite flow is hard to discover
   - Users may not understand where invitation tools live
@@ -176,7 +176,7 @@ Accounts used:
 
 - Severity: Medium
 - Area: Billing / Membership UX
-- Tiers: Plus, Pro, likely Free
+- Tiers: Contributor, Pro, likely Free
 - What happened:
   - `My Subscription` routed to `settings#subscription`
   - The visible settings content did not strongly surface subscription details during the browser pass
@@ -188,17 +188,17 @@ Accounts used:
   - Give subscription a dedicated settings panel or page section with strong headings and tier details
   - Add current tier, feature summary, and relevant next actions
 
-### 10. Plus Can Create Events, Bazaar Listings, And Hiring Posts
+### 10. Contributor Can Create Events, Bazaar Listings, And Hiring Posts
 
 - Severity: Pass
 - Area: Tier Enforcement / Core Flows
-- Tiers: Plus
+- Tiers: Contributor
 - What happened:
   - Created an event successfully
   - Created a Bazaar listing successfully
   - Created a job post successfully
 - Expected:
-  - Plus should be able to create these items
+  - Contributor should be able to create these items
 - Recommended follow-up:
   - Keep this behavior
   - Add browser smoke coverage for all three create flows
@@ -225,7 +225,7 @@ These did not all represent hard failures, but they should be reviewed:
 - Free users should not see feed type controls if the feature is locked
 - Non-admin users should get a clear admin access-denied state
 - Admin secure-area flow should return to the requested admin page
-- Plus invite tools need a dedicated, obvious invitation management surface
+- Contributor invite tools need a dedicated, obvious invitation management surface
 - Subscription details need stronger visibility in settings
 - Events, Bazaar, and Jobs create pages need duplicate form cleanup
 

@@ -101,11 +101,28 @@ model User {
   fundraisers        Fundraiser[]
   fundraiserComments FundraiserComment[]
   businessProfile    BusinessProfile?
+  businessProfileAuditLogs BusinessProfileAuditLog[] @relation("BusinessProfileAuditActor")
   writerStudioProjects WriterStudioProject[]
   auditorListings    AuditorListing[]
   adPlacementsCreated AdPlacement[]
+  adCampaignsCreated AdCampaign[] @relation("AdCampaignCreator")
   adCreditLedgerEntries AdCreditLedger[]
+  realMoneyLedgerEntries RealMoneyLedgerEntry[] @relation("RealMoneyLedgerUser")
+  platformCreditLedgerEntries PlatformCreditLedgerEntry[] @relation("PlatformCreditLedgerUser")
+  testMoneyLedgerEntries TestMoneyLedgerEntry[] @relation("TestMoneyLedgerUser")
+  withdrawalRequests WithdrawalRequest[] @relation("WithdrawalRequestUser")
+  withdrawalReviews WithdrawalRequest[] @relation("WithdrawalReviewActor")
+  withdrawalBatchesProcessed WithdrawalBatch[] @relation("WithdrawalBatchProcessor")
   moderatorActions   ModeratorActionLog[]
+  platformFeatureFlagsUpdated PlatformFeatureFlag[] @relation("PlatformFeatureFlagUpdatedBy")
+  platformCategoriesUpdated PlatformCategory[] @relation("PlatformCategoryUpdatedBy")
+  platformAnnouncements PlatformAnnouncement[] @relation("PlatformAnnouncementActor")
+  supportNotesAuthored AdminSupportNote[] @relation("AdminSupportNoteAuthor")
+  webhookReplayRequests WebhookReplayRequest[] @relation("WebhookReplayRequestedBy")
+  paymentProcessorConfigsUpdated PaymentProcessorConfig[] @relation("PaymentProcessorConfigUpdatedBy")
+  paymentProcessorWebhookEvents PaymentProcessorWebhookEvent[] @relation("PaymentProcessorWebhookEventReviewedBy")
+  dataPrivacyRequestsHandled DataPrivacyRequest[] @relation("DataPrivacyRequestHandledBy")
+  platformThrottles PlatformThrottle[] @relation("PlatformThrottleActor")
   petitions          AdminPetition[]
   messageThreadPresences MessageThreadPresence[]
   contentReportsFiled ContentReport[] @relation("ContentReportsFiled")
@@ -942,28 +959,97 @@ model BusinessProfile {
   id              String   @id @default(cuid())
   ownerId         String   @unique
   businessName    String
+  legalBusinessName String?
+  dbaName         String?
+  entityType      String?
+  industry        String?
   tagline         String?
   description     String?
   websiteUrl      String?
   contactEmail    String?
+  supportEmail    String?
+  publicContactEmail String?
+  publicContactPhone String?
   contactPhone    String?
+  businessPhone   String?
   category        String?
   location        String?
   country         String?
   state           String?
   city            String?
+  postalCode      String?
+  streetAddress1  String?
+  streetAddress2  String?
+  timezone        String?
+  logoUrl         String?
+  bannerUrl       String?
   isPublic        Boolean  @default(true)
+  status          String   @default("ACTIVE")
+  verificationStatus String @default("PENDING")
+  verificationNotes String?
+  verifiedAt      DateTime?
+  heldAt          DateTime?
   storefrontSlug  String?  @unique
   storefrontEnabled Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  complianceProfile BusinessComplianceProfile?
+  auditLogs       BusinessProfileAuditLog[]
+  adCampaigns     AdCampaign[]
   storefrontInquiries BusinessStorefrontInquiry[]
 
   @@index([category, createdAt])
   @@index([location, createdAt])
   @@index([country, state, city, createdAt])
   @@index([isPublic, createdAt])
+  @@index([status, verificationStatus, createdAt])
+}
+
+model BusinessComplianceProfile {
+  id                         String   @id @default(cuid())
+  businessProfileId          String   @unique
+  taxCountry                 String?
+  taxIdLast4                 String?
+  taxIdEncrypted             String?
+  einLast4                   String?
+  einEncrypted               String?
+  ownerLegalName             String?
+  ownerDobEncrypted          String?
+  processorAccountId         String?
+  processorProvider          String?
+  processorOnboardingStatus  String   @default("NOT_STARTED")
+  processorRequirementsJson  String?
+  processorChargesEnabled    Boolean  @default(false)
+  processorPayoutsEnabled    Boolean  @default(false)
+  termsAcceptedAt            DateTime?
+  verifiedAt                 DateTime?
+  rejectedAt                 DateTime?
+  rejectionReason            String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  businessProfile            BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([processorProvider, processorOnboardingStatus])
+  @@index([processorChargesEnabled, processorPayoutsEnabled])
+}
+
+model BusinessProfileAuditLog {
+  id                String   @id @default(cuid())
+  businessProfileId String
+  actorUserId       String?
+  action            String
+  previousStatus    String?
+  nextStatus        String?
+  note              String?
+  metadataJson      String?
+  createdAt         DateTime @default(now())
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  actor             User?    @relation("BusinessProfileAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([businessProfileId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }
 
 model BusinessStorefrontInquiry {
@@ -1060,6 +1146,7 @@ model AuditorMedia {
 model AdPlacement {
   id              String   @id @default(cuid())
   creatorId       String
+  campaignId      String?
   targetType      String
   bazaarListingId String?
   eventId         String?
@@ -1075,18 +1162,143 @@ model AdPlacement {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  campaign        AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   bazaarListing   BazaarListing? @relation("BazaarListingAds", fields: [bazaarListingId], references: [id], onDelete: Cascade)
   event           Event?   @relation("EventAds", fields: [eventId], references: [id], onDelete: Cascade)
   jobListing      JobListing? @relation("JobListingAds", fields: [jobListingId], references: [id], onDelete: Cascade)
   fundraiser      Fundraiser? @relation("FundraiserAds", fields: [fundraiserId], references: [id], onDelete: Cascade)
 
   @@index([creatorId, createdAt])
+  @@index([campaignId, createdAt])
   @@index([targetType, createdAt])
   @@index([status, createdAt])
   @@index([bazaarListingId, createdAt])
   @@index([eventId, createdAt])
   @@index([jobListingId, createdAt])
   @@index([fundraiserId, createdAt])
+}
+
+model AdCampaign {
+  id                    String   @id @default(cuid())
+  creatorId             String
+  businessProfileId     String?
+  title                 String
+  status                String   @default("DRAFT")
+  budgetAmountCents     Int      @default(0)
+  currency              String   @default("USD")
+  platformCreditBudget  Int      @default(0)
+  startsAt              DateTime?
+  endsAt                DateTime?
+  dailyBudgetCents      Int?
+  targetType            String
+  targetId              String?
+  landingArticleId      String?
+  imageUrl              String?
+  boostFactor           Float    @default(1)
+  manualAdminBoost      Float    @default(0)
+  manualAdminDemotion   Float    @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  creator               User     @relation("AdCampaignCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  businessProfile       BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  landingArticle        AdArticle? @relation("CampaignLandingArticle", fields: [landingArticleId], references: [id], onDelete: SetNull)
+  articles              AdArticle[] @relation("CampaignArticles")
+  placements            AdPlacement[]
+  impressions           AdImpression[]
+  clicks                AdClick[]
+  engagements           AdEngagement[]
+  rankingSnapshots      DailyAdRankingSnapshot[]
+
+  @@index([creatorId, createdAt])
+  @@index([businessProfileId, createdAt])
+  @@index([status, startsAt, endsAt])
+  @@index([targetType, targetId])
+}
+
+model AdArticle {
+  id              String   @id @default(cuid())
+  campaignId      String
+  title           String
+  body            String
+  heroImageUrl    String?
+  mediaJson       String?
+  ctaLabel        String?
+  ctaUrl          String?
+  status          String   @default("DRAFT")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  campaign        AdCampaign @relation("CampaignArticles", fields: [campaignId], references: [id], onDelete: Cascade)
+  landingForCampaigns AdCampaign[] @relation("CampaignLandingArticle")
+
+  @@index([campaignId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AdImpression {
+  id                 String   @id @default(cuid())
+  campaignId         String
+  viewerId           String?
+  anonymousSessionId String?
+  placementSlot      String
+  appearedAt         DateTime @default(now())
+  viewStartedAt      DateTime?
+  viewEndedAt        DateTime?
+  viewDurationMs     Int?
+  viewportJson       String?
+  profileSnapshotJson String?
+  createdAt          DateTime @default(now())
+  campaign           AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
+  @@index([viewerId, createdAt])
+  @@index([placementSlot, appearedAt])
+}
+
+model AdClick {
+  id                 String   @id @default(cuid())
+  campaignId         String
+  viewerId           String?
+  anonymousSessionId String?
+  clickedAt          DateTime @default(now())
+  clickTarget        String
+  profileSnapshotJson String?
+  campaign           AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, clickedAt])
+  @@index([viewerId, clickedAt])
+}
+
+model AdEngagement {
+  id          String   @id @default(cuid())
+  campaignId  String
+  viewerId    String?
+  eventType   String
+  metadataJson String?
+  createdAt   DateTime @default(now())
+  campaign    AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([viewerId, createdAt])
+}
+
+model DailyAdRankingSnapshot {
+  id                   String   @id @default(cuid())
+  campaignId           String
+  dateKey              String
+  spendWeight          Float    @default(0)
+  engagementWeight     Float    @default(0)
+  recencyWeight        Float    @default(0)
+  boostWeight          Float    @default(0)
+  fairnessWeight       Float    @default(0)
+  finalRankScore       Float    @default(0)
+  impressionsAllocated Int      @default(0)
+  createdAt            DateTime @default(now())
+  campaign             AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, dateKey])
+  @@index([dateKey, finalRankScore])
+  @@index([campaignId, createdAt])
 }
 
 model AdCreditLedger {
@@ -1106,6 +1318,110 @@ model AdCreditLedger {
   @@index([userId, createdAt])
   @@index([userId, periodKey, entryType])
   @@index([sourceType, sourceId, createdAt])
+}
+
+model RealMoneyLedgerEntry {
+  id                  String   @id @default(cuid())
+  ledgerKey           String   @unique
+  userId              String
+  entryType           String
+  amountCents         Int
+  currency            String   @default("USD")
+  sourceProvider      String?
+  sourceProviderEventId String?
+  sourceType          String?
+  sourceId            String?
+  withdrawalRequestId String?
+  metadataJson        String?
+  createdAt           DateTime @default(now())
+  user                User     @relation("RealMoneyLedgerUser", fields: [userId], references: [id], onDelete: Cascade)
+  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entryType, createdAt])
+  @@index([sourceProvider, sourceProviderEventId])
+  @@index([sourceType, sourceId, createdAt])
+  @@index([withdrawalRequestId, createdAt])
+}
+
+model PlatformCreditLedgerEntry {
+  id           String   @id @default(cuid())
+  ledgerKey    String   @unique
+  userId       String
+  entryType    String
+  credits      Int
+  sourceType   String?
+  sourceId     String?
+  note         String?
+  createdAt    DateTime @default(now())
+  user         User     @relation("PlatformCreditLedgerUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entryType, createdAt])
+  @@index([sourceType, sourceId, createdAt])
+}
+
+model TestMoneyLedgerEntry {
+  id           String   @id @default(cuid())
+  ledgerKey    String   @unique
+  userId       String
+  entryType    String
+  amountCents  Int
+  currency     String   @default("USD")
+  sourceType   String?
+  sourceId     String?
+  note         String?
+  createdAt    DateTime @default(now())
+  user         User     @relation("TestMoneyLedgerUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entryType, createdAt])
+}
+
+model WithdrawalRequest {
+  id                  String   @id @default(cuid())
+  userId              String
+  amountCents         Int
+  currency            String   @default("USD")
+  status              String   @default("PENDING")
+  requestedAt         DateTime @default(now())
+  reviewedAt          DateTime?
+  reviewedById        String?
+  batchId             String?
+  processorProvider   String?
+  processorTransferId String?
+  failureReason       String?
+  holdReason          String?
+  note                String?
+  updatedAt           DateTime @updatedAt
+  user                User     @relation("WithdrawalRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy          User?    @relation("WithdrawalReviewActor", fields: [reviewedById], references: [id], onDelete: SetNull)
+  batch               WithdrawalBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  ledgerEntries       RealMoneyLedgerEntry[]
+
+  @@index([userId, requestedAt])
+  @@index([status, requestedAt])
+  @@index([batchId, status])
+  @@index([processorProvider, processorTransferId])
+}
+
+model WithdrawalBatch {
+  id                  String   @id @default(cuid())
+  batchKey            String   @unique
+  status              String   @default("OPEN")
+  scheduledFor        DateTime
+  processorProvider   String?
+  processedById       String?
+  sentToProcessorAt   DateTime?
+  completedAt         DateTime?
+  processorResponseJson String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  processedBy         User?    @relation("WithdrawalBatchProcessor", fields: [processedById], references: [id], onDelete: SetNull)
+  withdrawals         WithdrawalRequest[]
+
+  @@index([status, scheduledFor])
+  @@index([processorProvider, scheduledFor])
 }
 
 model SiteModeratorAssignment {
@@ -1180,6 +1496,170 @@ model ContentReport {
   @@index([targetType, targetId, createdAt])
   @@index([reporterId, targetType, targetId, createdAt])
   @@index([assignedModeratorId, status, createdAt])
+}
+
+model PlatformFeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  enabled     Boolean  @default(false)
+  description String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User?    @relation("PlatformFeatureFlagUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([enabled, updatedAt])
+}
+
+model PlatformCategory {
+  id          String   @id @default(cuid())
+  area        String
+  name        String
+  slug        String
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User?    @relation("PlatformCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([area, slug])
+  @@index([area, isActive, sortOrder])
+}
+
+model PlatformAnnouncement {
+  id              String   @id @default(cuid())
+  actorUserId     String
+  headline        String
+  body            String
+  targetUrl       String?
+  audienceType    String   @default("GLOBAL")
+  audienceValueJson String?
+  deliveryModesJson String?
+  status          String   @default("DRAFT")
+  publishedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  actor           User     @relation("PlatformAnnouncementActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, publishedAt])
+  @@index([audienceType, createdAt])
+}
+
+model AdminSupportNote {
+  id          String   @id @default(cuid())
+  authorUserId String
+  targetType  String
+  targetId    String
+  body        String
+  createdAt   DateTime @default(now())
+  author      User     @relation("AdminSupportNoteAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model WebhookReplayRequest {
+  id            String   @id @default(cuid())
+  requestedById String
+  provider      String
+  eventId       String
+  status        String   @default("PENDING")
+  payloadSummary String?
+  resultSummary  String?
+  requestedAt   DateTime @default(now())
+  replayedAt    DateTime?
+  requestedBy   User     @relation("WebhookReplayRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([provider, eventId])
+  @@index([status, requestedAt])
+}
+
+model PaymentProcessorConfig {
+  id                         String   @id @default(cuid())
+  provider                   String
+  area                       String
+  mode                       String   @default("SANDBOX")
+  displayName                String
+  publicKeyLabel             String?
+  publicKeyFingerprint       String?
+  secretEnvVarName           String?
+  webhookSecretEnvVarName    String?
+  secretConfigured           Boolean  @default(false)
+  webhookSecretConfigured    Boolean  @default(false)
+  enabledFlowsJson           String?
+  platformFeeBps             Int      @default(0)
+  withdrawalBatchScheduleJson String?
+  processorAccountStatus     String?
+  webhookHealthStatus        String   @default("UNKNOWN")
+  metadataJson               String?
+  isEnabled                  Boolean  @default(false)
+  updatedById                String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  updatedBy                  User?    @relation("PaymentProcessorConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  webhookEvents              PaymentProcessorWebhookEvent[]
+
+  @@unique([provider, area, mode])
+  @@index([area, isEnabled, mode])
+  @@index([provider, webhookHealthStatus])
+}
+
+model PaymentProcessorWebhookEvent {
+  id                  String   @id @default(cuid())
+  processorConfigId   String
+  provider            String
+  eventId             String
+  eventType           String
+  status              String   @default("RECEIVED")
+  receivedAt          DateTime @default(now())
+  processedAt         DateTime?
+  lastError           String?
+  retryCount          Int      @default(0)
+  reviewedById        String?
+  metadataJson        String?
+  processorConfig     PaymentProcessorConfig @relation(fields: [processorConfigId], references: [id], onDelete: Cascade)
+  reviewedBy          User?    @relation("PaymentProcessorWebhookEventReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([provider, eventId])
+  @@index([processorConfigId, receivedAt])
+  @@index([status, receivedAt])
+  @@index([eventType, receivedAt])
+}
+
+model DataPrivacyRequest {
+  id            String   @id @default(cuid())
+  requesterId   String?
+  requesterEmail String?
+  requestType   String
+  status        String   @default("OPEN")
+  notes         String?
+  handledById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  handledBy     User?    @relation("DataPrivacyRequestHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([requesterId, createdAt])
+  @@index([requesterEmail, createdAt])
+}
+
+model PlatformThrottle {
+  id          String   @id @default(cuid())
+  actorUserId String
+  targetType  String
+  targetId    String
+  throttleKey String
+  status      String   @default("ACTIVE")
+  reason      String?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  actor       User     @relation("PlatformThrottleActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId, status])
+  @@index([throttleKey, status])
+  @@index([expiresAt])
 }
 
 

@@ -28,7 +28,7 @@ const sections = [
   },
   {
     title: "Membership Comparison",
-    description: "Compare Free, Activist, Biz, and Auditor access.",
+    description: "Compare Free, Contributor, Biz, and Auditor access.",
     href: "/membership",
   },
 ] as const;

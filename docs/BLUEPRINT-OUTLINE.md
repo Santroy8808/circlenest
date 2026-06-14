@@ -58,7 +58,7 @@ Expected limits:
 - Can create a group and is the first moderator of that group by ownership, but cannot assign the moderator role to other group members while on the Free tier.
 - Other basic customization and power-user settings may be restricted.
 
-### Tier 2: Plus
+### Tier 2: Contributor
 
 Purpose:
 
@@ -91,7 +91,7 @@ Purpose:
 
 Expected access:
 
-- Includes Plus-tier access.
+- Includes Contributor-tier access.
 - Full access to all non-admin features.
 - Can be a moderator.
 - After 6 months, may invite other qualified people.
@@ -189,14 +189,14 @@ Global admin:
   - `julianne.dearmon@gmail.com`
 - Bootstrap admins are promoted through `ensureBootstrapAdmins`.
 - Admins bypass scoped moderation checks.
-- Admin access is not included in Free, Plus, or Pro membership.
+- Admin access is not included in Free, Contributor, or Pro membership.
 
 Membership and invitations:
 
 - `User.subscriptionTier` currently exists and defaults to `FREE`.
 - The intended membership model is invite-based.
 - Free members cannot invite.
-- Plus members should become eligible to invite qualified people after 6 months.
+- Contributor members should become eligible to invite qualified people after 6 months.
 - Pro members should become eligible to invite qualified people after 6 months.
 - Admins can always invite.
 - Eligible member invites do not require admin approval by default.
@@ -383,7 +383,7 @@ Notifications:
 - Group moderators can approve/deny join requests, assign roles, and kick members.
 - Group documents, photos, albums, forums, and group events are represented by pages/routes/APIs.
 - Intended tier rule: Free members can create groups up to 10 members but cannot assign other moderators.
-- Intended tier rule: Plus and Pro members can create unlimited-size groups and assign group moderators.
+- Intended tier rule: Contributor and Pro members can create unlimited-size groups and assign group moderators.
 
 ### Events
 
@@ -395,7 +395,7 @@ Notifications:
 - Event creators are automatically event moderators.
 - Event creators and event moderators can manage events.
 - Event list includes events a user created, was invited to, or moderates.
-- Intended tier rule: Plus and Pro members can create events.
+- Intended tier rule: Contributor and Pro members can create events.
 - Intended tier rule: Free members can participate where allowed but cannot create events.
 
 ### Notifications And Alerts
@@ -414,8 +414,8 @@ Notifications:
 - Listings include seller, title, description, price, currency, location, category, status, timestamps.
 - Bazaar access is governed by production-zone policy where applicable.
 - Intended tier rule: Free members can view Bazaar listings but cannot create listings.
-- Intended tier rule: Plus and Pro members can create Bazaar listings.
-- Intended tier rule: Plus and Pro members can create ads for Bazaar listings.
+- Intended tier rule: Contributor and Pro members can create Bazaar listings.
+- Intended tier rule: Contributor and Pro members can create ads for Bazaar listings.
 
 ### Jobs
 
@@ -423,7 +423,7 @@ Notifications:
 - Jobs API exists.
 - Listings include creator, company, title, duties, requirements, salary range, location, employment type, status, timestamps.
 - Intended tier rule: Free members can view the hiring board.
-- Intended tier rule: Plus and Pro members can create hiring posts.
+- Intended tier rule: Contributor and Pro members can create hiring posts.
 
 ### Find An Auditor
 
@@ -433,7 +433,7 @@ Notifications:
 - Auditor listing create/list API exists.
 - Listings include class level, location fields, travel availability, looking-for-PCs status, training, credentials, specialty courses, bio, services, success stories, text stream, and pro flag.
 - Auditor media is modeled.
-- Intended tier rule: Free, Plus, and Pro members can use Find an Auditor.
+- Intended tier rule: Free, Contributor, and Pro members can use Find an Auditor.
 
 ### Production Zone
 
@@ -443,13 +443,13 @@ Notifications:
 - Browsing is open.
 - Creation requires invited-creator status and a paid subscription tier.
 - Current production-zone feature identifiers include Bazaar, Writers Studio, and Business Profile.
-- Intended tier rule: creation privileges should align with Plus and Pro capabilities, plus any feature-specific invite requirements.
+- Intended tier rule: creation privileges should align with Contributor and Pro capabilities, contributor any feature-specific invite requirements.
 
 ### Ads
 
 - Ads are part of the intended platform model but are not yet fully represented as a dedicated current data model.
 - Intended tier rule: Free members cannot create ads.
-- Intended tier rule: Plus members can create ads for Bazaar and event listings, but not for businesses.
+- Intended tier rule: Contributor members can create ads for Bazaar and event listings, but not for businesses.
 - Intended tier rule: Pro members have broader ad access and receive monthly ad credits.
 - Ad credits still need a defined data model and monthly allocation policy.
 
@@ -462,7 +462,7 @@ Notifications:
 - Global admins have full access and bypass scoped moderation checks.
 - Scoped group and event moderation helpers exist.
 - Intended tier rule: Free members can never be site moderators.
-- Intended tier rule: Plus and Pro members can be moderators by invite.
+- Intended tier rule: Contributor and Pro members can be moderators by invite.
 - Intended tier rule: membership tier does not grant admin access.
 
 ## 8. Current Pages
@@ -679,7 +679,7 @@ Current smoke-test focus:
 
 Immediate:
 
-- Implement a centralized tier policy matrix for Free, Plus, and Pro.
+- Implement a centralized tier policy matrix for Free, Contributor, and Pro.
 - Apply tier policy checks consistently across UI and APIs.
 - Smoke test scoped group moderation.
 - Smoke test scoped event moderation.
@@ -728,7 +728,7 @@ Roadmap themes already documented:
 
 - Canonical membership tiers now include:
   - `FREE`
-  - `PLUS`
+  - `CONTRIBUTOR`
   - `PRO`
   - `AUDITOR`
   - `ADMIN`
