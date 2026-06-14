@@ -19,6 +19,8 @@ type UploadProgressState = {
   currentName: string | null;
 };
 
+const CREATE_NEW_ALBUM_VALUE = "__create_new_album__";
+
 async function uploadOne(file: File, albumId: string): Promise<string | null> {
   const result = await uploadImageWithCompression(file, {
     purpose: "gallery-photo",
@@ -48,7 +50,7 @@ export function GalleryUploadSurfaceClient({
   const inputClass = "rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)]/50";
   const ghostButtonClass = "rounded-full border border-[#304058] px-4 py-2 text-sm text-slate-200 transition hover:border-[#4a5a78] hover:text-white";
   const primaryButtonClass = "rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white transition hover:translate-y-[-1px] hover:shadow-[0_10px_24px_rgba(55,110,248,0.28)]";
-  const [selectedAlbumId, setSelectedAlbumId] = useState(defaultAlbumId ?? albums[0]?.id ?? "");
+  const [selectedAlbumId, setSelectedAlbumId] = useState(defaultAlbumId ?? "");
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [notifyFriendsAndFamily, setNotifyFriendsAndFamily] = useState(true);
   const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
@@ -108,6 +110,26 @@ export function GalleryUploadSurfaceClient({
     const created = (await createdAlbumRes.json()) as { id: string };
     setSelectedAlbumId(created.id);
     return created.id;
+  }
+
+  async function createNewAlbumAndSelect() {
+    const title = window.prompt("New album name", "");
+    const trimmed = title?.trim();
+    if (!trimmed) return;
+    setStatus("Creating album...");
+    const createdAlbumRes = await fetch("/api/gallery/albums", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: trimmed }),
+    });
+    if (!createdAlbumRes.ok) {
+      const body = (await createdAlbumRes.json().catch(() => null)) as { error?: string } | null;
+      setStatus(body?.error ?? "Could not create album.");
+      return;
+    }
+    const created = (await createdAlbumRes.json()) as { id: string };
+    setSelectedAlbumId(created.id);
+    setStatus(`Created album ${trimmed}.`);
   }
 
   async function submitUpload() {
@@ -192,7 +214,13 @@ export function GalleryUploadSurfaceClient({
   }
 
   const content = (
-    <article className={mode === "modal" ? "rounded-[24px] border border-[var(--border)] bg-[#0f1523] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : shellCardClass}>
+    <article
+      className={
+        mode === "modal"
+          ? "flex max-h-[calc(100dvh-2rem)] flex-col overflow-y-auto rounded-[24px] border border-[var(--border)] bg-[#0f1523] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+          : `${shellCardClass} flex max-h-[calc(100dvh-2rem)] flex-col overflow-y-auto`
+      }
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Upload photos</h1>
@@ -236,7 +264,19 @@ export function GalleryUploadSurfaceClient({
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_190px]">
-        <select value={selectedAlbumId} onChange={(event) => setSelectedAlbumId(event.target.value)} className={inputClass}>
+        <select
+          value={selectedAlbumId}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value === CREATE_NEW_ALBUM_VALUE) {
+              void createNewAlbumAndSelect();
+              return;
+            }
+            setSelectedAlbumId(value);
+          }}
+          className={inputClass}
+        >
+          <option value={CREATE_NEW_ALBUM_VALUE}>Create new album</option>
           <option value="">My Pics</option>
           {albums.map((album) => (
             <option key={album.id} value={album.id}>
@@ -308,8 +348,8 @@ export function GalleryUploadSurfaceClient({
 
   if (mode === "modal") {
     return (
-      <div className="fixed inset-0 z-50 hidden bg-black/70 p-6 md:block" onClick={onClose}>
-        <div className="mx-auto max-w-4xl" onClick={(event) => event.stopPropagation()}>
+      <div className="fixed inset-0 z-50 hidden overflow-y-auto bg-black/70 p-4 md:block md:p-6" onClick={onClose}>
+        <div className="mx-auto max-w-4xl py-4" onClick={(event) => event.stopPropagation()}>
           {content}
         </div>
       </div>

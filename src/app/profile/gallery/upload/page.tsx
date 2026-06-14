@@ -28,7 +28,7 @@ export default async function GalleryUploadPage() {
         mode="page"
         autoOpenPicker
         albums={albums}
-        defaultAlbumId={albums[0]?.id}
+        defaultAlbumId=""
       />
     </AppShell>
   );

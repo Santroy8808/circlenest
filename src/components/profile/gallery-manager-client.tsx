@@ -776,7 +776,7 @@ export function GalleryManagerClient({
         <GalleryUploadSurfaceClient
           mode="modal"
           albums={albums.map((album) => ({ id: album.id, title: album.title }))}
-          defaultAlbumId={activeAlbum?.id}
+          defaultAlbumId=""
           onClose={() => setShowUploadModal(false)}
           onUploaded={() => {
             setShowUploadModal(false);
