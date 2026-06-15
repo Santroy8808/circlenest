@@ -4,7 +4,6 @@ import { useEffect } from "react";
 
 export function MailPageClient() {
   useEffect(() => {
-    window.dispatchEvent(new Event("theta-chat-close"));
     window.dispatchEvent(new Event("theta-mail-open"));
   }, []);
 
@@ -13,7 +12,7 @@ export function MailPageClient() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-strong)]">Mail</h1>
-          <p className="text-sm text-slate-400">Inbox, sent mail, contacts, and formal messages.</p>
+          <p className="text-sm text-slate-400">Open your mailbox, read correspondence, and compose formal mail.</p>
         </div>
         <button
           type="button"
@@ -24,7 +23,7 @@ export function MailPageClient() {
         </button>
       </div>
       <div className="rounded-[12px] border border-dashed border-[#304058] px-4 py-8 text-sm text-slate-300">
-        Mail opens in a floating window on desktop and fills the screen on mobile.
+        Mail opens as a dedicated mailbox window on desktop and fills the screen on mobile.
       </div>
     </section>
   );
