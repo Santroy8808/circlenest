@@ -320,6 +320,7 @@ model MessageThread {
   id          String   @id @default(cuid())
   userAId     String
   userBId     String
+  surface     String   @default("CHAT")
   kind        String   @default("DIRECT")
   threadKey   String?  @unique
   title       String?

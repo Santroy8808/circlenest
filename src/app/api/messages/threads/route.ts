@@ -14,6 +14,7 @@ type ThreadSummaryUser = {
 
 type ThreadSummary = {
   id: string;
+  surface: string;
   kind: string;
   title: string | null;
   displayLabel: string;
@@ -33,8 +34,12 @@ function getDisplayName(user: { username: string; fullName: string | null; profi
   return user.profile?.displayName ?? user.fullName ?? user.username;
 }
 
-function directThreadKey(userAId: string, userBId: string) {
-  return [userAId, userBId].sort().join(":");
+function normalizeSurface(value?: string) {
+  return value === "MAIL" ? "MAIL" : "CHAT";
+}
+
+function directThreadKey(surface: string, userAId: string, userBId: string) {
+  return `${surface}:${[userAId, userBId].sort().join(":")}`;
 }
 
 async function loadFriendIds(userId: string) {
@@ -100,10 +105,11 @@ function isGroupThread(thread: { kind?: string | null }) {
   return (thread.kind ?? "DIRECT") === "GROUP";
 }
 
-async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummary[]> {
+async function buildThreadSummaries(sessionUserId: string, surface: "CHAT" | "MAIL"): Promise<ThreadSummary[]> {
   const [directThreads, groupThreads] = await Promise.all([
     prisma.messageThread.findMany({
       where: {
+        surface,
         kind: "DIRECT",
         OR: [
           { userAId: sessionUserId },
@@ -121,6 +127,7 @@ async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummar
     }),
     prisma.messageThread.findMany({
       where: {
+        surface,
         kind: "GROUP",
         participants: { some: { userId: sessionUserId } },
       },
@@ -163,6 +170,7 @@ async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummar
         const participantNames = groupParticipants.map((participant) => `@${participant.username}`);
         return {
           id: thread.id,
+          surface: thread.surface,
           kind: thread.kind,
           title: thread.title,
           displayLabel: thread.title ?? defaultGroupTitle(participantNames.map((name) => name.replace(/^@/, ""))),
@@ -180,6 +188,7 @@ async function buildThreadSummaries(sessionUserId: string): Promise<ThreadSummar
       const otherDisplay = getDisplayName(other);
       return {
         id: thread.id,
+        surface: thread.surface,
         kind: thread.kind,
         title: null,
         displayLabel: otherDisplay,
@@ -212,6 +221,7 @@ export async function POST(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json().catch(() => ({}))) as {
+    surface?: "CHAT" | "MAIL";
     mode?: "DIRECT" | "GROUP";
     username?: string;
     userId?: string;
@@ -220,6 +230,7 @@ export async function POST(request: Request) {
     initialMessage?: string;
   };
 
+  const surface = normalizeSurface(body.surface);
   const mode = body.mode === "GROUP" ? "GROUP" : "DIRECT";
   const initialMessage = body.initialMessage?.trim() ?? "";
 
@@ -239,14 +250,20 @@ export async function POST(request: Request) {
     if (!other) return NextResponse.json({ error: "User not found" }, { status: 404 });
     if (other.id === session.user.id) return NextResponse.json({ error: "Invalid target" }, { status: 400 });
 
+    const friendIds = await loadFriendIds(session.user.id);
+    if (surface === "CHAT" && friendIds.has(other.id)) {
+      return NextResponse.json({ error: "Use a group chat for friends/family." }, { status: 403 });
+    }
+
     const blockedIds = await loadBlockedIds(session.user.id, [other.id]);
     if (blockedIds.has(other.id)) return NextResponse.json({ error: "Messaging blocked by user settings." }, { status: 403 });
 
     let thread = await prisma.messageThread.findFirst({
       where: {
         kind: "DIRECT",
+        surface,
         OR: [
-          { threadKey: directThreadKey(session.user.id, other.id) },
+          { threadKey: directThreadKey(surface, session.user.id, other.id) },
           { userAId: session.user.id, userBId: other.id },
           { userAId: other.id, userBId: session.user.id },
           { participants: { some: { userId: other.id } } },
@@ -257,8 +274,9 @@ export async function POST(request: Request) {
     if (!thread) {
       thread = await prisma.messageThread.create({
         data: {
+          surface,
           kind: "DIRECT",
-          threadKey: directThreadKey(session.user.id, other.id),
+          threadKey: directThreadKey(surface, session.user.id, other.id),
           userAId: session.user.id,
           userBId: other.id,
           createdById: session.user.id,
@@ -274,7 +292,13 @@ export async function POST(request: Request) {
 
     if (initialMessage) {
       const msg = await createThreadInitialMessage(thread.id, session.user.id, initialMessage);
-      await notifyThreadRecipients(thread.id, session.user.id, [other.id], `New inbox message from @${session.user.name ?? "member"}`, "New message");
+      await notifyThreadRecipients(
+        thread.id,
+        session.user.id,
+        [other.id],
+        surface === "MAIL" ? `New mail from @${session.user.name ?? "member"}` : `New inbox message from @${session.user.name ?? "member"}`,
+        surface === "MAIL" ? "New mail" : "New message",
+      );
       return NextResponse.json({ id: thread.id, messageId: msg.id });
     }
 
@@ -305,6 +329,7 @@ export async function POST(request: Request) {
   const title = body.title?.trim() || defaultGroupTitle(participants.map((person) => getDisplayName(person)));
   const thread = await prisma.messageThread.create({
     data: {
+      surface,
       kind: "GROUP",
       threadKey: `group:${randomUUID()}`,
       title,
@@ -332,8 +357,8 @@ export async function POST(request: Request) {
       thread.id,
       session.user.id,
       participantIds,
-      `New group message from @${session.user.name ?? "member"}`,
-      "New group chat",
+      surface === "MAIL" ? `New group mail from @${session.user.name ?? "member"}` : `New group message from @${session.user.name ?? "member"}`,
+      surface === "MAIL" ? "New group mail" : "New group chat",
     );
     return NextResponse.json({ id: thread.id, messageId: msg.id });
   }
@@ -341,10 +366,12 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: thread.id });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const threads = await buildThreadSummaries(session.user.id);
+  const { searchParams } = new URL(request.url);
+  const surface = normalizeSurface(searchParams.get("surface") ?? undefined);
+  const threads = await buildThreadSummaries(session.user.id, surface);
   return NextResponse.json(threads);
 }

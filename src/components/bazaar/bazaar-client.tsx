@@ -85,40 +85,33 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
   const cards: ReactNode[] = [];
   listings.forEach((listing, index) => {
     cards.push(
-      <article key={listing.id} className="flex h-full flex-col rounded border border-[var(--border)] bg-[#0d1320] p-3">
-        {listing.imageUrls[0] ? (
-          <div className="mb-3 overflow-hidden rounded border border-[var(--border)] bg-[#111a2a]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={listing.imageUrls[0]} alt={listing.title} className="h-40 w-full object-cover" />
-          </div>
-        ) : null}
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="text-lg font-semibold text-[var(--text-strong)]">{listing.title}</p>
-            <p className="text-sm text-slate-300">{listing.description || "No description provided."}</p>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="rounded-full border border-slate-400/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-300">
-              {listing.category || "Uncategorized"}
-            </span>
+      <article key={listing.id} className="space-y-2">
+        <div className="group relative aspect-square overflow-hidden rounded-[18px] border border-[var(--border)] bg-[#0d1320]">
+          {listing.imageUrls[0] ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={listing.imageUrls[0]} alt={listing.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" />
+              <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(6,9,16,0.92))] p-3">
+                <p className="line-clamp-2 text-sm font-semibold text-white">{listing.title}</p>
+                <p className="mt-1 text-sm font-semibold text-amber-200">${listing.price.toFixed(2)} {listing.currency}</p>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full flex-col justify-end bg-[#111a2a] p-3">
+              <p className="line-clamp-2 text-sm font-semibold text-white">{listing.title}</p>
+              <p className="mt-1 text-sm font-semibold text-amber-200">${listing.price.toFixed(2)} {listing.currency}</p>
+            </div>
+          )}
+          <div className="absolute right-2 top-2">
             <ReportControl
               targetType="MARKET_LISTING"
               targetId={listing.id}
               label="Report listing"
               compact
-              triggerClassName="border-slate-400/30 bg-[#0f1728]"
+              triggerClassName="border-slate-400/30 bg-[#0f1728]/90 backdrop-blur"
             />
           </div>
         </div>
-        <p className="mt-2 text-sm text-slate-200">
-          ${listing.price.toFixed(2)} {listing.currency}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          {listing.location || "No location"} | @{listing.seller.username}
-        </p>
-        <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-slate-500">
-          Expires {new Date(listing.expiresAt).toLocaleDateString()}
-        </p>
         {listing.staleSoon && listing.seller.id === currentUserId ? (
           <div className="mt-2 rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
             This listing is about to go stale. Renew it to keep it live.
@@ -205,7 +198,7 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
         Search Listings
       </button>
       {status ? <p className="text-xs text-slate-500">{status}</p> : null}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards}
         {!listings.length ? <p className="text-sm text-slate-500">No listings match current filters.</p> : null}
       </div>

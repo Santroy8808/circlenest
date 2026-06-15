@@ -59,7 +59,7 @@ export default async function MarketPage({ searchParams }: { searchParams?: { cr
       ? `Contributor Market listings: ${createdInTwoWeeks}/${rollingLimit ?? 0} used in the current 2-week window (${Math.max((rollingLimit ?? 0) - createdInTwoWeeks, 0)} left).`
       : policy.tier === "PRO" || policy.tier === "AUDITOR" || policy.tier === "ADMIN"
         ? "Biz members can post unlimited marketplace listings."
-        : "Browse The Market freely. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.";
+        : "Browse The Market freely.";
   const marketLimitNote =
     policy.tier === "CONTRIBUTOR"
       ? `Contributor members can post ${rollingLimit ?? 6} marketplace listings every 2 weeks, with ${maxImages ?? 0} photos per listing, and listings last ${getMarketListingLifetimeDays(policy) ?? 14} days. Biz members can post unlimited marketplace listings.`
@@ -67,7 +67,7 @@ export default async function MarketPage({ searchParams }: { searchParams?: { cr
         ? "Biz members can post unlimited marketplace listings."
         : policy.tier === "ADMIN"
           ? "Admin listings are unlimited."
-          : "Browse The Market freely. Contributor members can post 6 marketplace listings every 2 weeks. Biz members can post unlimited marketplace listings.";
+          : null;
   const adCreditBalance = policy.tier === "PRO" || policy.tier === "AUDITOR" ? await getProAdCreditBalance(session.user.id, policy) : null;
   const adCreditLabel =
     policy.tier === "PRO"
@@ -94,7 +94,7 @@ export default async function MarketPage({ searchParams }: { searchParams?: { cr
         ) : null}
         <p className="text-xs text-slate-400">{adCreditLabel}</p>
         <div className="rounded border border-[var(--border)] bg-[#0e1524] px-3 py-2 text-xs text-slate-300">{marketQuotaWidget}</div>
-        <MarketCreateFormClient canCreate={canCreate} maxImages={maxImages} listingLimitNote={marketLimitNote} />
+        {canCreate ? <MarketCreateFormClient canCreate={canCreate} maxImages={maxImages} listingLimitNote={marketLimitNote} /> : null}
         <MarketClient
           currentUserId={session.user.id}
           initialListings={listings
