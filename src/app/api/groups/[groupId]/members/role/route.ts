@@ -13,8 +13,11 @@ export async function PATCH(request: Request, context: { params: { groupId: stri
   });
   const policy = resolveUserAccessPolicy(user);
 
-  const body = (await request.json()) as { userId?: string; role?: "MODERATOR" | "MEMBER" };
-  if (!body.userId || !body.role) return NextResponse.json({ error: "userId and role required" }, { status: 400 });
+  const body = (await request.json()) as { userId?: string; role?: "MODERATOR" | "MEMBER"; isProvider?: boolean };
+  if (!body.userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+  if (!body.role && typeof body.isProvider !== "boolean") {
+    return NextResponse.json({ error: "role or isProvider required" }, { status: 400 });
+  }
   if (body.role === "MODERATOR" && !canAssignGroupModerators(policy)) {
     return NextResponse.json({ error: "Assigning moderators is not allowed on this tier." }, { status: 403 });
   }
@@ -24,7 +27,10 @@ export async function PATCH(request: Request, context: { params: { groupId: stri
 
   await prisma.groupMember.update({
     where: { groupId_userId: { groupId: context.params.groupId, userId: body.userId } },
-    data: { role: body.role },
+    data: {
+      ...(body.role ? { role: body.role } : {}),
+      ...(typeof body.isProvider === "boolean" ? { isProvider: body.isProvider } : {}),
+    },
   });
 
   return NextResponse.json({ ok: true });

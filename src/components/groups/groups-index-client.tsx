@@ -18,11 +18,29 @@ type GroupIndexRow = {
   memberCount: number;
   isMember: boolean;
   hasPendingRequest: boolean;
+  isPinned: boolean;
+  sortOrder: number;
 };
 
 export function GroupsIndexClient({ groups, emptyMessage = "No groups found." }: { groups: GroupIndexRow[]; emptyMessage?: string }) {
   const router = useRouter();
   const [statusByGroup, setStatusByGroup] = useState<Record<string, string>>({});
+
+  async function updatePreference(groupId: string, action: "pin" | "unpin" | "move-up" | "move-down") {
+    setStatusByGroup((prev) => ({ ...prev, [groupId]: "Saving..." }));
+    const response = await fetch("/api/groups/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId, action }),
+    });
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setStatusByGroup((prev) => ({ ...prev, [groupId]: body.error ?? "Could not update group order." }));
+      return;
+    }
+    setStatusByGroup((prev) => ({ ...prev, [groupId]: "Saved." }));
+    router.refresh();
+  }
 
   async function join(groupId: string) {
     setStatusByGroup((prev) => ({ ...prev, [groupId]: "Working..." }));
@@ -43,15 +61,33 @@ export function GroupsIndexClient({ groups, emptyMessage = "No groups found." }:
     <section className="grid gap-3">
       {groups.length ? groups.map((g) => (
         <article key={g.id} className="card p-4">
-          <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">{g.name}</h2>
-            <p className="text-sm text-slate-600">{g.description || "No description"}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold">{g.name}</h2>
+                {g.isPinned ? <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-amber-200">Pinned</span> : null}
+              </div>
+              <p className="text-sm text-slate-600">{g.description || "No description"}</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {g.isMember ? (
+                <>
+                  <button className="rounded border border-slate-300 px-2 py-1.5 text-xs" onClick={() => void updatePreference(g.id, g.isPinned ? "unpin" : "pin")}>
+                    {g.isPinned ? "Unpin" : "Pin"}
+                  </button>
+                  <button className="rounded border border-slate-300 px-2 py-1.5 text-xs" onClick={() => void updatePreference(g.id, "move-up")}>
+                    Up
+                  </button>
+                  <button className="rounded border border-slate-300 px-2 py-1.5 text-xs" onClick={() => void updatePreference(g.id, "move-down")}>
+                    Down
+                  </button>
+                </>
+              ) : null}
+              <Link href={`/groups/${g.id}`} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">
+                Open Group
+              </Link>
+            </div>
           </div>
-          <Link href={`/groups/${g.id}`} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">
-            Open Group
-          </Link>
-        </div>
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
           <span>{g.visibility}</span>
           <span>{g.memberCount} members</span>

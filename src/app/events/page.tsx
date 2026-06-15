@@ -3,13 +3,13 @@ import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdPlacementPanel } from "@/components/ads/ad-placement-panel";
 import { TierGate } from "@/components/policy/tier-gate";
 import { canCreateEvent } from "@/lib/policy/tier-policy";
-import { getProAdCreditBalance, serializeAdPlacements } from "@/lib/ads/ads";
+import { getProAdCreditBalance } from "@/lib/ads/ads";
 import { canModerateEvent } from "@/lib/auth/scoped-moderation";
 import { ReportControl } from "@/components/reports/report-control";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
+import Link from "next/link";
 
 export default async function EventsPage({ searchParams }: { searchParams?: { created?: string } }) {
   const session = await auth();
@@ -27,10 +27,6 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
     include: {
       creator: { select: { username: true } },
       moderators: { include: { user: { select: { username: true } } } },
-      adPlacements: {
-        include: { creator: { select: { id: true, username: true } } },
-        orderBy: [{ createdAt: "desc" }],
-      },
     },
     orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }],
     take: 100,
@@ -179,19 +175,18 @@ export default async function EventsPage({ searchParams }: { searchParams?: { cr
               <div className="mt-2 max-w-sm">
                 <ReportControl targetType="EVENT" targetId={event.id} label="Report event" compact />
               </div>
-              <div className="mt-3">
-                <AdPlacementPanel
-                  targetType="EVENT_LISTING"
-                  createEndpoint={`/api/events/${event.id}/ads`}
-                  targetLabel="Event listing ads"
-                  canCreate={canCreate}
-                  ownsTarget={isAdmin || event.creatorId === session.user.id}
-                  requiresCredits={policy.tier === "PRO" || policy.tier === "AUDITOR"}
-                  creditBalance={adCreditBalance}
-                  ads={serializeAdPlacements(event.adPlacements)}
-                  slotIndex={index}
-                />
-              </div>
+              {isAdmin || event.creatorId === session.user.id ? (
+                <div className="mt-3 rounded border border-[var(--border)] bg-[#0d1320] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-amber-200">Promotion</p>
+                  <p className="mt-1 text-sm text-slate-300">Promote this event through the normal ad system. Event ads run in the platform ad stream, never inside the event listing.</p>
+                  <Link
+                    href={`/production-zone/business/ads?targetType=EVENT_LISTING&targetId=${encodeURIComponent(event.id)}&title=${encodeURIComponent(`Promote ${event.title}`)}&articleTitle=${encodeURIComponent(event.title)}&articleBody=${encodeURIComponent(event.description || `Join ${event.title}.`)}`}
+                    className="mt-3 inline-flex rounded-full border border-[var(--accent)]/45 px-3 py-1.5 text-xs font-semibold text-[var(--text-strong)] transition hover:-translate-y-0.5 hover:bg-[var(--accent)]/10"
+                  >
+                    Promote event
+                  </Link>
+                </div>
+              ) : null}
               {isEventModerator ? (
                   <div className="mt-2 space-y-2">
                     <div className="flex gap-2">

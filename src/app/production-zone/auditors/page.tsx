@@ -9,18 +9,12 @@ export default async function ProductionZoneAuditorsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [user, auditorListing] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true, subscriptionTier: true },
-    }),
-    prisma.auditorListing.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
-    }),
-  ]);
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, subscriptionTier: true },
+  });
   const policy = resolveMemberAccessPolicy(session.user.id, user);
-  const hasAuditorAccount = policy.tier === "AUDITOR" || Boolean(auditorListing);
+  const hasAuditorAccount = policy.tier === "AUDITOR";
 
   return (
     <AppShell>
@@ -45,7 +39,12 @@ export default async function ProductionZoneAuditorsPage() {
               <h2 className="text-base font-semibold text-[var(--text-strong)]">I&apos;m an Auditor</h2>
               <p className="mt-1 text-sm text-slate-400">Maintain your own auditor profile from its dedicated page.</p>
             </Link>
-          ) : null}
+          ) : (
+            <div className="rounded border border-[var(--border)] p-4">
+              <h2 className="text-base font-semibold text-[var(--text-strong)]">I&apos;m an Auditor</h2>
+              <p className="mt-1 text-sm text-slate-400">Only Auditor accounts can create or maintain an auditor profile.</p>
+            </div>
+          )}
         </div>
       </section>
     </AppShell>

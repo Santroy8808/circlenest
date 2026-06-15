@@ -21,9 +21,10 @@ export async function POST(request: Request, context: { params: { groupId: strin
 
   const thread = await prisma.groupForumThread.findFirst({
     where: { id: context.params.threadId, groupId: context.params.groupId },
-    select: { id: true, allowReplyImages: true },
+    select: { id: true, allowReplyImages: true, status: true },
   });
   if (!thread) return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+  if (thread.status === "ENDED") return NextResponse.json({ error: "This thread has been ended" }, { status: 409 });
   if (mediaUrls.length > 0 && !thread.allowReplyImages) {
     return NextResponse.json({ error: "Photo replies are disabled for this thread" }, { status: 403 });
   }
