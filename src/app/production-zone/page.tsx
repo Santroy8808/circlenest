@@ -15,14 +15,10 @@ export default async function ProductionZonePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [user, auditorListing, businessProfile] = await Promise.all([
+  const [user, businessProfile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true, subscriptionTier: true },
-    }),
-    prisma.auditorListing.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
     }),
     prisma.businessProfile.findUnique({
       where: { ownerId: session.user.id },
@@ -30,7 +26,7 @@ export default async function ProductionZonePage() {
     }),
   ]);
   const policy = resolveMemberAccessPolicy(session.user.id, user);
-  const hasAuditorAccount = policy.tier === "AUDITOR" || Boolean(auditorListing);
+  const hasAuditorAccount = policy.tier === "AUDITOR";
   const showBusiness = policy.tier === "PRO" || policy.isAdmin || Boolean(businessProfile);
   const showActivistTools = policy.tier !== "FREE";
 

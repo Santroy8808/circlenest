@@ -12,22 +12,36 @@ type AdCampaignManagerProps = {
   canCreate: boolean;
   profileReady: boolean;
   creditBalance: number;
+  initialDraft?: {
+    title?: string;
+    targetType?: string;
+    targetId?: string;
+    articleTitle?: string;
+    articleBody?: string;
+  };
 };
 
-export function AdCampaignManager({ campaigns, canCreate, profileReady, creditBalance }: AdCampaignManagerProps) {
+export function AdCampaignManager({ campaigns, canCreate, profileReady, creditBalance, initialDraft }: AdCampaignManagerProps) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [targetType, setTargetType] = useState("BUSINESS_PROFILE");
-  const [targetId, setTargetId] = useState("");
+  const [title, setTitle] = useState(initialDraft?.title ?? "");
+  const [targetType, setTargetType] = useState(initialDraft?.targetType ?? "BUSINESS_PROFILE");
+  const [targetId, setTargetId] = useState(initialDraft?.targetId ?? "");
   const [imageUrl, setImageUrl] = useState("");
-  const [articleTitle, setArticleTitle] = useState("");
-  const [articleBody, setArticleBody] = useState("");
+  const [articleTitle, setArticleTitle] = useState(initialDraft?.articleTitle ?? "");
+  const [articleBody, setArticleBody] = useState(initialDraft?.articleBody ?? "");
   const [ctaLabel, setCtaLabel] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
   const [platformCreditBudget, setPlatformCreditBudget] = useState("0");
   const [budgetAmountCents, setBudgetAmountCents] = useState("0");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
+  const [targetCountries, setTargetCountries] = useState("");
+  const [targetStates, setTargetStates] = useState("");
+  const [targetCities, setTargetCities] = useState("");
+  const [targetGenders, setTargetGenders] = useState("");
+  const [targetScientologyClassifications, setTargetScientologyClassifications] = useState("");
+  const [targetMinAge, setTargetMinAge] = useState("");
+  const [targetMaxAge, setTargetMaxAge] = useState("");
   const [status, setStatus] = useState("DRAFT");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -54,6 +68,13 @@ export function AdCampaignManager({ campaigns, canCreate, profileReady, creditBa
           articleBody,
           ctaLabel: ctaLabel || null,
           ctaUrl: ctaUrl || null,
+          targetCountries,
+          targetStates,
+          targetCities,
+          targetGenders,
+          targetScientologyClassifications,
+          targetMinAge: targetMinAge || null,
+          targetMaxAge: targetMaxAge || null,
           platformCreditBudget: Number.parseInt(platformCreditBudget || "0", 10),
           budgetAmountCents: Math.round(Number.parseFloat(budgetAmountCents || "0") * 100),
           startsAt: startsAt || null,
@@ -74,6 +95,13 @@ export function AdCampaignManager({ campaigns, canCreate, profileReady, creditBa
       setArticleBody("");
       setCtaLabel("");
       setCtaUrl("");
+      setTargetCountries("");
+      setTargetStates("");
+      setTargetCities("");
+      setTargetGenders("");
+      setTargetScientologyClassifications("");
+      setTargetMinAge("");
+      setTargetMaxAge("");
       setPlatformCreditBudget("0");
       setBudgetAmountCents("0");
       setStartsAt("");
@@ -165,6 +193,51 @@ export function AdCampaignManager({ campaigns, canCreate, profileReady, creditBa
                 <input value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} className={FIELD_CLASS} placeholder="/storefront/your-business" />
               </label>
             </div>
+            <section className="grid gap-3 rounded-lg border border-[#304058] bg-[#0d1626] p-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-strong)]">Audience targeting</p>
+                <p className="text-xs text-slate-400">Use any combination of location, age, gender, or My Scientology classification. Leave fields blank for broad reach.</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">Countries</span>
+                  <input value={targetCountries} onChange={(event) => setTargetCountries(event.target.value)} className={FIELD_CLASS} placeholder="USA, Canada" />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">States</span>
+                  <input value={targetStates} onChange={(event) => setTargetStates(event.target.value)} className={FIELD_CLASS} placeholder="Texas, Florida" />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">Cities</span>
+                  <input value={targetCities} onChange={(event) => setTargetCities(event.target.value)} className={FIELD_CLASS} placeholder="Austin, Clearwater" />
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">Gender</span>
+                  <input value={targetGenders} onChange={(event) => setTargetGenders(event.target.value)} className={FIELD_CLASS} placeholder="Female, Male" />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">My Scientology classification</span>
+                  <input
+                    value={targetScientologyClassifications}
+                    onChange={(event) => setTargetScientologyClassifications(event.target.value)}
+                    className={FIELD_CLASS}
+                    placeholder="Class V, CLEAR, OT VIII"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">Minimum age</span>
+                  <input value={targetMinAge} onChange={(event) => setTargetMinAge(event.target.value)} className={FIELD_CLASS} inputMode="numeric" placeholder="21" />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-300">Maximum age</span>
+                  <input value={targetMaxAge} onChange={(event) => setTargetMaxAge(event.target.value)} className={FIELD_CLASS} inputMode="numeric" placeholder="65" />
+                </label>
+              </div>
+            </section>
             <div className="grid gap-3 md:grid-cols-4">
               <label className="grid gap-1 text-sm">
                 <span className="text-slate-300">Platform credits</span>
@@ -219,6 +292,20 @@ export function AdCampaignManager({ campaigns, canCreate, profileReady, creditBa
                 <span className="rounded-full border border-[#52647f] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-200">{campaign.status}</span>
               </div>
               {campaign.landingArticle ? <p className="mt-2 line-clamp-3 text-sm text-slate-300">{campaign.landingArticle.body}</p> : null}
+              {campaign.targeting.countries.length || campaign.targeting.states.length || campaign.targeting.cities.length || campaign.targeting.genders.length || campaign.targeting.scientologyClassifications.length || campaign.targeting.minAge !== null || campaign.targeting.maxAge !== null ? (
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-300">
+                  {campaign.targeting.countries.length ? <span className="rounded-full border border-[#304058] px-2 py-1">Country: {campaign.targeting.countries.join(", ")}</span> : null}
+                  {campaign.targeting.states.length ? <span className="rounded-full border border-[#304058] px-2 py-1">State: {campaign.targeting.states.join(", ")}</span> : null}
+                  {campaign.targeting.cities.length ? <span className="rounded-full border border-[#304058] px-2 py-1">City: {campaign.targeting.cities.join(", ")}</span> : null}
+                  {campaign.targeting.genders.length ? <span className="rounded-full border border-[#304058] px-2 py-1">Gender: {campaign.targeting.genders.join(", ")}</span> : null}
+                  {campaign.targeting.scientologyClassifications.length ? <span className="rounded-full border border-[#304058] px-2 py-1">Classification: {campaign.targeting.scientologyClassifications.join(", ")}</span> : null}
+                  {campaign.targeting.minAge !== null || campaign.targeting.maxAge !== null ? (
+                    <span className="rounded-full border border-[#304058] px-2 py-1">
+                      Age: {campaign.targeting.minAge ?? "Any"}-{campaign.targeting.maxAge ?? "Any"}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="mt-3 grid gap-2 text-xs text-slate-400 sm:grid-cols-4">
                 <p>Rank: {campaign.finalRankScore}</p>
                 <p>Credits: {campaign.platformCreditBudget}</p>

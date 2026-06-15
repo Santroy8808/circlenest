@@ -33,6 +33,26 @@ function asNullableDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function parseTextList(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [] as string[];
+}
+
+function asNullableJsonList(value: unknown) {
+  const entries = Array.from(new Set(parseTextList(value)));
+  return entries.length ? JSON.stringify(entries) : null;
+}
+
 function resolvePlacementTarget(targetType: string, targetId: string | null) {
   if (!targetId) return {};
   if (targetType === "MARKET_LISTING") return { bazaarListingId: targetId };
@@ -98,6 +118,13 @@ export async function POST(request: Request) {
   const dailyBudgetCents = payload.dailyBudgetCents === null || payload.dailyBudgetCents === undefined ? null : asNonNegativeInt(payload.dailyBudgetCents);
   const startsAt = asNullableDate(payload.startsAt);
   const endsAt = asNullableDate(payload.endsAt);
+  const targetCountriesJson = asNullableJsonList(payload.targetCountries);
+  const targetStatesJson = asNullableJsonList(payload.targetStates);
+  const targetCitiesJson = asNullableJsonList(payload.targetCities);
+  const targetGendersJson = asNullableJsonList(payload.targetGenders);
+  const targetScientologyClassificationsJson = asNullableJsonList(payload.targetScientologyClassifications);
+  const targetMinAge = payload.targetMinAge === null || payload.targetMinAge === undefined || payload.targetMinAge === "" ? null : asNonNegativeInt(payload.targetMinAge);
+  const targetMaxAge = payload.targetMaxAge === null || payload.targetMaxAge === undefined || payload.targetMaxAge === "" ? null : asNonNegativeInt(payload.targetMaxAge);
 
   if (!title) {
     return NextResponse.json({ error: "Campaign title is required." }, { status: 400 });
@@ -116,6 +143,9 @@ export async function POST(request: Request) {
   }
   if (startsAt && endsAt && startsAt >= endsAt) {
     return NextResponse.json({ error: "End date must be after the start date." }, { status: 400 });
+  }
+  if (targetMinAge !== null && targetMaxAge !== null && targetMinAge > targetMaxAge) {
+    return NextResponse.json({ error: "Maximum age must be greater than or equal to minimum age." }, { status: 400 });
   }
   if (budgetAmountCents <= 0 && platformCreditBudget <= 0) {
     return NextResponse.json({ error: "Campaign requires a cash budget note or platform credit budget." }, { status: 400 });
@@ -149,6 +179,13 @@ export async function POST(request: Request) {
         dailyBudgetCents,
         targetType,
         targetId,
+        targetCountriesJson,
+        targetStatesJson,
+        targetCitiesJson,
+        targetGendersJson,
+        targetScientologyClassificationsJson,
+        targetMinAge,
+        targetMaxAge,
         imageUrl: asNullableText(payload.imageUrl),
       },
     });

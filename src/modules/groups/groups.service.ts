@@ -25,6 +25,14 @@ type GroupMembershipCapacityResult =
       error: string;
     };
 
+async function getNextGroupSortOrder(userId: string) {
+  const aggregate = await prisma.groupMember.aggregate({
+    where: { userId },
+    _max: { sortOrder: true },
+  });
+  return (aggregate._max.sortOrder ?? -1) + 1;
+}
+
 export async function createGroupForUser(userId: string, body: CreateGroupInput) {
   if (!body.name?.trim()) return { ok: false as const, status: 400, error: "Group name required" };
   if (!body.purpose?.trim()) return { ok: false as const, status: 400, error: "Group purpose required" };
@@ -47,7 +55,7 @@ export async function createGroupForUser(userId: string, body: CreateGroupInput)
   });
 
   await prisma.groupMember.create({
-    data: { groupId: group.id, userId, role: "MODERATOR" },
+    data: { groupId: group.id, userId, role: "MODERATOR", sortOrder: await getNextGroupSortOrder(userId) },
   });
 
   void ensureGroupStorageRoot(group.id).catch((error) => {

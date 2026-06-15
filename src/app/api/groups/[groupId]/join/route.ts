@@ -3,6 +3,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { canAddGroupMember } from "@/modules/groups/groups.service";
 
+async function getNextGroupSortOrder(userId: string) {
+  const aggregate = await prisma.groupMember.aggregate({
+    where: { userId },
+    _max: { sortOrder: true },
+  });
+  return (aggregate._max.sortOrder ?? -1) + 1;
+}
+
 export async function POST(_request: Request, context: { params: { groupId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,7 +27,7 @@ export async function POST(_request: Request, context: { params: { groupId: stri
 
     await prisma.groupMember.upsert({
       where: { groupId_userId: { groupId: context.params.groupId, userId: session.user.id } },
-      create: { groupId: context.params.groupId, userId: session.user.id, role: "MEMBER" },
+      create: { groupId: context.params.groupId, userId: session.user.id, role: "MEMBER", sortOrder: await getNextGroupSortOrder(session.user.id) },
       update: {},
     });
     return NextResponse.json({ ok: true, status: "JOINED" });

@@ -51,7 +51,7 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
   const jobs = await prisma.jobListing.findMany({
     where,
     include: {
-      creator: { select: { id: true, username: true } },
+      creator: { select: { id: true, username: true, email: true } },
       adPlacements: { include: { creator: { select: { id: true, username: true } } } },
     },
     orderBy: { createdAt: "desc" },
@@ -88,6 +88,9 @@ export default async function JobsPage({ searchParams }: { searchParams?: JobsPa
     salaryMax: job.salaryMax ?? null,
     location: job.location ?? null,
     employmentType: job.employmentType ?? null,
+    contactEmail: job.contactEmail ?? job.creator.email,
+    contactPhone: job.contactPhone ?? null,
+    applicationUrl: job.applicationUrl ?? null,
     creator: {
       username: job.creator.username,
     },

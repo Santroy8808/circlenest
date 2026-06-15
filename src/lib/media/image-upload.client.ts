@@ -192,7 +192,7 @@ export async function compressImageOnDevice(file: File, options?: CompressionOpt
 export async function uploadImageWithCompression(
   file: File,
   options?: UploadImageOptions,
-): Promise<{ url: string | null; stats: CompressionStats }> {
+): Promise<{ url: string | null; sizeBytes: number; mimeType: string | null; stats: CompressionStats }> {
   await yieldToBrowser();
   const compressed = await compressImageOnDevice(file);
   const form = new FormData();
@@ -205,16 +205,16 @@ export async function uploadImageWithCompression(
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     console.error("Image upload failed", body?.error ?? response.statusText);
-    return { url: null, stats: compressed.stats };
+    return { url: null, sizeBytes: 0, mimeType: null, stats: compressed.stats };
   }
-  const body = (await response.json()) as { url?: string };
-  return { url: body.url ?? null, stats: compressed.stats };
+  const body = (await response.json()) as { url?: string; sizeBytes?: number; mimeType?: string | null };
+  return { url: body.url ?? null, sizeBytes: Number(body.sizeBytes ?? 0), mimeType: body.mimeType ?? null, stats: compressed.stats };
 }
 
 export async function uploadFile(
   file: File,
   options?: UploadImageOptions,
-): Promise<{ url: string | null }> {
+): Promise<{ url: string | null; sizeBytes: number; mimeType: string | null }> {
   const form = new FormData();
   form.append("file", file);
   if (options?.purpose) form.append("purpose", options.purpose);
@@ -225,8 +225,8 @@ export async function uploadFile(
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     console.error("File upload failed", body?.error ?? response.statusText);
-    return { url: null };
+    return { url: null, sizeBytes: 0, mimeType: null };
   }
-  const body = (await response.json()) as { url?: string };
-  return { url: body.url ?? null };
+  const body = (await response.json()) as { url?: string; sizeBytes?: number; mimeType?: string | null };
+  return { url: body.url ?? null, sizeBytes: Number(body.sizeBytes ?? 0), mimeType: body.mimeType ?? null };
 }
