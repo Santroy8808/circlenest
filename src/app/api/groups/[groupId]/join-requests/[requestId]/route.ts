@@ -4,6 +4,14 @@ import { prisma } from "@/lib/db/prisma";
 import { canModerateGroup } from "@/lib/auth/scoped-moderation";
 import { canAddGroupMember } from "@/modules/groups/groups.service";
 
+async function getNextGroupSortOrder(userId: string) {
+  const aggregate = await prisma.groupMember.aggregate({
+    where: { userId },
+    _max: { sortOrder: true },
+  });
+  return (aggregate._max.sortOrder ?? -1) + 1;
+}
+
 export async function PATCH(request: Request, context: { params: { groupId: string; requestId: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,7 +39,12 @@ export async function PATCH(request: Request, context: { params: { groupId: stri
     await prisma.$transaction([
       prisma.groupMember.upsert({
         where: { groupId_userId: { groupId: context.params.groupId, userId: target.userId } },
-        create: { groupId: context.params.groupId, userId: target.userId, role: "MEMBER" },
+        create: {
+          groupId: context.params.groupId,
+          userId: target.userId,
+          role: "MEMBER",
+          sortOrder: await getNextGroupSortOrder(target.userId),
+        },
         update: {},
       }),
       prisma.groupJoinRequest.update({

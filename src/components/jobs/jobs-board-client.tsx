@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ReportControl } from "@/components/reports/report-control";
 import type { AdPlacementSummary } from "@/lib/ads/ads";
@@ -17,6 +18,9 @@ type JobBoardListing = {
   salaryMax: number | null;
   location: string | null;
   employmentType: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  applicationUrl: string | null;
   creator: {
     username: string;
   };
@@ -69,9 +73,8 @@ function AdCard({ ad, targetLabel }: { ad: AdPlacementSummary | null; targetLabe
 function JobListingCard({ job, onOpen }: { job: JobBoardListing; onOpen: () => void }) {
   return (
     <article className="relative flex h-full min-h-[260px] flex-col overflow-hidden rounded border border-[var(--border)] bg-[#0d1320] transition hover:border-amber-300/60 hover:shadow-[0_8px_28px_rgba(0,0,0,0.28)]">
-      <button
-        type="button"
-        onClick={onOpen}
+      <Link
+        href={`/jobs/${job.id}`}
         className="flex h-full w-full flex-col gap-1 px-4 py-4 pr-12 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-amber-300/70"
         aria-label={`Open ${job.title} listing`}
       >
@@ -82,6 +85,14 @@ function JobListingCard({ job, onOpen }: { job: JobBoardListing; onOpen: () => v
         <p className="text-xs text-slate-400">Type: {formatEmploymentType(job.employmentType)}</p>
         <p className="text-sm text-slate-200">Summary: {jobSummary(job)}</p>
         <p className="mt-auto pt-4 text-xs text-slate-500">Click to open full listing</p>
+      </Link>
+
+      <button
+        type="button"
+        onClick={onOpen}
+        className="absolute bottom-3 right-3 z-10 rounded-full border border-[var(--border)] bg-[#121b2c] px-3 py-1.5 text-xs text-slate-200"
+      >
+        Quick view
       </button>
 
       <div className="absolute right-2 top-2 z-20">
@@ -194,9 +205,32 @@ export function JobsBoardClient({ jobs, ads, adSeed }: JobsBoardClientProps) {
                   {selectedJob.requirements ? (
                     <div className="rounded border border-[var(--border)] bg-[#0b1220] p-3">
                       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Requirements</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{selectedJob.requirements}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{selectedJob.requirements}</p>
+                  </div>
+                ) : null}
+                  <div className="rounded border border-[var(--border)] bg-[#0b1220] p-3">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Contact</p>
+                    <div className="mt-2 space-y-2 text-sm text-slate-200">
+                      {selectedJob.contactEmail ? (
+                        <a href={`mailto:${selectedJob.contactEmail}`} className="block break-all text-[var(--text-strong)]">
+                          {selectedJob.contactEmail}
+                        </a>
+                      ) : null}
+                      {selectedJob.contactPhone ? (
+                        <a href={`tel:${selectedJob.contactPhone}`} className="block text-[var(--text-strong)]">
+                          {selectedJob.contactPhone}
+                        </a>
+                      ) : null}
+                      {selectedJob.applicationUrl ? (
+                        <a href={selectedJob.applicationUrl} target="_blank" rel="noreferrer" className="block break-all text-[var(--text-strong)]">
+                          {selectedJob.applicationUrl}
+                        </a>
+                      ) : null}
+                      {!selectedJob.contactEmail && !selectedJob.contactPhone && !selectedJob.applicationUrl ? (
+                        <p className="text-slate-400">No contact details have been added yet.</p>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </div>
                   <p className="text-xs text-slate-500">Posted by @{selectedJob.creator.username}</p>
                 </div>
               </div>

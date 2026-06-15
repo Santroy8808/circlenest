@@ -155,7 +155,7 @@ export default async function ProductionZoneBusinessPage() {
           <HubLink
             href="/events"
             title="Create an event"
-            description="Create the event first, then add event-specific ads from the event page."
+            description="Create the event first, then launch its promotion through the normal ads builder."
             locked={!isReady}
           />
           <HubLink

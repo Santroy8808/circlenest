@@ -50,11 +50,8 @@ export function AuditorSearchClient({ initialListings }: { initialListings: List
         <div>
           <h1 className="text-xl font-semibold">Find an Auditor</h1>
           <p className="text-sm text-slate-300">Browse public auditor listings and search by location, class level, or keywords.</p>
-          <p className="mt-1 text-xs text-slate-400">This page is for searching existing listings only. To create your own profile, use the self-service page.</p>
+          <p className="mt-1 text-xs text-slate-400">This page is for searching existing listings only. Only Auditor accounts can create or maintain an auditor profile.</p>
         </div>
-        <Link href="/auditors/im-an-auditor" className="rounded border border-[var(--border)] px-3 py-2 text-sm">
-          Create my auditor profile
-        </Link>
       </div>
 
       <div className="grid gap-2 md:grid-cols-6">

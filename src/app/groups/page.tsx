@@ -33,11 +33,13 @@ type GroupCardRow = {
   memberCount: number;
   isMember: boolean;
   hasPendingRequest: boolean;
+  isPinned: boolean;
+  sortOrder: number;
 };
 
 const groupInclude = {
   owner: { select: { username: true } },
-  members: { select: { userId: true, role: true } },
+  members: { select: { userId: true, role: true, isPinned: true, sortOrder: true, createdAt: true } },
   joinRequests: {
     where: { status: "PENDING" },
     select: { id: true, userId: true },
@@ -272,21 +274,32 @@ async function loadGroups(where: Prisma.GroupWhereInput, userId: string): Promis
     orderBy: { createdAt: "desc" },
   });
 
-  return groups.map((group) => ({
-    id: group.id,
-    name: group.name,
-    description: group.description,
-    purpose: group.purpose,
-    locationCountry: group.locationCountry,
-    locationState: group.locationState,
-    locationCity: group.locationCity,
-    visibility: group.visibility,
-    joinMode: group.joinMode === "REQUEST" ? "REQUEST" : "OPEN",
-    ownerUsername: group.owner.username,
-    memberCount: group.members.length,
-    isMember: group.members.some((member) => member.userId === userId),
-    hasPendingRequest: group.joinRequests.some((request) => request.userId === userId),
-  }));
+  return groups
+    .map((group) => {
+      const membership = group.members.find((member) => member.userId === userId);
+      return {
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        purpose: group.purpose,
+        locationCountry: group.locationCountry,
+        locationState: group.locationState,
+        locationCity: group.locationCity,
+        visibility: group.visibility,
+        joinMode: group.joinMode === "REQUEST" ? ("REQUEST" as const) : ("OPEN" as const),
+        ownerUsername: group.owner.username,
+        memberCount: group.members.length,
+        isMember: Boolean(membership),
+        hasPendingRequest: group.joinRequests.some((request) => request.userId === userId),
+        isPinned: membership?.isPinned ?? false,
+        sortOrder: membership?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+      };
+    })
+    .sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.name.localeCompare(b.name);
+    });
 }
 
 function readParam(value: string | string[] | undefined): string {

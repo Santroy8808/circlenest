@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -50,6 +51,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, subscriptionTier: true },
+  });
+  const policy = resolveMemberAccessPolicy(session.user.id, user);
+  if (policy.tier !== "AUDITOR") {
+    return NextResponse.json({ error: "Only Auditor accounts can create or edit auditor profiles." }, { status: 403 });
+  }
   const body = (await request.json()) as {
     displayName?: string;
     classLevel?: string;

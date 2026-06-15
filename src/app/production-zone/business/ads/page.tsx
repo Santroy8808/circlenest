@@ -8,7 +8,11 @@ import { serializeBusinessProfile } from "@/lib/business/business-profile";
 import { prisma } from "@/lib/db/prisma";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 
-export default async function BusinessAdsPage() {
+export default async function BusinessAdsPage({
+  searchParams,
+}: {
+  searchParams?: { targetType?: string; targetId?: string; title?: string; articleTitle?: string; articleBody?: string };
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -58,6 +62,13 @@ export default async function BusinessAdsPage() {
           canCreate={canCreateAdCampaign(policy)}
           profileReady={profileReady}
           creditBalance={creditBalance}
+          initialDraft={{
+            title: searchParams?.title,
+            targetType: searchParams?.targetType,
+            targetId: searchParams?.targetId,
+            articleTitle: searchParams?.articleTitle,
+            articleBody: searchParams?.articleBody,
+          }}
         />
       </section>
     </AppShell>

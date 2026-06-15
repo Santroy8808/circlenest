@@ -62,12 +62,12 @@ export function TierOnboardingCard({ userId, policy, showAdminFeatures = true, d
               { href: "/profile/gallery", label: "Open My Pics" },
               { href: "/production-zone/business/storefront", label: "Open storefront" },
             ]
-          : policy.tier === "AUDITOR"
-            ? [
-                { href: "/auditors/im-an-auditor", label: "Open auditor profile" },
-                { href: "/production-zone/business-profile", label: "Open business profile" },
-                { href: "/production-zone/events", label: "Create an event" },
-              ]
+      : policy.tier === "AUDITOR"
+        ? [
+            { href: "/auditors/im-an-auditor", label: "Open auditor profile" },
+            { href: "/production-zone/business-profile", label: "Open business profile" },
+            { href: "/production-zone/events", label: "Create an event" },
+          ]
             : [
                 { href: "/admin", label: "Open admin portal" },
                 { href: "/moderation", label: "Open moderation" },

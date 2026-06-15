@@ -5,9 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { DirectMessageButton } from "@/components/messages/direct-message-button";
-import { AdPlacementPanel } from "@/components/ads/ad-placement-panel";
 import { ReportControl } from "@/components/reports/report-control";
-import { getProAdCreditBalance, serializeAdPlacements } from "@/lib/ads/ads";
 import { resolveMemberAccessPolicy } from "@/lib/policy/member-access-policy";
 import { FundraiserDiscussionClient } from "@/components/fundraisers/fundraiser-discussion-client";
 import { formatFundraiserType } from "@/lib/fundraisers/fundraisers";
@@ -33,10 +31,6 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
       comments: {
         include: { author: { select: { id: true, username: true } } },
         orderBy: [{ createdAt: "asc" }],
-      },
-      adPlacements: {
-        include: { creator: { select: { id: true, username: true } } },
-        orderBy: [{ createdAt: "desc" }],
       },
     },
   });
@@ -79,8 +73,6 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
   };
 
   const isAdmin = await isAdminUser(session.user.id);
-  const canCreateListingAds = policy.isAdmin || policy.tier === "PRO" || policy.tier === "AUDITOR";
-  const adCreditBalance = canCreateListingAds ? await getProAdCreditBalance(session.user.id, policy) : null;
 
   return (
     <AppShell>
@@ -168,20 +160,18 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
                 </div>
 
                 <div className="rounded border border-[var(--border)] bg-[#0b1220] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Ad placement</p>
-                  <p className="mt-2 text-sm text-slate-400">Create an ad on this fundraiser listing itself.</p>
-                  <div className="mt-3">
-                    <AdPlacementPanel
-                      targetType="FUNDRAISER_LISTING"
-                      createEndpoint={`/api/fundraisers/${fundraiser.id}/ads`}
-                      targetLabel="Fund raiser listing ads"
-                      canCreate={canCreateListingAds}
-                      ownsTarget={isAdmin || fundraiser.creatorId === session.user.id}
-                      requiresCredits={policy.tier === "PRO" || policy.tier === "AUDITOR"}
-                      creditBalance={adCreditBalance}
-                      ads={serializeAdPlacements(fundraiser.adPlacements)}
-                    />
-                  </div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Promotion</p>
+                  <p className="mt-2 text-sm text-slate-400">Run fundraiser ads through the standard campaign builder. Ads stay in the ad stream, never inside the fundraiser listing.</p>
+                  {isAdmin || fundraiser.creatorId === session.user.id ? (
+                    <Link
+                      href={`/production-zone/business/ads?targetType=FUNDRAISER_LISTING&targetId=${encodeURIComponent(fundraiser.id)}&title=${encodeURIComponent(`Promote ${fundraiser.title}`)}&articleTitle=${encodeURIComponent(fundraiser.title)}&articleBody=${encodeURIComponent(fundraiser.description || `Support ${fundraiser.title}.`)}`}
+                      className="mt-3 inline-flex rounded-full border border-[var(--accent)]/45 px-3 py-1.5 text-xs font-semibold text-[var(--text-strong)] transition hover:-translate-y-0.5 hover:bg-[var(--accent)]/10"
+                    >
+                      Promote fundraiser
+                    </Link>
+                  ) : (
+                    <p className="mt-3 text-xs text-slate-500">Only the fundraiser runner can launch promotions.</p>
+                  )}
                 </div>
 
                 <div className="rounded border border-[var(--border)] bg-[#0b1220] p-4 text-sm text-slate-200">

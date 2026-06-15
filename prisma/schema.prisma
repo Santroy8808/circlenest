@@ -57,6 +57,7 @@ model User {
   pushSubscriptions PushSubscription[]
   groupsOwned    Group[]            @relation("GroupOwner")
   groupMemberships GroupMember[]
+  groupThreadPreferences GroupForumThreadPreference[]
   notifications  Notification[]
   alerts         Alert[]
   alertSubscriptions AlertSubscription[]
@@ -90,6 +91,7 @@ model User {
   groupJoinRequests  GroupJoinRequest[]
   pollVotes          PostPollVote[]
   photoComments      PhotoComment[]
+  groupPhotoComments GroupPhotoComment[]
   following          UserFollow[]      @relation("UserFollowing")
   followers          UserFollow[]      @relation("UserFollowers")
   keyMaterial        UserKeyMaterial?
@@ -170,6 +172,8 @@ model Profile {
   bio               String?
   detailedBioJson   String?
   location          String?
+  genderIdentity    String?
+  birthYear         Int?
   interests         String?
   relationshipStatus String?
   avatarUrl         String?
@@ -324,7 +328,7 @@ model MessageThread {
   threadKey   String?  @unique
   title       String?
   createdById String?
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
   userA       User     @relation("ThreadUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB       User     @relation("ThreadUserB", fields: [userBId], references: [id], onDelete: Cascade)
   messages       Message[]
@@ -374,7 +378,7 @@ model MessageThreadPresence {
   isTyping    Boolean  @default(false)
   lastTypedAt DateTime?
   lastSeenAt  DateTime?
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
   thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -564,11 +568,15 @@ model GroupMember {
   id          String   @id @default(cuid())
   groupId     String
   userId      String
+  isPinned    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  isProvider  Boolean  @default(false)
   createdAt   DateTime @default(now())
   group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role        String   @default("MEMBER")
   @@unique([groupId, userId])
+  @@index([userId, isPinned, sortOrder])
 }
 
 model GroupEvent {
@@ -594,11 +602,32 @@ model GroupForumThread {
   authorId     String
   title        String
   allowReplyImages Boolean @default(false)
+  status      String   @default("ACTIVE")
+  endedAt     DateTime?
+  endedById   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   posts        GroupForumPost[]
+  userPreferences GroupForumThreadPreference[]
+
+  @@index([groupId, status, updatedAt])
+}
+
+model GroupForumThreadPreference {
+  id          String   @id @default(cuid())
+  threadId    String
+  userId      String
+  isPinned    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  thread      GroupForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId, isPinned, sortOrder])
 }
 
 model GroupForumPost {
@@ -621,6 +650,7 @@ model GroupDocument {
   uploaderId   String
   title        String
   url          String
+  sizeBytes    Int      @default(0)
   createdAt    DateTime @default(now())
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   uploader     User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
@@ -634,10 +664,12 @@ model GroupPhoto {
   caption      String?
   tags         String?
   url          String
+  sizeBytes    Int      @default(0)
   createdAt    DateTime @default(now())
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   album        GroupPhotoAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
   uploader     User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  comments     GroupPhotoComment[]
 }
 
 model GroupPhotoAlbum {
@@ -649,6 +681,23 @@ model GroupPhotoAlbum {
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   photos       GroupPhoto[]
   @@unique([groupId, title])
+}
+
+model GroupPhotoComment {
+  id          String   @id @default(cuid())
+  photoId     String
+  authorId    String
+  parentCommentId String?
+  content     String
+  mediaUrlsJson String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  photo       GroupPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([photoId, createdAt])
+  @@index([photoId, parentCommentId, createdAt])
+  @@index([authorId, createdAt])
 }
 
 model UserFollow {
@@ -898,6 +947,9 @@ model JobListing {
   salaryMax     Float?
   location      String?
   employmentType String?
+  contactEmail  String?
+  contactPhone  String?
+  applicationUrl String?
   status        String   @default("ACTIVE")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -1192,6 +1244,13 @@ model AdCampaign {
   dailyBudgetCents      Int?
   targetType            String
   targetId              String?
+  targetCountriesJson   String?
+  targetStatesJson      String?
+  targetCitiesJson      String?
+  targetGendersJson     String?
+  targetScientologyClassificationsJson String?
+  targetMinAge          Int?
+  targetMaxAge          Int?
   landingArticleId      String?
   imageUrl              String?
   boostFactor           Float    @default(1)

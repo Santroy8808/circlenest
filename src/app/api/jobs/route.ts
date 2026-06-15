@@ -76,6 +76,9 @@ export async function POST(request: Request) {
     salaryMax?: number | string;
     location?: string;
     employmentType?: string;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    applicationUrl?: string | null;
     imageUrl?: string | null;
   };
   const companyName = String(body.companyName ?? "").trim();
@@ -98,6 +101,9 @@ export async function POST(request: Request) {
       salaryMax: body.salaryMax !== undefined ? Number(body.salaryMax) : null,
       location: String(body.location ?? "").trim() || null,
       employmentType: String(body.employmentType ?? "").trim() || null,
+      contactEmail: String(body.contactEmail ?? "").trim() || null,
+      contactPhone: String(body.contactPhone ?? "").trim() || null,
+      applicationUrl: String(body.applicationUrl ?? "").trim() || null,
       imageUrl: imageUrl || null,
     },
     include: { creator: { select: { id: true, username: true } } },

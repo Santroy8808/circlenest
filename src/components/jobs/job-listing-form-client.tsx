@@ -88,6 +88,9 @@ export function JobListingFormClient({ canCreate }: JobListingFormClientProps) {
           salaryMax: String(form.get("salaryMax") ?? "").trim() ? Number(form.get("salaryMax")) : null,
           location: String(form.get("location") ?? "").trim() || null,
           employmentType: String(form.get("employmentType") ?? "").trim() || null,
+          contactEmail: String(form.get("contactEmail") ?? "").trim() || null,
+          contactPhone: String(form.get("contactPhone") ?? "").trim() || null,
+          applicationUrl: String(form.get("applicationUrl") ?? "").trim() || null,
           imageUrl,
         }),
       });
@@ -113,6 +116,9 @@ export function JobListingFormClient({ canCreate }: JobListingFormClientProps) {
       <input disabled={!canCreate} name="employmentType" placeholder="Type (Full-time, Contract...)" className="rounded border px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
       <input disabled={!canCreate} name="salaryMin" type="number" step="0.01" placeholder="Salary min" className="rounded border px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
       <input disabled={!canCreate} name="salaryMax" type="number" step="0.01" placeholder="Salary max" className="rounded border px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+      <input disabled={!canCreate} name="contactEmail" type="email" placeholder="Contact email" className="rounded border px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+      <input disabled={!canCreate} name="contactPhone" placeholder="Contact phone" className="rounded border px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
+      <input disabled={!canCreate} name="applicationUrl" type="url" placeholder="Application URL" className="rounded border px-3 py-2 md:col-span-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
       <textarea disabled={!canCreate} name="duties" placeholder="Full job description" className="rounded border px-3 py-2 md:col-span-2 disabled:cursor-not-allowed disabled:bg-slate-100" required />
       <textarea disabled={!canCreate} name="requirements" placeholder="Requirements" className="rounded border px-3 py-2 md:col-span-2 disabled:cursor-not-allowed disabled:bg-slate-100" />
       <label className="md:col-span-2 grid gap-2 rounded border border-dashed border-[var(--border)] p-3 text-sm">

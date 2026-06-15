@@ -18,6 +18,15 @@ export type AdCampaignSummary = Readonly<{
   dailyBudgetCents: number | null;
   targetType: string;
   targetId: string | null;
+  targeting: Readonly<{
+    countries: string[];
+    states: string[];
+    cities: string[];
+    genders: string[];
+    scientologyClassifications: string[];
+    minAge: number | null;
+    maxAge: number | null;
+  }>;
   imageUrl: string | null;
   boostFactor: number;
   manualAdminBoost: number;
@@ -58,6 +67,13 @@ type AdCampaignSource = {
   dailyBudgetCents: number | null;
   targetType: string;
   targetId: string | null;
+  targetCountriesJson?: string | null;
+  targetStatesJson?: string | null;
+  targetCitiesJson?: string | null;
+  targetGendersJson?: string | null;
+  targetScientologyClassificationsJson?: string | null;
+  targetMinAge?: number | null;
+  targetMaxAge?: number | null;
   imageUrl: string | null;
   boostFactor?: number | null;
   manualAdminBoost?: number | null;
@@ -88,6 +104,19 @@ type AdCampaignSource = {
 function normalizeDate(value: Date | string | null) {
   if (!value) return null;
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function parseJsonList(value: string | null | undefined) {
+  if (!value) return [] as string[];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 export function canCreateAdCampaign(policy: TierPolicy) {
@@ -135,6 +164,15 @@ export function serializeAdCampaign(campaign: AdCampaignSource): AdCampaignSumma
     dailyBudgetCents: campaign.dailyBudgetCents,
     targetType: campaign.targetType,
     targetId: campaign.targetId,
+    targeting: {
+      countries: parseJsonList(campaign.targetCountriesJson),
+      states: parseJsonList(campaign.targetStatesJson),
+      cities: parseJsonList(campaign.targetCitiesJson),
+      genders: parseJsonList(campaign.targetGendersJson),
+      scientologyClassifications: parseJsonList(campaign.targetScientologyClassificationsJson),
+      minAge: typeof campaign.targetMinAge === "number" ? campaign.targetMinAge : null,
+      maxAge: typeof campaign.targetMaxAge === "number" ? campaign.targetMaxAge : null,
+    },
     imageUrl: campaign.imageUrl,
     boostFactor: campaign.boostFactor ?? 1,
     manualAdminBoost: campaign.manualAdminBoost ?? 0,

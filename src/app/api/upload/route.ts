@@ -6,6 +6,7 @@ import { secureAreaLockedResponse } from "@/lib/security/secure-area-guards";
 import { getUploadStorageBackend, saveUpload, saveUploadBuffer, type UploadContext, type UploadPurpose } from "@/lib/security/upload-storage";
 import { canUserStoreBytes, trackUserUploadAsset } from "@/lib/media/storage-quota";
 import { compressImageOnServer } from "@/lib/media/image-compress.server";
+import { canGroupStoreBytes, canManageGroupAssets } from "@/modules/groups/group-assets.service";
 
 function normalizePurpose(raw: FormDataEntryValue | null): UploadPurpose {
   const value = typeof raw === "string" ? raw.trim() : "";
@@ -46,7 +47,7 @@ async function resolveUploadContext(userId: string, form: FormData): Promise<Upl
     if (!groupId) return null;
     const membership = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId } },
-      select: { id: true },
+      select: { id: true, role: true, isProvider: true },
     });
     if (!membership) return null;
     return {
@@ -139,6 +140,19 @@ export async function POST(request: Request) {
   }
 
   const quota = await canUserStoreBytes(session.user.id, sizeToStore);
+  if (uploadContext.ownerType === "group" && (uploadContext.purpose === "group-photo" || uploadContext.purpose === "group-document")) {
+    const permission = await canManageGroupAssets(session.user.id, uploadContext.groupId);
+    if (!permission.ok) {
+      return NextResponse.json({ error: permission.error }, { status: permission.status });
+    }
+    const groupQuota = await canGroupStoreBytes(uploadContext.groupId, sizeToStore);
+    if (!groupQuota.ok) {
+      return NextResponse.json(
+        { error: `This group is out of storage. ${(groupQuota.remainingBytes / (1024 * 1024)).toFixed(2)}MB remaining out of 40MB.` },
+        { status: 413 },
+      );
+    }
+  }
   if (!quota.ok) {
     const remainingMb = (quota.remainingBytes / (1024 * 1024)).toFixed(2);
     const limitLabel = quota.limitBytes >= Number.MAX_SAFE_INTEGER / 2 ? "unlimited" : `${(quota.limitBytes / (1024 * 1024)).toFixed(0)}MB`;
@@ -164,6 +178,6 @@ export async function POST(request: Request) {
   }
 
   await trackUserUploadAsset(session.user.id, url, sizeToStore, contentTypeToStore);
-  return NextResponse.json({ ok: true, url, backend: getUploadStorageBackend(), compression });
+  return NextResponse.json({ ok: true, url, sizeBytes: sizeToStore, mimeType: contentTypeToStore, backend: getUploadStorageBackend(), compression });
 }
 
