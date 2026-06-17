@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -198,6 +199,8 @@ function buildManagedMediaUrl(key: string): string {
   return `/api/media/${key.split("/").map((segment) => encodeURIComponent(segment)).join("/")}`;
 }
 
+export { buildManagedMediaUrl };
+
 function parseManagedMediaUrl(url: string): string | null {
   if (!url.startsWith("/api/media/")) return null;
   const raw = url.slice("/api/media/".length);
@@ -279,6 +282,33 @@ export async function saveUpload(file: File, context: UploadContext): Promise<st
   );
 
   return buildManagedMediaUrl(key);
+}
+
+export async function createDirectUploadTarget(file: FileLike, context: UploadContext) {
+  if (!r2Client || !R2_BUCKET) {
+    assertUploadBackendAvailable();
+    throw new Error("R2 direct upload target requested without R2 configuration.");
+  }
+
+  const key = buildStorageKey(context, file);
+  const contentType = file.type || "application/octet-stream";
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    ContentType: contentType,
+  });
+  const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 60 * 10 });
+
+  return {
+    key,
+    method: "PUT" as const,
+    uploadUrl,
+    headers: {
+      "Content-Type": contentType,
+    },
+    contentType,
+    url: buildManagedMediaUrl(key),
+  };
 }
 
 export async function saveUploadBuffer(
@@ -398,6 +428,73 @@ export async function storedUploadExists(url: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+export async function getStoredObjectInfoByKey(key: string): Promise<{
+  exists: boolean;
+  contentLength?: number;
+  contentType?: string;
+  etag?: string;
+  lastModified?: Date;
+}> {
+  if (r2Client && R2_BUCKET) {
+    try {
+      const result = await r2Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+      return {
+        exists: true,
+        contentLength: result.ContentLength,
+        contentType: result.ContentType || "application/octet-stream",
+        etag: result.ETag,
+        lastModified: result.LastModified,
+      };
+    } catch {
+      return { exists: false };
+    }
+  }
+
+  assertUploadBackendAvailable();
+  const full = path.join(uploadDir, ...key.split("/"));
+  try {
+    const stat = await fs.stat(full);
+    const ext = path.extname(full).toLowerCase();
+    const contentType =
+      ext === ".jpg" || ext === ".jpeg"
+        ? "image/jpeg"
+        : ext === ".png"
+          ? "image/png"
+          : ext === ".webp"
+            ? "image/webp"
+            : ext === ".pdf"
+              ? "application/pdf"
+              : "application/octet-stream";
+    return {
+      exists: true,
+      contentLength: stat.size,
+      contentType,
+      lastModified: stat.mtime,
+    };
+  } catch {
+    return { exists: false };
+  }
+}
+
+export async function deleteStoredUploadByKey(key: string): Promise<void> {
+  if (r2Client && R2_BUCKET) {
+    try {
+      await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+    } catch {
+      // Ignore best-effort delete failures.
+    }
+    return;
+  }
+
+  assertUploadBackendAvailable();
+  const full = path.join(uploadDir, ...key.split("/"));
+  try {
+    await fs.unlink(full);
+  } catch {
+    // Ignore best-effort delete failures.
   }
 }
 

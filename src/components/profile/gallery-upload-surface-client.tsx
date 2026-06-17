@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { uploadImageWithCompression } from "@/lib/media/image-upload.client";
+import { compressImageOnDevice, uploadPreparedFile } from "@/lib/media/image-upload.client";
 
 type Visibility = "PUBLIC" | "FRIENDS_FAMILY" | "PRIVATE";
 
@@ -12,22 +12,38 @@ type GalleryAlbumOption = {
   title: string;
 };
 
+type UploadedGalleryPhoto = {
+  id: string;
+  url: string;
+  caption: string | null;
+  tags: string | null;
+  albumId: string;
+  visibility: string;
+  createdAt: string | Date;
+  comments: Array<{
+    id: string;
+    parentCommentId: string | null;
+    content: string;
+    mediaUrlsJson?: string | null;
+    createdAt: string | Date;
+    author: { username: string; fullName?: string | null };
+  }>;
+  photoTags?: { tag: { id: string; name: string } }[];
+};
+
+type UploadResultPayload = {
+  album: GalleryAlbumOption;
+  photos: UploadedGalleryPhoto[];
+};
+
 type UploadProgressState = {
-  phase: "uploading" | "saving";
+  phase: "preparing" | "uploading" | "saving";
   total: number;
   completed: number;
   currentName: string | null;
 };
 
 const CREATE_NEW_ALBUM_VALUE = "__create_new_album__";
-
-async function uploadOne(file: File, albumId: string): Promise<string | null> {
-  const result = await uploadImageWithCompression(file, {
-    purpose: "gallery-photo",
-    albumId,
-  });
-  return result.url;
-}
 
 export function GalleryUploadSurfaceClient({
   albums,
@@ -42,7 +58,7 @@ export function GalleryUploadSurfaceClient({
   mode: "modal" | "page";
   autoOpenPicker?: boolean;
   onClose?: () => void;
-  onUploaded?: () => void;
+  onUploaded?: (payload: UploadResultPayload) => void;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,17 +115,20 @@ export function GalleryUploadSurfaceClient({
     setStatus("");
   }
 
-  async function ensureAlbumId() {
-    if (selectedAlbumId) return selectedAlbumId;
+  async function ensureAlbum() {
+    if (selectedAlbumId) {
+      const existingAlbum = albums.find((album) => album.id === selectedAlbumId);
+      return { id: selectedAlbumId, title: existingAlbum?.title ?? "My Pics" };
+    }
     const createdAlbumRes = await fetch("/api/gallery/albums", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "My Pics" }),
     });
     if (!createdAlbumRes.ok) return null;
-    const created = (await createdAlbumRes.json()) as { id: string };
+    const created = (await createdAlbumRes.json()) as { id: string; title?: string | null };
     setSelectedAlbumId(created.id);
-    return created.id;
+    return { id: created.id, title: created.title?.trim() || "My Pics" };
   }
 
   async function createNewAlbumAndSelect() {
@@ -136,74 +155,189 @@ export function GalleryUploadSurfaceClient({
     if (!queuedFiles.length || busy) return;
     setBusy(true);
     setStatus("");
-    const albumId = await ensureAlbumId();
-    if (!albumId) {
+    const targetAlbum = await ensureAlbum();
+    if (!targetAlbum) {
       setBusy(false);
       setStatus("Could not create a photo album.");
       return;
     }
 
-    const urls: string[] = [];
+    const preparedFiles: Array<{ file: File }> = [];
     for (const [index, file] of queuedFiles.entries()) {
       setProgress({
-        phase: "uploading",
+        phase: "preparing",
         total: queuedFiles.length,
         completed: index,
         currentName: file.name,
       });
-      const uploaded = await uploadOne(file, albumId);
-      if (uploaded) urls.push(uploaded);
+      const compressed = await compressImageOnDevice(file);
+      preparedFiles.push({ file: compressed.file });
       setProgress({
-        phase: "uploading",
+        phase: "preparing",
         total: queuedFiles.length,
         completed: index + 1,
         currentName: file.name,
       });
     }
 
-    if (!urls.length) {
-      setBusy(false);
-      setProgress(null);
-      setStatus("Upload failed.");
-      return;
-    }
-
-    setProgress({
-      phase: "saving",
-      total: queuedFiles.length,
-      completed: urls.length,
-      currentName: null,
-    });
-
-    const saveRes = await fetch("/api/gallery/photos", {
+    const initRes = await fetch("/api/gallery/uploads/init", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        albumId,
-        urls,
-        notifyFriendsAndFamily,
-        visibility,
+        albumId: targetAlbum.id,
+        files: preparedFiles.map((entry) => ({
+          name: entry.file.name,
+          mimeType: entry.file.type,
+          sizeBytes: entry.file.size,
+        })),
       }),
     });
 
-    if (!saveRes.ok) {
-      const body = (await saveRes.json().catch(() => null)) as { error?: string } | null;
+    const initBody = (await initRes.json().catch(() => null)) as
+      | {
+          backend?: "r2" | "local";
+          album?: { id: string; title: string };
+          uploads?: Array<{ key: string; method: "PUT"; uploadUrl: string; headers?: Record<string, string> }>;
+          error?: string;
+        }
+      | null;
+
+    if (!initRes.ok || !initBody?.album) {
       setBusy(false);
       setProgress(null);
-      setStatus(body?.error ?? "Could not save uploaded photos.");
+      setStatus(initBody?.error ?? "Could not start upload.");
       return;
+    }
+
+    let uploadedPhotos: UploadedGalleryPhoto[] = [];
+
+    if (initBody.backend === "r2" && Array.isArray(initBody.uploads) && initBody.uploads.length === preparedFiles.length) {
+      for (const [index, entry] of preparedFiles.entries()) {
+        const target = initBody.uploads[index];
+        setProgress({
+          phase: "uploading",
+          total: preparedFiles.length,
+          completed: index,
+          currentName: entry.file.name,
+        });
+        const putRes = await fetch(target.uploadUrl, {
+          method: target.method,
+          headers: target.headers,
+          body: entry.file,
+        });
+        if (!putRes.ok) {
+          setBusy(false);
+          setProgress(null);
+          setStatus("Could not upload one of the selected photos.");
+          return;
+        }
+        setProgress({
+          phase: "uploading",
+          total: preparedFiles.length,
+          completed: index + 1,
+          currentName: entry.file.name,
+        });
+      }
+
+      setProgress({
+        phase: "saving",
+        total: preparedFiles.length,
+        completed: preparedFiles.length,
+        currentName: null,
+      });
+
+      const completeRes = await fetch("/api/gallery/uploads/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          albumId: initBody.album.id,
+          keys: initBody.uploads.map((upload) => upload.key),
+          notifyFriendsAndFamily,
+          visibility,
+        }),
+      });
+
+      const completeBody = (await completeRes.json().catch(() => null)) as { photos?: UploadedGalleryPhoto[]; error?: string } | null;
+      if (!completeRes.ok) {
+        setBusy(false);
+        setProgress(null);
+        setStatus(completeBody?.error ?? "Could not save uploaded photos.");
+        return;
+      }
+      uploadedPhotos = completeBody?.photos ?? [];
+    } else {
+      const urls: string[] = [];
+      for (const [index, entry] of preparedFiles.entries()) {
+        setProgress({
+          phase: "uploading",
+          total: preparedFiles.length,
+          completed: index,
+          currentName: entry.file.name,
+        });
+        const uploaded = await uploadPreparedFile(entry.file, {
+          purpose: "gallery-photo",
+          albumId: initBody.album.id,
+        });
+        if (uploaded.url) urls.push(uploaded.url);
+        setProgress({
+          phase: "uploading",
+          total: preparedFiles.length,
+          completed: index + 1,
+          currentName: entry.file.name,
+        });
+      }
+
+      if (!urls.length) {
+        setBusy(false);
+        setProgress(null);
+        setStatus("Upload failed.");
+        return;
+      }
+
+      setProgress({
+        phase: "saving",
+        total: preparedFiles.length,
+        completed: urls.length,
+        currentName: null,
+      });
+
+      const saveRes = await fetch("/api/gallery/photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          albumId: initBody.album.id,
+          urls,
+          notifyFriendsAndFamily,
+          visibility,
+        }),
+      });
+
+      const saveBody = (await saveRes.json().catch(() => null)) as { photos?: UploadedGalleryPhoto[]; error?: string } | null;
+      if (!saveRes.ok) {
+        setBusy(false);
+        setProgress(null);
+        setStatus(saveBody?.error ?? "Could not save uploaded photos.");
+        return;
+      }
+      uploadedPhotos = saveBody?.photos ?? [];
     }
 
     setBusy(false);
     setProgress(null);
     setQueuedFiles([]);
     setStatus("Photos uploaded.");
-    router.refresh();
+    const payload: UploadResultPayload = {
+      album: initBody.album,
+      photos: uploadedPhotos,
+    };
     if (mode === "page") {
-      router.push("/profile/gallery");
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("theta-gallery-upload-result", JSON.stringify(payload));
+      }
+      router.push("/profile/gallery?uploaded=1");
       return;
     }
-    onUploaded?.();
+    onUploaded?.(payload);
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -318,7 +452,13 @@ export function GalleryUploadSurfaceClient({
       {progress ? (
         <div className="mt-5 rounded-[16px] bg-[#111a2a] px-4 py-3">
           <div className="flex items-center justify-between gap-3 text-sm text-slate-200">
-            <span>{progress.phase === "saving" ? "Saving photos" : `Uploading ${progress.completed} of ${progress.total}`}</span>
+            <span>
+              {progress.phase === "saving"
+                ? "Saving photos"
+                : progress.phase === "preparing"
+                  ? `Preparing ${progress.completed} of ${progress.total}`
+                  : `Uploading ${progress.completed} of ${progress.total}`}
+            </span>
             <span className="text-xs text-slate-400">{progress.completed}/{progress.total}</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#1a2538]">
