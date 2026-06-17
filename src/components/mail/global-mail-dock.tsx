@@ -100,6 +100,9 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
   const [mailSearch, setMailSearch] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [recipient, setRecipient] = useState<FriendRef | null>(null);
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [recipientMatches, setRecipientMatches] = useState<FriendRef[]>([]);
+  const [recipientLookupStatus, setRecipientLookupStatus] = useState("");
   const [subject, setSubject] = useState("");
   const [status, setStatus] = useState("");
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string }>>([]);
@@ -146,6 +149,8 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
   const resetComposer = useCallback(() => {
     setSubject("");
     setStatus("");
+    setRecipientLookupStatus("");
+    setRecipientMatches([]);
     setAttachments((current) => {
       current.forEach((file) => URL.revokeObjectURL(file.url));
       return [];
@@ -254,6 +259,7 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
     (friend?: FriendRef | null) => {
       setComposeOpen(true);
       setRecipient(friend ?? null);
+      setRecipientQuery(friend ? `${displayNameForUser(friend)} (@${friend.username})` : "");
       setActiveThreadId("");
       setMessages([]);
       setStatus("");
@@ -266,16 +272,22 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
   const selectThread = useCallback(
     async (thread: ThreadSummary) => {
       setComposeOpen(false);
-      const replyTarget =
-        thread.kind === "DIRECT"
-          ? friends.find((friend) => thread.participants.some((participant) => participant.id === friend.id)) ?? null
-          : null;
+      const otherParticipant = thread.kind === "DIRECT" ? thread.participants.find((participant) => participant.id !== myUserId) ?? null : null;
+      const replyTarget = otherParticipant
+        ? friends.find((friend) => friend.id === otherParticipant.id) ?? {
+            id: otherParticipant.id,
+            username: otherParticipant.username,
+            fullName: otherParticipant.displayName,
+            profile: { displayName: otherParticipant.displayName, avatarUrl: otherParticipant.avatarUrl },
+          }
+        : null;
       setRecipient(replyTarget);
+      setRecipientQuery(replyTarget ? `${displayNameForUser(replyTarget)} (@${replyTarget.username})` : "");
       setStatus("");
       setActiveThreadId(thread.id);
       if (isMobile) setNavOpen(false);
     },
-    [friends, isMobile],
+    [friends, isMobile, myUserId],
   );
 
   const startMailToContact = useCallback(
@@ -293,11 +305,12 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
   );
 
   const ensureMailThread = useCallback(
-    async (friend: FriendRef) => {
+    async (target: FriendRef | string) => {
+      const directTarget = typeof target === "string" ? { recipient: target.trim() } : { userId: target.id };
       const res = await fetch("/api/messages/threads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surface: "MAIL", mode: "DIRECT", userId: friend.id }),
+        body: JSON.stringify({ surface: "MAIL", mode: "DIRECT", ...directTarget }),
       });
       const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
       if (!res.ok || !body.id) {
@@ -322,11 +335,12 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
     let threadId = activeThreadId;
     try {
       if (!threadId) {
-        if (!recipient) {
-          setStatus("Choose who you want to mail.");
+        const typedRecipient = recipientQuery.trim();
+        if (!recipient && !typedRecipient) {
+          setStatus("Add a recipient.");
           return;
         }
-        threadId = await ensureMailThread(recipient);
+        threadId = await ensureMailThread(recipient ?? typedRecipient);
       }
 
       setStatus("Sending...");
@@ -344,13 +358,66 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
       resetComposer();
       setComposeOpen(false);
       setRecipient(null);
+      setRecipientQuery("");
       setActiveThreadId(threadId);
       await Promise.all([loadDirectory(), loadMessages(threadId)]);
       setStatus("Mail sent.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not send mail.");
     }
-  }, [activeThreadId, attachments, ensureMailThread, loadDirectory, loadMessages, recipient, resetComposer, subject]);
+  }, [activeThreadId, attachments, ensureMailThread, loadDirectory, loadMessages, recipient, recipientQuery, resetComposer, subject]);
+
+  useEffect(() => {
+    if (!composeOpen) return;
+    const query = recipientQuery.trim();
+    if (recipient && (query === `${displayNameForUser(recipient)} (@${recipient.username})` || query === recipient.username || query === `@${recipient.username}`)) {
+      setRecipientMatches([]);
+      setRecipientLookupStatus("");
+      return;
+    }
+    if (query.length < 2) {
+      setRecipientMatches([]);
+      setRecipientLookupStatus("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setRecipientLookupStatus("Looking...");
+      try {
+        const res = await fetch(`/api/search/people?q=${encodeURIComponent(query.replace(/^@+/, ""))}`, { cache: "no-store", signal: controller.signal });
+        if (!res.ok) {
+          setRecipientLookupStatus("Lookup unavailable.");
+          return;
+        }
+        const body = (await res.json()) as { people?: FriendRef[] };
+        const rows = Array.isArray(body.people) ? body.people : [];
+        setRecipientMatches(rows);
+        setRecipientLookupStatus(rows.length ? "" : "No visible match. You can still send if this belongs to a member.");
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setRecipientLookupStatus("Lookup unavailable.");
+      }
+    }, 220);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [composeOpen, recipient, recipientQuery]);
+
+  useEffect(() => {
+    function handleCompose(event: Event) {
+      const detail = (event as CustomEvent<{ recipient?: string }>).detail;
+      setOpen(true);
+      setNavOpen(false);
+      void loadDirectory();
+      openCompose(null);
+      if (detail?.recipient) setRecipientQuery(detail.recipient);
+    }
+
+    window.addEventListener("theta-mail-compose", handleCompose);
+    return () => window.removeEventListener("theta-mail-compose", handleCompose);
+  }, [loadDirectory, openCompose]);
 
   const applyFormat = useCallback((command: "bold" | "italic" | "underline" | "insertUnorderedList" | "createLink") => {
     if (command === "createLink") {
@@ -515,15 +582,62 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
               <>
                 <div className="border-b border-[var(--border)] px-4 py-3">
                   <p className="truncate text-sm font-semibold text-[var(--text-strong)]">Compose mail</p>
-                  <p className="truncate text-xs text-slate-400">{recipient ? `To ${displayNameForUser(recipient)}` : "Pick a contact from the left or start a new message."}</p>
+                  <p className="truncate text-xs text-slate-400">{recipient ? `To ${displayNameForUser(recipient)}` : recipientQuery.trim() ? `To ${recipientQuery.trim()}` : "Type a handle, full name, or member email."}</p>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                   <div className="mx-auto max-w-[820px] space-y-3">
                     <div className="rounded-[14px] border border-[#273449] bg-[#101a2c] p-3">
-                      <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0d878]">Recipient</label>
-                      <div className="mt-2 rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100">
-                        {recipient ? `${displayNameForUser(recipient)} (@${recipient.username})` : "Choose a contact from the contacts list."}
-                      </div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0d878]">To</label>
+                      <input
+                        value={recipientQuery}
+                        onChange={(event) => {
+                          setRecipient(null);
+                          setRecipientQuery(event.target.value);
+                        }}
+                        placeholder="@handle, full name, or member email"
+                        className="mt-2 w-full rounded-[10px] border border-[#304058] bg-[#182232] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-400"
+                      />
+                      {recipient ? (
+                        <div className="mt-2 flex items-center gap-2 rounded-[10px] border border-[#d6b24a66] bg-[#1a2030] px-3 py-2">
+                          {recipient.profile?.avatarUrl ? (
+                            <Image src={recipient.profile.avatarUrl} alt={displayNameForUser(recipient)} width={32} height={32} sizes="32px" className="h-8 w-8 rounded-full object-cover" />
+                          ) : (
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#24334d] text-xs font-semibold text-white">{displayNameForUser(recipient).charAt(0).toUpperCase()}</span>
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-slate-100">{displayNameForUser(recipient)}</span>
+                            <span className="block truncate text-[11px] text-slate-400">@{recipient.username}</span>
+                          </span>
+                        </div>
+                      ) : null}
+                      {recipientMatches.length ? (
+                        <div className="mt-2 grid gap-2">
+                          {recipientMatches.slice(0, 5).map((person) => (
+                            <button
+                              key={person.id}
+                              type="button"
+                              className="flex items-center gap-2 rounded-[10px] border border-[#304058] bg-[#111a2a] px-3 py-2 text-left hover:border-[#d6b24a66]"
+                              onClick={() => {
+                                setRecipient(person);
+                                setRecipientQuery(`${displayNameForUser(person)} (@${person.username})`);
+                                setRecipientMatches([]);
+                                setRecipientLookupStatus("");
+                              }}
+                            >
+                              {person.profile?.avatarUrl ? (
+                                <Image src={person.profile.avatarUrl} alt={displayNameForUser(person)} width={34} height={34} sizes="34px" className="h-[34px] w-[34px] rounded-full object-cover" />
+                              ) : (
+                                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#24334d] text-xs font-semibold text-white">{displayNameForUser(person).charAt(0).toUpperCase()}</span>
+                              )}
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm text-slate-100">{displayNameForUser(person)}</span>
+                                <span className="block truncate text-[11px] text-slate-400">@{person.username}</span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {recipientLookupStatus ? <p className="mt-2 text-xs text-slate-400">{recipientLookupStatus}</p> : null}
                     </div>
 
                     <input

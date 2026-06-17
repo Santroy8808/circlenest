@@ -30,6 +30,10 @@ function normalizeUsername(value?: string) {
   return value?.trim().replace(/^@+/, "") ?? "";
 }
 
+function normalizeRecipient(value?: string) {
+  return value?.trim() ?? "";
+}
+
 function getDisplayName(user: { username: string; fullName: string | null; profile?: { displayName: string | null; avatarUrl: string | null } | null }) {
   return user.fullName ?? user.profile?.displayName ?? user.username;
 }
@@ -224,6 +228,7 @@ export async function POST(request: Request) {
     surface?: "CHAT" | "MAIL";
     mode?: "DIRECT" | "GROUP";
     username?: string;
+    recipient?: string;
     userId?: string;
     participantIds?: string[];
     title?: string;
@@ -235,10 +240,12 @@ export async function POST(request: Request) {
   const initialMessage = body.initialMessage?.trim() ?? "";
 
   if (mode === "DIRECT") {
-    const normalizedUsername = normalizeUsername(body.username);
+    const rawRecipient = normalizeRecipient(body.recipient ?? body.username);
+    const normalizedUsername = normalizeUsername(rawRecipient);
+    const normalizedEmail = rawRecipient.toLowerCase();
     const normalizedUserId = body.userId?.trim() ?? "";
-    if (!normalizedUsername && !normalizedUserId) {
-      return NextResponse.json({ error: "username or userId required" }, { status: 400 });
+    if (!rawRecipient && !normalizedUserId) {
+      return NextResponse.json({ error: "recipient or userId required" }, { status: 400 });
     }
 
     const other = normalizedUserId
@@ -247,8 +254,9 @@ export async function POST(request: Request) {
           where: {
             OR: [
               { username: { equals: normalizedUsername } },
-              { fullName: { equals: normalizedUsername } },
-              { profile: { displayName: { equals: normalizedUsername } } },
+              { fullName: { equals: rawRecipient } },
+              { email: { equals: normalizedEmail } },
+              { profile: { displayName: { equals: rawRecipient } } },
             ],
           },
           select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } },

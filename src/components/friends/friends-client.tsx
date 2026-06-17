@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DirectMessageButton } from "@/components/messages/direct-message-button";
 
 type UserRef = {
   id: string;
@@ -14,6 +14,7 @@ type UserRef = {
 };
 type Incoming = { id: string; sender: UserRef };
 type Outgoing = { id: string; receiver: UserRef };
+type ViewMode = "friends" | "requests" | "find" | "suggestions" | "manage";
 
 async function runBulk(action: "FOLLOW" | "UNFOLLOW" | "SEND_REQUEST" | "UNFRIEND", userIds: string[]) {
   await fetch("/api/connections/bulk", {
@@ -21,6 +22,103 @@ async function runBulk(action: "FOLLOW" | "UNFOLLOW" | "SEND_REQUEST" | "UNFRIEN
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, userIds }),
   });
+}
+
+function displayName(person: UserRef) {
+  return person.fullName ?? person.profile?.displayName ?? person.username;
+}
+
+function openMailTo(person: UserRef) {
+  window.dispatchEvent(new CustomEvent("theta-mail-compose", { detail: { recipient: person.username } }));
+}
+
+function Avatar({ person, size = "large" }: { person: UserRef; size?: "small" | "large" }) {
+  const name = displayName(person);
+  const className = size === "small" ? "h-11 w-11 rounded-full" : "aspect-square w-full rounded-md";
+  if (person.profile?.avatarUrl) {
+    return (
+      <Image
+        src={person.profile.avatarUrl}
+        alt={name}
+        width={size === "small" ? 96 : 384}
+        height={size === "small" ? 96 : 384}
+        sizes={size === "small" ? "44px" : "(min-width: 768px) 180px, 50vw"}
+        className={`${className} object-cover`}
+      />
+    );
+  }
+
+  return (
+    <div className={`${className} flex items-center justify-center bg-[var(--bg-soft)] text-2xl font-semibold text-[var(--text-strong)]`}>
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function PersonCard({
+  person,
+  selected,
+  selectable,
+  onSelect,
+  actions,
+}: {
+  person: UserRef;
+  selected?: boolean;
+  selectable?: boolean;
+  onSelect?: () => void;
+  actions: ReactNode;
+}) {
+  return (
+    <article className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--card)]">
+      <Link href={`/profile/${person.username}`} className="block">
+        <Avatar person={person} />
+      </Link>
+      <div className="space-y-3 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <Link href={`/profile/${person.username}`} className="block truncate text-sm font-semibold text-[var(--text-strong)]">
+              {displayName(person)}
+            </Link>
+            <p className="truncate text-xs text-slate-400">@{person.username}</p>
+          </div>
+          {selectable ? (
+            <button
+              type="button"
+              aria-pressed={selected}
+              title={selected ? "Selected" : "Select"}
+              className={`h-8 w-8 shrink-0 rounded-md border text-xs font-bold ${selected ? "border-[#d6b24a] bg-[#d6b24a] text-[#1a1204]" : "border-[var(--border)] bg-[var(--bg-soft)] text-slate-300"}`}
+              onClick={onSelect}
+            >
+              {selected ? "OK" : "+"}
+            </button>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-2 gap-2">{actions}</div>
+      </div>
+    </article>
+  );
+}
+
+function ActionButton({
+  children,
+  tone = "neutral",
+  onClick,
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "gold" | "danger";
+  onClick: () => void;
+}) {
+  const toneClass =
+    tone === "gold"
+      ? "border-[#6a5420] bg-[#c49a35] text-[#1a1204]"
+      : tone === "danger"
+        ? "border-red-400/50 bg-red-950/30 text-red-100"
+        : "border-[var(--border)] bg-[var(--bg-soft)] text-slate-100";
+  return (
+    <button type="button" className={`rounded-md border px-3 py-2 text-xs font-semibold ${toneClass}`} onClick={onClick}>
+      {children}
+    </button>
+  );
 }
 
 export function FriendsClient({
@@ -37,6 +135,7 @@ export function FriendsClient({
   followingIds: string[];
 }) {
   const router = useRouter();
+  const [mode, setMode] = useState<ViewMode>("friends");
   const [selected, setSelected] = useState<string[]>([]);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
@@ -45,9 +144,15 @@ export function FriendsClient({
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const isSelected = (id: string) => selectedSet.has(id);
+  const pendingCount = incoming.length + outgoing.length;
 
   function toggle(id: string) {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelected((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
+  }
+
+  async function refreshAfter(action: Promise<unknown>) {
+    await action;
+    router.refresh();
   }
 
   async function runSearch() {
@@ -61,168 +166,197 @@ export function FriendsClient({
     try {
       const res = await fetch(`/api/search/people?q=${encodeURIComponent(q)}`, { cache: "no-store" });
       if (!res.ok) {
-        setSearchStatus("Could not search right now.");
+        setSearchStatus("Search is unavailable.");
         return;
       }
       const body = (await res.json()) as { people?: UserRef[] };
       const rows = Array.isArray(body.people) ? body.people : [];
       setSearchResults(rows);
-      setSearchStatus(rows.length ? `Found ${rows.length}` : "No matches found.");
+      setSearchStatus(rows.length ? `${rows.length} found` : "No matches.");
     } catch {
-      setSearchStatus("Could not search right now.");
+      setSearchStatus("Search is unavailable.");
     }
   }
 
-  async function refreshAfter(action: Promise<unknown>) {
-    await action;
+  async function runSelected(action: "FOLLOW" | "UNFOLLOW" | "SEND_REQUEST" | "UNFRIEND", message: string) {
+    if (!selected.length) {
+      setStatus("Select people first.");
+      return;
+    }
+    setStatus("Working...");
+    await runBulk(action, selected);
+    setStatus(message);
+    setSelected([]);
     router.refresh();
   }
 
+  const modeCards: Array<{ id: ViewMode; mark: string; label: string; count: string }> = [
+    { id: "friends", mark: "FR", label: "Friends", count: String(friends.length) },
+    { id: "requests", mark: "IN", label: "Requests", count: String(pendingCount) },
+    { id: "find", mark: "SE", label: "Find", count: "Search" },
+    { id: "suggestions", mark: "SG", label: "Suggestions", count: String(suggestions.length) },
+    { id: "manage", mark: "MG", label: "Manage", count: String(selected.length) },
+  ];
+
   return (
     <div className="space-y-4">
-      <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Find People</h2>
-        <div className="flex gap-2">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Search by username, name, or email"
-          />
-          <button className="rounded border border-slate-300 px-3 py-2 text-sm" onClick={() => void runSearch()}>
-            Search
-          </button>
+      <section className="card overflow-hidden">
+        <div className="relative h-40 bg-[var(--bg-soft)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(214,178,74,0.24),transparent_32%),linear-gradient(135deg,#111a2a,#080b12)]" />
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">People</p>
+            <h1 className="mt-1 text-2xl font-semibold text-[var(--text-strong)]">Friends</h1>
+          </div>
         </div>
-        {searchStatus ? <p className="mt-2 text-xs text-slate-500">{searchStatus}</p> : null}
-        {searchResults.length ? (
-          <div className="mt-2 space-y-2">
-            {searchResults.map((person) => (
-              <div key={person.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
-                <div>
-                  <p className="text-sm">{person.fullName || `@${person.username}`}</p>
-                  <p className="text-xs text-slate-500">@{person.username}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Link href={`/profile/${person.username}`} className="rounded border border-slate-300 px-2 py-1 text-xs">View</Link>
-                  <DirectMessageButton username={person.username} className="rounded border border-[var(--border)] px-2 py-1 text-xs" />
-                  <button className="rounded bg-blue-600 px-2 py-1 text-xs text-white" onClick={() => void refreshAfter(fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))}>
-                    Add Friend
-                  </button>
-                  <button className="rounded border border-red-400 px-2 py-1 text-xs text-red-300" onClick={() => void refreshAfter(fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))}>
-                    Block
-                  </button>
+        <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-5">
+          {modeCards.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              className={`rounded-md border p-3 text-left ${mode === card.id ? "border-[#d6b24a] bg-[#1a2030]" : "border-[var(--border)] bg-[var(--bg-soft)]"}`}
+              onClick={() => setMode(card.id)}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)] text-xs font-bold text-[var(--text-strong)]">
+                {card.mark}
+              </span>
+              <span className="mt-3 block text-sm font-semibold text-slate-100">{card.label}</span>
+              <span className="mt-1 block text-xs text-slate-400">{card.count}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {mode === "friends" ? (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {friends.map((friend) => (
+            <PersonCard
+              key={friend.id}
+              person={friend}
+              actions={
+                <>
+                  <ActionButton onClick={() => openMailTo(friend)} tone="gold">Mail</ActionButton>
+                  <ActionButton onClick={() => void refreshAfter(fetch("/api/friends/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ friendUserId: friend.id }) }))} tone="danger">Remove</ActionButton>
+                </>
+              }
+            />
+          ))}
+          {friends.length === 0 ? <p className="card col-span-full p-6 text-center text-sm text-slate-300">No friends yet.</p> : null}
+        </section>
+      ) : null}
+
+      {mode === "requests" ? (
+        <section className="space-y-3">
+          {incoming.map((request) => (
+            <div key={request.id} className="card flex items-center justify-between gap-3 p-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar person={request.sender} size="small" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[var(--text-strong)]">{displayName(request.sender)}</p>
+                  <p className="truncate text-xs text-slate-400">@{request.sender.username}</p>
                 </div>
               </div>
+              <div className="flex shrink-0 gap-2">
+                <ActionButton onClick={() => void refreshAfter(fetch(`/api/friends/request/${request.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ACCEPT" }) }))} tone="gold">Accept</ActionButton>
+                <ActionButton onClick={() => void refreshAfter(fetch(`/api/friends/request/${request.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "DECLINE" }) }))}>Decline</ActionButton>
+              </div>
+            </div>
+          ))}
+          {outgoing.map((request) => (
+            <div key={request.id} className="card flex items-center gap-3 p-3">
+              <Avatar person={request.receiver} size="small" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-100">{displayName(request.receiver)}</p>
+                <p className="truncate text-xs text-slate-400">Pending @{request.receiver.username}</p>
+              </div>
+            </div>
+          ))}
+          {pendingCount === 0 ? <p className="card p-6 text-center text-sm text-slate-300">No pending requests.</p> : null}
+        </section>
+      ) : null}
+
+      {mode === "find" ? (
+        <section className="card p-4">
+          <div className="flex gap-2">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void runSearch();
+              }}
+              placeholder="Handle, name, or email"
+            />
+            <button type="button" className="rounded-md border border-[#6a5420] bg-[#c49a35] px-4 py-2 text-sm font-semibold text-[#1a1204]" onClick={() => void runSearch()}>
+              Search
+            </button>
+          </div>
+          {searchStatus ? <p className="mt-3 text-xs text-slate-400">{searchStatus}</p> : null}
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {searchResults.map((person) => (
+              <PersonCard
+                key={person.id}
+                person={person}
+                actions={
+                  <>
+                    <ActionButton onClick={() => void refreshAfter(fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))} tone="gold">Add</ActionButton>
+                    <ActionButton onClick={() => openMailTo(person)}>Mail</ActionButton>
+                    <ActionButton onClick={() => void refreshAfter(fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))} tone="danger">Block</ActionButton>
+                    <Link href={`/profile/${person.username}`} className="rounded-md border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2 text-center text-xs font-semibold text-slate-100">Profile</Link>
+                  </>
+                }
+              />
             ))}
           </div>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Mass Controls</h2>
-        <p className="mb-3 text-sm text-slate-600">Select people below, then run one action for everyone selected.</p>
-        <div className="flex flex-wrap gap-2">
-          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { setStatus("Working..."); await runBulk("FOLLOW", selected); setStatus("Followed selected users."); }}>Follow</button>
-          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { setStatus("Working..."); await runBulk("UNFOLLOW", selected); setStatus("Unfollowed selected users."); }}>Unfollow</button>
-          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { setStatus("Working..."); await runBulk("SEND_REQUEST", selected); setStatus("Sent friend requests where possible."); }}>Send Friend Request</button>
-          <button className="rounded border border-red-300 px-2 py-1 text-sm text-red-700" onClick={async () => { setStatus("Working..."); await runBulk("UNFRIEND", selected); setStatus("Unfriended selected users."); }}>Unfriend</button>
-          <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={() => setSelected([])}>Clear selection</button>
-        </div>
-        <p className="mt-2 text-xs text-slate-500">{selected.length} selected</p>
-        {status ? <p className="mt-1 text-sm text-slate-600">{status}</p> : null}
-      </section>
-
-      <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Incoming Requests</h2>
-        <div className="space-y-2">
-          {incoming.map((r) => (
-            <div key={r.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
-              <span>@{r.sender.username}</span>
-              <div className="flex gap-2">
-                <button className="rounded bg-green-600 px-2 py-1 text-sm text-white" onClick={() => void refreshAfter(fetch(`/api/friends/request/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ACCEPT" }) }))}>Accept</button>
-                <button className="rounded bg-slate-200 px-2 py-1 text-sm" onClick={() => void refreshAfter(fetch(`/api/friends/request/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "DECLINE" }) }))}>Decline</button>
-              </div>
-            </div>
-          ))}
-          {incoming.length === 0 ? <p className="text-sm text-slate-600">No incoming requests.</p> : null}
-        </div>
-      </section>
-
-      <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Outgoing Requests</h2>
-        <div className="space-y-2">
-          {outgoing.map((r) => <p key={r.id} className="text-sm">Pending: @{r.receiver.username}</p>)}
-          {outgoing.length === 0 ? <p className="text-sm text-slate-600">No outgoing requests.</p> : null}
-        </div>
-      </section>
-
-      <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Friends</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {friends.map((f) => (
-            <div key={f.id} className="rounded-lg bg-[#111a2a] p-2">
-              <div className="mb-1 flex items-center justify-between">
-                <label className="inline-flex items-center gap-1 text-xs text-slate-400">
-                  <input type="checkbox" checked={isSelected(f.id)} onChange={() => toggle(f.id)} />
-                  <span>Select</span>
-                </label>
-                <button className="text-xs text-red-300 underline" onClick={() => void refreshAfter(fetch("/api/friends/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ friendUserId: f.id }) }))}>Remove</button>
-              </div>
-              <Link href={`/profile/${f.username}`} className="block overflow-hidden rounded-md">
-                {f.profile?.avatarUrl ? (
-                  <Image
-                    src={f.profile.avatarUrl}
-                    alt={f.profile?.displayName || f.username}
-                    width={384}
-                    height={384}
-                    sizes="(min-width: 768px) 160px, 50vw"
-                    className="aspect-square w-full rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="flex aspect-square w-full items-center justify-center rounded-md bg-[#2a3346] text-xl text-[var(--text-strong)]">
-                    {(f.profile?.displayName || f.fullName || f.username).charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </Link>
-              <div className="mt-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-medium text-slate-100">
-                    {f.profile?.displayName || f.fullName || `@${f.username}`}
-                  </p>
-                <div className="flex items-center gap-2">
-                    <DirectMessageButton username={f.username} className="text-xs underline" />
-                    <button className="text-xs text-red-300 underline" onClick={() => void refreshAfter(fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: f.id }) }))}>Block</button>
-                  </div>
-                </div>
-                <p className="truncate text-xs text-slate-400">@{f.username}</p>
-              </div>
-            </div>
-          ))}
-          {friends.length === 0 ? <p className="text-sm text-slate-600">No friends yet.</p> : null}
-        </div>
-      </section>
-
-      <section className="card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Suggested Friends</h2>
-        <div className="space-y-2">
-          {suggestions.map((s) => {
-            const following = followingIds.includes(s.id);
+      {mode === "suggestions" ? (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {suggestions.map((person) => {
+            const following = followingIds.includes(person.id);
             return (
-              <div key={s.id} className="flex items-center justify-between rounded border border-slate-200 p-2">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={isSelected(s.id)} onChange={() => toggle(s.id)} />
-                  <span>@{s.username}</span>
-                </label>
-                <div className="flex gap-2">
-                  <DirectMessageButton username={s.username} className="rounded border border-[var(--border)] px-2 py-1 text-sm" />
-                  <button className="rounded bg-blue-600 px-2 py-1 text-sm text-white" onClick={() => void refreshAfter(fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: s.username }) }))}>Add Friend</button>
-                  <button className="rounded border border-slate-300 px-2 py-1 text-sm" onClick={async () => { await runBulk(following ? "UNFOLLOW" : "FOLLOW", [s.id]); }}>{following ? "Unfollow" : "Follow"}</button>
-                </div>
-              </div>
+              <PersonCard
+                key={person.id}
+                person={person}
+                selected={isSelected(person.id)}
+                selectable
+                onSelect={() => toggle(person.id)}
+                actions={
+                  <>
+                    <ActionButton onClick={() => void refreshAfter(fetch("/api/friends/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: person.username }) }))} tone="gold">Add</ActionButton>
+                    <ActionButton onClick={async () => { await runBulk(following ? "UNFOLLOW" : "FOLLOW", [person.id]); router.refresh(); }}>{following ? "Unfollow" : "Follow"}</ActionButton>
+                  </>
+                }
+              />
             );
           })}
-        </div>
-      </section>
+          {suggestions.length === 0 ? <p className="card col-span-full p-6 text-center text-sm text-slate-300">No suggestions right now.</p> : null}
+        </section>
+      ) : null}
+
+      {mode === "manage" ? (
+        <section className="card space-y-4 p-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <ActionButton onClick={() => void runSelected("FOLLOW", "Followed selected people.")} tone="gold">Follow</ActionButton>
+            <ActionButton onClick={() => void runSelected("UNFOLLOW", "Unfollowed selected people.")}>Unfollow</ActionButton>
+            <ActionButton onClick={() => void runSelected("SEND_REQUEST", "Requests sent.")}>Add</ActionButton>
+            <ActionButton onClick={() => void runSelected("UNFRIEND", "Removed selected friends.")} tone="danger">Unfriend</ActionButton>
+          </div>
+          <p className="text-xs text-slate-400">{selected.length} selected</p>
+          {status ? <p className="text-sm text-slate-300">{status}</p> : null}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[...friends, ...suggestions].map((person) => (
+              <PersonCard
+                key={person.id}
+                person={person}
+                selected={isSelected(person.id)}
+                selectable
+                onSelect={() => toggle(person.id)}
+                actions={<ActionButton onClick={() => toggle(person.id)}>{isSelected(person.id) ? "Unselect" : "Select"}</ActionButton>}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

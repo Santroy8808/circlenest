@@ -26,7 +26,12 @@ export function ControlPanelSection({
               className="flex items-center justify-between rounded-[10px] border border-transparent px-2 py-2 text-[13px] text-slate-300 transition hover:border-[#304058] hover:bg-[#0f1624] hover:text-white"
               onClick={onNavigate}
             >
-              <span>{link.label}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-soft)] text-[10px] font-bold text-[var(--text-strong)]">
+                  {link.mark}
+                </span>
+                <span className="truncate">{link.label}</span>
+              </span>
               {link.comingSoon ? (
                 <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">
                   Coming soon!
@@ -54,6 +59,9 @@ export function ControlPanelSection({
               window.dispatchEvent(new Event("theta-mail-open"));
             }}
           >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-soft)] text-[9px] font-bold text-[var(--text-strong)]">
+              {link.mark}
+            </span>
             <span>{link.label}</span>
             {link.comingSoon ? (
               <span className="rounded-full border border-amber-400/40 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200">

@@ -17,9 +17,10 @@ export async function GET(request: Request) {
         { username: { contains: q } },
         { fullName: { contains: q } },
         { email: { contains: q } },
+        { profile: { displayName: { contains: q } } },
       ],
     },
-    select: { id: true, username: true, fullName: true },
+    select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } },
     take: 20,
     orderBy: { username: "asc" },
   });

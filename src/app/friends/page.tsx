@@ -12,9 +12,19 @@ export default async function FriendsPage() {
 
   const [links, incoming, outgoing, suggestions, follows] = await Promise.all([
     prisma.friendship.findMany({ where: { OR: [{ userAId: me }, { userBId: me }] } }),
-    prisma.friendRequest.findMany({ where: { receiverId: me, status: "PENDING" }, include: { sender: { select: { id: true, username: true } } } }),
-    prisma.friendRequest.findMany({ where: { senderId: me, status: "PENDING" }, include: { receiver: { select: { id: true, username: true } } } }),
-    prisma.user.findMany({ where: { id: { not: me } }, select: { id: true, username: true }, take: 24 }),
+    prisma.friendRequest.findMany({
+      where: { receiverId: me, status: "PENDING" },
+      include: { sender: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
+    }),
+    prisma.friendRequest.findMany({
+      where: { senderId: me, status: "PENDING" },
+      include: { receiver: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
+    }),
+    prisma.user.findMany({
+      where: { id: { not: me } },
+      select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } },
+      take: 24,
+    }),
     prisma.userFollow.findMany({ where: { followerId: me }, select: { followingId: true } }),
   ]);
 
