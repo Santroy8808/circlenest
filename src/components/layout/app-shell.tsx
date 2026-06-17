@@ -16,6 +16,7 @@ import { GlobalMailDock } from "@/components/mail/global-mail-dock";
 import { MailLaunchButton } from "@/components/mail/mail-launch-button";
 import { buildControlPanelSections } from "@/components/layout/control-panel.config";
 import { ControlPanelSection } from "@/components/layout/control-panel-section";
+import { SidebarIdentity } from "@/components/layout/sidebar-identity";
 
 export async function AppShell({ children, rightSidebar }: { children: React.ReactNode; rightSidebar?: React.ReactNode }) {
   const session = await auth();
@@ -84,10 +85,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
             <div className="relative h-[7.5rem] w-[7.5rem] overflow-hidden rounded-md border border-[var(--border)]">
               {profile?.avatarUrl ? <Image src={profile.avatarUrl} alt="Avatar" width={160} height={160} unoptimized className="h-full w-full object-cover" /> : <div className="h-full w-full bg-[#222b3d]" />}
             </div>
-            <div>
-              <p className="text-[16px] font-semibold text-[var(--text-strong)]">Theta-Space</p>
-              <Link href="/home" className="text-sm text-slate-300 hover:underline">My Stream</Link>
-            </div>
+            <SidebarIdentity displayName={profile?.displayName} fallbackName={session?.user?.name} />
           </div>
 
           <nav className="space-y-3 text-xs">
