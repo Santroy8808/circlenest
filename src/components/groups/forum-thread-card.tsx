@@ -11,7 +11,7 @@ type ForumThreadPost = {
   parentCommentId: string | null;
   mediaUrlsJson: string | null;
   createdAt: string | Date;
-  author: { username: string };
+  author: { username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
 };
 
 export type ForumThreadCardData = {
@@ -80,6 +80,7 @@ export function ForumThreadCard({
   const [error, setError] = useState("");
   const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
+  const [replyToDisplayName, setReplyToDisplayName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const rootPosts = posts.filter((post) => !post.parentCommentId);
@@ -138,6 +139,7 @@ export function ForumThreadCard({
       setMediaUrls([]);
       setReplyToCommentId(null);
       setReplyToUsername(null);
+      setReplyToDisplayName(null);
     } finally {
       setSubmitting(false);
     }
@@ -201,7 +203,7 @@ export function ForumThreadCard({
               {latestMedia.length ? (
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {latestMedia.slice(0, 3).map((url, index) => (
-                    <Image key={`${url}-${index}`} src={url} alt="Thread preview" width={320} height={220} unoptimized className="h-16 w-full rounded-md object-cover" />
+                    <Image key={`${url}-${index}`} src={url} alt="Thread preview" width={160} height={112} sizes="110px" className="h-16 w-full rounded-md object-cover" />
                   ))}
                 </div>
               ) : null}
@@ -226,6 +228,7 @@ export function ForumThreadCard({
               onReply={(comment) => {
                 setReplyToCommentId(comment.id);
                 setReplyToUsername(comment.author.username);
+                setReplyToDisplayName(comment.author.fullName?.trim() || comment.author.profile?.displayName?.trim() || comment.author.username);
                 setContent((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
                 inputRef.current?.focus();
               }}
@@ -240,13 +243,14 @@ export function ForumThreadCard({
             <div className="mt-3 rounded-[14px] border border-[var(--border)] bg-[#111a2a] p-[5px]">
               {replyToUsername ? (
                 <div className="flex items-center justify-between gap-2 rounded-[10px] border border-amber-400/25 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
-                  <span>Replying to @{replyToUsername}</span>
+                  <span>Replying to {replyToDisplayName ?? replyToUsername}</span>
                   <button
                     type="button"
                     className="underline"
                     onClick={() => {
                       setReplyToCommentId(null);
                       setReplyToUsername(null);
+                      setReplyToDisplayName(null);
                     }}
                   >
                     Cancel
@@ -259,7 +263,7 @@ export function ForumThreadCard({
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
                 className="mt-2 h-20 w-full rounded-[10px] border border-[#42556f] bg-[#1a2335] px-2 py-2 text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-300/20"
-                placeholder={replyToUsername ? `Reply to @${replyToUsername}` : "Write a reply"}
+                placeholder={replyToUsername ? `Reply to ${replyToDisplayName ?? replyToUsername}` : "Write a reply"}
               />
 
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -302,7 +306,7 @@ export function ForumThreadCard({
                 <div className="mt-2 grid grid-cols-4 gap-2">
                   {mediaUrls.map((url, index) => (
                     <div key={`${url}-${index}`} className="relative">
-                      <Image src={url} alt="Reply upload" width={240} height={180} unoptimized className="h-14 w-full rounded-md object-cover" />
+                      <Image src={url} alt="Reply upload" width={128} height={96} sizes="96px" className="h-14 w-full rounded-md object-cover" />
                       <button
                         type="button"
                         className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -84,9 +85,8 @@ export default async function FundraisersPage() {
               className="relative flex h-full flex-col overflow-hidden rounded border border-[var(--border)] bg-[#0d1320] transition hover:border-amber-300/60 hover:shadow-[0_8px_28px_rgba(0,0,0,0.28)]"
             >
               {fundraiser.bannerUrl ? (
-                <div className="h-32 overflow-hidden border-b border-[var(--border)] bg-[#11192a]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={fundraiser.bannerUrl} alt={`${fundraiser.title} banner`} className="h-full w-full object-cover" />
+                <div className="relative h-32 overflow-hidden border-b border-[var(--border)] bg-[#11192a]">
+                  <Image src={fundraiser.bannerUrl} alt={`${fundraiser.title} banner`} fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover" />
                 </div>
               ) : null}
 

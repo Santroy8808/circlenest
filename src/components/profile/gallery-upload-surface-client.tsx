@@ -10,6 +10,7 @@ type Visibility = "PUBLIC" | "FRIENDS_FAMILY" | "PRIVATE";
 type GalleryAlbumOption = {
   id: string;
   title: string;
+  createdAt?: string | Date;
 };
 
 type UploadedGalleryPhoto = {
@@ -26,7 +27,7 @@ type UploadedGalleryPhoto = {
     content: string;
     mediaUrlsJson?: string | null;
     createdAt: string | Date;
-    author: { username: string; fullName?: string | null };
+    author: { username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
   }>;
   photoTags?: { tag: { id: string; name: string } }[];
 };
@@ -120,15 +121,11 @@ export function GalleryUploadSurfaceClient({
       const existingAlbum = albums.find((album) => album.id === selectedAlbumId);
       return { id: selectedAlbumId, title: existingAlbum?.title ?? "My Pics" };
     }
-    const createdAlbumRes = await fetch("/api/gallery/albums", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "My Pics" }),
-    });
-    if (!createdAlbumRes.ok) return null;
-    const created = (await createdAlbumRes.json()) as { id: string; title?: string | null };
-    setSelectedAlbumId(created.id);
-    return { id: created.id, title: created.title?.trim() || "My Pics" };
+    const myPicsAlbum = albums
+      .filter((album) => album.title.trim().toLowerCase() === "my pics")
+      .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime())[0];
+    if (myPicsAlbum) return { id: myPicsAlbum.id, title: myPicsAlbum.title };
+    return { id: "", title: "My Pics" };
   }
 
   async function createNewAlbumAndSelect() {
@@ -330,6 +327,7 @@ export function GalleryUploadSurfaceClient({
       album: initBody.album,
       photos: uploadedPhotos,
     };
+    setSelectedAlbumId(initBody.album.id);
     if (mode === "page") {
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem("theta-gallery-upload-result", JSON.stringify(payload));

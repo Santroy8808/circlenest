@@ -58,9 +58,9 @@ export default async function JobDetailPage({ params }: { params: { jobId: strin
               <Image
                 src={job.imageUrl}
                 alt={`${job.title} listing photo`}
-                width={1600}
-                height={1200}
-                unoptimized
+                width={1024}
+                height={768}
+                sizes="(min-width: 1024px) 620px, 100vw"
                 className="max-h-[50vh] w-full rounded-[16px] border border-[var(--border)] object-cover"
               />
             ) : null}

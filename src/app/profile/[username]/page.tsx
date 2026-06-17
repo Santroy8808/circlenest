@@ -50,14 +50,14 @@ export default async function ProfilePage({ params }: { params: { username: stri
     orderBy: { createdAt: "desc" },
     take: 30,
     include: {
-      author: { select: { username: true } },
+      author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
       comments: {
         select: {
           id: true,
           content: true,
           parentCommentId: true,
           createdAt: true,
-          author: { select: { username: true } },
+          author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
         },
         orderBy: { createdAt: "asc" },
       },
@@ -69,7 +69,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
     ? await prisma.post.findMany({
         where: { streamOwnerId: user.id, approvalStatus: "PENDING" },
         orderBy: { createdAt: "desc" },
-        include: { author: { select: { username: true } } },
+        include: { author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
       })
     : [];
 
@@ -81,14 +81,22 @@ export default async function ProfilePage({ params }: { params: { username: stri
     mediaUrlsJson: post.mediaUrlsJson,
     createdAt: post.createdAt,
     authorId: post.authorId,
-    author: { username: post.author.username },
+    author: {
+      username: post.author.username,
+      fullName: post.author.fullName,
+      profile: { displayName: post.author.profile?.displayName ?? null, avatarUrl: post.author.profile?.avatarUrl ?? null },
+    },
     comments: post.comments.map((comment) => ({
       id: comment.id,
       content: comment.content,
       mediaUrlsJson: null,
       parentCommentId: comment.parentCommentId,
       createdAt: comment.createdAt,
-      author: { username: comment.author.username },
+      author: {
+        username: comment.author.username,
+        fullName: comment.author.fullName,
+        profile: { displayName: comment.author.profile?.displayName ?? null, avatarUrl: comment.author.profile?.avatarUrl ?? null },
+      },
     })),
     reactions: post.reactions.map((reaction) => ({ id: reaction.id, type: reaction.type })),
     explanation: `Posted on @${user.username}'s stream`,
@@ -101,14 +109,14 @@ export default async function ProfilePage({ params }: { params: { username: stri
       >
         <div className="relative h-44 w-full bg-slate-200">
           {profile?.bannerUrl ? (
-            <Image src={profile.bannerUrl} alt="Profile banner" fill unoptimized className="object-cover" />
+            <Image src={profile.bannerUrl} alt="Profile banner" fill sizes="(min-width: 700px) 720px, 100vw" priority className="object-cover" />
           ) : null}
         </div>
         <div className="p-3">
           <div className="mb-2 flex items-center gap-3">
             <div className="relative h-16 w-16 overflow-hidden rounded-md border border-[var(--border)] bg-slate-100">
               {profile?.avatarUrl ? (
-                <Image src={profile.avatarUrl} alt="Profile avatar" fill unoptimized className="object-cover" />
+                <Image src={profile.avatarUrl} alt="Profile avatar" fill sizes="64px" className="object-cover" />
               ) : null}
             </div>
             <div>

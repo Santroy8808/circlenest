@@ -53,7 +53,7 @@ export async function POST(request: Request, context: { params: { fundraiserId: 
       mediaUrlsJson: mediaUrls.length ? JSON.stringify(mediaUrls) : null,
     },
     include: {
-      author: { select: { id: true, username: true } },
+      author: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
     },
   });
 

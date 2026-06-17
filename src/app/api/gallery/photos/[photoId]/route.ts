@@ -82,7 +82,7 @@ export async function PATCH(request: Request, context: { params: { photoId: stri
           content: true,
           parentCommentId: true,
           createdAt: true,
-          author: { select: { username: true, fullName: true } },
+          author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
         },
         orderBy: { createdAt: "asc" },
       },

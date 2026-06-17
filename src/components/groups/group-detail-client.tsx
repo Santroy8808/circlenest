@@ -42,6 +42,9 @@ type GroupData = {
       mediaUrlsJson: string | null;
       createdAt: string;
       authorUsername: string;
+      authorFullName?: string | null;
+      authorDisplayName?: string | null;
+      authorAvatarUrl?: string | null;
     }>;
   }>;
   documents: Array<{ id: string; title: string; url: string; uploaderUsername: string }>;
@@ -61,6 +64,8 @@ type GroupData = {
       createdAt: string;
       authorUsername: string;
       authorFullName: string | null;
+      authorDisplayName?: string | null;
+      authorAvatarUrl?: string | null;
     }>;
   }>;
   photoAlbums: Array<{ id: string; title: string; description: string | null }>;
@@ -289,7 +294,11 @@ export function GroupDetailClient({
                     parentCommentId: post.parentCommentId,
                     mediaUrlsJson: post.mediaUrlsJson,
                     createdAt: post.createdAt,
-                    author: { username: post.authorUsername },
+                    author: {
+                      username: post.authorUsername,
+                      fullName: post.authorFullName,
+                      profile: { displayName: post.authorDisplayName, avatarUrl: post.authorAvatarUrl },
+                    },
                   })),
                 }}
               />

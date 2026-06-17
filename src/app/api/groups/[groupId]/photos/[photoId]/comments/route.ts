@@ -45,7 +45,7 @@ export async function POST(request: Request, context: { params: { groupId: strin
       content,
       mediaUrlsJson: mediaUrls.length ? JSON.stringify(mediaUrls) : null,
     },
-    include: { author: { select: { username: true, fullName: true } } },
+    include: { author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
   });
 
   return NextResponse.json(created);

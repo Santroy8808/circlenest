@@ -13,6 +13,8 @@ type GroupPhotoComment = {
   createdAt: string | Date;
   authorUsername: string;
   authorFullName: string | null;
+  authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
 };
 
 type GroupPhotoItem = {
@@ -21,6 +23,9 @@ type GroupPhotoItem = {
   url: string;
   sizeBytes: number;
   uploaderUsername: string;
+  uploaderFullName?: string | null;
+  uploaderDisplayName?: string | null;
+  uploaderAvatarUrl?: string | null;
   albumId: string | null;
   tags: string | null;
   comments: GroupPhotoComment[];
@@ -222,7 +227,7 @@ export function GroupPhotoGallery({
               }}
               className="overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--card)] text-left transition hover:border-[var(--accent)]/55 hover:bg-[#162235]"
             >
-              <Image src={photo.url} alt={photo.caption || "Group photo"} width={420} height={420} unoptimized className="aspect-square w-full object-cover" />
+              <Image src={photo.url} alt={photo.caption || "Group photo"} width={384} height={384} sizes="(min-width: 1024px) 160px, (min-width: 768px) 220px, 50vw" className="aspect-square w-full object-cover" />
               <div className="space-y-1 px-3 py-2">
                 <p className="truncate text-sm font-medium text-slate-100">{photo.caption || "Untitled photo"}</p>
                 <p className="text-[11px] text-slate-400">
@@ -243,7 +248,7 @@ export function GroupPhotoGallery({
             onClick={(event) => event.stopPropagation()}
           >
             <section className="flex items-center justify-center bg-[#0c1322] p-3">
-              <Image src={openPhoto.url} alt={openPhoto.caption || "Group photo"} width={1200} height={900} unoptimized className="max-h-full w-full object-contain" />
+              <Image src={openPhoto.url} alt={openPhoto.caption || "Group photo"} width={1200} height={900} sizes="(min-width: 768px) 840px, 100vw" className="max-h-full w-full object-contain" />
             </section>
             <aside className="flex h-full flex-col overflow-y-auto border-l border-[var(--border)] bg-[var(--card)] p-3">
               <div className="flex items-center justify-between gap-2">
@@ -279,7 +284,11 @@ export function GroupPhotoGallery({
                       content: comment.content,
                       mediaUrlsJson: comment.mediaUrlsJson,
                       createdAt: comment.createdAt,
-                      author: { username: comment.authorUsername, fullName: comment.authorFullName },
+                      author: {
+                        username: comment.authorUsername,
+                        fullName: comment.authorFullName,
+                        profile: { displayName: comment.authorDisplayName, avatarUrl: comment.authorAvatarUrl },
+                      },
                     }))}
                     compact
                     emptyText="No comments yet."
@@ -323,7 +332,7 @@ export function GroupPhotoGallery({
                     <div className="grid grid-cols-4 gap-2">
                       {commentMediaUrls.map((url, index) => (
                         <div key={`${url}-${index}`} className="relative">
-                          <Image src={url} alt="Comment upload" width={180} height={180} unoptimized className="h-14 w-full rounded object-cover" />
+                          <Image src={url} alt="Comment upload" width={128} height={128} sizes="96px" className="h-14 w-full rounded object-cover" />
                           <button
                             type="button"
                             className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"

@@ -266,7 +266,7 @@ export function ThreadClient({
           ) : (
             <Link href={meta?.other ? `/profile/${meta.other.username}` : "/messages"} className="relative h-11 w-11 overflow-hidden rounded-full border border-[var(--border)] bg-[#1a2538]">
               {meta?.other?.avatarUrl ? (
-                <Image src={meta.other.avatarUrl} alt={meta.other.username} fill unoptimized className="object-cover" />
+                <Image src={meta.other.avatarUrl} alt={meta.other.username} fill sizes="44px" className="object-cover" />
               ) : (
                 <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-sm font-semibold text-slate-100">
                   {(meta?.other?.displayName ?? "?").charAt(0).toUpperCase()}
@@ -342,7 +342,7 @@ export function ThreadClient({
             orderedMessages.map((message) => {
               const isMine = message.senderId === myUserId;
               const statusText = getOwnMessageStatus(message);
-              const displayName = message.sender.profile?.displayName ?? message.sender.fullName ?? message.sender.username;
+              const displayName = message.sender.fullName ?? message.sender.profile?.displayName ?? message.sender.username;
               const senderHref = `/profile/${message.sender.username}`;
 
               return (
@@ -351,7 +351,7 @@ export function ThreadClient({
                     {!isMine ? (
                       <Link href={senderHref} className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[#1a2538]">
                         {message.sender.profile?.avatarUrl ? (
-                          <Image src={message.sender.profile.avatarUrl} alt={message.sender.username} fill unoptimized className="object-cover" />
+                          <Image src={message.sender.profile.avatarUrl} alt={message.sender.username} fill sizes="32px" className="object-cover" />
                         ) : (
                           <span className="flex h-full w-full items-center justify-center bg-[#1a2538] text-[11px] font-semibold text-slate-200">
                             {message.sender.username.charAt(0).toUpperCase()}
@@ -366,7 +366,7 @@ export function ThreadClient({
                           <span className="font-semibold text-[#f5d777]">You</span>
                         ) : (
                           <Link href={senderHref} className="font-semibold text-[var(--text-strong)] hover:underline">
-                            @{displayName}
+                            {displayName}
                           </Link>
                         )}
                         <span className="text-slate-500">{formatFullTimestamp(message.createdAt)}</span>

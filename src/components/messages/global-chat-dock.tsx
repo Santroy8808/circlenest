@@ -44,7 +44,7 @@ const STORAGE_GEOMETRY_KEY = "theta.activeChatThreadGeometry";
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 function displayNameForUser(user: FriendRef) {
-  return user.profile?.displayName ?? user.fullName ?? user.username;
+  return user.fullName ?? user.profile?.displayName ?? user.username;
 }
 
 function threadTitle(thread: ThreadSummary) {
@@ -493,7 +493,7 @@ export function GlobalChatDock({ myUserId }: { myUserId: string }) {
                             alt={displayNameForUser(friend)}
                             width={44}
                             height={44}
-                            unoptimized
+                            sizes="44px"
                             className="h-11 w-11 rounded-full border border-[#304058] object-cover"
                           />
                         ) : (
@@ -543,7 +543,7 @@ export function GlobalChatDock({ myUserId }: { myUserId: string }) {
                                 alt={displayNameForUser(friend)}
                                 width={40}
                                 height={40}
-                                unoptimized
+                                sizes="40px"
                                 className="h-10 w-10 rounded-full border border-[#304058] object-cover"
                               />
                             ) : (

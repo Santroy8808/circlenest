@@ -192,7 +192,7 @@ export function MessagesClient({ friends }: { myUserId: string; friends: FriendR
                     alt={label}
                     width={54}
                     height={54}
-                    unoptimized
+                    sizes="48px"
                     className="h-12 w-12 shrink-0 rounded-full border border-[#304058] object-cover"
                   />
                 ) : (

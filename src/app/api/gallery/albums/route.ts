@@ -92,6 +92,15 @@ export async function POST(request: Request) {
   const title = String(body.title ?? "").trim();
   if (!title) return NextResponse.json({ error: "Album title required" }, { status: 400 });
 
+  if (title.toLowerCase() === "my pics") {
+    const existing = await prisma.photoAlbum.findFirst({
+      where: { userId: session.user.id, title: "My Pics" },
+      include: { albumTags: { include: { tag: true } }, photos: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (existing) return NextResponse.json(existing);
+  }
+
   const visibility = normalizeVisibility(body.visibility);
   const shareGroupIds = normalizeGroupIds(body.shareGroupIds);
   if (visibility === "GROUPS" && shareGroupIds.length === 0) {

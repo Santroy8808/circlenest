@@ -31,7 +31,7 @@ function normalizeUsername(value?: string) {
 }
 
 function getDisplayName(user: { username: string; fullName: string | null; profile?: { displayName: string | null; avatarUrl: string | null } | null }) {
-  return user.profile?.displayName ?? user.fullName ?? user.username;
+  return user.fullName ?? user.profile?.displayName ?? user.username;
 }
 
 function normalizeSurface(value?: string) {
@@ -167,13 +167,13 @@ async function buildThreadSummaries(sessionUserId: string, surface: "CHAT" | "MA
 
       if (isGroupThread(thread)) {
         const groupParticipants = participants.filter((participant) => participant.id !== sessionUserId);
-        const participantNames = groupParticipants.map((participant) => `@${participant.username}`);
+        const participantNames = groupParticipants.map((participant) => participant.displayName);
         return {
           id: thread.id,
           surface: thread.surface,
           kind: thread.kind,
           title: thread.title,
-          displayLabel: thread.title ?? defaultGroupTitle(participantNames.map((name) => name.replace(/^@/, ""))),
+          displayLabel: thread.title ?? defaultGroupTitle(participantNames),
           subtitle: `${participants.length} participants`,
           participantCount: participants.length,
           participants,
@@ -244,7 +244,13 @@ export async function POST(request: Request) {
     const other = normalizedUserId
       ? await prisma.user.findUnique({ where: { id: normalizedUserId }, select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } })
       : await prisma.user.findFirst({
-          where: { username: { equals: normalizedUsername } },
+          where: {
+            OR: [
+              { username: { equals: normalizedUsername } },
+              { fullName: { equals: normalizedUsername } },
+              { profile: { displayName: { equals: normalizedUsername } } },
+            ],
+          },
           select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } },
         });
     if (!other) return NextResponse.json({ error: "User not found" }, { status: 404 });

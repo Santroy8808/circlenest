@@ -28,7 +28,7 @@ export default async function GalleryPage() {
                 content: true,
                 parentCommentId: true,
                 createdAt: true,
-                author: { select: { username: true, fullName: true } },
+                author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
               },
               orderBy: { createdAt: "asc" },
             },

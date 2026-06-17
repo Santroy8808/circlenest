@@ -83,7 +83,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
         <aside className="card sticky top-3 hidden h-[calc(100vh-1.5rem)] overflow-auto p-5 min-[700px]:block">
           <div className="mb-4 flex items-start gap-3">
             <div className="relative h-[7.5rem] w-[7.5rem] overflow-hidden rounded-md border border-[var(--border)]">
-              {profile?.avatarUrl ? <Image src={profile.avatarUrl} alt="Avatar" width={160} height={160} unoptimized className="h-full w-full object-cover" /> : <div className="h-full w-full bg-[#222b3d]" />}
+              {profile?.avatarUrl ? <Image src={profile.avatarUrl} alt="Avatar" width={160} height={160} sizes="120px" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-[#222b3d]" />}
             </div>
             <SidebarIdentity displayName={profile?.displayName} fallbackName={session?.user?.name} />
           </div>
@@ -114,7 +114,7 @@ export async function AppShell({ children, rightSidebar }: { children: React.Rea
               </div>
             ) : null}
             <div className="relative hidden h-56 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)] min-[700px]:block">
-              {profile?.bannerUrl ? <Image src={profile.bannerUrl} alt="Banner" width={1200} height={420} unoptimized className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-r from-[#1b2438] to-[#0b0e15]" />}
+              {profile?.bannerUrl ? <Image src={profile.bannerUrl} alt="Banner" width={1200} height={420} sizes="720px" priority className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-r from-[#1b2438] to-[#0b0e15]" />}
             </div>
             <div className="sticky top-0 z-30 hidden bg-[var(--bg)]/98 pb-[10px] backdrop-blur min-[700px]:block">
               <header className="flex items-center justify-between gap-4 rounded-md bg-[var(--bg)] px-3 py-2 text-[13px] shadow-sm">

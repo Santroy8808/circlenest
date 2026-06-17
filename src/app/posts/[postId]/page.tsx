@@ -17,7 +17,7 @@ export default async function PostDiscussionPage({
   const post = await prisma.post.findUnique({
     where: { id: params.postId },
     include: {
-      author: { select: { id: true, username: true } },
+      author: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
       poll: {
         include: {
           options: { include: { _count: { select: { votes: true } } } },
@@ -30,7 +30,7 @@ export default async function PostDiscussionPage({
           content: true,
           parentCommentId: true,
           createdAt: true,
-          author: { select: { username: true } },
+          author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
         },
         orderBy: { createdAt: "asc" },
       },

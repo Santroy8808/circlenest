@@ -49,7 +49,7 @@ export async function POST(request: Request, context: { params: { photoId: strin
       mediaUrlsJson: mediaUrls.length ? JSON.stringify(mediaUrls) : null,
       parentCommentId: body.parentCommentId ?? null,
     },
-    include: { author: { select: { username: true, fullName: true } } },
+    include: { author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
   });
 
   const actor = `@${created.author.username}`;

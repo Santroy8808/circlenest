@@ -36,7 +36,7 @@ type Comment = {
   mediaUrlsJson?: string | null;
   parentCommentId?: string | null;
   createdAt: string | Date;
-  author: { username: string };
+  author: { username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
 };
 
 type Reaction = { id: string; type: string };
@@ -52,7 +52,7 @@ type FeedPost = {
   mediaUrlsJson?: string | null;
   createdAt: string | Date;
   authorId: string;
-  author: { username: string };
+  author: { username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
   comments: Comment[];
   reactions: Reaction[];
   poll?: {
@@ -661,7 +661,7 @@ export function FeedClient({
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                     {media.map((url) => (
                       <button key={url} type="button" className="text-left" onClick={() => openMedia(post.id, url)}>
-                        <Image src={url} alt="Post media" width={800} height={600} unoptimized className="h-32 w-full rounded-md object-cover" />
+                        <Image src={url} alt="Post media" width={384} height={288} sizes="(min-width: 768px) 210px, (min-width: 640px) 50vw, 100vw" className="h-32 w-full rounded-md object-cover" />
                       </button>
                     ))}
                   </div>
@@ -669,7 +669,7 @@ export function FeedClient({
               }
               return post.imageUrl ? (
                 <button type="button" className="mt-3 w-full text-left" onClick={() => openMedia(post.id, post.imageUrl as string)}>
-                  <Image src={post.imageUrl} alt="Post" width={1200} height={800} unoptimized className="max-h-80 w-full rounded-md object-cover" />
+                  <Image src={post.imageUrl} alt="Post" width={900} height={600} sizes="(min-width: 700px) 720px, 100vw" className="max-h-80 w-full rounded-md object-cover" />
                 </button>
               ) : null;
             })()}
@@ -843,7 +843,7 @@ export function FeedClient({
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {(commentMediaByPost[post.id] ?? []).map((url, mediaIndex) => (
                         <div key={`${post.id}-reply-media-${mediaIndex}`} className="relative">
-                          <Image src={url} alt="Reply upload" width={240} height={240} unoptimized className="h-16 w-full rounded-md object-cover" />
+                          <Image src={url} alt="Reply upload" width={160} height={160} sizes="120px" className="h-16 w-full rounded-md object-cover" />
                           <button
                             type="button"
                             className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"
@@ -872,7 +872,7 @@ export function FeedClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" onClick={() => setExpandedMediaUrl(null)}>
           <div className="relative max-h-[92vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="absolute -top-9 right-0 text-sm text-slate-100 underline" onClick={() => setExpandedMediaUrl(null)}>Close</button>
-            <Image src={expandedMediaUrl} alt="Expanded media" width={1800} height={1800} unoptimized className="max-h-[90vh] w-auto rounded-md object-contain" />
+            <Image src={expandedMediaUrl} alt="Expanded media" width={1536} height={1536} sizes="92vw" className="max-h-[90vh] w-auto rounded-md object-contain" />
           </div>
         </div>
       ) : null}

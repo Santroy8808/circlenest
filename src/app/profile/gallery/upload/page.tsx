@@ -18,6 +18,7 @@ export default async function GalleryUploadPage() {
     select: {
       id: true,
       title: true,
+      createdAt: true,
     },
     orderBy: { createdAt: "desc" },
   });

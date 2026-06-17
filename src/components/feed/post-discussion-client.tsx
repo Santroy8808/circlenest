@@ -15,7 +15,7 @@ type PostDiscussionComment = {
   mediaUrlsJson?: string | null;
   parentCommentId: string | null;
   createdAt: string | Date;
-  author: { username: string };
+  author: { username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
 };
 
 type PostDiscussion = {
@@ -24,7 +24,7 @@ type PostDiscussion = {
   imageUrl: string | null;
   mediaUrlsJson: string | null;
   commentsLocked: boolean;
-  author: { id: string; username: string };
+  author: { id: string; username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
   poll?: {
     id: string;
     question: string;
@@ -54,6 +54,7 @@ export function PostDiscussionClient({
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
   const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
+  const [replyToDisplayName, setReplyToDisplayName] = useState<string | null>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
   const submittingCommentRef = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -110,6 +111,7 @@ export function PostDiscussionClient({
       }
       setReplyToCommentId(null);
       setReplyToUsername(null);
+      setReplyToDisplayName(null);
       setContent("");
       setMediaUrls([]);
       router.push(safeReturnTo);
@@ -181,7 +183,7 @@ export function PostDiscussionClient({
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {media.map((url) => (
                 <button key={url} type="button" className="text-left" onClick={() => setExpandedMediaUrl(url)}>
-                  <Image src={url} alt="Post media" width={900} height={700} unoptimized className="h-32 w-full rounded-md object-cover" />
+                  <Image src={url} alt="Post media" width={384} height={288} sizes="(min-width: 768px) 210px, 50vw" className="h-32 w-full rounded-md object-cover" />
                 </button>
               ))}
             </div>
@@ -189,7 +191,7 @@ export function PostDiscussionClient({
         }
         return post.imageUrl ? (
           <button type="button" className="w-full text-left" onClick={() => setExpandedMediaUrl(post.imageUrl as string)}>
-            <Image src={post.imageUrl} alt="Post image" width={1200} height={900} unoptimized className="max-h-80 w-full rounded-md object-cover" />
+            <Image src={post.imageUrl} alt="Post image" width={900} height={675} sizes="(min-width: 700px) 720px, 100vw" className="max-h-80 w-full rounded-md object-cover" />
           </button>
         ) : null;
       })()}
@@ -220,6 +222,7 @@ export function PostDiscussionClient({
         onReply={(comment) => {
           setReplyToCommentId(comment.id);
           setReplyToUsername(comment.author.username);
+          setReplyToDisplayName(comment.author.fullName?.trim() || comment.author.profile?.displayName?.trim() || comment.author.username);
           setContent((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
           inputRef.current?.focus();
         }}
@@ -233,13 +236,14 @@ export function PostDiscussionClient({
         <div className="space-y-2">
           {replyToUsername ? (
             <div className="flex items-center justify-between rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
-              <span>Replying to @{replyToUsername}</span>
+              <span>Replying to {replyToDisplayName ?? replyToUsername}</span>
               <button
                 type="button"
                 className="text-amber-100 underline"
                 onClick={() => {
                   setReplyToCommentId(null);
                   setReplyToUsername(null);
+                  setReplyToDisplayName(null);
                 }}
               >
                 Cancel reply
@@ -257,7 +261,7 @@ export function PostDiscussionClient({
             value={content}
             onChange={(event) => setContent(event.target.value)}
             className="h-24 w-full rounded-md border px-3 py-2 text-sm"
-            placeholder={replyToUsername ? `Reply to @${replyToUsername}` : "Write a comment"}
+            placeholder={replyToUsername ? `Reply to ${replyToDisplayName ?? replyToUsername}` : "Write a comment"}
           />
           <div className="flex items-center justify-between">
             <label className="inline-flex cursor-pointer items-center rounded-md border border-[#3d4e6d] bg-[#1a2335] px-2 py-1 text-xs text-slate-200 hover:bg-[#243149]">
@@ -284,7 +288,7 @@ export function PostDiscussionClient({
             <div className="grid grid-cols-4 gap-2">
               {mediaUrls.map((url, index) => (
                 <div key={`${url}-${index}`} className="relative">
-                  <Image src={url} alt="Comment upload" width={240} height={240} unoptimized className="h-16 w-full rounded-md object-cover" />
+                  <Image src={url} alt="Comment upload" width={160} height={160} sizes="120px" className="h-16 w-full rounded-md object-cover" />
                   <button
                     type="button"
                     className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"
@@ -306,7 +310,7 @@ export function PostDiscussionClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" onClick={() => setExpandedMediaUrl(null)}>
           <div className="relative max-h-[92vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="absolute -top-9 right-0 text-sm text-slate-100 underline" onClick={() => setExpandedMediaUrl(null)}>Close</button>
-            <Image src={expandedMediaUrl} alt="Expanded media" width={1800} height={1800} unoptimized className="max-h-[90vh] w-auto rounded-md object-contain" />
+            <Image src={expandedMediaUrl} alt="Expanded media" width={1536} height={1536} sizes="92vw" className="max-h-[90vh] w-auto rounded-md object-contain" />
           </div>
         </div>
       ) : null}

@@ -7,6 +7,10 @@ import { useMemo, useState, type ReactNode } from "react";
 export type CommentThreadAuthor = {
   username: string;
   fullName?: string | null;
+  profile?: {
+    displayName?: string | null;
+    avatarUrl?: string | null;
+  } | null;
 };
 
 export type CommentThreadItem = {
@@ -89,6 +93,10 @@ function buildCommentTree<T extends CommentThreadItem>(comments: T[]): CommentNo
   return roots;
 }
 
+function displayNameForAuthor(author: CommentThreadAuthor): string {
+  return author.fullName?.trim() || author.profile?.displayName?.trim() || author.username;
+}
+
 export function CommentThread<T extends CommentThreadItem>({
   comments,
   emptyText = "No comments yet.",
@@ -113,6 +121,8 @@ export function CommentThread<T extends CommentThreadItem>({
     const contentSize = compact ? "text-[11px]" : "text-[12px]";
     const metaSize = compact ? "text-[10px]" : "text-[11px]";
     const mediaHeight = compact ? "h-[72px]" : "h-[88px]";
+    const displayName = displayNameForAuthor(node.author);
+    const avatarSize = compact ? "h-7 w-7" : "h-8 w-8";
 
     return (
       <div
@@ -123,13 +133,24 @@ export function CommentThread<T extends CommentThreadItem>({
         <article className={`rounded-[16px] border border-[var(--border)] ${bubbleTone} ${bubblePadding} shadow-[0_8px_20px_rgba(0,0,0,0.18)]`}>
           <div className={`rounded-[12px] border border-white/5 ${shellTone} px-2 py-2`}>
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${metaSize} text-slate-400`}>
-                  <Link href={`/profile/${node.author.username}`} className="truncate font-semibold text-amber-200 hover:underline">
-                    @{node.author.username}
-                  </Link>
-                  {node.author.fullName ? <span className="truncate text-slate-300">{node.author.fullName}</span> : null}
-                  <span>{renderMeta ? renderMeta(node) : formatDefaultTimestamp(node.createdAt)}</span>
+              <div className="flex min-w-0 items-start gap-2">
+                <Link href={`/profile/${node.author.username}`} className={`relative mt-0.5 shrink-0 overflow-hidden rounded-full border border-[#304058] bg-[#1a2538] ${avatarSize}`}>
+                  {node.author.profile?.avatarUrl ? (
+                    <Image src={node.author.profile.avatarUrl} alt={displayName} fill sizes={compact ? "28px" : "32px"} className="object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-100">
+                      {displayName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+                <div className="min-w-0">
+                  <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${metaSize} text-slate-400`}>
+                    <Link href={`/profile/${node.author.username}`} className="truncate font-semibold text-amber-200 hover:underline">
+                      {displayName}
+                    </Link>
+                    <span className="truncate text-slate-500">@{node.author.username}</span>
+                    <span>{renderMeta ? renderMeta(node) : formatDefaultTimestamp(node.createdAt)}</span>
+                  </div>
                 </div>
               </div>
               {node.children.length > 0 ? (
@@ -154,9 +175,9 @@ export function CommentThread<T extends CommentThreadItem>({
                       <Image
                         src={url}
                         alt="Comment media"
-                        width={560}
-                        height={420}
-                        unoptimized
+                        width={384}
+                        height={288}
+                        sizes="(min-width: 768px) 210px, 50vw"
                         className={`${mediaHeight} w-full rounded-md object-cover`}
                       />
                     </button>
@@ -165,9 +186,9 @@ export function CommentThread<T extends CommentThreadItem>({
                       <Image
                         src={url}
                         alt="Comment media"
-                        width={560}
-                        height={420}
-                        unoptimized
+                        width={384}
+                        height={288}
+                        sizes="(min-width: 768px) 210px, 50vw"
                         className={`${mediaHeight} w-full rounded-md object-cover`}
                       />
                     </a>

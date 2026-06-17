@@ -181,9 +181,9 @@ export function JobsBoardClient({ jobs, ads, adSeed }: JobsBoardClientProps) {
                     <Image
                       src={selectedJob.imageUrl}
                       alt={`${selectedJob.title} listing photo`}
-                      width={1600}
-                      height={1200}
-                      unoptimized
+                      width={1024}
+                      height={768}
+                      sizes="(min-width: 1024px) 620px, 100vw"
                       className="max-h-[50vh] w-full rounded border border-[var(--border)] object-cover"
                     />
                   ) : null}

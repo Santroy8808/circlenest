@@ -20,6 +20,8 @@ type FundraiserComment = {
   author: {
     id: string;
     username: string;
+    fullName?: string | null;
+    profile?: { displayName?: string | null; avatarUrl?: string | null } | null;
   };
 };
 
@@ -64,6 +66,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
   const [expandedMediaUrl, setExpandedMediaUrl] = useState<string | null>(null);
   const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
+  const [replyToDisplayName, setReplyToDisplayName] = useState<string | null>(null);
 
   async function uploadCommentMedia(files: FileList | null) {
     if (!files?.length) return;
@@ -105,6 +108,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
     setMediaUrls([]);
     setReplyToCommentId(null);
     setReplyToUsername(null);
+    setReplyToDisplayName(null);
     router.refresh();
   }
 
@@ -153,6 +157,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
         onReply={(comment) => {
           setReplyToCommentId(comment.id);
           setReplyToUsername(comment.author.username);
+          setReplyToDisplayName(comment.author.fullName?.trim() || comment.author.profile?.displayName?.trim() || comment.author.username);
           setContent((previous) => (previous.trim().length > 0 ? previous : `@${comment.author.username} `));
           inputRef.current?.focus();
         }}
@@ -163,13 +168,14 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
       <div className="space-y-2 rounded border border-[var(--border)] bg-[#11192a] p-3">
         {replyToUsername ? (
           <div className="flex items-center justify-between rounded border border-amber-400/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
-            <span>Replying to @{replyToUsername}</span>
+            <span>Replying to {replyToDisplayName ?? replyToUsername}</span>
             <button
               type="button"
               className="underline"
               onClick={() => {
                 setReplyToCommentId(null);
                 setReplyToUsername(null);
+                setReplyToDisplayName(null);
               }}
             >
               Cancel reply
@@ -195,7 +201,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
           value={content}
           onChange={(event) => setContent(event.target.value)}
           className={`${FUNDRAISER_FIELD_CLASS} h-28`}
-          placeholder={replyToUsername ? `Reply to @${replyToUsername}` : "Write a comment"}
+          placeholder={replyToUsername ? `Reply to ${replyToDisplayName ?? replyToUsername}` : "Write a comment"}
         />
         <div className="flex items-center justify-between gap-3">
           <label className="inline-flex cursor-pointer items-center rounded-md border border-[#3d4e6d] bg-[#1a2335] px-3 py-2 text-xs text-slate-200 hover:bg-[#243149]">
@@ -231,7 +237,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
           <div className="grid grid-cols-4 gap-2">
             {mediaUrls.map((url, index) => (
               <div key={`${url}-${index}`} className="relative">
-                <Image src={url} alt="Comment upload" width={240} height={240} unoptimized className="h-16 w-full rounded-md object-cover" />
+                <Image src={url} alt="Comment upload" width={160} height={160} sizes="120px" className="h-16 w-full rounded-md object-cover" />
                 <button
                   type="button"
                   className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"
@@ -252,7 +258,7 @@ export function FundraiserDiscussionClient({ fundraiser, currentUserId }: Fundra
             <button type="button" className="absolute -top-9 right-0 text-sm text-slate-100 underline" onClick={() => setExpandedMediaUrl(null)}>
               Close
             </button>
-            <Image src={expandedMediaUrl} alt="Expanded media" width={1800} height={1800} unoptimized className="max-h-[90vh] w-auto rounded-md object-contain" />
+            <Image src={expandedMediaUrl} alt="Expanded media" width={1536} height={1536} sizes="92vw" className="max-h-[90vh] w-auto rounded-md object-contain" />
           </div>
         </div>
       ) : null}

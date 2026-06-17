@@ -29,7 +29,7 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
     include: {
       creator: { select: { id: true, username: true } },
       comments: {
-        include: { author: { select: { id: true, username: true } } },
+        include: { author: { select: { id: true, username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
         orderBy: [{ createdAt: "asc" }],
       },
     },
@@ -68,6 +68,11 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
       author: {
         id: comment.author.id,
         username: comment.author.username,
+        fullName: comment.author.fullName,
+        profile: {
+          displayName: comment.author.profile?.displayName ?? null,
+          avatarUrl: comment.author.profile?.avatarUrl ?? null,
+        },
       },
     })),
   };
@@ -105,9 +110,9 @@ export default async function FundraiserPage({ params }: FundraiserPageProps) {
                   <Image
                     src={fundraiser.bannerUrl}
                     alt={`${fundraiser.title} banner`}
-                    width={1600}
-                    height={720}
-                    unoptimized
+                    width={1024}
+                    height={461}
+                    sizes="(min-width: 1024px) 620px, 100vw"
                     className="max-h-[40vh] w-full rounded border border-[var(--border)] object-cover"
                   />
                 ) : null}

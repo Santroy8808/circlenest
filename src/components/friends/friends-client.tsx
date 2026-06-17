@@ -173,9 +173,9 @@ export function FriendsClient({
                   <Image
                     src={f.profile.avatarUrl}
                     alt={f.profile?.displayName || f.username}
-                    width={500}
-                    height={500}
-                    unoptimized
+                    width={384}
+                    height={384}
+                    sizes="(min-width: 768px) 160px, 50vw"
                     className="aspect-square w-full rounded-md object-cover"
                   />
                 ) : (

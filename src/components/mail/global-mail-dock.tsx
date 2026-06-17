@@ -48,11 +48,11 @@ const STORAGE_GEOMETRY_KEY = "theta.activeMailGeometry";
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 function displayNameForUser(user: FriendRef) {
-  return user.profile?.displayName ?? user.fullName ?? user.username;
+  return user.fullName ?? user.profile?.displayName ?? user.username;
 }
 
 function displayNameForSender(sender: MailMessage["sender"]) {
-  return sender.profile?.displayName ?? sender.fullName ?? sender.username;
+  return sender.fullName ?? sender.profile?.displayName ?? sender.username;
 }
 
 function formatTime(value: string) {
@@ -458,7 +458,7 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
                   {filteredFriends.map((friend) => (
                     <button key={friend.id} type="button" className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left hover:bg-[#162033]" onClick={() => void startMailToContact(friend)}>
                       {friend.profile?.avatarUrl ? (
-                        <Image src={friend.profile.avatarUrl} alt={displayNameForUser(friend)} width={34} height={34} unoptimized className="h-[34px] w-[34px] rounded-full object-cover" />
+                        <Image src={friend.profile.avatarUrl} alt={displayNameForUser(friend)} width={34} height={34} sizes="34px" className="h-[34px] w-[34px] rounded-full object-cover" />
                       ) : (
                         <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#24334d] text-xs font-semibold text-white">{displayNameForUser(friend).charAt(0).toUpperCase()}</span>
                       )}
@@ -600,7 +600,7 @@ export function GlobalMailDock({ myUserId }: { myUserId: string }) {
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-center gap-3">
                             {message.sender.profile?.avatarUrl ? (
-                              <Image src={message.sender.profile.avatarUrl} alt={displayNameForSender(message.sender)} width={36} height={36} unoptimized className="h-9 w-9 rounded-full object-cover" />
+                              <Image src={message.sender.profile.avatarUrl} alt={displayNameForSender(message.sender)} width={36} height={36} sizes="36px" className="h-9 w-9 rounded-full object-cover" />
                             ) : (
                               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#24334d] text-xs font-semibold text-white">{displayNameForSender(message.sender).charAt(0).toUpperCase()}</span>
                             )}

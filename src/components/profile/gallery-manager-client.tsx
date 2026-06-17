@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { uploadImageWithCompression, type UploadImageOptions } from "@/lib/media/image-upload.client";
 import { CommentThread } from "@/components/comments/comment-thread";
 import { GalleryUploadSurfaceClient } from "@/components/profile/gallery-upload-surface-client";
@@ -16,7 +16,7 @@ type GalleryComment = {
   content: string;
   mediaUrlsJson?: string | null;
   createdAt: string | Date;
-  author: { username: string; fullName?: string | null };
+  author: { username: string; fullName?: string | null; profile?: { displayName?: string | null; avatarUrl?: string | null } | null };
 };
 
 type GalleryPhoto = {
@@ -40,6 +40,11 @@ type GalleryAlbum = {
   createdAt: string | Date;
   photos: GalleryPhoto[];
   albumTags?: { tag: { id: string; name: string } }[];
+};
+
+type GalleryUploadResultPayload = {
+  album: { id: string; title: string };
+  photos: GalleryPhoto[];
 };
 
 const DRAG_URL_MIME = "application/x-theta-space-photo-url";
@@ -91,6 +96,13 @@ function flattenPhotos(albums: GalleryAlbum[]): GalleryPhoto[] {
   return albums.flatMap((album) => album.photos);
 }
 
+function getDefaultAlbumId(albums: GalleryAlbum[]): string {
+  const myPicsAlbum = albums
+    .filter((album) => album.title.trim().toLowerCase() === "my pics")
+    .sort((a, b) => toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime())[0];
+  return myPicsAlbum?.id ?? albums[0]?.id ?? "";
+}
+
 function normalizeVisibility(value: string | null | undefined): Visibility {
   if (value === "PRIVATE" || value === "FRIENDS_FAMILY") return value;
   return "PUBLIC";
@@ -119,7 +131,7 @@ export function GalleryManagerClient({
   const ghostButtonClass = "rounded-full border border-[#304058] px-4 py-2 text-sm text-slate-200 transition hover:border-[#4a5a78] hover:text-white";
   const primaryButtonClass = "rounded-full bg-[#376ef8] px-4 py-2 text-sm font-semibold text-white transition hover:translate-y-[-1px] hover:shadow-[0_10px_24px_rgba(55,110,248,0.28)]";
   const [albums, setAlbums] = useState(initialAlbums);
-  const [activeAlbumId, setActiveAlbumId] = useState(initialAlbums[0]?.id ?? "");
+  const [activeAlbumId, setActiveAlbumId] = useState(() => getDefaultAlbumId(initialAlbums));
   const [status, setStatus] = useState("");
   const [tagFilter, setTagFilter] = useState<string>("ALL");
   const [userTags, setUserTags] = useState<string[]>(initialUserTags);
@@ -243,6 +255,54 @@ export function GalleryManagerClient({
     if (openPhotoId === photoId) setOpenPhotoId(null);
   }
 
+  const mergeUploadedPhotos = useCallback((payload: GalleryUploadResultPayload) => {
+    if (!payload.album?.id || !payload.photos.length) return;
+    setAlbums((previous) => {
+      const targetIndex = previous.findIndex((album) => album.id === payload.album.id);
+      const newPhotos = (existingPhotos: GalleryPhoto[]) => {
+        const existingIds = new Set(existingPhotos.map((photo) => photo.id));
+        return [...payload.photos.filter((photo) => !existingIds.has(photo.id)), ...existingPhotos];
+      };
+
+      if (targetIndex === -1) {
+        return [
+          {
+            id: payload.album.id,
+            title: payload.album.title,
+            createdAt: new Date().toISOString(),
+            photos: payload.photos,
+          },
+          ...previous,
+        ];
+      }
+
+      const next = [...previous];
+      next[targetIndex] = {
+        ...next[targetIndex],
+        title: payload.album.title,
+        photos: newPhotos(next[targetIndex].photos),
+      };
+      return next;
+    });
+    setActiveAlbumId(payload.album.id);
+    setTagFilter("ALL");
+    setSortMode("newest");
+    setStatus(`${payload.photos.length} photo${payload.photos.length === 1 ? "" : "s"} uploaded.`);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem("theta-gallery-upload-result");
+    if (!raw) return;
+    window.sessionStorage.removeItem("theta-gallery-upload-result");
+    try {
+      const payload = JSON.parse(raw) as GalleryUploadResultPayload;
+      mergeUploadedPhotos(payload);
+    } catch {
+      setStatus("Photos uploaded.");
+    }
+  }, [mergeUploadedPhotos]);
+
   async function deletePhoto(photoId: string) {
     const res = await fetch(`/api/gallery/photos/${photoId}`, { method: "DELETE" });
     if (!res.ok) {
@@ -255,15 +315,15 @@ export function GalleryManagerClient({
 
   async function assignPhotoAs(type: "avatar" | "banner") {
     if (!openPhoto) return;
-    const payload = type === "avatar" ? { avatarUrl: openPhoto.url } : { bannerUrl: openPhoto.url };
-    const res = await fetch("/api/profile", {
-      method: "PATCH",
+    const res = await fetch(`/api/gallery/photos/${openPhoto.id}/profile-image`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ type }),
     });
 
     if (!res.ok) {
-      setStatus(`Could not update ${type}.`);
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      setStatus(body?.error ?? `Could not update ${type}.`);
       return;
     }
 
@@ -498,7 +558,7 @@ export function GalleryManagerClient({
                               event.dataTransfer.setData("text/plain", photo.url);
                             }}
                           >
-                            <Image src={photo.url} alt={photo.caption || "Gallery photo"} width={700} height={700} unoptimized className="h-full w-full object-cover" />
+                            <Image src={photo.url} alt={photo.caption || "Gallery photo"} width={384} height={384} sizes="(min-width: 768px) 210px, 50vw" className="h-full w-full object-cover" />
 
                             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent opacity-0 transition group-hover:opacity-100" />
 
@@ -574,6 +634,7 @@ export function GalleryManagerClient({
                 alt={openPhoto.caption || "Gallery photo"}
                 width={1200}
                 height={900}
+                sizes="(min-width: 768px) 960px, 100vw"
                 className={`h-full w-full ${zoomed ? "object-cover" : "object-contain"}`}
               />
 
@@ -750,7 +811,7 @@ export function GalleryManagerClient({
                     <div className="grid grid-cols-4 gap-2">
                       {modalCommentMediaUrls.map((url, index) => (
                         <div key={`${url}-${index}`} className="relative">
-                          <Image src={url} alt="Reply upload" width={180} height={180} unoptimized className="h-14 w-full rounded object-cover" />
+                          <Image src={url} alt="Reply upload" width={128} height={128} sizes="96px" className="h-14 w-full rounded object-cover" />
                           <button
                             type="button"
                             className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white"
@@ -775,10 +836,11 @@ export function GalleryManagerClient({
       {showUploadModal ? (
         <GalleryUploadSurfaceClient
           mode="modal"
-          albums={albums.map((album) => ({ id: album.id, title: album.title }))}
-          defaultAlbumId=""
+          albums={albums.map((album) => ({ id: album.id, title: album.title, createdAt: album.createdAt }))}
+          defaultAlbumId={activeAlbum?.id ?? ""}
           onClose={() => setShowUploadModal(false)}
-          onUploaded={() => {
+          onUploaded={(payload) => {
+            mergeUploadedPhotos(payload);
             setShowUploadModal(false);
             router.refresh();
           }}

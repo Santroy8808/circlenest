@@ -14,7 +14,7 @@ export async function GET(_request: Request, context: { params: { threadId: stri
   const participants = getThreadParticipants(thread).map((participant) => ({
     id: participant.id,
     username: participant.username,
-    displayName: participant.profile?.displayName ?? participant.fullName ?? participant.username,
+    displayName: participant.fullName ?? participant.profile?.displayName ?? participant.username,
     avatarUrl: participant.profile?.avatarUrl ?? null,
   }));
   return NextResponse.json({
@@ -28,7 +28,7 @@ export async function GET(_request: Request, context: { params: { threadId: stri
       : {
           id: other.id,
           username: other.username,
-          displayName: other.profile?.displayName ?? other.fullName ?? other.username,
+          displayName: other.fullName ?? other.profile?.displayName ?? other.username,
           avatarUrl: other.profile?.avatarUrl ?? null,
         },
   });

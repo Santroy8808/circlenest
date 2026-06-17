@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AdPlacementCard } from "@/components/ads/ad-placement-card";
@@ -89,8 +90,7 @@ export function BazaarClient({ initialListings, currentUserId }: BazaarClientPro
         <div className="group relative aspect-square overflow-hidden rounded-[18px] border border-[var(--border)] bg-[#0d1320]">
           {listing.imageUrls[0] ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={listing.imageUrls[0]} alt={listing.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" />
+              <Image src={listing.imageUrls[0]} alt={listing.title} fill sizes="(min-width: 1024px) 220px, (min-width: 768px) 33vw, 50vw" className="object-cover transition duration-200 group-hover:scale-[1.02]" />
               <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(6,9,16,0.92))] p-3">
                 <p className="line-clamp-2 text-sm font-semibold text-white">{listing.title}</p>
                 <p className="mt-1 text-sm font-semibold text-amber-200">${listing.price.toFixed(2)} {listing.currency}</p>

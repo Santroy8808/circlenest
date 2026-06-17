@@ -24,8 +24,8 @@ export default async function GroupPage({ params }: { params: { groupId: string 
       events: { include: { creator: { select: { username: true } } }, orderBy: { startsAt: "asc" } },
       threads: {
         include: {
-          author: { select: { username: true } },
-          posts: { include: { author: { select: { username: true } } }, orderBy: { createdAt: "asc" } },
+          author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+          posts: { include: { author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } }, orderBy: { createdAt: "asc" } },
           userPreferences: {
             where: { userId: session.user.id },
             select: { isPinned: true, sortOrder: true },
@@ -37,9 +37,9 @@ export default async function GroupPage({ params }: { params: { groupId: string 
       documents: { include: { uploader: { select: { username: true } } }, orderBy: { createdAt: "desc" } },
       photos: {
         include: {
-          uploader: { select: { username: true } },
+          uploader: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
           comments: {
-            include: { author: { select: { username: true, fullName: true } } },
+            include: { author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } } },
             orderBy: { createdAt: "asc" },
           },
         },
@@ -117,6 +117,9 @@ export default async function GroupPage({ params }: { params: { groupId: string 
               mediaUrlsJson: p.mediaUrlsJson,
               createdAt: p.createdAt.toISOString(),
               authorUsername: p.author.username,
+              authorFullName: p.author.fullName,
+              authorAvatarUrl: p.author.profile?.avatarUrl ?? null,
+              authorDisplayName: p.author.profile?.displayName ?? null,
             })),
           })),
           documents: group.documents.map((d) => ({ id: d.id, title: d.title, url: d.url, uploaderUsername: d.uploader.username })),
@@ -126,6 +129,9 @@ export default async function GroupPage({ params }: { params: { groupId: string 
             url: p.url,
             sizeBytes: p.sizeBytes,
             uploaderUsername: p.uploader.username,
+            uploaderFullName: p.uploader.fullName,
+            uploaderAvatarUrl: p.uploader.profile?.avatarUrl ?? null,
+            uploaderDisplayName: p.uploader.profile?.displayName ?? null,
             albumId: p.albumId,
             tags: p.tags,
             comments: p.comments.map((comment) => ({
@@ -136,6 +142,8 @@ export default async function GroupPage({ params }: { params: { groupId: string 
               createdAt: comment.createdAt.toISOString(),
               authorUsername: comment.author.username,
               authorFullName: comment.author.fullName,
+              authorAvatarUrl: comment.author.profile?.avatarUrl ?? null,
+              authorDisplayName: comment.author.profile?.displayName ?? null,
             })),
           })),
           photoAlbums: group.photoAlbums.map((a) => ({ id: a.id, title: a.title, description: a.description })),

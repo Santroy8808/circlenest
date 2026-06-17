@@ -37,14 +37,14 @@ export default async function HomePage() {
         ],
       },
       include: {
-        author: { select: { username: true } },
+        author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
         comments: {
           select: {
             id: true,
             content: true,
             parentCommentId: true,
             createdAt: true,
-            author: { select: { username: true } },
+            author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
           },
           orderBy: { createdAt: "asc" },
         },

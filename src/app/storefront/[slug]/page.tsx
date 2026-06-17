@@ -95,14 +95,14 @@ export default async function PublicStorefrontPage({ params }: { params: { slug:
           <section className="overflow-hidden rounded-2xl border border-[#4e5d7a] bg-[#0f1726] shadow-[0_20px_80px_rgba(0,0,0,0.32)]">
             {profile.bannerUrl ? (
               <div className="relative h-48 border-b border-white/5">
-                <Image src={profile.bannerUrl} alt={`${profile.businessName} banner`} fill unoptimized className="object-cover" />
+                <Image src={profile.bannerUrl} alt={`${profile.businessName} banner`} fill sizes="(min-width: 1024px) 820px, 100vw" priority className="object-cover" />
               </div>
             ) : null}
             <div className="border-b border-white/5 bg-[linear-gradient(135deg,rgba(143,114,40,0.18),rgba(14,18,28,0.04))] px-6 py-5 md:px-8">
               <div className="flex flex-wrap items-center gap-4">
                 {profile.logoUrl ? (
                   <div className="relative h-16 w-16 overflow-hidden rounded-xl border border-amber-300/30 bg-[#111a2b]">
-                    <Image src={profile.logoUrl} alt={`${profile.businessName} logo`} fill unoptimized className="object-cover" />
+                    <Image src={profile.logoUrl} alt={`${profile.businessName} logo`} fill sizes="64px" className="object-cover" />
                   </div>
                 ) : null}
                 <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">

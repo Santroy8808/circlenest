@@ -126,14 +126,14 @@ export async function getFeedPosts(userId: string, mode: FeedMode) {
       createdAt: { gte: fastCutoff },
     },
     include: {
-      author: { select: { username: true } },
+      author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
       comments: {
         select: {
           id: true,
           content: true,
           parentCommentId: true,
           createdAt: true,
-          author: { select: { username: true } },
+          author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
         },
         orderBy: { createdAt: "asc" },
       },
@@ -174,14 +174,14 @@ export async function getArchiveFeedPosts(userId: string, mode: FeedMode, before
       createdAt: { lt: upperBound },
     },
     include: {
-      author: { select: { username: true } },
+      author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
       comments: {
         select: {
           id: true,
           content: true,
           parentCommentId: true,
           createdAt: true,
-          author: { select: { username: true } },
+          author: { select: { username: true, fullName: true, profile: { select: { displayName: true, avatarUrl: true } } } },
         },
         orderBy: { createdAt: "asc" },
       },
