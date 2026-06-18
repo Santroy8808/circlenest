@@ -1,6 +1,6 @@
 # Theta-Space Promotion Dry Run
 
-Generated: 2026-06-18T05:33:38.887Z
+Generated: 2026-06-18T05:42:15.225Z
 
 ## Purpose
 
@@ -11,8 +11,8 @@ This document does not copy files, delete files, archive production, push GitHub
 ## Source State
 
 - NewRepo path: `C:\Repos\Theta-Space-net\NewRepo`
-- NewRepo commit: `bf381d8`
-- NewRepo full commit: `bf381d892ba79317fe7ee23b41cc3bda66a9b863`
+- NewRepo commit: `ad9fdf7`
+- NewRepo full commit: `ad9fdf71e2dd43f9be9f86ecf5ecd74fef71d910`
 - NewRepo worktree: clean when dry run was generated
 - Production repo path: `C:\Repos\thetansplace\circlenest`
 - Production branch: `main`
@@ -22,23 +22,23 @@ This document does not copy files, delete files, archive production, push GitHub
 
 ## Summary
 
-- NewRepo tracked files: 320
-- Included tracked files: 320
+- NewRepo tracked files: 323
+- Included tracked files: 323
 - Excluded tracked files: 0
 - Shared production paths: 65
-- New paths not currently in production: 255
+- New paths not currently in production: 258
 - Production tracked paths not in NewRepo: 445
 
 ## Included File Categories
 
 - App routes: 135
 - Components: 60
-- Docs: 35
+- Docs: 37
 - Modules: 56
 - Platform libraries: 8
 - Prisma: 2
 - Root/config: 17
-- Scripts: 7
+- Scripts: 8
 
 ## Exclusion Rules
 
@@ -70,6 +70,7 @@ Never copy these during promotion:
 - `docs/browser-smoke-checklist.md`
 - `docs/cutover-readiness.md`
 - `docs/cutover-runbook.md`
+- `docs/external-services-readiness.md`
 - `docs/modules/01-platform-infrastructure.md`
 - `docs/modules/01a-feedback-support.md`
 - `docs/modules/02-auth-security.md`
@@ -89,8 +90,7 @@ Never copy these during promotion:
 - `docs/modules/16-market.md`
 - `docs/modules/17-jobs.md`
 - `docs/modules/18-auditors.md`
-- `docs/modules/19-production-zone.md`
-- ... 225 more
+- ... 228 more
 
 ## Production Tracked Files Not In NewRepo
 
