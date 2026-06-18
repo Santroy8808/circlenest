@@ -10,7 +10,8 @@ const rootDocs = [
   { title: "Cutover Readiness", href: "/docs/cutover-readiness" },
   { title: "Release Candidate", href: "/docs/release-candidate" },
   { title: "Production Repo Snapshot", href: "/docs/production-repo-snapshot" },
-  { title: "Cutover Runbook", href: "/docs/cutover-runbook" }
+  { title: "Cutover Runbook", href: "/docs/cutover-runbook" },
+  { title: "Browser Smoke Checklist", href: "/docs/browser-smoke-checklist" }
 ];
 
 export default function DocsPage() {

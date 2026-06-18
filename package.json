@@ -16,7 +16,8 @@
     "cutover:check": "tsx scripts/cutover-readiness.ts",
     "release:manifest": "tsx scripts/release-manifest.ts",
     "prod:snapshot": "tsx scripts/production-repo-snapshot.ts",
-    "cutover:runbook": "tsx scripts/cutover-runbook.ts"
+    "cutover:runbook": "tsx scripts/cutover-runbook.ts",
+    "browser:smoke": "tsx scripts/browser-smoke-checklist.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

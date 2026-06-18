@@ -12,7 +12,8 @@ const docFiles: Record<string, string> = {
   "cutover-readiness": "docs/cutover-readiness.md",
   "release-candidate": "docs/release-candidate.md",
   "production-repo-snapshot": "docs/production-repo-snapshot.md",
-  "cutover-runbook": "docs/cutover-runbook.md"
+  "cutover-runbook": "docs/cutover-runbook.md",
+  "browser-smoke-checklist": "docs/browser-smoke-checklist.md"
 };
 
 export default async function RootDocPage({ params }: { params: { doc: string } }) {

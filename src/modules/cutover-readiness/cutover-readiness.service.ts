@@ -34,6 +34,12 @@ export function getCutoverDashboard(): CutoverDashboardView {
         command: "npm run cutover:runbook"
       },
       {
+        title: "Browser smoke checklist",
+        status: "automated",
+        detail: "Generate the route-by-route visual QC script for desktop and mobile browser checks.",
+        command: "npm run browser:smoke"
+      },
+      {
         title: "Browser visual QC",
         status: "manual",
         detail: "Login, home, search, profile, gallery, groups, mail, market, jobs, feedback, and admin need browser confirmation."

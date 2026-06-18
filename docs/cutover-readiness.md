@@ -69,6 +69,16 @@ npm run cutover:runbook
 
 This writes `docs/cutover-runbook.md` with the suggested archive tag, validation commands, production promotion outline, production smoke checklist, and rollback command block. It is read-only documentation and does not perform the cutover.
 
+## Browser Smoke Checklist
+
+Run from NewRepo:
+
+```powershell
+npm run browser:smoke
+```
+
+This writes `docs/browser-smoke-checklist.md` with route-by-route visual QC steps for desktop and mobile. It is a manual test guide and does not perform browser actions.
+
 ## Dashboard
 
 The in-app cutover dashboard is available at:

@@ -30,6 +30,7 @@ npm run cutover:check
 npm run release:manifest
 npm run prod:snapshot
 npm run cutover:runbook
+npm run browser:smoke
 npm run dev
 ```
 
