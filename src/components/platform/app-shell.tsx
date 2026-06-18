@@ -12,6 +12,7 @@ const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCoun
   { label: "Friends", href: "/friends" },
   { label: "Groups", href: "/groups" },
   { label: "Events", href: "/events" },
+  { label: "The Market", href: "/market" },
   { label: "Profile", href: "/profile" },
   { label: "My Scientology", href: "/profile/scientology" },
   { label: "My Pics", href: "/profile/gallery" },

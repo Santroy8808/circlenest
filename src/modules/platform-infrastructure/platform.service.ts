@@ -116,7 +116,7 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
   {
     key: "market",
     title: "Market",
-    status: "blueprint",
+    status: "ready",
     purpose: "Square thumbnail listings, static categories, tier limits, and clean ad handoff.",
     href: "/docs/modules/16-market"
   },
@@ -233,7 +233,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 16",
     title: "Market",
-    status: "Next",
+    status: "Ready",
     detail: "The Market listings as square thumbnail cards, static categories, detail pages, and tier limits."
+  },
+  {
+    label: "Phase 17",
+    title: "Jobs",
+    status: "Next",
+    detail: "Browsable job board for all tiers, Professional-only creation, static categories, and detail/contact pages."
   }
 ];

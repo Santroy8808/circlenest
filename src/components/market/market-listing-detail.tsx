@@ -1,0 +1,82 @@
+import Link from "next/link";
+import type { MarketListingDetailView } from "@/modules/market/types";
+
+function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "currency">) {
+  if (listing.priceCents === null || listing.priceCents === undefined) return "Contact seller";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: listing.currency
+  }).format(listing.priceCents / 100);
+}
+
+export function MarketListingDetail({ listing }: { listing: MarketListingDetailView }) {
+  const hero = listing.photos[0];
+
+  return (
+    <div className="grid gap-5">
+      <section className="surface overflow-hidden rounded-md">
+        <div className="market-detail-hero">
+          {hero?.publicUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="" src={hero.publicUrl} />
+          ) : (
+            <span>{listing.categoryLabel}</span>
+          )}
+        </div>
+        <div className="p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{listing.categoryLabel}</p>
+              <h1 className="mt-3 text-4xl font-semibold">{listing.title}</h1>
+              <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
+            </div>
+            <Link className="btn-secondary" href="/market">
+              Back to Market
+            </Link>
+          </div>
+          <p className="mt-6 whitespace-pre-wrap leading-7 text-[var(--muted)]">{listing.description}</p>
+        </div>
+      </section>
+
+      {listing.photos.length > 1 ? (
+        <section className="surface rounded-md p-5">
+          <h2 className="text-xl font-semibold text-[var(--gold)]">Photos</h2>
+          <div className="gallery-grid mt-4">
+            {listing.photos.map((photo) => (
+              <div className="gallery-tile" key={photo.id}>
+                {photo.publicUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" src={photo.publicUrl} />
+                ) : (
+                  <span className="gallery-tile-fallback">{photo.originalName ?? "Photo"}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <article className="surface rounded-md p-5">
+          <h2 className="text-xl font-semibold text-[var(--gold)]">Seller</h2>
+          <p className="mt-2 text-[var(--muted)]">{listing.seller.displayName}</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">@{listing.seller.username}</p>
+          <Link className="btn-secondary mt-4 inline-block" href="/mail">
+            Open Mail
+          </Link>
+        </article>
+        <article className="surface rounded-md p-5">
+          <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
+          </p>
+          {listing.viewerCanPromote ? (
+            <Link className="btn-secondary mt-4 inline-block" href="/docs/modules/21-ads-credits">
+              Ad handoff notes
+            </Link>
+          ) : null}
+        </article>
+      </section>
+    </div>
+  );
+}

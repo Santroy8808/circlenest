@@ -164,6 +164,25 @@ enum EventRsvpStatus {
   DECLINED
 }
 
+enum MarketListingCategory {
+  BOOKS_MATERIALS
+  COURSE_SUPPLIES
+  AUDITING_SUPPLIES
+  E_METERS
+  FURNITURE_EQUIPMENT
+  SERVICES
+  BUSINESS_SERVICES
+  EVENTS_SUPPLIES
+  OTHER
+}
+
+enum MarketListingStatus {
+  ACTIVE
+  SOLD
+  EXPIRED
+  ARCHIVED
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -267,6 +286,7 @@ model User {
   eventInvitationsSent     EventInvitation[]          @relation("EventInvitationSender")
   eventInvitationsReceived EventInvitation[]          @relation("EventInvitationInvitee")
   eventRsvps               EventRsvp[]
+  marketListings           MarketListing[]           @relation("MarketListingSeller")
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -412,6 +432,7 @@ model MediaAsset {
   mailAttachments MailAttachment[]
   groupForumPosts GroupForumPost[]
   groupAssets   GroupAsset[]
+  marketListingPhotos MarketListingPhoto[]
 
   @@index([ownerUserId, createdAt])
 }
@@ -960,6 +981,41 @@ model EventRsvp {
   @@unique([eventId, userId])
   @@index([userId, status, createdAt])
   @@index([eventId, status])
+}
+
+model MarketListing {
+  id           String                @id @default(cuid())
+  slug         String                @unique
+  sellerUserId String
+  title        String
+  description  String
+  category     MarketListingCategory
+  priceCents   Int?
+  currency     String                @default("USD")
+  status       MarketListingStatus   @default(ACTIVE)
+  expiresAt    DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  seller       User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
+  photos       MarketListingPhoto[]
+
+  @@index([status, category, createdAt])
+  @@index([sellerUserId, createdAt])
+  @@index([expiresAt])
+}
+
+model MarketListingPhoto {
+  id              String        @id @default(cuid())
+  listingId       String
+  mediaAssetId    String
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  listing         MarketListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  mediaAsset      MediaAsset    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, mediaAssetId])
+  @@index([mediaAssetId, createdAt])
+  @@index([listingId, sortOrder])
 }
 
 model Notification {
