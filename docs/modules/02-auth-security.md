@@ -28,6 +28,16 @@ Handle trusted member access for a private, invite-based platform.
 - Password reset and email verification.
 - Session revocation and security event logging.
 
+## Implemented Slice
+
+- Auth.js credentials provider with username/email login.
+- Security event table for login, signup, reset, verification, and revocation events.
+- Password reset and email verification token tables.
+- Session revocation through `sessionVersion`.
+- 2FA-ready configuration table.
+- Preverified seed users in `prisma/seed.ts`.
+- Protected `/home` route for app-auth smoke testing.
+
 ## Access Rules
 
 Unauthenticated users only see auth screens. Admin remains role-based and separate from tier.
@@ -45,4 +55,3 @@ The rebuild should avoid fragile login seed drift by making seed verification ex
 - Free, Contributor, Professional, Auditor, and Admin test users can log in.
 - Bad credentials fail cleanly.
 - Security events are logged.
-

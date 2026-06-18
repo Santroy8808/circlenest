@@ -1,0 +1,23 @@
+import { AppShell } from "@/components/platform/app-shell";
+import { MembershipMatrix } from "@/components/policy/membership-matrix";
+import { getPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
+
+export default function MembershipPage() {
+  const policies = getPolicyMatrix();
+
+  return (
+    <AppShell>
+      <section className="surface rounded-md p-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Membership Policy</p>
+        <h1 className="mt-3 text-3xl font-semibold">Tier matrix</h1>
+        <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
+          This central matrix is the source of truth for Free, Contributor, Professional, and Auditor capabilities.
+          Admin remains a separate role, not a paid tier.
+        </p>
+      </section>
+      <section className="mt-5">
+        <MembershipMatrix policies={policies} />
+      </section>
+    </AppShell>
+  );
+}

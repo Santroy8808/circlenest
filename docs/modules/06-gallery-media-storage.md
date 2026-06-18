@@ -21,7 +21,8 @@ Provide a simple, fast My Pics photo pool backed by Cloudflare R2.
 ## Data Ownership
 
 - `MediaAsset`
-- future album/tag tables.
+- `MediaCollection`
+- `MediaCollectionAsset`
 
 ## Core Workflows
 
@@ -30,6 +31,15 @@ Provide a simple, fast My Pics photo pool backed by Cloudflare R2.
 - Recent-first gallery.
 - Tags and albums added after upload.
 - System date tags.
+
+## Implemented Slice
+
+- R2 presigned PUT support in `src/lib/platform/r2`.
+- Upload intent API at `/api/media/upload-intent`.
+- Upload completion API at `/api/media/complete-upload`.
+- `MediaCollection` and `MediaCollectionAsset` support albums, tags, and system date collections.
+- `/profile/gallery` protected My Pics recent-first gallery.
+- `/profile/gallery/upload` focused upload page with direct upload progress.
 
 ## Access Rules
 
@@ -48,4 +58,3 @@ Avoid complex upload forms on the gallery page. Upload opens its own page on mob
 - Upload progress visible.
 - New photo appears without refresh.
 - Mobile upload page scrolls.
-

@@ -20,7 +20,10 @@ Provide the main social experience: posts, comments, reactions, and meaningful u
 
 ## Data Ownership
 
-- future post, comment, reaction, poll tables.
+- `FeedPost`
+- `FeedComment`
+- `FeedPostReaction`
+- `FeedCommentReaction`
 
 ## Core Workflows
 
@@ -29,6 +32,14 @@ Provide the main social experience: posts, comments, reactions, and meaningful u
 - React to posts/comments/replies.
 - Attach photos.
 - Switch feed modes by tier.
+
+## Implemented Slice
+
+- Feed post, comment, nested reply, and reaction schema.
+- Feed service for list/create/comment/react operations.
+- `/api/feed/posts`, `/api/feed/comments`, `/api/feed/reactions/post`, `/api/feed/reactions/comment`.
+- `/home` now renders the stream foundation for signed-in members.
+- Client feed actions refetch local feed state instead of reloading the page.
 
 ## Access Rules
 
@@ -47,4 +58,3 @@ Avoid engagement-only ranking. Prefer chronological and relationship-weighted co
 - Comment stays in thread.
 - No full-page reload after reaction.
 - Mobile comments remain readable.
-

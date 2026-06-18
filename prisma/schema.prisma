@@ -45,37 +45,158 @@ enum MediaVisibility {
   PUBLIC
 }
 
+enum MediaCollectionType {
+  ALBUM
+  TAG
+  SYSTEM_DATE
+}
+
+enum FeedVisibility {
+  MEMBERS
+  FRIENDS
+  PRIVATE
+}
+
+enum FeedReactionType {
+  LIKE
+  LOVE
+  CARE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
+enum SocialRelationshipType {
+  FRIEND
+  FAMILY
+  CONTACT
+  FOLLOW
+  BLOCK
+  MUTE
+}
+
+enum AuthSecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  SIGNUP_CREATED
+  EMAIL_VERIFICATION_REQUESTED
+  EMAIL_VERIFIED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  SESSION_REVOKED
+  TWO_FACTOR_READY
+}
+
+enum FeedbackTicketStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum FeedbackTicketSeverity {
+  low
+  normal
+  high
+  urgent
+}
+
+enum ProfileVisibility {
+  PRIVATE
+  MEMBERS
+  PUBLIC
+}
+
+enum ScientologyVisibility {
+  PRIVATE
+  MEMBERS
+}
+
+enum ScientologyClassification {
+  PUBLIC
+  PRECLEAR
+  CLEAR
+  OT
+  AUDITOR
+  STAFF
+  SEA_ORG
+  OTHER
+}
+
 model User {
-  id             String         @id @default(cuid())
-  email          String         @unique
-  username       String         @unique
-  passwordHash   String?
-  role           UserRole       @default(MEMBER)
-  emailVerified  DateTime?
-  deactivatedAt  DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  profile        Profile?
-  membership     Membership?
-  mediaAssets    MediaAsset[]
-  notifications  Notification[]
-  alerts         Alert[]
-  diagnostics    DiagnosticLog[]
-  auditLogs      AuditLog[]     @relation("AuditActor")
-  adminActions   AdminAction[]  @relation("AdminActionActor")
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
+  username                 String                   @unique
+  passwordHash             String?
+  role                     UserRole                 @default(MEMBER)
+  emailVerified            DateTime?
+  deactivatedAt            DateTime?
+  sessionVersion           Int                      @default(1)
+  failedLoginCount         Int                      @default(0)
+  lastLoginAt              DateTime?
+  lastPasswordChangedAt    DateTime?
+  sessionsRevokedAt        DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  profile                  Profile?
+  scientologyProfile       ScientologyProfile?
+  membership               Membership?
+  mediaAssets              MediaAsset[]
+  mediaCollections         MediaCollection[]
+  feedPosts                FeedPost[]                @relation("FeedPostAuthor")
+  feedComments             FeedComment[]             @relation("FeedCommentAuthor")
+  feedPostReactions        FeedPostReaction[]
+  feedCommentReactions     FeedCommentReaction[]
+  socialRelationshipsFrom  SocialRelationship[]      @relation("SocialRelationshipFrom")
+  socialRelationshipsTo    SocialRelationship[]      @relation("SocialRelationshipTo")
+  notifications            Notification[]
+  alerts                   Alert[]
+  diagnostics              DiagnosticLog[]
+  auditLogs                AuditLog[]               @relation("AuditActor")
+  adminActions             AdminAction[]            @relation("AdminActionActor")
+  authSecurityEvents       AuthSecurityEvent[]
+  emailVerificationTokens  EmailVerificationToken[]
+  passwordResetTokens      PasswordResetToken[]
+  twoFactorConfig          TwoFactorConfig?
+  feedbackTickets          FeedbackTicket[]         @relation("FeedbackReporter")
+  membershipOverrides      MembershipPolicyOverride[] @relation("MembershipOverrideSubject")
+  createdMembershipOverrides MembershipPolicyOverride[] @relation("MembershipOverrideCreator")
 }
 
 model Profile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String            @id @default(cuid())
+  userId      String            @unique
   displayName String?
+  tagline     String?
   bio         String?
   avatarUrl   String?
   bannerUrl   String?
   location    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visibility  ProfileVisibility @default(MEMBERS)
+  theme        Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ScientologyProfile {
+  id                    String                    @id @default(cuid())
+  userId                String                    @unique
+  classification        ScientologyClassification @default(PUBLIC)
+  orgName               String?
+  lastServiceName       String?
+  lastServiceAt         DateTime?
+  trainingLevel         String?
+  processingStatus      String?
+  goodStandingAttested  Boolean                   @default(false)
+  goodStandingUpdatedAt DateTime?
+  educationNotes        String?
+  visibility            ScientologyVisibility     @default(PRIVATE)
+  adTargetingAllowed    Boolean                   @default(false)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  user                  User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Membership {
@@ -167,8 +288,121 @@ model MediaAsset {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   owner        User            @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  collections  MediaCollectionAsset[]
+  feedPosts    FeedPost[]
+  feedComments FeedComment[]
 
   @@index([ownerUserId, createdAt])
+}
+
+model MediaCollection {
+  id          String              @id @default(cuid())
+  ownerUserId String
+  type        MediaCollectionType
+  name        String
+  slug        String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  owner       User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  assets      MediaCollectionAsset[]
+
+  @@unique([ownerUserId, type, slug])
+  @@index([ownerUserId, type, name])
+}
+
+model MediaCollectionAsset {
+  id           String          @id @default(cuid())
+  collectionId String
+  mediaAssetId String
+  assignedAt   DateTime        @default(now())
+  collection   MediaCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset      @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, mediaAssetId])
+  @@index([mediaAssetId, assignedAt])
+}
+
+model FeedPost {
+  id           String             @id @default(cuid())
+  authorUserId String
+  body         String
+  visibility   FeedVisibility     @default(MEMBERS)
+  mediaAssetId String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  author       User               @relation("FeedPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset?        @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  comments     FeedComment[]
+  reactions    FeedPostReaction[]
+
+  @@index([visibility, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model FeedComment {
+  id              String                @id @default(cuid())
+  postId          String
+  authorUserId    String
+  parentCommentId String?
+  body            String
+  mediaAssetId    String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+  post            FeedPost              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          User                  @relation("FeedCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  parent          FeedComment?          @relation("FeedCommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies         FeedComment[]         @relation("FeedCommentReplies")
+  mediaAsset      MediaAsset?           @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  reactions       FeedCommentReaction[]
+
+  @@index([postId, createdAt])
+  @@index([authorUserId, createdAt])
+  @@index([parentCommentId, createdAt])
+}
+
+model FeedPostReaction {
+  id        String           @id @default(cuid())
+  postId    String
+  userId    String
+  type      FeedReactionType
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  post      FeedPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId, type])
+}
+
+model FeedCommentReaction {
+  id        String           @id @default(cuid())
+  commentId String
+  userId    String
+  type      FeedReactionType
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  comment   FeedComment      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId, type])
+}
+
+model SocialRelationship {
+  id           String                 @id @default(cuid())
+  fromUserId   String
+  toUserId     String
+  type         SocialRelationshipType
+  note         String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  fromUser     User                   @relation("SocialRelationshipFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser       User                   @relation("SocialRelationshipTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId, type])
+  @@index([fromUserId, type, createdAt])
+  @@index([toUserId, type, createdAt])
 }
 
 model Notification {
@@ -197,3 +431,108 @@ model Alert {
   @@index([userId, readAt, createdAt])
 }
 
+model AuthSecurityEvent {
+  id          String                @id @default(cuid())
+  userId      String?
+  type        AuthSecurityEventType
+  identifier  String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime              @default(now())
+  user        User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([identifier, createdAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([email, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model TwoFactorConfig {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  enabled       Boolean   @default(false)
+  method        String?
+  secretHash    String?
+  recoveryCodes Json?
+  verifiedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FeedbackTicket {
+  id             String                 @id @default(cuid())
+  publicId       String                 @unique
+  reporterUserId String?
+  reporterEmail  String?
+  pageUrl        String?
+  title          String
+  description    String
+  severity       FeedbackTicketSeverity @default(normal)
+  status         FeedbackTicketStatus   @default(OPEN)
+  userAgent      String?
+  diagnostics    Json?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  reporter       User?                  @relation("FeedbackReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  events         FeedbackTicketEvent[]
+
+  @@index([status, createdAt])
+  @@index([reporterUserId, createdAt])
+}
+
+model FeedbackTicketEvent {
+  id        String   @id @default(cuid())
+  ticketId  String
+  actorId   String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  ticket    FeedbackTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model MembershipPolicyOverride {
+  id              String    @id @default(cuid())
+  userId          String
+  featureKey      String
+  allowed         Boolean
+  reason          String?
+  expiresAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation("MembershipOverrideSubject", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy       User?     @relation("MembershipOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, featureKey])
+  @@index([featureKey, allowed])
+  @@index([userId, expiresAt])
+}

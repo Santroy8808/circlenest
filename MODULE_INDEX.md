@@ -3,6 +3,7 @@
 | Order | Module | Purpose |
 | --- | --- | --- |
 | 1 | [Platform Infrastructure](docs/modules/01-platform-infrastructure.md) | App scaffold, diagnostics, feature flags, Postgres, R2, health, theme. |
+| 1.5 | [Feedback Support](docs/modules/01a-feedback-support.md) | Global report-an-issue ticket creation and diagnostic context capture. |
 | 2 | [Auth Security](docs/modules/02-auth-security.md) | Login, signup, verification, password reset, 2FA-ready security. |
 | 3 | [Membership Policy](docs/modules/03-membership-policy.md) | Tier matrix and feature gates. |
 | 4 | [Profile Identity](docs/modules/04-profile-identity.md) | Profile, avatar, banner, identity, personal expression. |
@@ -28,4 +29,3 @@
 | 24 | [Admin Moderation](docs/modules/24-admin-moderation.md) | Wizard admin portal, reports, audit, feature flags. |
 | 25 | [Settings Secure Areas](docs/modules/25-settings-secure-areas.md) | Settings cards and sensitive-area protection. |
 | 26 | [Search Discovery](docs/modules/26-search-discovery.md) | Unified privacy-aware search. |
-

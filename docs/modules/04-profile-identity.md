@@ -26,6 +26,14 @@ Represent the member as a person inside the private network.
 - Set avatar/banner from My Pics.
 - Display profile cards across the platform.
 
+## Implemented Slice
+
+- Profile schema includes display name, tagline, bio, avatar, banner, location, visibility, and theme metadata.
+- Public profile cards render through `ProfileCard`.
+- `/profile` redirects signed-in users to their public profile route.
+- `/profile/[username]` displays the member profile card or a safe unavailable state.
+- `/profile/edit` and `/api/profile` update owner-controlled profile identity.
+
 ## Access Rules
 
 Profile editing requires ownership. Public/private field visibility must be explicit.
@@ -42,4 +50,3 @@ Use MySpace-inspired personal expression without sacrificing readability or mobi
 
 - Avatar/banner update immediately.
 - Profile cards render consistently.
-

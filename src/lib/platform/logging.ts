@@ -26,6 +26,15 @@ function shouldLog(level: DiagnosticLevel) {
   return levelWeight[level] >= (levelWeight[configured] ?? levelWeight.info);
 }
 
+function withLogTimeout<T>(promise: Promise<T>) {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error("diagnostic log write timed out")), 1500);
+    })
+  ]);
+}
+
 export async function writeDiagnosticLog(input: LogInput) {
   if (!shouldLog(input.level)) return;
 
@@ -44,7 +53,7 @@ export async function writeDiagnosticLog(input: LogInput) {
   }
 
   try {
-    await prisma.diagnosticLog.create({ data: payload });
+    await withLogTimeout(prisma.diagnosticLog.create({ data: payload }));
   } catch (error) {
     console.error("diagnostic-log-write-failed", error, payload);
   }

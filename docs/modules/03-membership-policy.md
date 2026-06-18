@@ -18,13 +18,23 @@ Define which account tiers can see, create, moderate, invite, advertise, and man
 
 - `Membership`
 - `FeatureFlag`
-- future tier override and invite exception tables.
+- `MembershipPolicyOverride`
+- future invite exception tables.
 
 ## Core Workflows
 
 - Resolve effective access from tier, role, flags, account capabilities, and admin overrides.
 - Gate UI and APIs consistently.
 - Support future tiers without brittle string checks.
+
+## Implemented Slice
+
+- Central tier matrix in `src/modules/membership-policy/policy.ts`.
+- Effective policy resolution with role, tier, and per-user overrides.
+- Audit-logged policy override service.
+- Public matrix API at `/api/membership-policy/matrix`.
+- Authenticated feature evaluation API at `/api/membership-policy/evaluate`.
+- Membership comparison page at `/membership`.
 
 ## Access Rules
 
@@ -42,4 +52,3 @@ Normalize `Professional` as the business tier display name.
 
 - Tier matrix tests cover Free, Contributor, Professional, Auditor, Admin.
 - Locked controls never submit privileged API actions.
-

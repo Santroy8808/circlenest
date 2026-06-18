@@ -17,13 +17,23 @@ Store Scientology-specific member context for identity, qualification, auditor e
 
 ## Data Ownership
 
-- Future Scientology profile table linked to `User`.
+- `ScientologyProfile`
 
 ## Core Workflows
 
 - Record org, service history, training, processing, standing, classification.
 - Pull education data into Auditor profile.
 - Provide privacy-aware targeting fields for ads.
+
+## Implemented Slice
+
+- Dedicated `ScientologyProfile` table linked to `User`.
+- Classification, org, last service, training level, processing status, standing attestation, education notes.
+- Explicit visibility: private or members-summary.
+- `adTargetingAllowed` opt-in field for privacy-safe matching later.
+- Protected `/profile/scientology` page.
+- Authenticated `/api/profile/scientology` update route.
+- Public summary helper that returns no private fields unless the member chooses members visibility.
 
 ## Access Rules
 
@@ -42,4 +52,3 @@ This module is central to platform identity and should not be hidden as a generi
 - Member can update fields.
 - Auditor profile can read education fields.
 - Private fields do not leak into public surfaces.
-

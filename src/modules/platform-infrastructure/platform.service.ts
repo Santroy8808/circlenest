@@ -4,30 +4,72 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
   {
     key: "platform-infrastructure",
     title: "Platform Infrastructure",
-    status: "in-progress",
+    status: "ready",
     purpose: "Scaffold, Postgres, diagnostics, feature flags, R2, health, and visual shell.",
     href: "/docs/modules/01-platform-infrastructure"
   },
   {
+    key: "feedback-support",
+    title: "Feedback Support",
+    status: "ready",
+    purpose: "Global report-an-issue entry, ticket creation, and diagnostic context capture.",
+    href: "/docs/modules/01a-feedback-support"
+  },
+  {
     key: "auth-security",
     title: "Auth Security",
-    status: "blueprint",
+    status: "ready",
     purpose: "Private member login, signup, verification, session and password security.",
     href: "/docs/modules/02-auth-security"
   },
   {
     key: "membership-policy",
     title: "Membership Policy",
-    status: "blueprint",
+    status: "ready",
     purpose: "Free, Contributor, Professional, Auditor, and Admin capability gates.",
     href: "/docs/modules/03-membership-policy"
   },
   {
+    key: "profile-identity",
+    title: "Profile Identity",
+    status: "ready",
+    purpose: "Profile cards, avatar/banner, public identity, and member expression boundaries.",
+    href: "/docs/modules/04-profile-identity"
+  },
+  {
+    key: "my-scientology",
+    title: "My Scientology",
+    status: "ready",
+    purpose: "Scientology-specific member context, privacy, qualification, and auditor education data.",
+    href: "/docs/modules/05-my-scientology"
+  },
+  {
+    key: "gallery-media-storage",
+    title: "Gallery Media Storage",
+    status: "ready",
+    purpose: "My Pics, direct R2 uploads, recent-first gallery, tags, albums, and date collections.",
+    href: "/docs/modules/06-gallery-media-storage"
+  },
+  {
     key: "feed-stream",
     title: "Feed Stream",
-    status: "blueprint",
+    status: "ready",
     purpose: "Facebook-like social stream with less manipulative ranking and cleaner comments.",
     href: "/docs/modules/07-feed-stream"
+  },
+  {
+    key: "social-graph",
+    title: "Social Graph",
+    status: "ready",
+    purpose: "Friends, family, contacts, follows, blocks, mutes, and people cards.",
+    href: "/docs/modules/08-social-graph"
+  },
+  {
+    key: "notifications-alerts",
+    title: "Notifications Alerts",
+    status: "ready",
+    purpose: "Unread counters, social notifications, special alerts inbox, and hover-safe cards.",
+    href: "/docs/modules/09-notifications-alerts"
   },
   {
     key: "groups",
@@ -62,3 +104,72 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
 export function getModuleDefinitions() {
   return moduleDefinitions;
 }
+
+export const milestoneDefinitions = [
+  {
+    label: "Phase 1",
+    title: "Platform foundation",
+    status: "Ready",
+    detail: "NewRepo scaffold, Postgres schema baseline, R2 boundary, feature flags, diagnostics, health, and docs."
+  },
+  {
+    label: "Foundation add-on",
+    title: "Feedback tickets",
+    status: "Ready",
+    detail: "Global report button, ticket API, support schema, and page context capture."
+  },
+  {
+    label: "Phase 2",
+    title: "Auth security",
+    status: "Ready",
+    detail: "Credentials auth, seed users, verification/reset tokens, session revocation, and security events."
+  },
+  {
+    label: "Phase 3",
+    title: "Membership policy",
+    status: "Ready",
+    detail: "Tier matrix and gates for Free, Contributor, Professional, Auditor, and Admin role separation."
+  },
+  {
+    label: "Phase 4",
+    title: "Profile identity",
+    status: "Ready",
+    detail: "Profile cards, avatar/banner selection, public identity, and MySpace-style expression boundaries."
+  },
+  {
+    label: "Phase 5",
+    title: "My Scientology",
+    status: "Ready",
+    detail: "Scientology-specific profile fields, privacy controls, and classification boundaries."
+  },
+  {
+    label: "Phase 6",
+    title: "Gallery media storage",
+    status: "Ready",
+    detail: "My Pics, R2 direct uploads, tags/albums as organization layers, and mobile-safe upload UX."
+  },
+  {
+    label: "Phase 7",
+    title: "Feed stream",
+    status: "Ready",
+    detail: "Social stream, composer, comments/replies, reactions, and no full-page reload action patterns."
+  },
+  {
+    label: "Phase 8",
+    title: "Social graph",
+    status: "Ready",
+    detail: "Friends, contacts, family tags, follows, blocks, mutes, and sortable people cards."
+  },
+  {
+    label: "Phase 9",
+    title: "Notifications alerts",
+    status: "Ready",
+    detail: "Unread counters, notifications, alerts inbox, hover-safe cards, and report/admin notices."
+  },
+  {
+    label: "Phase 10",
+    title: "Chat messages",
+    status: "Next",
+    detail: "Chat-only dock/window, mobile chat page, attachments, and no desktop push-token setup UI."
+  }
+];

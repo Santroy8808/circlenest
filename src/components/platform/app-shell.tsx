@@ -1,13 +1,29 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import {
+  getUnreadCounts,
+  type UnreadCounts
+} from "@/modules/notifications-alerts/notifications-alerts.service";
 
-const navItems = [
+const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCounts }> = [
   { label: "Rebuild Home", href: "/" },
   { label: "Health", href: "/health" },
+  { label: "Membership", href: "/membership" },
+  { label: "Friends", href: "/friends" },
+  { label: "Profile", href: "/profile" },
+  { label: "My Scientology", href: "/profile/scientology" },
+  { label: "My Pics", href: "/profile/gallery" },
+  { label: "Notifications", href: "/notifications", countKey: "notifications" },
+  { label: "Alerts", href: "/alerts", countKey: "alerts" },
+  { label: "Login", href: "/login" },
   { label: "Docs", href: "/docs" },
   { label: "System Map", href: "/docs/system-map" }
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export async function AppShell({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  const counts = await getUnreadCounts(session?.user?.id);
+
   return (
     <div className="app-shell">
       <aside className="side-nav">
@@ -25,7 +41,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href={item.href}
               className="rounded-md border border-transparent px-3 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--line)] hover:text-[var(--text)]"
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.countKey && counts[item.countKey] > 0 ? (
+                <span className="float-right rounded-full bg-[var(--gold)] px-2 text-xs font-bold text-black">
+                  {counts[item.countKey]}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>
