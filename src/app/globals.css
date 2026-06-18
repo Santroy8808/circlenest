@@ -1035,6 +1035,16 @@ a {
   max-width: 78ch;
 }
 
+.admin-action-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.admin-action-grid .module-card {
+  min-height: 178px;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;

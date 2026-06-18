@@ -172,8 +172,8 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
   {
     key: "admin-moderation",
     title: "Admin Moderation",
-    status: "blueprint",
-    purpose: "Wizard-based admin operations, moderation, reports, audit, and feature flags.",
+    status: "ready",
+    purpose: "Wizard-based admin action cards, feature flags, audit visibility, diagnostics, and safe operation boundaries.",
     href: "/docs/modules/24-admin-moderation"
   }
 ];
@@ -330,7 +330,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 24",
     title: "Admin Moderation",
-    status: "Next",
+    status: "Ready",
     detail: "Wizard-based admin operations, reports queue, audit viewer, feature flags, and role preview."
+  },
+  {
+    label: "Phase 25",
+    title: "Settings Secure Areas",
+    status: "Next",
+    detail: "Settings cards, password-protected sensitive areas, notification rules, subscription, security, and invite controls."
   }
 ];

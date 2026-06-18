@@ -26,6 +26,7 @@ const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCoun
   { label: "Mail", href: "/mail", countKey: "mail" },
   { label: "Notifications", href: "/notifications", countKey: "notifications" },
   { label: "Alerts", href: "/alerts", countKey: "alerts" },
+  { label: "Admin", href: "/admin" },
   { label: "Login", href: "/login" },
   { label: "Docs", href: "/docs" },
   { label: "System Map", href: "/docs/system-map" }
