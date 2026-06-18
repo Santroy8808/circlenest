@@ -6,10 +6,10 @@ Support invite-based events with creator and scoped moderator control.
 
 ## User-Facing Surfaces
 
-- Events list.
-- Event detail.
-- Create event wizard.
-- Invite/member management.
+- Events list at `/events`.
+- Event detail at `/events/[eventId]`.
+- Create event wizard at `/events/create`.
+- Invite, RSVP, moderator, and cancel controls on event detail.
 
 ## Primary Code Areas
 
@@ -19,29 +19,45 @@ Support invite-based events with creator and scoped moderator control.
 
 ## Data Ownership
 
-- future event, invitation, RSVP, moderator tables.
+- `Event` owns the event shell.
+- `EventModerator` owns scoped event moderation.
+- `EventInvitation` owns invite-based access.
+- `EventRsvp` owns RSVP state.
 
 ## Core Workflows
 
-- Create event.
-- Invite members.
-- Manage scoped moderators.
-- Promote through ad system.
+- Create event with title, time, location, and notes.
+- Event creator starts as owner/moderator and RSVP `GOING`.
+- Invite members by username, email, or display name.
+- Add scoped event moderators.
+- RSVP `GOING`, `MAYBE`, or `DECLINED`.
+- Cancel events without deleting records.
+- Promote through ad system later; ads are not embedded in event listings.
 
 ## Access Rules
 
-Contributor+ creates events. Invitees and moderators can view. Ads are not embedded inside event listings.
+- Contributor, Professional, Auditor, or Admin can create events.
+- Creators and scoped moderators can invite members and manage the event.
+- Invitees, RSVP users, creators, moderators, and Admin can view.
+- Ads are not embedded inside event listings.
 
 ## Integrations
 
-Notifications, ads, production zone, admin, reports.
+- Membership policy.
+- Notifications later.
+- Ads handoff later.
+- Production Zone later.
+- Admin/moderation later.
 
 ## Current Design Notes
 
-Events belong under Production Zone for creator tiers and remain invite-based.
+Events belong under Production Zone for creator tiers and remain invite-based. This phase builds the event foundation before the final Production Zone hub module.
 
 ## Smoke Checklist
 
 - Free cannot create.
-- Event promotion creates normal ad campaign flow only.
-
+- Contributor+ can create.
+- Event creator can invite members.
+- Event creator can add scoped moderators.
+- Invitee can RSVP.
+- Event promotion links to ad handoff notes only; no embedded ads appear inside event details.

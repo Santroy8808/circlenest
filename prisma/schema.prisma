@@ -140,6 +140,30 @@ enum GroupAssetKind {
   DOCUMENT
 }
 
+enum EventStatus {
+  PUBLISHED
+  CANCELED
+  ENDED
+}
+
+enum EventModeratorRole {
+  OWNER
+  MODERATOR
+}
+
+enum EventInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+}
+
+enum EventRsvpStatus {
+  GOING
+  MAYBE
+  DECLINED
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -238,6 +262,11 @@ model User {
   groupForumPostReactions  GroupForumPostReaction[]
   uploadedGroupAssets      GroupAsset[]               @relation("GroupAssetUploader")
   groupAssetComments       GroupAssetComment[]         @relation("GroupAssetCommentAuthor")
+  createdEvents            Event[]                    @relation("EventCreator")
+  eventModerations         EventModerator[]
+  eventInvitationsSent     EventInvitation[]          @relation("EventInvitationSender")
+  eventInvitationsReceived EventInvitation[]          @relation("EventInvitationInvitee")
+  eventRsvps               EventRsvp[]
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -862,6 +891,75 @@ model GroupAssetComment {
 
   @@index([groupAssetId, createdAt])
   @@index([authorUserId, createdAt])
+}
+
+model Event {
+  id              String            @id @default(cuid())
+  slug            String            @unique
+  title           String
+  summary         String?
+  description     String?
+  locationName    String?
+  address         String?
+  startsAt        DateTime
+  endsAt          DateTime?
+  status          EventStatus       @default(PUBLISHED)
+  createdByUserId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       User?             @relation("EventCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  moderators      EventModerator[]
+  invitations     EventInvitation[]
+  rsvps           EventRsvp[]
+
+  @@index([status, startsAt])
+  @@index([createdByUserId, startsAt])
+}
+
+model EventModerator {
+  id        String             @id @default(cuid())
+  eventId   String
+  userId    String
+  role      EventModeratorRole @default(MODERATOR)
+  createdAt DateTime           @default(now())
+  event     Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, role, createdAt])
+}
+
+model EventInvitation {
+  id              String                @id @default(cuid())
+  eventId         String
+  inviteeUserId   String
+  invitedByUserId String?
+  status          EventInvitationStatus @default(PENDING)
+  note            String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  event           Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  invitee         User                  @relation("EventInvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+  invitedBy       User?                 @relation("EventInvitationSender", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, inviteeUserId])
+  @@index([inviteeUserId, status, createdAt])
+  @@index([eventId, status, createdAt])
+}
+
+model EventRsvp {
+  id        String          @id @default(cuid())
+  eventId   String
+  userId    String
+  status    EventRsvpStatus
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, status, createdAt])
+  @@index([eventId, status])
 }
 
 model Notification {

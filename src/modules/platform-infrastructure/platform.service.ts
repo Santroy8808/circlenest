@@ -107,6 +107,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/14-group-media-docs"
   },
   {
+    key: "events",
+    title: "Events",
+    status: "ready",
+    purpose: "Invite-based events with scoped moderators, RSVP structure, and ad-system handoff.",
+    href: "/docs/modules/15-events"
+  },
+  {
     key: "market",
     title: "Market",
     status: "blueprint",
@@ -220,7 +227,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 15",
     title: "Events",
-    status: "Next",
+    status: "Ready",
     detail: "Invite-based events, RSVP-ready detail pages, scoped event moderators, and promote-event handoff to ads."
+  },
+  {
+    label: "Phase 16",
+    title: "Market",
+    status: "Next",
+    detail: "The Market listings as square thumbnail cards, static categories, detail pages, and tier limits."
   }
 ];
