@@ -39,6 +39,16 @@ npm run cutover:check
 
 The preflight is read-only. It checks repo shape, Git state, expected paths, and required environment variables. It does not push, migrate, archive, delete, upload, or deploy.
 
+## Release Candidate Manifest
+
+Run from NewRepo:
+
+```powershell
+npm run release:manifest
+```
+
+This writes `docs/release-candidate.md` with the current commit, ready module list, validation commands, browser smoke routes, recent commits, and production boundary notes.
+
 ## Dashboard
 
 The in-app cutover dashboard is available at:

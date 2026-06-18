@@ -27,6 +27,7 @@ npm run db:generate
 npm run lint
 npm run typecheck
 npm run cutover:check
+npm run release:manifest
 npm run dev
 ```
 

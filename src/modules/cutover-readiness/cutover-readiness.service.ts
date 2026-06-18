@@ -16,6 +16,12 @@ export function getCutoverDashboard(): CutoverDashboardView {
         command: "npm run lint && npm run typecheck && npm run build"
       },
       {
+        title: "Release manifest",
+        status: "automated",
+        detail: "Generate a release candidate document from the current commit, module list, validation commands, and route smoke plan.",
+        command: "npm run release:manifest"
+      },
+      {
         title: "Browser visual QC",
         status: "manual",
         detail: "Login, home, search, profile, gallery, groups, mail, market, jobs, feedback, and admin need browser confirmation."
