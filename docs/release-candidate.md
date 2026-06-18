@@ -1,13 +1,13 @@
 # Theta-Space NewRepo Release Candidate
 
-Generated: 2026-06-18T05:34:16.053Z
+Generated: 2026-06-18T05:42:54.414Z
 
 ## Source
 
 - Repo: `C:\Repos\Theta-Space-net\NewRepo`
 - Branch: `main`
-- Commit: `8abdf42`
-- Full commit: `8abdf4264c90d9b8998036f7c9fc1ec55820ad98`
+- Commit: `f71b501`
+- Full commit: `f71b501c5a91c8d868a6d5e67f3cf3f48c947cc5`
 - Worktree: clean when manifest was generated
 
 ## Current Readiness
@@ -54,6 +54,7 @@ npm run typecheck
 npm run build
 npm run cutover:check
 npm run promote:dry-run
+npm run services:readiness
 ```
 
 ## Browser QC Routes
@@ -71,14 +72,14 @@ npm run promote:dry-run
 
 ## Recent Commits
 
+- `f71b501 Refresh cutover runbook services step`
+- `cdaed5e Refresh promotion dry run services scope`
+- `ad9fdf7 Add external services readiness report`
+- `57b29f5 Add external services readiness tooling`
+- `6059d22 Refresh release candidate dry run step`
 - `8abdf42 Refresh cutover runbook dry run step`
 - `1023e7a Add promotion dry run`
 - `bf381d8 Add promotion dry run tooling`
-- `7ac370b Add browser smoke checklist`
-- `4f1744f Add browser smoke checklist tooling`
-- `f7092e2 Add cutover runbook`
-- `e0b6e5a Add cutover runbook tooling`
-- `7d23159 Add production repo snapshot`
 
 ## Production Boundary
 
