@@ -6,33 +6,43 @@ Provide auditor discovery and auditor profile creation for approved Auditor acco
 
 ## User-Facing Surfaces
 
-- Find an Auditor.
-- Auditor detail.
-- I'm an Auditor profile builder.
+- Find an Auditor directory at `/auditors`.
+- Auditor detail at `/auditors/[username]`.
+- `I'm an Auditor` profile builder at `/auditors/im-an-auditor`.
 
 ## Primary Code Areas
 
 - `src/modules/auditors`
 - `src/components/auditors`
 - `src/app/auditors`
+- `src/app/api/auditors`
 
 ## Data Ownership
 
-- future auditor listing and auditor media tables.
+- `AuditorProfile` owns public auditor practice/profile fields.
+- `ScientologyProfile` remains the read-only education source.
 
 ## Core Workflows
 
-- Browse/search/filter auditors.
-- Auditor builds mini business profile.
-- Pull education from My Scientology.
+- Browse/search/filter auditor listings.
+- Open auditor detail.
+- Auditor account builds mini business profile.
+- Pull classification, org, training, processing, and education notes from My Scientology.
+- Publish/unpublish from the directory.
 
 ## Access Rules
 
-Only Auditor accounts create auditor profiles.
+- Free, Contributor, Professional, and Auditor can browse after login.
+- Only Auditor accounts create auditor profiles.
+- Admin can create for platform operations/testing.
 
 ## Integrations
 
-My Scientology, profile, media, production zone, reports.
+- My Scientology.
+- Profile identity.
+- Mail/contact later.
+- Production Zone later.
+- Reports later.
 
 ## Current Design Notes
 
@@ -42,4 +52,5 @@ Find an Auditor and I'm an Auditor are separate flows.
 
 - Non-Auditor cannot create profile.
 - Directory remains browsable.
-
+- Auditor profile shows public practice fields.
+- Auditor detail shows My Scientology education source separately.

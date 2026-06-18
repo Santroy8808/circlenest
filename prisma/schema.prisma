@@ -314,6 +314,7 @@ model User {
   eventRsvps               EventRsvp[]
   marketListings           MarketListing[]           @relation("MarketListingSeller")
   jobListings              JobListing[]              @relation("JobListingEmployer")
+  auditorProfile           AuditorProfile?
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -1067,6 +1068,24 @@ model JobListing {
 
   @@index([status, category, createdAt])
   @@index([employerUserId, createdAt])
+}
+
+model AuditorProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  practiceName    String
+  location        String?
+  willingToTravel Boolean  @default(false)
+  bio             String?
+  offerings       String?
+  phone           String?
+  website         String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([active, createdAt])
 }
 
 model Notification {

@@ -128,6 +128,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/17-jobs"
   },
   {
+    key: "auditors",
+    title: "Auditors",
+    status: "ready",
+    purpose: "Find an Auditor directory with Auditor-account profile creation and My Scientology education pull-through.",
+    href: "/docs/modules/18-auditors"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -252,7 +259,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 18",
     title: "Auditors",
-    status: "Next",
+    status: "Ready",
     detail: "Find an Auditor directory, Auditor-account profile creation, searchable listings, and My Scientology education pull-through."
+  },
+  {
+    label: "Phase 19",
+    title: "Production Zone",
+    status: "Next",
+    detail: "Clean control-panel hub for Events, Market, Jobs, Auditors, Writers, Fundraisers, and Business Center by tier."
   }
 ];
