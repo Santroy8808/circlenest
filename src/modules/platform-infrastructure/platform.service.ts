@@ -156,6 +156,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/21-ads-credits"
   },
   {
+    key: "fundraisers-funds",
+    title: "Fundraisers Funds",
+    status: "ready",
+    purpose: "Campaign pages, contribution intents, payment-ready schema, and real-money boundary controls.",
+    href: "/docs/modules/22-fundraisers-funds"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -304,7 +311,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 22",
     title: "Fundraisers Funds",
-    status: "Next",
+    status: "Ready",
     detail: "Contributor/Professional fundraiser rules, campaign pages, internal payments-ready structure, and money boundary controls."
+  },
+  {
+    label: "Phase 23",
+    title: "Writers Corner",
+    status: "Next",
+    detail: "Manuscripts, chapters, autosave, RTF editor, readable chapter viewer, and page-turn navigation."
   }
 ];

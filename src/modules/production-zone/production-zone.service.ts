@@ -60,6 +60,14 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       href: "/auditors",
       badge: "Browse",
       available: features["auditors.browse"]
+    }),
+    card({
+      title: "Fundraisers",
+      description: "Browse member fundraiser campaigns with payment-ready contribution intent flow.",
+      href: "/fundraisers",
+      badge: "Browse",
+      available: features["fundraisers.create"],
+      reason: "Contributor or Professional access required."
     })
   ];
 
@@ -124,14 +132,6 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       href: "/docs/modules/23-writers-corner",
       badge: "Blueprint",
       available: features["writers.access"],
-      reason: "Contributor or Professional access planned."
-    }),
-    card({
-      title: "Fundraisers",
-      description: "Campaign pages and future payment-ready fundraising workflow.",
-      href: "/docs/modules/22-fundraisers-funds",
-      badge: "Blueprint",
-      available: features["fundraisers.create"],
       reason: "Contributor or Professional access planned."
     })
   ];

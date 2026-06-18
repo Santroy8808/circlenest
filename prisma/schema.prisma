@@ -234,6 +234,35 @@ enum AdDeliveryEventType {
   CLICK
 }
 
+enum FundraiserCategory {
+  COMMUNITY_PROJECT
+  EVENT_SUPPORT
+  MATERIALS_SUPPLIES
+  EMERGENCY_SUPPORT
+  OTHER
+}
+
+enum FundraiserStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum FundContributionStatus {
+  PLEDGED
+  PROCESSOR_PENDING
+  PROCESSOR_CONFIRMED
+  CANCELED
+  REFUNDED
+}
+
+enum FundLedgerEntryType {
+  PROCESSOR_CONFIRMED_CONTRIBUTION
+  PROCESSOR_REFUND
+  WITHDRAWAL_BATCH_CAPTURE
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -344,6 +373,8 @@ model User {
   adCampaigns              AdCampaign[]              @relation("AdCampaignOwner")
   adCreditLedgerEntries    AdCreditLedgerEntry[]
   adDeliveryLogs           AdDeliveryLog[]           @relation("AdDeliveryViewer")
+  fundraiserCampaigns      FundraiserCampaign[]      @relation("FundraiserCreator")
+  fundContributionIntents  FundContributionIntent[]  @relation("FundContributionContributor")
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -1207,6 +1238,64 @@ model AdDeliveryLog {
   @@index([campaignId, eventType, createdAt])
   @@index([viewerUserId, createdAt])
   @@index([placement, createdAt])
+}
+
+model FundraiserCampaign {
+  id             String                     @id @default(cuid())
+  slug           String                     @unique
+  creatorUserId  String
+  title          String
+  summary        String?
+  description    String
+  category       FundraiserCategory
+  goalAmountCents Int?
+  currency       String                     @default("USD")
+  status         FundraiserStatus           @default(ACTIVE)
+  endsAt         DateTime?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  creator        User                       @relation("FundraiserCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  contributions  FundContributionIntent[]
+  ledgerEntries  FundLedgerEntry[]
+
+  @@index([status, category, createdAt])
+  @@index([creatorUserId, createdAt])
+}
+
+model FundContributionIntent {
+  id                String                 @id @default(cuid())
+  campaignId        String
+  contributorUserId String?
+  contributorName   String?
+  amountCents       Int
+  currency          String                 @default("USD")
+  status            FundContributionStatus @default(PLEDGED)
+  processorProvider String?
+  processorReference String?
+  note              String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  campaign          FundraiserCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contributor       User?                  @relation("FundContributionContributor", fields: [contributorUserId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, status, createdAt])
+  @@index([contributorUserId, createdAt])
+}
+
+model FundLedgerEntry {
+  id          String              @id @default(cuid())
+  campaignId  String
+  entryType   FundLedgerEntryType
+  amountCents Int
+  currency    String              @default("USD")
+  sourceType  String?
+  sourceId    String?
+  note        String?
+  createdAt   DateTime            @default(now())
+  campaign    FundraiserCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
+  @@index([sourceType, sourceId])
 }
 
 model Notification {
