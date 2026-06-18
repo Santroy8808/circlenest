@@ -68,6 +68,14 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       badge: "Browse",
       available: features["fundraisers.create"],
       reason: "Contributor or Professional access required."
+    }),
+    card({
+      title: "Writers Corner",
+      description: "Open manuscripts, chapters, and reader-friendly writing spaces.",
+      href: "/writers-corner",
+      badge: "Browse",
+      available: features["writers.access"],
+      reason: "Contributor or Professional access required."
     })
   ];
 
@@ -125,16 +133,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
     })
   ];
 
-  const futureCards = [
-    card({
-      title: "Writers Corner",
-      description: "Manuscripts, chapters, autosave, and reader-friendly page turns.",
-      href: "/docs/modules/23-writers-corner",
-      badge: "Blueprint",
-      available: features["writers.access"],
-      reason: "Contributor or Professional access planned."
-    })
-  ];
+  const futureCards: ProductionZoneCard[] = [];
 
   return {
     tierName: policy.displayName,

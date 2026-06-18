@@ -263,6 +263,11 @@ enum FundLedgerEntryType {
   WITHDRAWAL_BATCH_CAPTURE
 }
 
+enum ManuscriptVisibility {
+  PRIVATE
+  MEMBERS
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -375,6 +380,7 @@ model User {
   adDeliveryLogs           AdDeliveryLog[]           @relation("AdDeliveryViewer")
   fundraiserCampaigns      FundraiserCampaign[]      @relation("FundraiserCreator")
   fundContributionIntents  FundContributionIntent[]  @relation("FundContributionContributor")
+  manuscripts              WriterManuscript[]        @relation("WriterManuscriptAuthor")
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -1296,6 +1302,41 @@ model FundLedgerEntry {
 
   @@index([campaignId, createdAt])
   @@index([sourceType, sourceId])
+}
+
+model WriterManuscript {
+  id          String                @id @default(cuid())
+  slug        String                @unique
+  authorUserId String
+  title       String
+  genre       String?
+  summary     String?
+  visibility  ManuscriptVisibility  @default(MEMBERS)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  author      User                  @relation("WriterManuscriptAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  chapters    WriterChapter[]
+
+  @@index([authorUserId, updatedAt])
+  @@index([visibility, updatedAt])
+}
+
+model WriterChapter {
+  id           String           @id @default(cuid())
+  manuscriptId String
+  title        String
+  bodyText     String           @default("")
+  bodyHtml     String?
+  wordCount    Int              @default(0)
+  sortOrder    Int              @default(0)
+  publishedAt  DateTime?
+  autosavedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  manuscript   WriterManuscript @relation(fields: [manuscriptId], references: [id], onDelete: Cascade)
+
+  @@index([manuscriptId, sortOrder])
+  @@index([publishedAt, updatedAt])
 }
 
 model Notification {

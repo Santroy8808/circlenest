@@ -2,46 +2,59 @@
 
 ## Purpose
 
-Give Contributor+ members a manuscript and chapter workspace.
+Give Contributor+ members a manuscript and chapter workspace with reader-friendly output and creator-only editing.
 
 ## User-Facing Surfaces
 
-- Manuscripts.
-- Chapter editor.
-- Chapter reader.
+- `/writers-corner` for manuscript browsing.
+- `/writers-corner/create` for manuscript creation.
+- `/writers-corner/[manuscriptId]` for manuscript detail and chapter cards.
+- `/writers-corner/[manuscriptId]/chapters/create` for chapter creation.
+- `/writers-corner/[manuscriptId]/chapters/[chapterId]` for reader/editor view.
 
 ## Primary Code Areas
 
 - `src/modules/writers-corner`
-- `src/components/writers-studio`
-- `src/app/production-zone/writers-corner`
+- `src/components/writers-corner`
+- `src/app/writers-corner`
+- `src/app/api/writers`
 
 ## Data Ownership
 
-- future manuscript, chapter, autosave tables.
+- `WriterManuscript` owns title, genre, summary, visibility, author, and chapters.
+- `WriterChapter` owns text, future HTML/RTF storage, word count, sort order, publish time, and autosave timestamp.
+- Creator ownership controls editing; member visibility controls reading.
 
 ## Core Workflows
 
-- Create manuscript.
-- Create chapter.
-- RTF edit with one-minute autosave.
-- Public readable chapter cards.
-- Page-turn reading.
+- Contributor/Professional/Admin creates a manuscript.
+- Creator adds chapter cards with word counts.
+- Members open chapter reader pages.
+- Creator edits chapter text from the reader/editor page.
+- Autosave-ready API supports explicit autosave writes and tracks `autosavedAt`.
 
 ## Access Rules
 
-Contributor+ creates. Anyone allowed by visibility reads. Creator edits.
+- `writers.access` is required to create manuscripts.
+- Members can read manuscripts marked `MEMBERS`.
+- Private manuscripts are visible only to author/Admin.
+- Only the author/Admin can create or edit chapters.
 
 ## Integrations
 
-Production zone, profile, notifications.
+- Production Zone links directly to Writers Corner.
+- Profile and notifications can later surface manuscript activity.
+- RTF toolbar and timed one-minute autosave are prepared by schema/service fields but can be expanded in a dedicated editor-polish pass.
 
-## Current Design Notes
+## Diagnostics And Audit
 
-Use wide short chapter cards with word counts.
+- Manuscript creation writes diagnostic and audit logs.
+- Chapter creation and saves write diagnostic logs.
 
 ## Smoke Checklist
 
-- Autosave works.
-- Reader has previous/next chapter navigation.
-
+- `/writers-corner` redirects logged-out users to login.
+- Non-writer tier can browse member manuscripts but cannot create.
+- Creator can create a manuscript and chapter.
+- Chapter reader shows previous/next navigation.
+- Creator-only editor can save chapter updates.

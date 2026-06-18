@@ -163,6 +163,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/22-fundraisers-funds"
   },
   {
+    key: "writers-corner",
+    title: "Writers Corner",
+    status: "ready",
+    purpose: "Manuscripts, chapters, creator editing, autosave-ready schema, and reader navigation.",
+    href: "/docs/modules/23-writers-corner"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -317,7 +324,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 23",
     title: "Writers Corner",
-    status: "Next",
+    status: "Ready",
     detail: "Manuscripts, chapters, autosave, RTF editor, readable chapter viewer, and page-turn navigation."
+  },
+  {
+    label: "Phase 24",
+    title: "Admin Moderation",
+    status: "Next",
+    detail: "Wizard-based admin operations, reports queue, audit viewer, feature flags, and role preview."
   }
 ];

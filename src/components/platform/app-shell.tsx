@@ -18,6 +18,7 @@ const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCoun
   { label: "Find an Auditor", href: "/auditors" },
   { label: "Ads", href: "/ads" },
   { label: "Fundraisers", href: "/fundraisers" },
+  { label: "Writers Corner", href: "/writers-corner" },
   { label: "Profile", href: "/profile" },
   { label: "My Scientology", href: "/profile/scientology" },
   { label: "My Pics", href: "/profile/gallery" },
