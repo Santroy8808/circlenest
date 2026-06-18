@@ -34,6 +34,9 @@ export function CutoverDashboard({ dashboard }: { dashboard: CutoverDashboardVie
           <Link href="/docs/browser-smoke-checklist" className="btn-secondary">
             Browser smoke
           </Link>
+          <Link href="/docs/promotion-dry-run" className="btn-secondary">
+            Promotion dry-run
+          </Link>
         </div>
       </section>
 

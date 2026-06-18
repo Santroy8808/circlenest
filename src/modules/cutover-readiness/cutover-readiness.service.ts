@@ -40,6 +40,12 @@ export function getCutoverDashboard(): CutoverDashboardView {
         command: "npm run browser:smoke"
       },
       {
+        title: "Promotion dry run",
+        status: "automated",
+        detail: "Generate a read-only manifest of included files, excluded artifacts, and production file-scope hazards.",
+        command: "npm run promote:dry-run"
+      },
+      {
         title: "Browser visual QC",
         status: "manual",
         detail: "Login, home, search, profile, gallery, groups, mail, market, jobs, feedback, and admin need browser confirmation."

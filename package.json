@@ -17,7 +17,8 @@
     "release:manifest": "tsx scripts/release-manifest.ts",
     "prod:snapshot": "tsx scripts/production-repo-snapshot.ts",
     "cutover:runbook": "tsx scripts/cutover-runbook.ts",
-    "browser:smoke": "tsx scripts/browser-smoke-checklist.ts"
+    "browser:smoke": "tsx scripts/browser-smoke-checklist.ts",
+    "promote:dry-run": "tsx scripts/promotion-dry-run.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

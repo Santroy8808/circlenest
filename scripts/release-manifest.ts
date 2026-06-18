@@ -65,6 +65,7 @@ npm run lint
 npm run typecheck
 npm run build
 npm run cutover:check
+npm run promote:dry-run
 \`\`\`
 
 ## Browser QC Routes

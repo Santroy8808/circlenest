@@ -13,7 +13,8 @@ const docFiles: Record<string, string> = {
   "release-candidate": "docs/release-candidate.md",
   "production-repo-snapshot": "docs/production-repo-snapshot.md",
   "cutover-runbook": "docs/cutover-runbook.md",
-  "browser-smoke-checklist": "docs/browser-smoke-checklist.md"
+  "browser-smoke-checklist": "docs/browser-smoke-checklist.md",
+  "promotion-dry-run": "docs/promotion-dry-run.md"
 };
 
 export default async function RootDocPage({ params }: { params: { doc: string } }) {

@@ -79,6 +79,16 @@ npm run browser:smoke
 
 This writes `docs/browser-smoke-checklist.md` with route-by-route visual QC steps for desktop and mobile. It is a manual test guide and does not perform browser actions.
 
+## Promotion Dry Run
+
+Run from NewRepo:
+
+```powershell
+npm run promote:dry-run
+```
+
+This writes `docs/promotion-dry-run.md` with the Git-tracked files NewRepo would contribute, excluded local/build/secret artifacts, production-only tracked paths, and production worktree hazards. It is read-only and does not copy files.
+
 ## Dashboard
 
 The in-app cutover dashboard is available at:
