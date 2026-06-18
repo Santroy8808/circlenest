@@ -115,6 +115,12 @@ export function GroupProfile({ group }: { group: GroupProfileView }) {
         <p className="mt-4 whitespace-pre-wrap leading-7 text-[var(--muted)]">{group.description || "No group description yet."}</p>
       </section>
 
+      <a className="module-card rounded-md p-6" href={`/groups/${group.slug}/forum`}>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Forum</p>
+        <h2 className="mt-3 text-2xl font-semibold">Open group discussion</h2>
+        <p className="mt-2 text-[var(--muted)]">Collapsed threads, focused full-thread view, replies, reactions, and end-thread controls.</p>
+      </a>
+
       <section className="grid gap-5 lg:grid-cols-2">
         <article className="surface rounded-md p-6">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">Moderators</h2>

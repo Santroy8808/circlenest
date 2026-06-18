@@ -125,6 +125,16 @@ enum GroupJoinRequestStatus {
   CANCELED
 }
 
+enum GroupForumReactionType {
+  LIKE
+  LOVE
+  CARE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -215,6 +225,12 @@ model User {
   groupJoinRequests        GroupJoinRequest[]         @relation("GroupJoinRequester")
   reviewedGroupJoinRequests GroupJoinRequest[]        @relation("GroupJoinReviewer")
   groupPins                GroupUserPin[]
+  groupForumThreads        GroupForumThread[]         @relation("GroupForumThreadAuthor")
+  endedGroupForumThreads   GroupForumThread[]         @relation("GroupForumThreadEnder")
+  deletedGroupForumThreads GroupForumThread[]         @relation("GroupForumThreadDeleter")
+  groupForumPosts          GroupForumPost[]           @relation("GroupForumPostAuthor")
+  groupForumThreadReactions GroupForumThreadReaction[]
+  groupForumPostReactions  GroupForumPostReaction[]
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -358,6 +374,7 @@ model MediaAsset {
   feedComments FeedComment[]
   chatAttachments ChatAttachment[]
   mailAttachments MailAttachment[]
+  groupForumPosts GroupForumPost[]
 
   @@index([ownerUserId, createdAt])
 }
@@ -675,6 +692,7 @@ model Group {
   members           GroupMember[]
   joinRequests      GroupJoinRequest[]
   pins              GroupUserPin[]
+  forumThreads      GroupForumThread[]
 
   @@index([visibility, archivedAt, createdAt])
   @@index([createdByUserId, createdAt])
@@ -725,6 +743,82 @@ model GroupUserPin {
 
   @@unique([userId, groupId])
   @@index([userId, sortOrder, pinnedAt])
+}
+
+model GroupForumThread {
+  id                String                      @id @default(cuid())
+  groupId           String
+  authorUserId      String
+  title             String
+  body              String
+  allowPhotoReplies Boolean                     @default(false)
+  pinnedAt          DateTime?
+  sortOrder         Int                         @default(0)
+  endedAt           DateTime?
+  endedByUserId     String?
+  deletedAt         DateTime?
+  deletedByUserId   String?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  group             Group                       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author            User                        @relation("GroupForumThreadAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  endedBy           User?                       @relation("GroupForumThreadEnder", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  deletedBy         User?                       @relation("GroupForumThreadDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  posts             GroupForumPost[]
+  reactions         GroupForumThreadReaction[]
+
+  @@index([groupId, deletedAt, pinnedAt, updatedAt])
+  @@index([authorUserId, createdAt])
+}
+
+model GroupForumPost {
+  id           String                   @id @default(cuid())
+  threadId     String
+  authorUserId String
+  parentPostId String?
+  body         String
+  mediaAssetId String?
+  deletedAt    DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  thread       GroupForumThread         @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author       User                     @relation("GroupForumPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  parent       GroupForumPost?          @relation("GroupForumPostReplies", fields: [parentPostId], references: [id], onDelete: SetNull)
+  replies      GroupForumPost[]         @relation("GroupForumPostReplies")
+  mediaAsset   MediaAsset?              @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  reactions    GroupForumPostReaction[]
+
+  @@index([threadId, createdAt])
+  @@index([authorUserId, createdAt])
+  @@index([parentPostId, createdAt])
+}
+
+model GroupForumThreadReaction {
+  id        String                 @id @default(cuid())
+  threadId  String
+  userId    String
+  type      GroupForumReactionType
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  thread    GroupForumThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([threadId, type])
+}
+
+model GroupForumPostReaction {
+  id        String                 @id @default(cuid())
+  postId    String
+  userId    String
+  type      GroupForumReactionType
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  post      GroupForumPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId, type])
 }
 
 model Notification {

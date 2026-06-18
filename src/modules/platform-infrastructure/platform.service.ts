@@ -93,6 +93,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/11-mail"
   },
   {
+    key: "group-forum",
+    title: "Group Forum",
+    status: "ready",
+    purpose: "Collapsed group threads, full-thread discussions, reactions, and end-thread controls.",
+    href: "/docs/modules/13-group-forum"
+  },
+  {
     key: "market",
     title: "Market",
     status: "blueprint",
@@ -194,7 +201,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 13",
     title: "Group forum",
-    status: "Next",
+    status: "Ready",
     detail: "Collapsed group threads, full-thread view, end-thread behavior, moderator delete flow, reactions, and photo replies."
+  },
+  {
+    label: "Phase 14",
+    title: "Group media docs",
+    status: "Next",
+    detail: "Simple group gallery/docs, provider/moderator upload rights, storage cap, comments, and no overbuilt album UI."
   }
 ];
