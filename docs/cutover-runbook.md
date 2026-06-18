@@ -1,6 +1,6 @@
 # Theta-Space Production Cutover Runbook
 
-Generated: 2026-06-18T05:20:57.240Z
+Generated: 2026-06-18T05:33:57.466Z
 
 ## Purpose
 
@@ -12,8 +12,8 @@ This runbook is documentation only. It does not copy files, archive production, 
 
 - NewRepo path: `C:\Repos\Theta-Space-net\NewRepo`
 - NewRepo branch: `main`
-- NewRepo commit: `e0b6e5a`
-- NewRepo full commit: `e0b6e5a28f1398bbdde1c219cde39af0ee402a7d`
+- NewRepo commit: `1023e7a`
+- NewRepo full commit: `1023e7aec19be10086e699b27abebec0bfd43afa`
 - Production repo path: `C:\Repos\thetansplace\circlenest`
 - Production branch: `main`
 - Production commit: `522ac56`
@@ -60,6 +60,7 @@ npm run cutover:check
 npm run release:manifest
 npm run prod:snapshot
 npm run cutover:runbook
+npm run promote:dry-run
 ```
 
 ## Phase 2 - Archive Current Production
