@@ -952,6 +952,15 @@ a {
   width: 100%;
 }
 
+.business-storefront-hero {
+  border: 1px solid rgba(214, 178, 74, 0.28);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 216, 95, 0.2), transparent 20rem),
+    radial-gradient(circle at 92% 4%, rgba(63, 115, 255, 0.2), transparent 24rem),
+    linear-gradient(135deg, rgba(17, 24, 36, 0.96), rgba(12, 18, 29, 0.96));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
 .job-card {
   border: 1px solid rgba(214, 178, 74, 0.18);
   border-radius: 20px;

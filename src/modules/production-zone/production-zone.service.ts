@@ -102,7 +102,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
     card({
       title: "Business Center",
       description: "Professional hub for storefront, general ads, jobs, events, and public business tooling.",
-      href: "/docs/modules/20-business-storefront",
+      href: "/business-center",
       badge: "Business",
       available: features["market.storefront"] || features["ads.createGeneral"] || features["jobs.createListing"],
       reason: "Professional access required."

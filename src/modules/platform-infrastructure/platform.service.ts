@@ -142,6 +142,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/19-production-zone"
   },
   {
+    key: "business-storefront",
+    title: "Business Storefront",
+    status: "ready",
+    purpose: "Professional business profile, public storefront, inquiry capture, and email-linking placeholder.",
+    href: "/docs/modules/20-business-storefront"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -278,7 +285,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 20",
     title: "Business Storefront",
-    status: "Next",
+    status: "Ready",
     detail: "Professional business profile, public storefront, public inquiry flow, and email-linking placeholder."
+  },
+  {
+    label: "Phase 21",
+    title: "Ads Credits",
+    status: "Next",
+    detail: "Transparent ad creation, targeting by permitted fields, credits, placement rules, and delivery diagnostics."
   }
 ];

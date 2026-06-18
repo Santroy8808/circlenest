@@ -209,6 +209,12 @@ enum JobListingStatus {
   ARCHIVED
 }
 
+enum BusinessInquiryStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -315,6 +321,7 @@ model User {
   marketListings           MarketListing[]           @relation("MarketListingSeller")
   jobListings              JobListing[]              @relation("JobListingEmployer")
   auditorProfile           AuditorProfile?
+  businessProfile          BusinessProfile?          @relation("BusinessProfileOwner")
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -1086,6 +1093,40 @@ model AuditorProfile {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([active, createdAt])
+}
+
+model BusinessProfile {
+  id                      String            @id @default(cuid())
+  ownerUserId             String            @unique
+  slug                    String            @unique
+  businessName            String
+  tagline                 String?
+  description             String?
+  location                String?
+  publicEmail             String?
+  phone                   String?
+  website                 String?
+  publicStorefrontEnabled Boolean           @default(false)
+  emailLinkingEnabled     Boolean           @default(false)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  owner                   User              @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  inquiries               BusinessInquiry[]
+
+  @@index([publicStorefrontEnabled, updatedAt])
+}
+
+model BusinessInquiry {
+  id                String                @id @default(cuid())
+  businessProfileId String
+  senderName        String
+  senderEmail       String?
+  message           String
+  status            BusinessInquiryStatus @default(NEW)
+  createdAt         DateTime              @default(now())
+  businessProfile   BusinessProfile       @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([businessProfileId, status, createdAt])
 }
 
 model Notification {
