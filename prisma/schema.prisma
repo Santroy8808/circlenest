@@ -135,6 +135,11 @@ enum GroupForumReactionType {
   ANGRY
 }
 
+enum GroupAssetKind {
+  PHOTO
+  DOCUMENT
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -231,6 +236,8 @@ model User {
   groupForumPosts          GroupForumPost[]           @relation("GroupForumPostAuthor")
   groupForumThreadReactions GroupForumThreadReaction[]
   groupForumPostReactions  GroupForumPostReaction[]
+  uploadedGroupAssets      GroupAsset[]               @relation("GroupAssetUploader")
+  groupAssetComments       GroupAssetComment[]         @relation("GroupAssetCommentAuthor")
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -375,6 +382,7 @@ model MediaAsset {
   chatAttachments ChatAttachment[]
   mailAttachments MailAttachment[]
   groupForumPosts GroupForumPost[]
+  groupAssets   GroupAsset[]
 
   @@index([ownerUserId, createdAt])
 }
@@ -693,6 +701,7 @@ model Group {
   joinRequests      GroupJoinRequest[]
   pins              GroupUserPin[]
   forumThreads      GroupForumThread[]
+  assets            GroupAsset[]
 
   @@index([visibility, archivedAt, createdAt])
   @@index([createdByUserId, createdAt])
@@ -819,6 +828,40 @@ model GroupForumPostReaction {
 
   @@unique([postId, userId])
   @@index([postId, type])
+}
+
+model GroupAsset {
+  id             String             @id @default(cuid())
+  groupId        String
+  mediaAssetId   String
+  uploaderUserId String
+  kind           GroupAssetKind
+  headline       String?
+  description    String?
+  deletedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  group          Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  mediaAsset     MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  uploader       User               @relation("GroupAssetUploader", fields: [uploaderUserId], references: [id], onDelete: Cascade)
+  comments       GroupAssetComment[]
+
+  @@index([groupId, kind, createdAt])
+  @@index([uploaderUserId, createdAt])
+}
+
+model GroupAssetComment {
+  id            String     @id @default(cuid())
+  groupAssetId  String
+  authorUserId  String
+  body          String
+  deletedAt     DateTime?
+  createdAt     DateTime   @default(now())
+  asset         GroupAsset @relation(fields: [groupAssetId], references: [id], onDelete: Cascade)
+  author        User       @relation("GroupAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([groupAssetId, createdAt])
+  @@index([authorUserId, createdAt])
 }
 
 model Notification {

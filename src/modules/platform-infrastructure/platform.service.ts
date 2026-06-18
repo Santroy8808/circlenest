@@ -100,6 +100,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/13-group-forum"
   },
   {
+    key: "group-media-docs",
+    title: "Group Media Docs",
+    status: "ready",
+    purpose: "Simple group gallery and documents with provider/moderator upload rights and storage caps.",
+    href: "/docs/modules/14-group-media-docs"
+  },
+  {
     key: "market",
     title: "Market",
     status: "blueprint",
@@ -207,7 +214,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 14",
     title: "Group media docs",
-    status: "Next",
+    status: "Ready",
     detail: "Simple group gallery/docs, provider/moderator upload rights, storage cap, comments, and no overbuilt album UI."
+  },
+  {
+    label: "Phase 15",
+    title: "Events",
+    status: "Next",
+    detail: "Invite-based events, RSVP-ready detail pages, scoped event moderators, and promote-event handoff to ads."
   }
 ];
