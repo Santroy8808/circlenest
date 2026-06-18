@@ -49,6 +49,16 @@ npm run release:manifest
 
 This writes `docs/release-candidate.md` with the current commit, ready module list, validation commands, browser smoke routes, recent commits, and production boundary notes.
 
+## Production Repo Snapshot
+
+Run from NewRepo:
+
+```powershell
+npm run prod:snapshot
+```
+
+This writes `docs/production-repo-snapshot.md` with the local production repo branch, remote, commit, archive tags, script comparison, and warnings. It is read-only and does not touch production.
+
 ## Dashboard
 
 The in-app cutover dashboard is available at:

@@ -8,7 +8,8 @@ const rootDocs = [
   { title: "Data Model Map", href: "/docs/data-model-map" },
   { title: "Route API Map", href: "/docs/route-api-map" },
   { title: "Cutover Readiness", href: "/docs/cutover-readiness" },
-  { title: "Release Candidate", href: "/docs/release-candidate" }
+  { title: "Release Candidate", href: "/docs/release-candidate" },
+  { title: "Production Repo Snapshot", href: "/docs/production-repo-snapshot" }
 ];
 
 export default function DocsPage() {

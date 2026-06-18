@@ -10,7 +10,8 @@ const docFiles: Record<string, string> = {
   "data-model-map": "DATA_MODEL_MAP.md",
   "route-api-map": "ROUTE_API_MAP.md",
   "cutover-readiness": "docs/cutover-readiness.md",
-  "release-candidate": "docs/release-candidate.md"
+  "release-candidate": "docs/release-candidate.md",
+  "production-repo-snapshot": "docs/production-repo-snapshot.md"
 };
 
 export default async function RootDocPage({ params }: { params: { doc: string } }) {

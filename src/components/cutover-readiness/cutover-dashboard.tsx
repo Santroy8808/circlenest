@@ -25,6 +25,9 @@ export function CutoverDashboard({ dashboard }: { dashboard: CutoverDashboardVie
           <Link href="/docs/release-candidate" className="btn-secondary">
             Release candidate
           </Link>
+          <Link href="/docs/production-repo-snapshot" className="btn-secondary">
+            Prod snapshot
+          </Link>
         </div>
       </section>
 

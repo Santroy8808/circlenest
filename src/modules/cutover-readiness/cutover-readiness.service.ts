@@ -22,6 +22,12 @@ export function getCutoverDashboard(): CutoverDashboardView {
         command: "npm run release:manifest"
       },
       {
+        title: "Production repo snapshot",
+        status: "automated",
+        detail: "Read the local production repo branch, remote, commit, archive tags, and warnings before any promotion.",
+        command: "npm run prod:snapshot"
+      },
+      {
         title: "Browser visual QC",
         status: "manual",
         detail: "Login, home, search, profile, gallery, groups, mail, market, jobs, feedback, and admin need browser confirmation."
