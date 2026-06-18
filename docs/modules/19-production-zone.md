@@ -6,8 +6,11 @@ Organize creator, professional, auditor, and business workflows without clutteri
 
 ## User-Facing Surfaces
 
-- Production Zone hub.
-- Business Center for Professional accounts.
+- Production Zone hub at `/production-zone`.
+- Browse section.
+- Create section.
+- Business Center section.
+- Future Production Tools section.
 
 ## Primary Code Areas
 
@@ -17,13 +20,16 @@ Organize creator, professional, auditor, and business workflows without clutteri
 
 ## Data Ownership
 
-- Policy-owned state and module links, not primary business data.
+- Policy-owned view model and module links.
+- No primary business data is owned by this module.
 
 ## Core Workflows
 
 - Show browse tools for all members.
 - Show creator tools by tier.
 - Show Business Center for Professional.
+- Show locked/blueprint future tools without pretending they are finished.
+- Keep forms out of the hub; cards navigate to dedicated pages.
 
 ## Access Rules
 
@@ -40,5 +46,7 @@ Avoid duplicate "Production Zone" link under the Production Zone heading.
 ## Smoke Checklist
 
 - Free sees browse tools.
+- Contributor sees Contributor creator tools.
 - Professional sees Business Center.
-
+- Auditor sees auditor profile tooling.
+- Hub remains card/action-first with no raw forms.

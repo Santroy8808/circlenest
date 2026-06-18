@@ -135,6 +135,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/18-auditors"
   },
   {
+    key: "production-zone",
+    title: "Production Zone",
+    status: "ready",
+    purpose: "Tier-aware hub for production, creator, professional, and business workflows.",
+    href: "/docs/modules/19-production-zone"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -265,7 +272,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 19",
     title: "Production Zone",
-    status: "Next",
+    status: "Ready",
     detail: "Clean control-panel hub for Events, Market, Jobs, Auditors, Writers, Fundraisers, and Business Center by tier."
+  },
+  {
+    label: "Phase 20",
+    title: "Business Storefront",
+    status: "Next",
+    detail: "Professional business profile, public storefront, public inquiry flow, and email-linking placeholder."
   }
 ];

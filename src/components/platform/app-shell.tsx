@@ -9,6 +9,7 @@ const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCoun
   { label: "Rebuild Home", href: "/" },
   { label: "Health", href: "/health" },
   { label: "Membership", href: "/membership" },
+  { label: "Production Zone", href: "/production-zone" },
   { label: "Friends", href: "/friends" },
   { label: "Groups", href: "/groups" },
   { label: "Events", href: "/events" },
