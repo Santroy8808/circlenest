@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { countUnreadChatThreads } from "@/modules/chat-messages/chat-messages.service";
 
 const MODULE_KEY = "notifications-alerts";
 const NOTIFICATION_DB_TIMEOUT_MS = 1800;
@@ -26,15 +27,16 @@ export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
   }
 
   try {
-    const [notifications, alerts] = await withNotificationTimeout(
+    const [notifications, alerts, messages] = await withNotificationTimeout(
       Promise.all([
         prisma.notification.count({ where: { userId, readAt: null } }),
-        prisma.alert.count({ where: { userId, readAt: null } })
+        prisma.alert.count({ where: { userId, readAt: null } }),
+        countUnreadChatThreads(userId)
       ]),
       "unread count lookup"
     );
 
-    return { notifications, alerts, mail: 0, messages: 0 };
+    return { notifications, alerts, mail: 0, messages };
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not load unread counts.", {
       userId,

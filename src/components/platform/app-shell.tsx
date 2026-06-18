@@ -13,6 +13,7 @@ const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCoun
   { label: "Profile", href: "/profile" },
   { label: "My Scientology", href: "/profile/scientology" },
   { label: "My Pics", href: "/profile/gallery" },
+  { label: "Messages", href: "/messages", countKey: "messages" },
   { label: "Notifications", href: "/notifications", countKey: "notifications" },
   { label: "Alerts", href: "/alerts", countKey: "alerts" },
   { label: "Login", href: "/login" },

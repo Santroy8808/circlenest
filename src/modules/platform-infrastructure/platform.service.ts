@@ -72,6 +72,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/09-notifications-alerts"
   },
   {
+    key: "chat-messages",
+    title: "Chat Messages",
+    status: "ready",
+    purpose: "Chat-only direct/group conversations with attachments and no desktop push-token setup UI.",
+    href: "/docs/modules/10-chat-messages"
+  },
+  {
     key: "groups",
     title: "Groups",
     status: "blueprint",
@@ -169,7 +176,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 10",
     title: "Chat messages",
-    status: "Next",
+    status: "Ready",
     detail: "Chat-only dock/window, mobile chat page, attachments, and no desktop push-token setup UI."
+  },
+  {
+    label: "Phase 11",
+    title: "Mail",
+    status: "Next",
+    detail: "Mail-only internal client, contacts separate from friends, multi-recipient sends, and mass-mail infrastructure."
   }
 ];
