@@ -182,6 +182,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     status: "ready",
     purpose: "Card-first settings hub, secure-area prompt, sensitive settings split, and gallery outside secure wall.",
     href: "/docs/modules/25-settings-secure-areas"
+  },
+  {
+    key: "search-discovery",
+    title: "Search Discovery",
+    status: "ready",
+    purpose: "Unified privacy-aware search across people, groups, Market, jobs, auditors, writing, and visible posts.",
+    href: "/docs/modules/26-search-discovery"
   }
 ];
 
@@ -349,7 +356,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 26",
     title: "Search Discovery",
+    status: "Ready",
+    detail: "Unified privacy-aware search across people, groups, Market, jobs, auditors, writing, and allowed posts."
+  },
+  {
+    label: "Cutover",
+    title: "Production cutover readiness",
     status: "Next",
-    detail: "Unified privacy-aware search across people, groups, Market, jobs, auditors, and allowed posts."
+    detail: "Archive current production, tag rollback, verify Railway deployment, Neon migrations, R2 media, and login smoke tests."
   }
 ];

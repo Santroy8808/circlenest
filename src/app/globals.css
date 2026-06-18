@@ -1051,6 +1051,54 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.search-result-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.search-result-card {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 20px;
+  background: rgba(17, 24, 36, 0.92);
+  color: var(--text);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-height: 132px;
+  padding: 14px;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.search-result-card:hover {
+  border-color: rgba(214, 178, 74, 0.58);
+  background: #172133;
+  transform: translateY(-2px);
+}
+
+.search-result-image {
+  align-items: center;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.18), transparent 12rem),
+    #20304a;
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 18px;
+  color: var(--gold);
+  display: flex;
+  font-size: 1.35rem;
+  font-weight: 900;
+  justify-content: center;
+  overflow: hidden;
+  width: 64px;
+}
+
+.search-result-image img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
