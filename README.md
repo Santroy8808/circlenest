@@ -15,8 +15,8 @@ The app is rebuilt one module at a time. Each module has a blueprint in `docs/mo
 
 Current implementation status:
 
-- `platform-infrastructure`: started
-- All later modules: blueprint only
+- Core module phases 1-26: built in NewRepo
+- Next slice: cutover readiness and production overwrite planning
 
 ## Local Commands
 
@@ -26,10 +26,10 @@ npm run env:check
 npm run db:generate
 npm run lint
 npm run typecheck
+npm run cutover:check
 npm run dev
 ```
 
 ## Production Cutover Rule
 
 Before overwriting the live Railway source, archive the current production repo as `archive-<date>` or `archive-<date>.vN`, create a rollback tag, push the new source to GitHub, and smoke test Railway, Neon, and R2.
-

@@ -6,7 +6,8 @@ const rootDocs = [
   { title: "Module Index", href: "/docs/module-index" },
   { title: "System Map", href: "/docs/system-map" },
   { title: "Data Model Map", href: "/docs/data-model-map" },
-  { title: "Route API Map", href: "/docs/route-api-map" }
+  { title: "Route API Map", href: "/docs/route-api-map" },
+  { title: "Cutover Readiness", href: "/docs/cutover-readiness" }
 ];
 
 export default function DocsPage() {
@@ -38,4 +39,3 @@ export default function DocsPage() {
     </AppShell>
   );
 }
-

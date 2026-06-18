@@ -8,7 +8,8 @@ const docFiles: Record<string, string> = {
   "module-index": "MODULE_INDEX.md",
   "system-map": "SYSTEM_MAP.md",
   "data-model-map": "DATA_MODEL_MAP.md",
-  "route-api-map": "ROUTE_API_MAP.md"
+  "route-api-map": "ROUTE_API_MAP.md",
+  "cutover-readiness": "docs/cutover-readiness.md"
 };
 
 export default async function RootDocPage({ params }: { params: { doc: string } }) {
@@ -23,4 +24,3 @@ export default async function RootDocPage({ params }: { params: { doc: string } 
     </AppShell>
   );
 }
-
