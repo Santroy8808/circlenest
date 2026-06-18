@@ -102,6 +102,29 @@ enum MailAttachmentKind {
   FILE
 }
 
+enum GroupVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum GroupJoinPolicy {
+  OPEN
+  APPROVAL
+}
+
+enum GroupMemberRole {
+  MEMBER
+  MODERATOR
+  OWNER
+}
+
+enum GroupJoinRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELED
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -187,6 +210,11 @@ model User {
   mailPreference           MailPreference?
   mailSenderOptOuts        MailSenderOptOut[]        @relation("MailOptOutOwner")
   mailSenderBlocks         MailSenderOptOut[]        @relation("MailOptOutSender")
+  createdGroups            Group[]                    @relation("GroupCreator")
+  groupMemberships         GroupMember[]
+  groupJoinRequests        GroupJoinRequest[]         @relation("GroupJoinRequester")
+  reviewedGroupJoinRequests GroupJoinRequest[]        @relation("GroupJoinReviewer")
+  groupPins                GroupUserPin[]
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -626,6 +654,77 @@ model MailPolicyConfig {
   massMailCostPerRecipientCredits Int      @default(0)
   createdAt                       DateTime @default(now())
   updatedAt                       DateTime @updatedAt
+}
+
+model Group {
+  id                String          @id @default(cuid())
+  slug              String          @unique
+  name              String
+  tagline           String?
+  description       String?
+  avatarUrl         String?
+  bannerUrl         String?
+  visibility        GroupVisibility @default(PUBLIC)
+  joinPolicy        GroupJoinPolicy @default(OPEN)
+  createdByUserId   String?
+  storageLimitBytes BigInt          @default(41943040)
+  archivedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdBy         User?           @relation("GroupCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members           GroupMember[]
+  joinRequests      GroupJoinRequest[]
+  pins              GroupUserPin[]
+
+  @@index([visibility, archivedAt, createdAt])
+  @@index([createdByUserId, createdAt])
+}
+
+model GroupMember {
+  id         String          @id @default(cuid())
+  groupId    String
+  userId     String
+  role       GroupMemberRole @default(MEMBER)
+  isProvider Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  group      Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId, role, createdAt])
+  @@index([groupId, role])
+}
+
+model GroupJoinRequest {
+  id               String                 @id @default(cuid())
+  groupId          String
+  requesterUserId  String
+  status           GroupJoinRequestStatus @default(PENDING)
+  note             String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  group            Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  requester        User                   @relation("GroupJoinRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  reviewedBy       User?                  @relation("GroupJoinReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([requesterUserId, createdAt])
+  @@index([groupId, status, createdAt])
+}
+
+model GroupUserPin {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  sortOrder Int      @default(0)
+  pinnedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([userId, sortOrder, pinnedAt])
 }
 
 model Notification {

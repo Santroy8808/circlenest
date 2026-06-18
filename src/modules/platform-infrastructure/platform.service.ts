@@ -81,7 +81,7 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
   {
     key: "groups",
     title: "Groups",
-    status: "blueprint",
+    status: "ready",
     purpose: "Private community spaces with forums, media, docs, and scoped moderation.",
     href: "/docs/modules/12-groups"
   },
@@ -188,7 +188,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 12",
     title: "Groups",
-    status: "Next",
+    status: "Ready",
     detail: "Group directory cards, joined/my toggle, create-group wizard, public/private groups, and admin visibility."
+  },
+  {
+    label: "Phase 13",
+    title: "Group forum",
+    status: "Next",
+    detail: "Collapsed group threads, full-thread view, end-thread behavior, moderator delete flow, reactions, and photo replies."
   }
 ];
