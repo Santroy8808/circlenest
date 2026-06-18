@@ -183,6 +183,32 @@ enum MarketListingStatus {
   ARCHIVED
 }
 
+enum JobCategory {
+  ADMINISTRATION
+  TECHNICAL
+  SALES
+  DELIVERY
+  AUDITING
+  TRAINING
+  CREATIVE
+  PROFESSIONAL_SERVICES
+  OTHER
+}
+
+enum JobEmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  VOLUNTEER
+}
+
+enum JobListingStatus {
+  ACTIVE
+  FILLED
+  ARCHIVED
+}
+
 enum AuthSecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILURE
@@ -287,6 +313,7 @@ model User {
   eventInvitationsReceived EventInvitation[]          @relation("EventInvitationInvitee")
   eventRsvps               EventRsvp[]
   marketListings           MarketListing[]           @relation("MarketListingSeller")
+  jobListings              JobListing[]              @relation("JobListingEmployer")
   notifications            Notification[]
   alerts                   Alert[]
   diagnostics              DiagnosticLog[]
@@ -1016,6 +1043,30 @@ model MarketListingPhoto {
   @@unique([listingId, mediaAssetId])
   @@index([mediaAssetId, createdAt])
   @@index([listingId, sortOrder])
+}
+
+model JobListing {
+  id                  String             @id @default(cuid())
+  slug                String             @unique
+  employerUserId      String
+  title               String
+  companyName         String?
+  summary             String?
+  description         String
+  category            JobCategory
+  employmentType      JobEmploymentType
+  location            String?
+  remote              Boolean            @default(false)
+  compensation        String?
+  contactEmail        String?
+  contactInstructions String?
+  status              JobListingStatus   @default(ACTIVE)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  employer            User               @relation("JobListingEmployer", fields: [employerUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, category, createdAt])
+  @@index([employerUserId, createdAt])
 }
 
 model Notification {

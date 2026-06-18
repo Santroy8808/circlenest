@@ -121,6 +121,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/16-market"
   },
   {
+    key: "jobs",
+    title: "Jobs",
+    status: "ready",
+    purpose: "Browsable job board with Professional-only creation and full detail/contact pages.",
+    href: "/docs/modules/17-jobs"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -239,7 +246,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 17",
     title: "Jobs",
-    status: "Next",
+    status: "Ready",
     detail: "Browsable job board for all tiers, Professional-only creation, static categories, and detail/contact pages."
+  },
+  {
+    label: "Phase 18",
+    title: "Auditors",
+    status: "Next",
+    detail: "Find an Auditor directory, Auditor-account profile creation, searchable listings, and My Scientology education pull-through."
   }
 ];

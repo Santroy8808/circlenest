@@ -952,6 +952,22 @@ a {
   width: 100%;
 }
 
+.job-card {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 20px;
+  background: rgba(17, 24, 36, 0.92);
+  color: var(--text);
+  display: block;
+  padding: 20px;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.job-card:hover {
+  border-color: rgba(214, 178, 74, 0.58);
+  background: #172133;
+  transform: translateY(-2px);
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
