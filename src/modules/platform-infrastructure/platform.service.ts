@@ -175,6 +175,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     status: "ready",
     purpose: "Wizard-based admin action cards, feature flags, audit visibility, diagnostics, and safe operation boundaries.",
     href: "/docs/modules/24-admin-moderation"
+  },
+  {
+    key: "settings-secure-areas",
+    title: "Settings Secure Areas",
+    status: "ready",
+    purpose: "Card-first settings hub, secure-area prompt, sensitive settings split, and gallery outside secure wall.",
+    href: "/docs/modules/25-settings-secure-areas"
   }
 ];
 
@@ -336,7 +343,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 25",
     title: "Settings Secure Areas",
-    status: "Next",
+    status: "Ready",
     detail: "Settings cards, password-protected sensitive areas, notification rules, subscription, security, and invite controls."
+  },
+  {
+    label: "Phase 26",
+    title: "Search Discovery",
+    status: "Next",
+    detail: "Unified privacy-aware search across people, groups, Market, jobs, auditors, and allowed posts."
   }
 ];
