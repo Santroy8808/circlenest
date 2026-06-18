@@ -17,6 +17,7 @@ export const membershipFeatureKeys = [
   "writers.access",
   "fundraisers.create",
   "invites.send",
+  "mail.massSend",
   "moderation.siteEligible",
   "admin.portal"
 ] as const;
@@ -56,6 +57,7 @@ const baseFeatures: Record<MembershipFeatureKey, boolean> = {
   "writers.access": false,
   "fundraisers.create": false,
   "invites.send": false,
+  "mail.massSend": false,
   "moderation.siteEligible": false,
   "admin.portal": false
 };
@@ -95,6 +97,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "writers.access": true,
       "fundraisers.create": true,
       "invites.send": true,
+      "mail.massSend": true,
       "moderation.siteEligible": true
     }),
     limits: {
@@ -123,6 +126,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "writers.access": true,
       "fundraisers.create": true,
       "invites.send": true,
+      "mail.massSend": true,
       "moderation.siteEligible": true
     }),
     limits: {
@@ -146,6 +150,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "auditors.createProfile": true,
       "ads.createGeneral": true,
       "invites.send": true,
+      "mail.massSend": true,
       "moderation.siteEligible": true
     }),
     limits: {

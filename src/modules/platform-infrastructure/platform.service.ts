@@ -88,7 +88,7 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
   {
     key: "mail",
     title: "Mail",
-    status: "blueprint",
+    status: "ready",
     purpose: "Gmail-like internal mail, contacts, multi-recipient send, and future external mail.",
     href: "/docs/modules/11-mail"
   },
@@ -182,7 +182,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 11",
     title: "Mail",
-    status: "Next",
+    status: "Ready",
     detail: "Mail-only internal client, contacts separate from friends, multi-recipient sends, and mass-mail infrastructure."
+  },
+  {
+    label: "Phase 12",
+    title: "Groups",
+    status: "Next",
+    detail: "Group directory cards, joined/my toggle, create-group wizard, public/private groups, and admin visibility."
   }
 ];

@@ -9,7 +9,8 @@ const featuredRows = [
   { key: "auditors.createProfile", label: "Create auditor profile" },
   { key: "ads.createGeneral", label: "Create general ads" },
   { key: "fundraisers.create", label: "Create fundraisers" },
-  { key: "writers.access", label: "Writers Corner" }
+  { key: "writers.access", label: "Writers Corner" },
+  { key: "mail.massSend", label: "Internal mass mail" }
 ] as const;
 
 function booleanLabel(value: boolean) {
