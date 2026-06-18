@@ -8,6 +8,7 @@ import {
 const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCounts }> = [
   { label: "Rebuild Home", href: "/" },
   { label: "Health", href: "/health" },
+  { label: "Cutover", href: "/cutover" },
   { label: "Search", href: "/search" },
   { label: "Membership", href: "/membership" },
   { label: "Production Zone", href: "/production-zone" },

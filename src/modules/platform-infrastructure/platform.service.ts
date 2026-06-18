@@ -189,6 +189,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     status: "ready",
     purpose: "Unified privacy-aware search across people, groups, Market, jobs, auditors, writing, and visible posts.",
     href: "/docs/modules/26-search-discovery"
+  },
+  {
+    key: "cutover-readiness",
+    title: "Cutover Readiness",
+    status: "ready",
+    purpose: "Non-destructive release gates, smoke matrix, rollback rules, and production promotion checklist.",
+    href: "/cutover"
   }
 ];
 
@@ -362,7 +369,13 @@ export const milestoneDefinitions = [
   {
     label: "Cutover",
     title: "Production cutover readiness",
-    status: "Next",
+    status: "Ready",
     detail: "Archive current production, tag rollback, verify Railway deployment, Neon migrations, R2 media, and login smoke tests."
+  },
+  {
+    label: "Live Cutover",
+    title: "Manual production promotion",
+    status: "Next",
+    detail: "Requires explicit approval, a verified archive tag, clean production repo mapping, GitHub push, and Railway smoke."
   }
 ];

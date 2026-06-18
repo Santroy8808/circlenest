@@ -39,6 +39,16 @@ npm run cutover:check
 
 The preflight is read-only. It checks repo shape, Git state, expected paths, and required environment variables. It does not push, migrate, archive, delete, upload, or deploy.
 
+## Dashboard
+
+The in-app cutover dashboard is available at:
+
+```text
+/cutover
+```
+
+It mirrors the release gates, route smoke matrix, rollback reminders, and non-goals in a visual control surface.
+
 ## Cutover Outline
 
 1. Confirm NewRepo build and browser QC are green.

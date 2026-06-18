@@ -1099,6 +1099,28 @@ a {
   width: 100%;
 }
 
+.cutover-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.cutover-route-list {
+  display: grid;
+  gap: 12px;
+}
+
+.cutover-route-card {
+  align-items: center;
+  border: 1px solid rgba(214, 178, 74, 0.16);
+  border-radius: 18px;
+  background: rgba(16, 25, 40, 0.72);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) auto;
+  padding: 14px;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1151,6 +1173,11 @@ a {
 
   .mail-empty-state {
     min-height: 360px;
+  }
+
+  .cutover-route-card {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
   }
 
   .group-profile-banner {
