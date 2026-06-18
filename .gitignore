@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+dist
+coverage
+.env
+.env.local
+.env.production
+*.tsbuildinfo
+*.log
+*.out
+public/uploads

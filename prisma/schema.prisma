@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipTier {
+  FREE
+  CONTRIBUTOR
+  PROFESSIONAL
+  AUDITOR
+}
+
+enum UserRole {
+  MEMBER
+  ADMIN
+}
+
+enum LogLevel {
+  debug
+  info
+  warn
+  error
+}
+
+enum AuditSeverity {
+  info
+  warning
+  critical
+}
+
+enum ModuleHealthStatus {
+  healthy
+  degraded
+  offline
+  unknown
+}
+
+enum MediaVisibility {
+  PRIVATE
+  MEMBERS
+  PUBLIC
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  username       String         @unique
+  passwordHash   String?
+  role           UserRole       @default(MEMBER)
+  emailVerified  DateTime?
+  deactivatedAt  DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  profile        Profile?
+  membership     Membership?
+  mediaAssets    MediaAsset[]
+  notifications  Notification[]
+  alerts         Alert[]
+  diagnostics    DiagnosticLog[]
+  auditLogs      AuditLog[]     @relation("AuditActor")
+  adminActions   AdminAction[]  @relation("AdminActionActor")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String?
+  bio         String?
+  avatarUrl   String?
+  bannerUrl   String?
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Membership {
+  id                 String         @id @default(cuid())
+  userId             String         @unique
+  tier               MembershipTier @default(FREE)
+  inviteEligibleAt   DateTime?
+  storageLimitBytes  BigInt         @default(104857600)
+  platformCredits    Int            @default(0)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DiagnosticLog {
+  id         String   @id @default(cuid())
+  level      LogLevel
+  module     String
+  message    String
+  context    Json?
+  requestId  String?
+  userId     String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([module, createdAt])
+  @@index([level, createdAt])
+}
+
+model AuditLog {
+  id          String        @id @default(cuid())
+  actorUserId String?
+  module      String
+  action      String
+  targetType  String?
+  targetId    String?
+  severity    AuditSeverity @default(info)
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  actor       User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([module, action, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  enabled     Boolean  @default(false)
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ModuleHealthCheck {
+  id          String             @id @default(cuid())
+  module      String             @unique
+  status      ModuleHealthStatus @default(unknown)
+  message     String?
+  checkedAt   DateTime           @default(now())
+  metadata    Json?
+}
+
+model AdminAction {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actionKey   String
+  module      String
+  status      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("AdminActionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actionKey, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model MediaAsset {
+  id           String          @id @default(cuid())
+  ownerUserId  String
+  storageKey   String          @unique
+  publicUrl    String?
+  mimeType     String
+  sizeBytes    BigInt
+  originalName String?
+  visibility   MediaVisibility @default(PRIVATE)
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  owner        User            @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([ownerUserId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Alert {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+

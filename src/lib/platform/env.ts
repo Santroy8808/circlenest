@@ -1,0 +1,33 @@
+import { z } from "zod";
+
+const optionalUrl = z.string().url().or(z.literal("")).optional();
+
+export const envSchema = z.object({
+  DATABASE_URL: z.string().min(1),
+  NEXTAUTH_SECRET: z.string().min(16).optional(),
+  NEXTAUTH_URL: optionalUrl,
+  PLATFORM_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  DIAGNOSTIC_LOGS_ENABLED: z.enum(["true", "false"]).default("true"),
+  AUDIT_LOGS_ENABLED: z.enum(["true", "false"]).default("true"),
+  CLOUDFLARE_R2_ACCOUNT_ID: z.string().optional(),
+  CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().optional(),
+  CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().optional(),
+  CLOUDFLARE_R2_BUCKET: z.string().optional(),
+  CLOUDFLARE_R2_PUBLIC_BASE_URL: optionalUrl
+});
+
+export type PlatformEnv = z.infer<typeof envSchema>;
+
+export function readPlatformEnv(input: NodeJS.ProcessEnv = process.env): PlatformEnv {
+  return envSchema.parse(input);
+}
+
+export function safeReadPlatformEnv(input: NodeJS.ProcessEnv = process.env) {
+  return envSchema.safeParse(input);
+}
+
+export function isEnabled(value: string | undefined, fallback = true) {
+  if (value === undefined) return fallback;
+  return value.toLowerCase() === "true";
+}
+
