@@ -28,6 +28,12 @@ export function getCutoverDashboard(): CutoverDashboardView {
         command: "npm run prod:snapshot"
       },
       {
+        title: "Cutover runbook",
+        status: "automated",
+        detail: "Generate the human-reviewed archive, promotion, smoke, and rollback command sequence without executing it.",
+        command: "npm run cutover:runbook"
+      },
+      {
         title: "Browser visual QC",
         status: "manual",
         detail: "Login, home, search, profile, gallery, groups, mail, market, jobs, feedback, and admin need browser confirmation."

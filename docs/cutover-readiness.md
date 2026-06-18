@@ -59,6 +59,16 @@ npm run prod:snapshot
 
 This writes `docs/production-repo-snapshot.md` with the local production repo branch, remote, commit, archive tags, script comparison, and warnings. It is read-only and does not touch production.
 
+## Cutover Runbook
+
+Run from NewRepo:
+
+```powershell
+npm run cutover:runbook
+```
+
+This writes `docs/cutover-runbook.md` with the suggested archive tag, validation commands, production promotion outline, production smoke checklist, and rollback command block. It is read-only documentation and does not perform the cutover.
+
 ## Dashboard
 
 The in-app cutover dashboard is available at:

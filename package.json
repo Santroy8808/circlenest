@@ -15,7 +15,8 @@
     "env:check": "tsx scripts/validate-env.ts",
     "cutover:check": "tsx scripts/cutover-readiness.ts",
     "release:manifest": "tsx scripts/release-manifest.ts",
-    "prod:snapshot": "tsx scripts/production-repo-snapshot.ts"
+    "prod:snapshot": "tsx scripts/production-repo-snapshot.ts",
+    "cutover:runbook": "tsx scripts/cutover-runbook.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",
