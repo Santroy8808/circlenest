@@ -66,6 +66,7 @@ npm run typecheck
 npm run build
 npm run cutover:check
 npm run promote:dry-run
+npm run services:readiness
 \`\`\`
 
 ## Browser QC Routes

@@ -32,6 +32,7 @@ npm run prod:snapshot
 npm run cutover:runbook
 npm run browser:smoke
 npm run promote:dry-run
+npm run services:readiness
 npm run dev
 ```
 

@@ -12,7 +12,8 @@ const rootDocs = [
   { title: "Production Repo Snapshot", href: "/docs/production-repo-snapshot" },
   { title: "Cutover Runbook", href: "/docs/cutover-runbook" },
   { title: "Browser Smoke Checklist", href: "/docs/browser-smoke-checklist" },
-  { title: "Promotion Dry Run", href: "/docs/promotion-dry-run" }
+  { title: "Promotion Dry Run", href: "/docs/promotion-dry-run" },
+  { title: "External Services Readiness", href: "/docs/external-services-readiness" }
 ];
 
 export default function DocsPage() {

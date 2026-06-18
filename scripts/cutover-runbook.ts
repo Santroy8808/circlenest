@@ -129,6 +129,7 @@ npm run release:manifest
 npm run prod:snapshot
 npm run cutover:runbook
 npm run promote:dry-run
+npm run services:readiness
 \`\`\`
 
 ## Phase 2 - Archive Current Production

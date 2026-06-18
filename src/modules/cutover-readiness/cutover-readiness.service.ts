@@ -46,6 +46,12 @@ export function getCutoverDashboard(): CutoverDashboardView {
         command: "npm run promote:dry-run"
       },
       {
+        title: "External services readiness",
+        status: "automated",
+        detail: "Generate a Railway, Neon, R2, and auth environment readiness report without connecting or deploying.",
+        command: "npm run services:readiness"
+      },
+      {
         title: "Browser visual QC",
         status: "manual",
         detail: "Login, home, search, profile, gallery, groups, mail, market, jobs, feedback, and admin need browser confirmation."

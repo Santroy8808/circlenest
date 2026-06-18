@@ -89,6 +89,16 @@ npm run promote:dry-run
 
 This writes `docs/promotion-dry-run.md` with the Git-tracked files NewRepo would contribute, excluded local/build/secret artifacts, production-only tracked paths, and production worktree hazards. It is read-only and does not copy files.
 
+## External Services Readiness
+
+Run from NewRepo:
+
+```powershell
+npm run services:readiness
+```
+
+This writes `docs/external-services-readiness.md` with Railway, Neon, Cloudflare R2, and auth runtime environment checks. It is read-only and does not connect, deploy, migrate, or upload.
+
 ## Dashboard
 
 The in-app cutover dashboard is available at:
