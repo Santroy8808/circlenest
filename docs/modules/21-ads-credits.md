@@ -2,45 +2,59 @@
 
 ## Purpose
 
-Provide transparent, controlled internal advertising without corrupting content areas.
+Provide transparent internal advertising that uses labeled reserved placements and never corrupts posts, listings, event details, or job details.
 
 ## User-Facing Surfaces
 
-- Create ad wizard.
-- Ad campaign manager.
-- Reserved ad stream placements.
+- `/ads` for campaign management.
+- `/ads/create` for focused ad creation.
+- Production Zone Business Center card for eligible accounts.
 
 ## Primary Code Areas
 
 - `src/modules/ads-credits`
-- `src/components/ads`
-- `src/app/production-zone/business/ads`
+- `src/components/ads-credits`
+- `src/app/ads`
+- `src/app/api/ads/campaigns`
 
 ## Data Ownership
 
-- future ad campaign, placement, credit ledger, impression, click, engagement tables.
+- `AdCampaign` owns campaign copy, placement, budget, targeting fields, and spend totals.
+- `AdCreditLedgerEntry` records platform-credit reservations and future grant/spend history.
+- `AdDeliveryLog` records impression/click diagnostics for future placement systems.
+- `Membership.platformCredits` remains the current user-facing platform-credit balance.
 
 ## Core Workflows
 
-- Create targeted campaign.
-- Spend credits.
-- Log delivery diagnostics.
-- Track impressions/clicks.
+- Eligible user opens Ads from Production Zone.
+- User creates a reserved-placement ad campaign.
+- Non-admin campaign creation reserves platform credits immediately.
+- Admin campaign creation is allowed without credit reservation.
+- Future delivery services can call `logAdDelivery()` to record impressions and clicks.
 
 ## Access Rules
 
-Contributor limited internal mass-mail ads. Professional and Auditor ad access by policy. Admin controls global costs and recipient caps.
+- General ad creation requires Admin role or the `ads.createGeneral` feature.
+- Contributor marketplace-specific ad handoffs are intentionally not implemented as general ads in this phase.
+- Campaign targeting is limited to permitted fields: location text and My Scientology classification.
+- Ads are not rendered inside listings, events, jobs, posts, or comments.
 
 ## Integrations
 
-Market, jobs, events, business, My Scientology, admin.
+- Business Center and Production Zone link to Ads for eligible accounts.
+- Market, jobs, and events should hand off promotion to this module rather than embedding ads internally.
+- Admin can later manage global credit costs, grants, and placement controls.
 
-## Current Design Notes
+## Diagnostics And Audit
 
-Ads never live inside listings/events/details. They are reserved, labeled placements.
+- Campaign creation writes diagnostic and audit logs.
+- Delivery logging writes diagnostic-level events.
+- Credit reservations write ledger entries.
 
 ## Smoke Checklist
 
-- Ad targeting excludes disallowed private data.
-- No module embeds ads inside detail cards.
-
+- `/ads` redirects logged-out users to login.
+- `/ads/create` blocks accounts without general ad access.
+- Campaign creation rejects insufficient platform credits for non-admin users.
+- Campaign creation creates an `AdCreditLedgerEntry` reservation.
+- Dashboard shows Phase 21 as Ready and Phase 22 as Next.

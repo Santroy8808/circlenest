@@ -106,6 +106,14 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       badge: "Business",
       available: features["market.storefront"] || features["ads.createGeneral"] || features["jobs.createListing"],
       reason: "Professional access required."
+    }),
+    card({
+      title: "Ad Campaigns",
+      description: "Create labeled reserved-placement ads without inserting ads inside listings, events, or posts.",
+      href: "/ads",
+      badge: "Business",
+      available: features["ads.createGeneral"],
+      reason: "Professional, Auditor, or Admin access required."
     })
   ];
 

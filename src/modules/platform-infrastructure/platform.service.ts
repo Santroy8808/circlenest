@@ -149,6 +149,13 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     href: "/docs/modules/20-business-storefront"
   },
   {
+    key: "ads-credits",
+    title: "Ads Credits",
+    status: "ready",
+    purpose: "Ad campaign manager, platform-credit reservation, privacy-aware targeting, and delivery diagnostics.",
+    href: "/docs/modules/21-ads-credits"
+  },
+  {
     key: "admin-moderation",
     title: "Admin Moderation",
     status: "blueprint",
@@ -291,7 +298,13 @@ export const milestoneDefinitions = [
   {
     label: "Phase 21",
     title: "Ads Credits",
-    status: "Next",
+    status: "Ready",
     detail: "Transparent ad creation, targeting by permitted fields, credits, placement rules, and delivery diagnostics."
+  },
+  {
+    label: "Phase 22",
+    title: "Fundraisers Funds",
+    status: "Next",
+    detail: "Contributor/Professional fundraiser rules, campaign pages, internal payments-ready structure, and money boundary controls."
   }
 ];
