@@ -3,6 +3,8 @@ import { MembershipMatrix } from "@/components/policy/membership-matrix";
 import { listSubscriptionPlanRules } from "@/modules/membership-policy/launch-access.service";
 import { getPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
 
+export const dynamic = "force-dynamic";
+
 export default async function MembershipPage() {
   const policies = getPolicyMatrix();
   const plans = await listSubscriptionPlanRules();
