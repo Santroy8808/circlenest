@@ -13,7 +13,13 @@ import { getPlatformCreditsAdminView } from "@/modules/admin-moderation/platform
 import { listLaunchAccessAdminView } from "@/modules/membership-policy/launch-access.service";
 import { listPlatformCostRules } from "@/modules/platform-pricing/platform-pricing.service";
 
-export default async function AdminActionPage({ params }: { params: { actionKey: string } }) {
+export default async function AdminActionPage({
+  params,
+  searchParams
+}: {
+  params: { actionKey: string };
+  searchParams?: { tool?: string };
+}) {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -75,7 +81,7 @@ export default async function AdminActionPage({ params }: { params: { actionKey:
 
     return (
       <AppShell>
-        <AdminLaunchAccessWizard initialView={view} />
+        <AdminLaunchAccessWizard initialView={view} mode={searchParams?.tool} />
       </AppShell>
     );
   }
