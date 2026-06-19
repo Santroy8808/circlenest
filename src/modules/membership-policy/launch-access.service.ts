@@ -3,6 +3,7 @@ import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { listFreeAccountInviteAdminView } from "@/modules/membership-policy/free-account-invites.service";
 
 const MODULE_KEY = "launch-access";
 
@@ -157,7 +158,7 @@ export async function ensureLaunchDefaults() {
 export async function listLaunchAccessAdminView() {
   await ensureLaunchDefaults();
 
-  const [plans, adRules, activeGrants] = await Promise.all([
+  const [plans, adRules, activeGrants, freeInvites] = await Promise.all([
     prisma.subscriptionPlanRule.findMany({ orderBy: { standardPriceCents: "asc" } }),
     prisma.adExperienceRule.findMany({ orderBy: { key: "asc" } }),
     prisma.membershipPromotionGrant.findMany({
@@ -176,7 +177,8 @@ export async function listLaunchAccessAdminView() {
           }
         }
       }
-    })
+    }),
+    listFreeAccountInviteAdminView()
   ]);
 
   return {
@@ -207,7 +209,8 @@ export async function listLaunchAccessAdminView() {
       label: grant.label,
       reason: grant.reason,
       expiresAt: grant.expiresAt.toISOString()
-    }))
+    })),
+    freeInvites
   };
 }
 

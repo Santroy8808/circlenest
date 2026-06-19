@@ -19,7 +19,13 @@ export const envSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET: z.string().optional(),
-  R2_PUBLIC_BASE_URL: optionalUrl
+  R2_PUBLIC_BASE_URL: optionalUrl,
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().email().optional(),
+  SMTP_SECURE: z.enum(["true", "false"]).optional()
 });
 
 export type PlatformEnv = z.infer<typeof envSchema>;

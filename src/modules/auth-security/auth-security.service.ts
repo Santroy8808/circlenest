@@ -13,6 +13,11 @@ import {
   type RequestContext,
   signupSchema
 } from "@/modules/auth-security/types";
+import {
+  consumeFreeInviteForSignup,
+  findUsableFreeInviteForSignup,
+  FreeInviteError
+} from "@/modules/membership-policy/free-account-invites.service";
 import { recordSessionStart } from "@/modules/platform-activity/platform-activity.service";
 
 const MODULE_KEY = "auth-security";
@@ -175,6 +180,7 @@ export async function createMemberAccount(
     tier?: MembershipTier;
     role?: UserRole;
     context?: RequestContext;
+    skipInviteCode?: boolean;
   } = {}
 ) {
   const parsed = signupSchema.safeParse(input);
@@ -191,32 +197,61 @@ export async function createMemberAccount(
 
   const email = normalizeIdentifier(parsed.data.email);
   const username = normalizeUsername(parsed.data.username);
+
+  if (!options.skipInviteCode && !parsed.data.inviteCode?.trim()) {
+    return { ok: false as const, error: "Invite code is required." };
+  }
+
   const passwordHash = await hashPassword(parsed.data.password);
 
   try {
-    const user = await prisma.user.create({
-      data: {
-        email,
-        username,
-        passwordHash,
-        role: options.role ?? UserRole.MEMBER,
-        emailVerified: options.preverified ? new Date() : undefined,
-        lastPasswordChangedAt: new Date(),
-        profile: {
-          create: {
-            displayName: parsed.data.displayName
+    const user = await prisma.$transaction(async (tx) => {
+      let inviteId: string | null = null;
+
+      if (!options.skipInviteCode) {
+        const invite = await findUsableFreeInviteForSignup(tx, parsed.data.inviteCode, email);
+
+        if (!invite.ok) {
+          throw new FreeInviteError(invite.error);
+        }
+
+        inviteId = invite.invite.id;
+      }
+
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          username,
+          passwordHash,
+          role: options.role ?? UserRole.MEMBER,
+          emailVerified: options.preverified ? new Date() : undefined,
+          lastPasswordChangedAt: new Date(),
+          profile: {
+            create: {
+              displayName: parsed.data.displayName
+            }
+          },
+          membership: {
+            create: {
+              tier: options.tier ?? MembershipTier.FREE
+            }
           }
         },
-        membership: {
-          create: {
-            tier: options.tier ?? MembershipTier.FREE
-          }
+        include: {
+          membership: true,
+          profile: true
         }
-      },
-      include: {
-        membership: true,
-        profile: true
+      });
+
+      if (inviteId) {
+        await consumeFreeInviteForSignup(tx, {
+          inviteId,
+          userId: createdUser.id,
+          email
+        });
       }
+
+      return createdUser;
     });
 
     await recordSecurityEvent({
@@ -235,6 +270,10 @@ export async function createMemberAccount(
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false as const, error: "That email or username is already in use." };
+    }
+
+    if (error instanceof FreeInviteError) {
+      return { ok: false as const, error: error.message };
     }
 
     await diagnostics.error(MODULE_KEY, "Signup failed.", {

@@ -464,6 +464,9 @@ model User {
   createdMembershipOverrides MembershipPolicyOverride[]  @relation("MembershipOverrideCreator")
   promotionGrants            MembershipPromotionGrant[]  @relation("PromotionGrantUser")
   createdPromotionGrants     MembershipPromotionGrant[]  @relation("PromotionGrantCreator")
+  generatedFreeInvites       FreeAccountInviteCode[]     @relation("FreeInviteGeneratedBy")
+  assignedFreeInvites        FreeAccountInviteCode[]     @relation("FreeInviteAssignedUser")
+  usedFreeInvites            FreeAccountInviteCode[]     @relation("FreeInviteUsedBy")
 }
 
 model Profile {
@@ -531,6 +534,30 @@ model MembershipPromotionGrant {
 
   @@index([scope, sourceTier, targetTier, active, startsAt, expiresAt])
   @@index([userId, active, startsAt, expiresAt])
+}
+
+model FreeAccountInviteCode {
+  id                String    @id @default(cuid())
+  codeHash          String    @unique
+  codePreview       String
+  recipientEmail    String?
+  assignedUserId    String?
+  generatedByUserId String?
+  usedByUserId      String?
+  emailedAt         DateTime?
+  usedAt            DateTime?
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  assignedUser      User?     @relation("FreeInviteAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  generatedBy       User?     @relation("FreeInviteGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: SetNull)
+  usedBy            User?     @relation("FreeInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([recipientEmail, expiresAt])
+  @@index([assignedUserId, expiresAt])
+  @@index([usedAt, expiresAt])
+  @@index([generatedByUserId, createdAt])
 }
 
 model SubscriptionPlanRule {
