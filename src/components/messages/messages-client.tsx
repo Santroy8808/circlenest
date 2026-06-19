@@ -270,7 +270,7 @@ export function MessagesClient({
   });
 
   return (
-    <div className="chat-layout">
+    <div className={selectedThread ? "chat-layout has-selected-thread" : "chat-layout"}>
       <aside className="chat-sidebar surface rounded-md">
         <section className="chat-panel-section">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Chats</p>
@@ -343,6 +343,9 @@ export function MessagesClient({
         {selectedThread ? (
           <>
             <header className="chat-window-header">
+              <button className="chat-window-back" onClick={() => setSelectedThread(null)} type="button">
+                Chats
+              </button>
               <div>
                 <p className="text-sm uppercase tracking-[0.18em] text-[var(--gold)]">
                   {selectedThread.type === ChatThreadType.DIRECT ? "Direct chat" : "Group chat"}
