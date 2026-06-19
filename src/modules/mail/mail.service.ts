@@ -178,17 +178,7 @@ async function getMassRecipientCap(userId: string) {
   if (!user) return 1;
   if (user.role === UserRole.ADMIN) return config.adminMassRecipientCap;
 
-  switch (user.membership?.tier ?? MembershipTier.FREE) {
-    case MembershipTier.CONTRIBUTOR:
-      return config.contributorMassRecipientCap;
-    case MembershipTier.PROFESSIONAL:
-      return config.professionalMassRecipientCap;
-    case MembershipTier.AUDITOR:
-      return config.auditorMassRecipientCap;
-    case MembershipTier.FREE:
-    default:
-      return 1;
-  }
+  return user.membership?.tier === MembershipTier.PROFESSIONAL ? config.professionalMassRecipientCap : 1;
 }
 
 async function assertThreadAccess(userId: string, threadId: string) {
@@ -449,6 +439,11 @@ export async function sendMail(senderUserId: string, input: unknown) {
 
   const deliveryKind =
     parsed.data.deliveryKind ?? (requestedRecipientIds.length > 1 ? MailDeliveryKind.MASS_INTERNAL : MailDeliveryKind.DIRECT);
+
+  if (deliveryKind === MailDeliveryKind.INQUIRY) {
+    return { ok: false as const, error: "Inquiry mail can only be created from storefront inquiries." };
+  }
+
   const massCap = await getMassRecipientCap(senderUserId);
 
   if (deliveryKind === MailDeliveryKind.MASS_INTERNAL && requestedRecipientIds.length > massCap) {

@@ -3,6 +3,10 @@
 import { ScientologyClassification, ScientologyVisibility, type ScientologyProfile } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import {
+  scientologyProcessingStatuses,
+  scientologyTrainingLevels
+} from "@/modules/my-scientology/types";
 
 export function ScientologyProfileForm({ profile }: { profile: ScientologyProfile | null }) {
   const router = useRouter();
@@ -29,8 +33,7 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
           processingStatus: formData.get("processingStatus"),
           goodStandingAttested: formData.get("goodStandingAttested") === "on",
           educationNotes: formData.get("educationNotes"),
-          visibility: formData.get("visibility"),
-          adTargetingAllowed: formData.get("adTargetingAllowed") === "on"
+          visibility: formData.get("visibility")
         })
       });
       const payload = (await response.json()) as { error?: string };
@@ -54,13 +57,9 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
           <span className="form-label">Classification</span>
           <select className="form-field" name="classification" defaultValue={profile?.classification ?? ScientologyClassification.PUBLIC}>
             <option value={ScientologyClassification.PUBLIC}>Public</option>
-            <option value={ScientologyClassification.PRECLEAR}>Preclear</option>
-            <option value={ScientologyClassification.CLEAR}>Clear</option>
-            <option value={ScientologyClassification.OT}>OT</option>
-            <option value={ScientologyClassification.AUDITOR}>Auditor</option>
             <option value={ScientologyClassification.STAFF}>Staff</option>
             <option value={ScientologyClassification.SEA_ORG}>Sea Org</option>
-            <option value={ScientologyClassification.OTHER}>Other</option>
+            <option value={ScientologyClassification.AUDITOR}>Auditor</option>
           </select>
         </label>
         <label className="grid gap-2">
@@ -81,11 +80,23 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
           <span className="form-label">Training level</span>
-          <input className="form-field" name="trainingLevel" defaultValue={profile?.trainingLevel ?? ""} />
+          <select className="form-field" name="trainingLevel" defaultValue={profile?.trainingLevel ?? ""}>
+            {scientologyTrainingLevels.map((level) => (
+              <option key={level || "not-listed"} value={level}>
+                {level || "Not listed"}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="grid gap-2">
           <span className="form-label">Processing status</span>
-          <input className="form-field" name="processingStatus" defaultValue={profile?.processingStatus ?? ""} />
+          <select className="form-field" name="processingStatus" defaultValue={profile?.processingStatus ?? ""}>
+            {scientologyProcessingStatuses.map((status) => (
+              <option key={status || "not-listed"} value={status}>
+                {status || "Not listed"}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       <label className="grid gap-2">
@@ -104,10 +115,6 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
           <label className="flex items-start gap-3 text-sm text-[var(--muted)]">
             <input name="goodStandingAttested" type="checkbox" defaultChecked={profile?.goodStandingAttested ?? false} />
             <span>I attest that I am currently active and in good standing.</span>
-          </label>
-          <label className="flex items-start gap-3 text-sm text-[var(--muted)]">
-            <input name="adTargetingAllowed" type="checkbox" defaultChecked={profile?.adTargetingAllowed ?? false} />
-            <span>Allow privacy-safe ad/category matching from these fields.</span>
           </label>
         </div>
       </div>

@@ -8,8 +8,9 @@ export function GlobalFeedbackLink() {
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
   const currentUrl = `${pathname}${queryString ? `?${queryString}` : ""}`;
+  const hiddenPaths = ["/login", "/signup", "/reset-password", "/verify-email"];
 
-  if (pathname.startsWith("/feedback/new")) {
+  if (pathname.startsWith("/feedback/new") || hiddenPaths.some((path) => pathname.startsWith(path))) {
     return null;
   }
 

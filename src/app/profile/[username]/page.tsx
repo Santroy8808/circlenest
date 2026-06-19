@@ -2,9 +2,15 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
 import { ProfileCard } from "@/components/profile/profile-card";
 import { getPublicProfileByUsername } from "@/modules/profile-identity/profile-identity.service";
+import { redirect } from "next/navigation";
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const session = await auth();
+
+  if (!session?.user || session.user.revoked) {
+    redirect(`/login?callbackUrl=/profile/${params.username}`);
+  }
+
   const profile = await getPublicProfileByUsername(params.username);
   const isOwner = Boolean(session?.user?.username && session.user.username === params.username.toLowerCase());
 

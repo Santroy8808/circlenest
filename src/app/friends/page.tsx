@@ -3,6 +3,7 @@ import { SocialRelationshipType } from "@prisma/client";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
 import { PeopleGrid } from "@/components/social/people-grid";
+import { getListingViewPreference } from "@/modules/listing-preferences/listing-preferences.service";
 import { safeListPeopleCards } from "@/modules/social-graph/social-graph.service";
 
 export default async function FriendsPage() {
@@ -12,7 +13,10 @@ export default async function FriendsPage() {
     redirect("/login?callbackUrl=/friends");
   }
 
-  const people = await safeListPeopleCards(session.user.id, SocialRelationshipType.FRIEND);
+  const [people, initialView] = await Promise.all([
+    safeListPeopleCards(session.user.id, SocialRelationshipType.FRIEND),
+    getListingViewPreference(session.user.id, "friends", "square")
+  ]);
 
   return (
     <AppShell>
@@ -24,7 +28,7 @@ export default async function FriendsPage() {
         </p>
       </section>
       <section className="mt-5">
-        <PeopleGrid people={people} />
+        <PeopleGrid initialView={initialView} people={people} surface="friends" />
       </section>
     </AppShell>
   );

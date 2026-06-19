@@ -11,16 +11,18 @@ export default async function StorefrontPage({ params }: { params: { slug: strin
   }
 
   return (
-    <main className="main-surface mx-auto max-w-5xl">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <main className="public-storefront-surface">
+      <div className="public-storefront-shell">
+        <div className="public-storefront-top flex flex-wrap items-center justify-between gap-3">
         <Link className="text-sm font-semibold text-[var(--gold)]" href="/">
           Theta-Space
         </Link>
         <Link className="btn-secondary" href="/login">
           Member login
         </Link>
+        </div>
+        <BusinessStorefront profile={result.profile} />
       </div>
-      <BusinessStorefront profile={result.profile} />
     </main>
   );
 }

@@ -13,6 +13,7 @@ import {
   type RequestContext,
   signupSchema
 } from "@/modules/auth-security/types";
+import { recordSessionStart } from "@/modules/platform-activity/platform-activity.service";
 
 const MODULE_KEY = "auth-security";
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -153,6 +154,16 @@ export async function authorizeCredentials(
     identifier,
     context
   });
+  await recordSessionStart({
+    userId: user.id,
+    ipAddress: context?.ipAddress,
+    userAgent: context?.userAgent
+  }).catch((error) =>
+    diagnostics.warn(MODULE_KEY, "Could not write platform session-start activity.", {
+      userId: user.id,
+      error: error instanceof Error ? error.message : "unknown"
+    })
+  );
 
   return toAuthenticatedUser(user);
 }

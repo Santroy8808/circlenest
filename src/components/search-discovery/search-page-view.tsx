@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { SearchView } from "@/modules/search-discovery/types";
 
 function initialFor(title: string) {
@@ -6,6 +10,29 @@ function initialFor(title: string) {
 }
 
 export function SearchPageView({ search }: { search: SearchView }) {
+  const router = useRouter();
+  const [query, setQuery] = useState(search.query);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setQuery(search.query);
+  }, [search.query]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const cleanQuery = query.trim();
+
+      if (cleanQuery === search.query) return;
+      if (cleanQuery.length === 1) return;
+
+      startTransition(() => {
+        router.replace(cleanQuery ? `/search?q=${encodeURIComponent(cleanQuery)}` : "/search", { scroll: false });
+      });
+    }, 220);
+
+    return () => window.clearTimeout(timeout);
+  }, [query, router, search.query]);
+
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
@@ -19,25 +46,19 @@ export function SearchPageView({ search }: { search: SearchView }) {
           </div>
           {search.query ? (
             <div className="rounded-md border border-[var(--line)] bg-black/20 px-4 py-3 text-sm">
-              <p className="text-[var(--muted)]">Results</p>
+              <p className="text-[var(--muted)]">{isPending ? "Searching" : "Results"}</p>
               <p className="mt-1 font-semibold text-[var(--gold)]">{search.total} found</p>
             </div>
           ) : null}
         </div>
-        <form action="/search" className="mt-6 grid gap-3 md:grid-cols-[1fr_auto]">
-          <input
-            aria-label="Search Theta-Space"
-            className="form-field"
-            defaultValue={search.query}
-            minLength={2}
-            name="q"
-            placeholder="Search people, groups, listings, jobs, auditors, posts..."
-            type="search"
-          />
-          <button className="btn-primary" type="submit">
-            Search
-          </button>
-        </form>
+        <input
+          aria-label="Live search Theta-Space"
+          className="form-field mt-6"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Start typing people, groups, listings, jobs, auditors, posts..."
+          type="search"
+          value={query}
+        />
       </section>
 
       {!search.query ? (

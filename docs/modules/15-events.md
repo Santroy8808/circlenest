@@ -36,7 +36,7 @@ Support invite-based events with creator and scoped moderator control.
 
 ## Access Rules
 
-- Contributor, Professional, Auditor, or Admin can create events.
+- Professional or Admin can create events.
 - Creators and scoped moderators can invite members and manage the event.
 - Invitees, RSVP users, creators, moderators, and Admin can view.
 - Ads are not embedded inside event listings.
@@ -56,7 +56,8 @@ Events belong under Production Zone for creator tiers and remain invite-based. T
 ## Smoke Checklist
 
 - Free cannot create.
-- Contributor+ can create.
+- Contributor and Auditor cannot create.
+- Professional can create.
 - Event creator can invite members.
 - Event creator can add scoped moderators.
 - Invitee can RSVP.

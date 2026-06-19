@@ -29,6 +29,7 @@ export function MarketListingDetail({ listing }: { listing: MarketListingDetailV
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{listing.categoryLabel}</p>
               <h1 className="mt-3 text-4xl font-semibold">{listing.title}</h1>
               <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
+              <p className="mt-3 text-[var(--muted)]">{listing.location || "Location TBD"}</p>
             </div>
             <Link className="btn-secondary" href="/market">
               Back to Market

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { RichTextEditor } from "@/components/writers-corner/rich-text-editor";
 import type { ChapterDetailView } from "@/modules/writers-corner/types";
 
 export function ChapterReaderEditor({ chapter }: { chapter: ChapterDetailView }) {
   const [title, setTitle] = useState(chapter.title);
   const [bodyText, setBodyText] = useState(chapter.bodyText);
+  const [bodyHtml, setBodyHtml] = useState(chapter.bodyHtml ?? "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -19,7 +21,7 @@ export function ChapterReaderEditor({ chapter }: { chapter: ChapterDetailView })
       const response = await fetch(`/api/writers/chapters/${chapter.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, bodyText, autosave })
+        body: JSON.stringify({ title, bodyText, bodyHtml, autosave })
       });
       const payload = (await response.json()) as { error?: string };
 
@@ -43,7 +45,9 @@ export function ChapterReaderEditor({ chapter }: { chapter: ChapterDetailView })
       </section>
 
       <article className="writer-reader surface rounded-md p-8">
-        {chapter.bodyText ? (
+        {chapter.bodyHtml ? (
+          <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: chapter.bodyHtml }} />
+        ) : chapter.bodyText ? (
           chapter.bodyText.split(/\n{2,}/).map((paragraph, index) => (
             <p className="mb-5 leading-8" key={`${paragraph.slice(0, 12)}-${index}`}>
               {paragraph}
@@ -73,7 +77,14 @@ export function ChapterReaderEditor({ chapter }: { chapter: ChapterDetailView })
         <section className="surface grid gap-4 rounded-md p-6">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">Creator editor</h2>
           <input className="form-field" onChange={(event) => setTitle(event.target.value)} value={title} />
-          <textarea className="form-field min-h-[360px] resize-y" onChange={(event) => setBodyText(event.target.value)} value={bodyText} />
+          <RichTextEditor
+            html={bodyHtml}
+            onChange={(value) => {
+              setBodyHtml(value.html);
+              setBodyText(value.text);
+            }}
+            placeholder="Edit this chapter with rich formatting."
+          />
           {message ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
           {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           <div className="flex justify-end gap-3">

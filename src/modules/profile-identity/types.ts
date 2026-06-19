@@ -1,5 +1,6 @@
 import { ProfileVisibility } from "@prisma/client";
 import { z } from "zod";
+import type { FamilyMemberView } from "@/modules/social-graph/types";
 
 export const updateProfileSchema = z.object({
   displayName: z.string().min(1, "Display name is required.").max(80),
@@ -22,4 +23,5 @@ export type ProfileCardView = {
   visibility: ProfileVisibility;
   tier: string;
   role: string;
+  familyMembers: FamilyMemberView[];
 };

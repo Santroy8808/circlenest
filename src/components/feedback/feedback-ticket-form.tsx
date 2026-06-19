@@ -12,7 +12,8 @@ export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
     event.preventDefault();
     setError("");
     setTicketId("");
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     startTransition(async () => {
       const response = await fetch("/api/feedback/tickets", {
@@ -30,7 +31,10 @@ export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
           }
         })
       });
-      const payload = (await response.json()) as { error?: string; publicId?: string };
+      const payload = (await response.json().catch(() => ({ error: "The ticket service returned an unreadable response." }))) as {
+        error?: string;
+        publicId?: string;
+      };
 
       if (!response.ok) {
         setError(payload.error ?? "Could not create ticket.");
@@ -38,7 +42,7 @@ export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
       }
 
       setTicketId(payload.publicId ?? "");
-      event.currentTarget.reset();
+      form.reset();
     });
   }
 

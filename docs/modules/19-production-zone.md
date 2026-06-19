@@ -46,7 +46,7 @@ Avoid duplicate "Production Zone" link under the Production Zone heading.
 ## Smoke Checklist
 
 - Free sees browse tools.
-- Contributor sees Contributor creator tools.
+- Contributor sees capped Market and Writers Corner tools, but not event, fundraiser, or mass-mail creation tools.
 - Professional sees Business Center.
 - Auditor sees auditor profile tooling.
 - Hub remains card/action-first with no raw forms.

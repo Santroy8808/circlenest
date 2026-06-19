@@ -141,7 +141,7 @@ async function searchPeople(input: { viewerUserId: string; viewerRole: UserRole;
   return people.map<SearchResultItem>((person) => ({
     id: person.id,
     title: displayName(person),
-    subtitle: `@${person.username}`,
+    subtitle: `Full name: ${displayName(person)} - @${person.username}`,
     description: compact(person.profile?.tagline ?? person.profile?.bio),
     href: `/profile/${person.username}`,
     badge: "Person",

@@ -34,11 +34,41 @@ export function AdminPortal({ portal }: { portal: AdminPortalView }) {
           <Link className="module-card rounded-md p-5" href={`/admin/actions/${action.key}`} key={action.key}>
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-xl font-semibold text-[var(--gold)]">{action.title}</h2>
-              <span className="pill rounded-full px-3 py-1 text-xs">{action.risk}</span>
+              <span className="pill rounded-full px-3 py-1 text-xs">
+                {action.key === "reports-queue" && portal.openFeedbackTicketCount > 0 ? `${portal.openFeedbackTicketCount} open` : action.risk}
+              </span>
             </div>
             <p className="mt-3 leading-6 text-[var(--muted)]">{action.description}</p>
           </Link>
         ))}
+      </section>
+
+      <section className="surface rounded-md p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-[var(--gold)]">Platform Metrics</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+              Metadata only: login/session signals, route views, actions, and aggregate route movement. No mail, chat, or post content is read here.
+            </p>
+          </div>
+          <div className="grid gap-2 text-right sm:grid-cols-3">
+            <span className="pill rounded-full px-3 py-2 text-xs">{portal.activitySummary.activeUsers15m} active / 15m</span>
+            <span className="pill rounded-full px-3 py-2 text-xs">{portal.activitySummary.pageViews24h} page views / 24h</span>
+            <span className="pill rounded-full px-3 py-2 text-xs">{portal.activitySummary.actions24h} actions / 24h</span>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-3">
+          {portal.activitySummary.topRoutes24h.length > 0 ? (
+            portal.activitySummary.topRoutes24h.map((route) => (
+              <article className="rounded-md border border-[var(--line)] bg-black/10 p-3" key={route.route}>
+                <p className="truncate font-semibold">{route.route}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">{route.count} view(s)</p>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)] md:col-span-3">No route activity yet.</p>
+          )}
+        </div>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">

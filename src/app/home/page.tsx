@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FeedClient } from "@/components/feed/feed-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { prisma } from "@/lib/platform/db";
 import { safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
 export default async function AppHomePage() {
@@ -10,19 +11,62 @@ export default async function AppHomePage() {
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/home");
   }
-  const posts = await safeListFeedPosts();
+  const [posts, profile, latestAlert] = await Promise.all([
+    safeListFeedPosts(20, session.user.id),
+    prisma.profile.findUnique({
+      where: { userId: session.user.id },
+      select: {
+        avatarUrl: true,
+        bannerUrl: true,
+        displayName: true
+      }
+    }),
+    prisma.alert.findFirst({
+      where: {
+        userId: session.user.id,
+        readAt: null
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      select: {
+        title: true,
+        body: true,
+        href: true
+      }
+    })
+  ]);
+  const displayName = profile?.displayName ?? session.user.name ?? session.user.username;
 
   return (
     <AppShell>
-      <section className="surface rounded-md p-6">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Stream</p>
-        <h1 className="mt-3 text-3xl font-semibold">Welcome, {session.user.name ?? session.user.username}</h1>
-        <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          The stream foundation is live: posts, comments, quick replies, and reactions update without full page reloads.
-        </p>
+      <section
+        className="home-stream-hero surface rounded-md"
+        style={profile?.bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 11, 16, 0.86), rgba(8, 11, 16, 0.42)), url(${profile.bannerUrl})` } : undefined}
+      >
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Stream</p>
+          <h1 className="mt-3 text-3xl font-semibold">Welcome, {displayName}</h1>
+          <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Share updates, pictures, replies, and reactions with your Theta-Space network.</p>
+        </div>
+        {latestAlert ? (
+          <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
+            <strong>{latestAlert.title}</strong>
+            {latestAlert.body ? <span>{latestAlert.body}</span> : null}
+          </a>
+        ) : null}
       </section>
       <section className="mt-5">
-        <FeedClient initialPosts={posts} />
+        <FeedClient
+          currentAuthor={{
+            id: session.user.id,
+            avatarUrl: profile?.avatarUrl,
+            displayName,
+            username: session.user.username
+          }}
+          initialPosts={posts}
+        />
       </section>
     </AppShell>
   );

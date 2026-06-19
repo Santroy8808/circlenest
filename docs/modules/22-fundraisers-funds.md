@@ -9,7 +9,7 @@ Support member fundraiser campaigns while keeping platform credits, processor-ba
 - `/fundraisers` for fundraiser browsing.
 - `/fundraisers/create` for focused campaign creation.
 - `/fundraisers/[campaignId]` for campaign detail and contribution intent capture.
-- Production Zone browse card for eligible Contributor/Professional accounts.
+- Production Zone browse card for logged-in members.
 
 ## Primary Code Areas
 
@@ -28,14 +28,13 @@ Support member fundraiser campaigns while keeping platform credits, processor-ba
 ## Core Workflows
 
 - Eligible member browses fundraiser campaigns.
-- Contributor/Professional/Admin creates a campaign subject to tier limits.
+- Professional/Admin creates a campaign subject to tier limits.
 - Member opens a campaign detail page.
 - Member records a contribution intent.
 - Future processor integration can convert processor webhooks into append-only ledger entries.
 
 ## Access Rules
 
-- Contributor can create one fundraiser per month.
 - Professional can create without the monthly cap.
 - Admin can create/manage campaign records, but no real money balance mutation is exposed.
 - Contribution intents require login and do not process payment.
@@ -56,7 +55,7 @@ Support member fundraiser campaigns while keeping platform credits, processor-ba
 ## Smoke Checklist
 
 - `/fundraisers` redirects logged-out users to login.
-- Contributor monthly limit is enforced server-side.
+- Contributor cannot create fundraiser campaigns.
 - Professional has no monthly fundraiser cap.
 - Detail page records contribution intent without processor claims.
 - Dashboard shows Phase 22 as Ready and Phase 23 as Next.

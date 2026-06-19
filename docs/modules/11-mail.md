@@ -42,14 +42,17 @@ Provide internal formal mail, built to later support external domain email. Mail
 - Upload attachments through direct R2 handoff.
 - Track unread mail separately from chat messages.
 - Store admin-changeable mass-mail recipient caps and future credit cost.
+- Receive storefront inquiries as inbox threads flagged as Inquiry.
 
 ## Access Rules
 
-Blocks and advertising-mail preferences are respected. Free can send ordinary one-recipient internal mail. Contributor, Professional, Auditor, and Admin mass-mail caps are read from `MailPolicyConfig`.
+Blocks and advertising-mail preferences are respected. Free, Contributor, and Auditor can send ordinary one-recipient internal mail. Professional and Admin mass-mail caps are read from `MailPolicyConfig`.
 
 ## Integrations
 
 Contacts, membership policy, credits, notifications, admin global settings.
+
+Storefront inquiries are created by the business-storefront module and delivered into the business owner's inbox as `INQUIRY` mail threads. Users cannot create inquiry mail from the compose UI.
 
 ## Current Design Notes
 

@@ -4,7 +4,7 @@ import { createFeedbackTicket } from "@/modules/feedback-support/feedback-suppor
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const result = await createFeedbackTicket(body, {
     userId: session?.user?.id,
     userAgent: request.headers.get("user-agent") ?? undefined

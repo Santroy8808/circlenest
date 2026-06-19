@@ -1,8 +1,9 @@
-import { Prisma, UserRole } from "@prisma/client";
+import { FeedbackTicketStatus, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import type { AdminActionCard, AdminLogView, AdminPortalView } from "@/modules/admin-moderation/types";
+import type { AdminActionCard, AdminFeedbackTicketView, AdminLogView, AdminPortalView } from "@/modules/admin-moderation/types";
+import { getPlatformActivitySummary } from "@/modules/platform-activity/platform-activity.service";
 
 const MODULE_KEY = "admin-moderation";
 
@@ -29,6 +30,42 @@ export const adminActionCards: AdminActionCard[] = [
     steps: ["Choose feature key.", "Set enabled state.", "Describe reason.", "Save flag and write audit log."]
   },
   {
+    key: "platform-pricing",
+    title: "Platform Pricing",
+    description: "Manage global credit costs for listings, boosts, mail ads, and paid placement packages without creating campaigns for users.",
+    risk: "high",
+    steps: [
+      "Review the current global pricing table.",
+      "Choose one existing price rule/package.",
+      "Adjust credits, duration, active state, or display text.",
+      "Save the change and write audit log."
+    ]
+  },
+  {
+    key: "platform-credits",
+    title: "Platform Credits",
+    description: "Grant or remove platform-only credits for a member with a required reason, ledger entry, and audit trail.",
+    risk: "high",
+    steps: [
+      "Search for the member by email or username.",
+      "Review the current platform-credit balance.",
+      "Enter a positive grant or negative removal amount.",
+      "Confirm the reason, update the ledger, and write audit log."
+    ]
+  },
+  {
+    key: "launch-access",
+    title: "Launch Access",
+    description: "Manage founder pricing, ad-experience guardrails, and temporary Free-to-Contributor/Professional promotional access.",
+    risk: "high",
+    steps: [
+      "Review founder pricing and anti-spam guardrails.",
+      "Choose global or individual launch access.",
+      "Pick Contributor or Professional and choose the exact duration.",
+      "Save the grant and audit the promotional access window."
+    ]
+  },
+  {
     key: "view-as-role",
     title: "View As Role",
     description: "Preview Free, Contributor, Professional, Auditor, or Admin visibility without impersonating users.",
@@ -45,9 +82,9 @@ export const adminActionCards: AdminActionCard[] = [
   {
     key: "reports-queue",
     title: "Reports Queue",
-    description: "Review abuse reports, content reports, and support tickets.",
+    description: "Review shared feedback, bug reports, abuse reports, content reports, and support tickets.",
     risk: "medium",
-    steps: ["Open report.", "Review content and reporter specifics.", "Choose disposition.", "Notify relevant users."]
+    steps: ["Open the shared admin queue.", "Review the exact issue and source page.", "Move the ticket into review or resolve it.", "Leave admin notes when deeper action is needed."]
   },
   {
     key: "business-verification",
@@ -61,7 +98,12 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Public Announcements",
     description: "Send global, tier-specific, or targeted platform notices.",
     risk: "high",
-    steps: ["Choose audience.", "Draft notice.", "Preview delivery.", "Publish and audit."]
+    steps: [
+      "Choose global, tier, role, or specific-user audience.",
+      "Choose delivery channels: chat, mail, login pop-up, persistent pinned stream announcement, or queued personal email.",
+      "Draft the announcement title/body and internal reason.",
+      "Review delivery counts, publish, and audit."
+    ]
   }
 ];
 
@@ -100,21 +142,89 @@ function toDiagnosticLogView(log: { id: string; level: string; module: string; m
   };
 }
 
+function reporterName(ticket: {
+  reporterEmail: string | null;
+  reporter: {
+    email: string;
+    username: string;
+    profile: {
+      displayName: string | null;
+    } | null;
+  } | null;
+}) {
+  return ticket.reporter?.profile?.displayName ?? ticket.reporter?.username ?? ticket.reporterEmail ?? "Anonymous reporter";
+}
+
+function toFeedbackTicketView(ticket: {
+  id: string;
+  publicId: string;
+  title: string;
+  description: string;
+  pageUrl: string | null;
+  reporterEmail: string | null;
+  severity: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  reporter: {
+    email: string;
+    username: string;
+    profile: {
+      displayName: string | null;
+    } | null;
+  } | null;
+  events: Array<{
+    action: string;
+    createdAt: Date;
+  }>;
+}): AdminFeedbackTicketView {
+  const lastEvent = ticket.events[0];
+
+  return {
+    id: ticket.id,
+    publicId: ticket.publicId,
+    title: ticket.title,
+    description: ticket.description,
+    pageUrl: ticket.pageUrl,
+    reporterEmail: ticket.reporterEmail ?? ticket.reporter?.email ?? null,
+    reporterName: reporterName(ticket),
+    severity: ticket.severity,
+    status: ticket.status,
+    createdAt: ticket.createdAt.toISOString(),
+    updatedAt: ticket.updatedAt.toISOString(),
+    lastEvent: lastEvent ? `${lastEvent.action} · ${lastEvent.createdAt.toLocaleString()}` : null
+  };
+}
+
 export async function getAdminPortalView(userId?: string): Promise<AdminPortalView> {
   if (!(await isAdminUser(userId))) {
     return {
       canAccess: false,
       actions: [],
       featureFlags: [],
+      openFeedbackTicketCount: 0,
+      activitySummary: {
+        activeUsers15m: 0,
+        pageViews24h: 0,
+        actions24h: 0,
+        topRoutes24h: []
+      },
       recentAuditLogs: [],
       recentDiagnostics: []
     };
   }
 
-  const [featureFlags, auditLogs, diagnosticsLogs] = await Promise.all([
+  const [featureFlags, openFeedbackTicketCount, auditLogs, diagnosticsLogs, activitySummary] = await Promise.all([
     prisma.featureFlag.findMany({
       orderBy: { key: "asc" },
       take: 80
+    }),
+    prisma.feedbackTicket.count({
+      where: {
+        status: {
+          in: [FeedbackTicketStatus.OPEN, FeedbackTicketStatus.IN_REVIEW]
+        }
+      }
     }),
     prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
@@ -123,7 +233,8 @@ export async function getAdminPortalView(userId?: string): Promise<AdminPortalVi
     prisma.diagnosticLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 12
-    })
+    }),
+    getPlatformActivitySummary()
   ]);
 
   return {
@@ -134,6 +245,8 @@ export async function getAdminPortalView(userId?: string): Promise<AdminPortalVi
       enabled: flag.enabled,
       description: flag.description
     })),
+    openFeedbackTicketCount,
+    activitySummary,
     recentAuditLogs: auditLogs.map(toAuditLogView),
     recentDiagnostics: diagnosticsLogs.map(toDiagnosticLogView)
   };
@@ -141,6 +254,46 @@ export async function getAdminPortalView(userId?: string): Promise<AdminPortalVi
 
 export function getAdminActionCard(actionKey: string) {
   return adminActionCards.find((action) => action.key === actionKey) ?? null;
+}
+
+export async function getAdminFeedbackTicketQueue(userId?: string): Promise<{ canAccess: boolean; tickets: AdminFeedbackTicketView[] }> {
+  if (!(await isAdminUser(userId))) {
+    return {
+      canAccess: false,
+      tickets: []
+    };
+  }
+
+  const tickets = await prisma.feedbackTicket.findMany({
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    take: 100,
+    include: {
+      reporter: {
+        select: {
+          email: true,
+          username: true,
+          profile: {
+            select: {
+              displayName: true
+            }
+          }
+        }
+      },
+      events: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          action: true,
+          createdAt: true
+        }
+      }
+    }
+  });
+
+  return {
+    canAccess: true,
+    tickets: tickets.map(toFeedbackTicketView)
+  };
 }
 
 export async function setFeatureFlag(actorUserId: string, input: unknown) {

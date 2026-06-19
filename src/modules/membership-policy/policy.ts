@@ -85,27 +85,24 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
   [MembershipTier.CONTRIBUTOR]: {
     tier: MembershipTier.CONTRIBUTOR,
     displayName: "Contributor",
-    summary: "Creator access for community contributors with capped marketplace and fundraiser tools.",
+    summary: "Community contributor access with expanded storage, capped marketplace tools, and Writers Corner.",
     features: withFeatures({
       "feed.changeType": true,
       "groups.create": true,
       "groups.assignModerators": true,
       "groups.unlimitedSize": true,
-      "events.create": true,
       "market.createListing": true,
       "market.createAd": true,
       "writers.access": true,
-      "fundraisers.create": true,
       "invites.send": true,
-      "mail.massSend": true,
       "moderation.siteEligible": true
     }),
     limits: {
       groupMemberCap: null,
       marketListingsPer14Days: 6,
       marketListingPhotoCap: 3,
-      fundraiserPerMonth: 1,
-      storageLimitBytes: 1024 * 1024 * 1024
+      fundraiserPerMonth: 0,
+      storageLimitBytes: 2 * 1024 * 1024 * 1024
     }
   },
   [MembershipTier.PROFESSIONAL]: {
@@ -140,17 +137,15 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
   [MembershipTier.AUDITOR]: {
     tier: MembershipTier.AUDITOR,
     displayName: "Auditor",
-    summary: "Auditor directory access with professional profile tools and selected creator features.",
+    summary: "Auditor directory access with auditor profile tools and selected promotion features.",
     features: withFeatures({
       "feed.changeType": true,
       "groups.create": true,
       "groups.assignModerators": true,
       "groups.unlimitedSize": true,
-      "events.create": true,
       "auditors.createProfile": true,
       "ads.createGeneral": true,
       "invites.send": true,
-      "mail.massSend": true,
       "moderation.siteEligible": true
     }),
     limits: {

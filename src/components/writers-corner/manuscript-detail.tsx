@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ManuscriptDetailView } from "@/modules/writers-corner/types";
+import { StorefrontPublishToggle } from "@/components/writers-corner/storefront-publish-toggle";
 
 export function ManuscriptDetail({ manuscript }: { manuscript: ManuscriptDetailView }) {
   return (
@@ -18,6 +19,8 @@ export function ManuscriptDetail({ manuscript }: { manuscript: ManuscriptDetailV
           ) : null}
         </div>
       </section>
+
+      <StorefrontPublishToggle manuscript={manuscript} />
 
       <section className="grid gap-3">
         {manuscript.chapters.length > 0 ? (

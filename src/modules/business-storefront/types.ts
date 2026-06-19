@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { MarketListingCardView } from "@/modules/market/types";
 
 export const updateBusinessProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(100),
@@ -8,6 +9,11 @@ export const updateBusinessProfileSchema = z.object({
   publicEmail: z.string().trim().email().max(180).optional().or(z.literal("")),
   phone: z.string().trim().max(40).optional(),
   website: z.string().trim().url().max(220).optional().or(z.literal("")),
+  logoUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
+  bannerUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
+  heroImageUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
+  galleryImageUrls: z.array(z.string().trim().url().max(500)).max(12).default([]),
+  blogEnabled: z.boolean().default(false),
   publicStorefrontEnabled: z.boolean().default(false)
 });
 
@@ -16,6 +22,27 @@ export const createBusinessInquirySchema = z.object({
   senderEmail: z.string().trim().email().max(180).optional().or(z.literal("")),
   message: z.string().trim().min(10).max(2000)
 });
+
+export const createBusinessArticleSchema = z.object({
+  title: z.string().trim().min(3).max(140),
+  summary: z.string().trim().max(320).optional().or(z.literal("")),
+  body: z.string().trim().min(20).max(12000),
+  coverMediaAssetId: z.string().trim().optional().or(z.literal("")),
+  published: z.boolean().default(true)
+});
+
+export type BusinessArticleView = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  body?: string;
+  coverImageUrl: string | null;
+  publicUrl: string;
+  published: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type BusinessProfileView = {
   id: string;
@@ -27,15 +54,46 @@ export type BusinessProfileView = {
   publicEmail: string | null;
   phone: string | null;
   website: string | null;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  heroImageUrl: string | null;
+  galleryImageUrls: string[];
+  blogEnabled: boolean;
   publicStorefrontEnabled: boolean;
   emailLinkingEnabled: boolean;
   publicUrl: string;
   updatedAt: string;
+  marketListings: MarketListingCardView[];
+  storefrontBlogs: StorefrontBlogView[];
+  articles: BusinessArticleView[];
   owner?: {
     username: string;
     displayName: string;
     avatarUrl: string | null;
   };
+};
+
+export type StorefrontBlogView = {
+  id: string;
+  slug: string;
+  title: string;
+  genre: string | null;
+  summary: string | null;
+  chapterCount: number;
+  wordCount: number;
+  updatedAt: string;
+  publicUrl: string;
+};
+
+export type StorefrontBlogDetailView = StorefrontBlogView & {
+  chapters: Array<{
+    id: string;
+    title: string;
+    bodyText: string;
+    bodyHtml: string | null;
+    wordCount: number;
+    updatedAt: string;
+  }>;
 };
 
 export type BusinessInquiryView = {

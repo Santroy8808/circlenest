@@ -5,6 +5,7 @@ import { AppShell } from "@/components/platform/app-shell";
 
 const profileCards = [
   { title: "Profile", description: "Edit display name, bio, avatar, banner, and visibility.", href: "/profile/edit" },
+  { title: "My Interests", description: "Choose optional interest categories for discovery and relevant internal ads.", href: "/profile/interests" },
   { title: "My Pics", description: "Open your photo gallery without the secure settings wall.", href: "/profile/gallery" },
   { title: "My Scientology", description: "Manage Scientology-specific profile details and privacy.", href: "/profile/scientology" },
   { title: "Public Profile", description: "View your member-facing profile page.", href: "/profile" }

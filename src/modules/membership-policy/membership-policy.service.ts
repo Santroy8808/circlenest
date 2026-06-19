@@ -10,11 +10,18 @@ import {
   membershipFeatureKeys,
   tierPolicies
 } from "@/modules/membership-policy/policy";
+import { getActivePromotionalTierForUser } from "@/modules/membership-policy/launch-access.service";
 
 const MODULE_KEY = "membership-policy";
 
 export type EffectivePolicy = ReturnType<typeof getTierPolicy> & {
   role: UserRole;
+  actualTier: MembershipTier;
+  promotionalAccess?: {
+    tier: MembershipTier;
+    label: string;
+    expiresAt: string;
+  };
   overrides: Partial<Record<MembershipFeatureKey, boolean>>;
 };
 
@@ -35,6 +42,7 @@ export function resolvePolicy(input: {
   return {
     ...base,
     role,
+    actualTier: tier,
     overrides,
     features: {
       ...base.features,
@@ -82,6 +90,10 @@ export async function getEffectivePolicyForUser(userId: string) {
 
   if (!user) return null;
 
+  const actualTier = user.membership?.tier ?? MembershipTier.FREE;
+  const promotionalAccess = await getActivePromotionalTierForUser(user.id, actualTier);
+  const effectiveTier = promotionalAccess?.tier ?? actualTier;
+
   const overrides = user.membershipOverrides.reduce<Partial<Record<MembershipFeatureKey, boolean>>>((acc, override) => {
     if (isMembershipFeatureKey(override.featureKey)) {
       acc[override.featureKey] = override.allowed;
@@ -90,11 +102,23 @@ export async function getEffectivePolicyForUser(userId: string) {
     return acc;
   }, {});
 
-  return resolvePolicy({
-    tier: user.membership?.tier,
+  const policy = resolvePolicy({
+    tier: effectiveTier,
     role: user.role,
     overrides
   });
+
+  return {
+    ...policy,
+    actualTier,
+    promotionalAccess: promotionalAccess
+      ? {
+          tier: promotionalAccess.tier,
+          label: promotionalAccess.label,
+          expiresAt: promotionalAccess.expiresAt.toISOString()
+        }
+      : undefined
+  };
 }
 
 export async function canUserAccessFeature(userId: string, featureKey: string) {

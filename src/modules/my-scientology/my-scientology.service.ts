@@ -55,8 +55,7 @@ export async function updateScientologyProfile(userId: string, input: unknown) {
       goodStandingAttested: parsed.data.goodStandingAttested,
       goodStandingUpdatedAt: parsed.data.goodStandingAttested ? new Date() : null,
       educationNotes: parsed.data.educationNotes || null,
-      visibility: parsed.data.visibility,
-      adTargetingAllowed: parsed.data.adTargetingAllowed
+      visibility: parsed.data.visibility
     },
     create: {
       userId,
@@ -69,15 +68,13 @@ export async function updateScientologyProfile(userId: string, input: unknown) {
       goodStandingAttested: parsed.data.goodStandingAttested,
       goodStandingUpdatedAt: parsed.data.goodStandingAttested ? new Date() : null,
       educationNotes: parsed.data.educationNotes || null,
-      visibility: parsed.data.visibility,
-      adTargetingAllowed: parsed.data.adTargetingAllowed
+      visibility: parsed.data.visibility
     }
   });
 
   await diagnostics.info(MODULE_KEY, "Scientology profile updated.", {
     userId,
-    visibility: profile.visibility,
-    adTargetingAllowed: profile.adTargetingAllowed
+    visibility: profile.visibility
   });
 
   return { ok: true as const, profile };

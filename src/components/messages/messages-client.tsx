@@ -247,6 +247,22 @@ export function MessagesClient({
     });
   }
 
+  function sendOnEnter(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const wantsNewLine = event.shiftKey || event.ctrlKey || event.altKey || event.metaKey;
+
+    if (event.key !== "Enter" || wantsNewLine || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (isPending || (!body.trim() && attachments.length === 0)) {
+      return;
+    }
+
+    event.currentTarget.form?.requestSubmit();
+  }
+
   const filteredThreads = threads.filter((thread) => {
     const matchesType = threadFilter === "ALL" || thread.type === threadFilter;
     const matchesQuery = thread.title.toLowerCase().includes(threadQuery.toLowerCase());
@@ -391,6 +407,7 @@ export function MessagesClient({
               <textarea
                 className="form-field mt-3 min-h-24 resize-y"
                 onChange={(event) => setBody(event.target.value)}
+                onKeyDown={sendOnEnter}
                 placeholder="Type a message, or drag files here..."
                 value={body}
               />

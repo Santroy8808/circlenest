@@ -19,8 +19,7 @@ export default async function MyScientologyPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Scientology</p>
         <h1 className="mt-3 text-3xl font-semibold">Scientology profile</h1>
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
-          This data supports qualification, auditor education pull-through, and privacy-safe matching. Visibility is
-          explicit and defaults to private.
+          This data supports qualification and auditor education pull-through. Visibility is explicit and defaults to private.
         </p>
       </section>
       <section className="mt-5">

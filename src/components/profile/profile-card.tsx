@@ -44,6 +44,34 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
           {profile.location ? <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.location}</span> : null}
         </div>
         {profile.bio ? <p className="mt-5 whitespace-pre-wrap leading-7 text-[var(--text)]">{profile.bio}</p> : null}
+        {profile.familyMembers.length > 0 ? (
+          <section className="profile-family mt-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-[var(--gold)]">Family</h2>
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                Approved
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {profile.familyMembers.map((member) => (
+                <Link className="profile-family-card" href={`/profile/${member.username}`} key={member.id}>
+                  <span className="profile-family-avatar">
+                    {member.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="" src={member.avatarUrl} />
+                    ) : (
+                      initials(member.displayName) || "TS"
+                    )}
+                  </span>
+                  <span>
+                    <strong>{member.displayName}</strong>
+                    <small>{member.relationshipLabel}</small>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </article>
   );

@@ -177,6 +177,7 @@ function toMarketCardView(listing: MarketListingPayload): MarketListingCardView 
     title: listing.title,
     category: listing.category,
     categoryLabel: marketCategoryLabels[listing.category],
+    location: listing.location,
     priceCents: listing.priceCents,
     currency: listing.currency,
     status: listing.status,
@@ -202,6 +203,7 @@ export async function listMarketListings(input?: { query?: string | null; catego
                 {
                   OR: [
                     { title: { contains: query, mode: "insensitive" as const } },
+                    { location: { contains: query, mode: "insensitive" as const } },
                     { description: { contains: query, mode: "insensitive" as const } }
                   ]
                 }
@@ -370,6 +372,7 @@ export async function createMarketListing(userId: string, input: unknown) {
       title: parsed.data.title,
       description: parsed.data.description,
       category: parsed.data.category,
+      location: parsed.data.location || null,
       priceCents: parsed.data.priceCents ?? null,
       expiresAt: contributorLimited ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
       photos: {

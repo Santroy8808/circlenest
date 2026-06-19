@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Store Scientology-specific member context for identity, qualification, auditor education, and controlled targeting.
+Store Scientology-specific member context for identity, qualification, and auditor education.
 
 ## User-Facing Surfaces
 
@@ -21,16 +21,14 @@ Store Scientology-specific member context for identity, qualification, auditor e
 
 ## Core Workflows
 
-- Record org, service history, training, processing, standing, classification.
+- Record org, service history, training, processing, standing, and classification.
 - Pull education data into Auditor profile.
-- Provide privacy-aware targeting fields for ads.
 
 ## Implemented Slice
 
 - Dedicated `ScientologyProfile` table linked to `User`.
 - Classification, org, last service, training level, processing status, standing attestation, education notes.
 - Explicit visibility: private or members-summary.
-- `adTargetingAllowed` opt-in field for privacy-safe matching later.
 - Protected `/profile/scientology` page.
 - Authenticated `/api/profile/scientology` update route.
 - Public summary helper that returns no private fields unless the member chooses members visibility.
@@ -41,7 +39,7 @@ Member controls visibility except fields required for platform qualification/adm
 
 ## Integrations
 
-Invitations, auditors, ads, profile, admin verification.
+Invitations, auditors, profile, admin verification.
 
 ## Current Design Notes
 

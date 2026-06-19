@@ -51,6 +51,7 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<MarketListingCategory>(marketCategoryOptions[0]?.value ?? MarketListingCategory.OTHER);
+  const [location, setLocation] = useState("");
   const [price, setPrice] = useState("");
   const [items, setItems] = useState<UploadItem[]>([]);
   const [error, setError] = useState(createState.viewerCanCreate ? "" : createState.reason ?? "This tier cannot create Market listings.");
@@ -139,6 +140,7 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
           title,
           description,
           category,
+          location,
           priceCents: parsePriceCents(price),
           photoMediaAssetIds
         })
@@ -194,16 +196,22 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
         </label>
       </div>
 
-      <label className="grid gap-2">
-        <span className="form-label">Category</span>
-        <select className="form-field" onChange={(event) => setCategory(event.target.value as MarketListingCategory)} value={category}>
-          {marketCategoryOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="form-label">Category</span>
+          <select className="form-field" onChange={(event) => setCategory(event.target.value as MarketListingCategory)} value={category}>
+            {marketCategoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-2">
+          <span className="form-label">Location</span>
+          <input className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Austin, TX / Online / Local pickup" value={location} />
+        </label>
+      </div>
 
       <label className="grid gap-2">
         <span className="form-label">Description</span>

@@ -3,7 +3,13 @@ import { auth } from "@/auth";
 import { createFeedPost, safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
 export async function GET() {
-  const posts = await safeListFeedPosts();
+  const session = await auth();
+
+  if (!session?.user || session.user.revoked) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const posts = await safeListFeedPosts(20, session.user.id);
   return NextResponse.json({ posts });
 }
 

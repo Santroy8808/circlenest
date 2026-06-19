@@ -35,6 +35,7 @@ export const createMarketListingSchema = z.object({
   title: z.string().min(2, "Name the listing.").max(120),
   description: z.string().min(5, "Describe the listing.").max(3000),
   category: z.nativeEnum(MarketListingCategory),
+  location: z.string().max(180).optional().or(z.literal("")),
   priceCents: z.number().int().min(0).max(100000000).optional().nullable(),
   photoMediaAssetIds: z.array(z.string().min(1)).max(PROFESSIONAL_MARKET_PHOTO_CAP).default([])
 });
@@ -45,6 +46,7 @@ export type MarketListingCardView = {
   title: string;
   category: MarketListingCategory;
   categoryLabel: string;
+  location?: string | null;
   priceCents?: number | null;
   currency: string;
   status: MarketListingStatus;

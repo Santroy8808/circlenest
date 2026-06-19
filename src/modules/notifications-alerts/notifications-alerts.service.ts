@@ -1,3 +1,4 @@
+import { FamilyRelationshipRequestStatus } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { countUnreadChatThreads } from "@/modules/chat-messages/chat-messages.service";
@@ -20,6 +21,23 @@ export type UnreadCounts = {
   alerts: number;
   mail: number;
   messages: number;
+};
+
+export type AlertListItem = {
+  id: string;
+  title: string;
+  body: string | null;
+  href: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+  familyRequest?: {
+    id: string;
+    requesterName: string;
+    requesterUsername: string;
+    relationshipLabel: string;
+    message: string | null;
+    status: FamilyRelationshipRequestStatus;
+  } | null;
 };
 
 export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
@@ -69,7 +87,7 @@ export async function listNotifications(userId: string) {
 
 export async function listAlerts(userId: string) {
   try {
-    return await withNotificationTimeout(
+    const alerts = await withNotificationTimeout(
       prisma.alert.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
@@ -77,6 +95,40 @@ export async function listAlerts(userId: string) {
       }),
       "alert list lookup"
     );
+    const familyRequests = await prisma.familyRelationshipRequest.findMany({
+      where: {
+        targetUserId: userId,
+        alertId: {
+          in: alerts.map((alert) => alert.id)
+        }
+      },
+      include: {
+        requester: {
+          include: {
+            profile: true
+          }
+        }
+      }
+    });
+    const familyRequestMap = new Map(familyRequests.map((request) => [request.alertId, request]));
+
+    return alerts.map<AlertListItem>((alert) => {
+      const familyRequest = familyRequestMap.get(alert.id);
+
+      return {
+        ...alert,
+        familyRequest: familyRequest
+          ? {
+              id: familyRequest.id,
+              requesterName: familyRequest.requester.profile?.displayName ?? familyRequest.requester.username,
+              requesterUsername: familyRequest.requester.username,
+              relationshipLabel: familyRequest.relationshipLabel,
+              message: familyRequest.message,
+              status: familyRequest.status
+            }
+          : null
+      };
+    });
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list alerts.", {
       userId,

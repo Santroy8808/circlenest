@@ -3,6 +3,12 @@ import { auth } from "@/auth";
 import { createMarketListing, listMarketListings } from "@/modules/market/market.service";
 
 export async function GET(request: NextRequest) {
+  const session = await auth();
+
+  if (!session?.user || session.user.revoked) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
   const listings = await listMarketListings({
     query: request.nextUrl.searchParams.get("q"),
     category: request.nextUrl.searchParams.get("category")

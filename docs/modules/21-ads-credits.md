@@ -36,7 +36,7 @@ Provide transparent internal advertising that uses labeled reserved placements a
 
 - General ad creation requires Admin role or the `ads.createGeneral` feature.
 - Contributor marketplace-specific ad handoffs are intentionally not implemented as general ads in this phase.
-- Campaign targeting is limited to permitted fields: location text and My Scientology classification.
+- Campaign targeting is limited to plain location text in this phase.
 - Ads are not rendered inside listings, events, jobs, posts, or comments.
 
 ## Integrations

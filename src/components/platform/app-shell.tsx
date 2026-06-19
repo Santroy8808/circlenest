@@ -1,75 +1,191 @@
-import Link from "next/link";
+import { AdPlacement, MembershipTier, UserRole } from "@prisma/client";
 import { auth } from "@/auth";
-import {
-  getUnreadCounts,
-  type UnreadCounts
-} from "@/modules/notifications-alerts/notifications-alerts.service";
+import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
+import { prisma } from "@/lib/platform/db";
+import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
+import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
+import { ActivityTracker } from "@/components/platform/activity-tracker";
+import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
 
-const navItems: Array<{ label: string; href: string; countKey?: keyof UnreadCounts }> = [
-  { label: "Rebuild Home", href: "/" },
-  { label: "Health", href: "/health" },
-  { label: "Cutover", href: "/cutover" },
-  { label: "Search", href: "/search" },
-  { label: "Membership", href: "/membership" },
-  { label: "Production Zone", href: "/production-zone" },
-  { label: "Friends", href: "/friends" },
-  { label: "Groups", href: "/groups" },
-  { label: "Events", href: "/events" },
-  { label: "The Market", href: "/market" },
-  { label: "Find a Job", href: "/jobs" },
-  { label: "Find an Auditor", href: "/auditors" },
-  { label: "Ads", href: "/ads" },
-  { label: "Fundraisers", href: "/fundraisers" },
-  { label: "Writers Corner", href: "/writers-corner" },
-  { label: "Profile", href: "/profile" },
-  { label: "Settings", href: "/settings" },
-  { label: "My Scientology", href: "/profile/scientology" },
-  { label: "My Pics", href: "/profile/gallery" },
-  { label: "Messages", href: "/messages", countKey: "messages" },
-  { label: "Mail", href: "/mail", countKey: "mail" },
-  { label: "Notifications", href: "/notifications", countKey: "notifications" },
-  { label: "Alerts", href: "/alerts", countKey: "alerts" },
-  { label: "Admin", href: "/admin" },
-  { label: "Login", href: "/login" },
-  { label: "Docs", href: "/docs" },
-  { label: "System Map", href: "/docs/system-map" }
-];
+const homeSection: NavSection = {
+  label: "Home",
+  items: [
+    { label: "My Stream", href: "/home" },
+    { label: "My Pics", href: "/profile/gallery" },
+    { label: "Search", href: "/search" },
+    { label: "Membership", href: "/membership" }
+  ]
+};
+
+const communicationsSection: NavSection = {
+  label: "Communications",
+  items: [
+    { label: "Messages", href: "/messages", countKey: "messages" },
+    { label: "Mail", href: "/mail", countKey: "mail" },
+    { label: "Notifications", href: "/notifications", countKey: "notifications" },
+    { label: "Alerts", href: "/alerts", countKey: "alerts" }
+  ]
+};
+
+const peopleSection: NavSection = {
+  label: "People",
+  items: [
+    { label: "Browse People", href: "/people" },
+    { label: "Friends", href: "/friends" },
+    { label: "Groups", href: "/groups" }
+  ]
+};
+
+const productionZoneSection: NavSection = {
+  label: "Production Zone",
+  items: [
+    { label: "Events", href: "/events" },
+    { label: "The Market", href: "/market" },
+    { label: "Find a Job", href: "/jobs" },
+    { label: "Find an Auditor", href: "/auditors" },
+    { label: "Writers Corner", href: "/writers-corner" },
+    { label: "Fundraisers", href: "/fundraisers" },
+    { label: "Business Center", href: "/business-center" },
+    { label: "Ads", href: "/ads" }
+  ]
+};
+
+const settingsSection: NavSection = {
+  label: "Settings",
+  items: [
+    { label: "Profile", href: "/profile" },
+    { label: "My Scientology", href: "/profile/scientology" },
+    { label: "Settings", href: "/settings" }
+  ]
+};
+
+function getNavSections(input: {
+  isAdmin: boolean;
+  isBusinessAccount: boolean;
+  isSignedIn: boolean;
+}): NavSection[] {
+  if (!input.isSignedIn) {
+    return [
+      {
+        label: "Home",
+        items: [{ label: "Membership", href: "/membership" }]
+      },
+      {
+        label: "Account",
+        items: [{ label: "Login", href: "/login" }]
+      }
+    ];
+  }
+
+  const memberSections = input.isBusinessAccount
+    ? [homeSection, communicationsSection, productionZoneSection, peopleSection, settingsSection]
+    : [homeSection, communicationsSection, peopleSection, productionZoneSection, settingsSection];
+
+  const sections: NavSection[] = [
+    ...memberSections,
+    {
+      label: "Admin",
+      items: input.isAdmin ? [{ label: "Admin Portal", href: "/admin" }] : []
+    },
+    {
+      label: "Status",
+      items: input.isAdmin
+        ? [
+            { label: "Dev Status", href: "/" },
+            { label: "Health", href: "/health" },
+            { label: "Cutover", href: "/cutover" },
+            { label: "Docs", href: "/docs" },
+            { label: "System Map", href: "/docs/system-map" }
+          ]
+        : []
+    },
+    {
+      label: "Account",
+      items: input.isSignedIn ? [] : [{ label: "Login", href: "/login" }]
+    }
+  ];
+
+  return sections.filter((section) => section.items.length > 0);
+}
+
+async function getRightStreamAds(isSignedIn: boolean, viewerUserId?: string) {
+  if (!isSignedIn) return [];
+
+  return getAdPlacementPool({
+    viewerUserId,
+    placement: AdPlacement.RIGHT_STREAM,
+    limit: 16
+  });
+}
+
+async function getShellProfile(userId?: string) {
+  if (!userId) return null;
+
+  return prisma.profile.findUnique({
+    where: { userId },
+    select: {
+      displayName: true,
+      avatarUrl: true
+    }
+  });
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  const counts = await getUnreadCounts(session?.user?.id);
+  const isSignedIn = Boolean(session?.user && !session.user.revoked);
+  const isAdmin = session?.user?.role === UserRole.ADMIN;
+  const isBusinessAccount = session?.user?.tier === MembershipTier.PROFESSIONAL;
+  const [counts, rightStreamAds, shellProfile] = await Promise.all([
+    getUnreadCounts(session?.user?.id),
+    getRightStreamAds(isSignedIn, session?.user?.id),
+    getShellProfile(session?.user?.id)
+  ]);
+  const navSections = getNavSections({ isAdmin, isBusinessAccount, isSignedIn });
+  const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
 
   return (
     <div className="app-shell">
+      {isSignedIn ? <ActivityTracker /> : null}
       <aside className="side-nav">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Theta-Space</p>
-          <h1 className="mt-2 text-2xl font-semibold leading-tight">NewRepo Rebuild</h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-            Private membership social platform, rebuilt one module at a time.
-          </p>
+        <div className="side-nav-profile">
+          <div className="side-nav-avatar">
+            {shellProfile?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt="" src={shellProfile.avatarUrl} />
+            ) : (
+              <span>{initials(displayName)}</span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Theta-Space</p>
+            <h1 className="mt-1 truncate text-xl font-semibold leading-tight">{displayName}</h1>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{isSignedIn ? "Member control panel" : "Private membership platform"}</p>
+          </div>
         </div>
-        <nav className="mt-8 grid gap-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md border border-transparent px-3 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--line)] hover:text-[var(--text)]"
-            >
-              <span>{item.label}</span>
-              {item.countKey && counts[item.countKey] > 0 ? (
-                <span className="float-right rounded-full bg-[var(--gold)] px-2 text-xs font-bold text-black">
-                  {counts[item.countKey]}
-                </span>
-              ) : null}
-            </Link>
-          ))}
-        </nav>
+        <ControlPanelNav counts={counts} sections={navSections} />
         <div className="mt-8 rounded-md border border-[var(--line)] bg-black/16 p-3 text-xs leading-5 text-[var(--muted)]">
-          Production source remains untouched until cutover and rollback archive are ready.
+          {isAdmin ? "Production source remains untouched until cutover and rollback archive are ready." : "Theta-Space member controls."}
         </div>
       </aside>
       <main className="main-surface">{children}</main>
+      <aside className="ad-rail">
+        <section className="ad-rail-card">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
+          <div className="mt-5 grid gap-3">
+            <AdRailRotator initialAds={rightStreamAds} />
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }

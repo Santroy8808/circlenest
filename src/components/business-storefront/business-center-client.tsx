@@ -1,7 +1,8 @@
 "use client";
 
+import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { BusinessCenterView, BusinessProfileView } from "@/modules/business-storefront/types";
 
 type FormState = {
@@ -12,8 +13,43 @@ type FormState = {
   publicEmail: string;
   phone: string;
   website: string;
+  logoUrl: string;
+  bannerUrl: string;
+  heroImageUrl: string;
+  galleryImageUrlsText: string;
+  blogEnabled: boolean;
   publicStorefrontEnabled: boolean;
 };
+
+type HeroUploadState = {
+  fileName: string;
+  progress: number;
+  status: "idle" | "uploading" | "done" | "error";
+  error?: string;
+};
+
+function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with ${request.status}.`));
+      }
+    };
+    request.onerror = () => reject(new Error("Upload network error."));
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", file.type);
+    request.send(file);
+  });
+}
 
 function initialForm(profile: BusinessProfileView | null): FormState {
   return {
@@ -24,19 +60,95 @@ function initialForm(profile: BusinessProfileView | null): FormState {
     publicEmail: profile?.publicEmail ?? "",
     phone: profile?.phone ?? "",
     website: profile?.website ?? "",
+    logoUrl: profile?.logoUrl ?? "",
+    bannerUrl: profile?.bannerUrl ?? "",
+    heroImageUrl: profile?.heroImageUrl ?? "",
+    galleryImageUrlsText: profile?.galleryImageUrls.join("\n") ?? "",
+    blogEnabled: profile?.blogEnabled ?? false,
     publicStorefrontEnabled: profile?.publicStorefrontEnabled ?? false
   };
 }
 
 export function BusinessCenterClient({ businessCenter }: { businessCenter: BusinessCenterView }) {
+  const heroImageInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState(businessCenter.profile);
   const [form, setForm] = useState<FormState>(() => initialForm(businessCenter.profile));
+  const [heroUpload, setHeroUpload] = useState<HeroUploadState>({ fileName: "", progress: 0, status: "idle" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState(businessCenter.canManage ? "" : businessCenter.reason ?? "Professional access required.");
   const [isPending, startTransition] = useTransition();
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function uploadHeroImage(file: File) {
+    setError("");
+    setMessage("");
+
+    if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
+      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Use JPG, PNG, GIF, or WEBP." });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Image must be 10MB or smaller." });
+      return;
+    }
+
+    try {
+      setHeroUpload({ fileName: file.name, progress: 1, status: "uploading" });
+      const intentResponse = await fetch("/api/media/upload-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          visibility: MediaVisibility.PUBLIC
+        })
+      });
+      const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+
+      if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+        throw new Error(intent.error ?? "Could not prepare hero image upload.");
+      }
+
+      await uploadWithProgress(intent.uploadUrl, file, (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" }));
+
+      const completeResponse = await fetch("/api/media/complete-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storageKey: intent.storageKey,
+          fileName: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          visibility: MediaVisibility.PUBLIC,
+          tags: ["storefront", "hero"]
+        })
+      });
+      const complete = (await completeResponse.json()) as { error?: string; asset?: { publicUrl?: string | null } };
+
+      if (!completeResponse.ok || !complete.asset?.publicUrl) {
+        throw new Error(complete.error ?? "Could not save hero image.");
+      }
+
+      update("heroImageUrl", complete.asset.publicUrl);
+      setHeroUpload({ fileName: file.name, progress: 100, status: "done" });
+      setMessage("Hero image uploaded. Save the business profile to publish it.");
+    } catch (caught) {
+      setHeroUpload({
+        fileName: file.name,
+        progress: 0,
+        status: "error",
+        error: caught instanceof Error ? caught.message : "Upload failed."
+      });
+    } finally {
+      if (heroImageInputRef.current) {
+        heroImageInputRef.current.value = "";
+      }
+    }
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -48,7 +160,13 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
       const response = await fetch("/api/business/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify({
+          ...form,
+          galleryImageUrls: form.galleryImageUrlsText
+            .split(/\r?\n/)
+            .map((value) => value.trim())
+            .filter(Boolean)
+        })
       });
       const payload = (await response.json()) as { error?: string; profile?: BusinessProfileView };
 
@@ -58,6 +176,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
       }
 
       setProfile(payload.profile);
+      setForm(initialForm(payload.profile));
       setMessage(payload.profile.publicStorefrontEnabled ? "Storefront saved and published." : "Business profile saved.");
     });
   }
@@ -106,6 +225,90 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           </label>
         </div>
 
+        <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
+          <div>
+            <h2 className="font-semibold text-[var(--gold)]">Storefront visuals</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Add a logo, banner, hero image, and storefront photos. If no hero image is uploaded, the storefront keeps the current open blue panel.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="form-label">Logo image URL</span>
+              <input className="form-field" onChange={(event) => update("logoUrl", event.target.value)} placeholder="https://..." value={form.logoUrl} />
+            </label>
+            <label className="grid gap-2">
+              <span className="form-label">Banner image URL</span>
+              <input className="form-field" onChange={(event) => update("bannerUrl", event.target.value)} placeholder="https://..." value={form.bannerUrl} />
+            </label>
+          </div>
+          <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="grid gap-3">
+              <div>
+                <h3 className="font-semibold text-[var(--gold)]">Storefront feature image</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  This appears in the right side of the public storefront hero. Recommended: wide landscape image, JPG/PNG/GIF/WEBP up to 10MB.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button className="btn-secondary" onClick={() => heroImageInputRef.current?.click()} type="button">
+                  Upload hero image
+                </button>
+                {form.heroImageUrl ? (
+                  <button className="btn-secondary" onClick={() => update("heroImageUrl", "")} type="button">
+                    Remove hero image
+                  </button>
+                ) : null}
+              </div>
+              <input
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadHeroImage(file);
+                }}
+                ref={heroImageInputRef}
+                type="file"
+              />
+              {heroUpload.status !== "idle" ? (
+                <div className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate">{heroUpload.fileName}</span>
+                    <span>{heroUpload.status === "uploading" ? `${heroUpload.progress}%` : heroUpload.status}</span>
+                  </div>
+                  {heroUpload.status === "uploading" ? (
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${heroUpload.progress}%` }} />
+                    </div>
+                  ) : null}
+                  {heroUpload.error ? <p className="mt-2 text-red-100">{heroUpload.error}</p> : null}
+                </div>
+              ) : null}
+              <label className="grid gap-2">
+                <span className="form-label">Hero image URL</span>
+                <input className="form-field" onChange={(event) => update("heroImageUrl", event.target.value)} placeholder="Upload or paste https://..." value={form.heroImageUrl} />
+              </label>
+            </div>
+            <div className="business-storefront-hero-preview" aria-label="Storefront hero image preview">
+              {form.heroImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="Storefront hero preview" src={form.heroImageUrl} />
+              ) : (
+                <span>No hero image</span>
+              )}
+            </div>
+          </section>
+          <label className="grid gap-2">
+            <span className="form-label">Storefront gallery URLs</span>
+            <textarea
+              className="form-field min-h-28 resize-y"
+              onChange={(event) => update("galleryImageUrlsText", event.target.value)}
+              placeholder="One image URL per line"
+              value={form.galleryImageUrlsText}
+            />
+          </label>
+        </section>
+
         <label className="grid gap-2">
           <span className="form-label">Description</span>
           <textarea
@@ -153,6 +356,19 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           </span>
         </label>
 
+        <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+          <input checked={form.blogEnabled} className="mt-1" onChange={(event) => update("blogEnabled", event.target.checked)} type="checkbox" />
+          <span>
+            <span className="block font-semibold text-[var(--gold)]">Enable storefront blogs</span>
+            <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
+              Blog posts are written in Writers Corner as manuscripts. Once this is on, open a manuscript and check Publish to storefront.
+            </span>
+            <Link className="mt-2 inline-block text-sm font-semibold text-[var(--gold)] underline" href="/writers-corner">
+              Open Writers Corner
+            </Link>
+          </span>
+        </label>
+
         <section className="rounded-md border border-[var(--line)] bg-black/10 p-4">
           <h2 className="font-semibold text-[var(--gold)]">Coming soon: email linking</h2>
           <p className="mt-2 leading-6 text-[var(--muted)]">
@@ -196,6 +412,71 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           ) : (
             <p className="rounded-md border border-dashed border-[var(--line)] p-5 text-[var(--muted)]">No storefront inquiries yet.</p>
           )}
+        </div>
+      </section>
+
+      <section className="surface rounded-md p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-[var(--gold)]">Storefront blogs</h2>
+            <p className="mt-2 text-[var(--muted)]">
+              Write business blogs in Writers Corner, then publish selected manuscripts to this storefront.
+            </p>
+          </div>
+          <Link className="btn-secondary" href="/writers-corner">
+            Open Writers Corner
+          </Link>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {profile?.blogEnabled ? (
+            profile.storefrontBlogs.length ? (
+              profile.storefrontBlogs.map((blog) => (
+                <article className="module-card rounded-md p-4" key={blog.id}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold">{blog.title}</h3>
+                      {blog.summary ? <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{blog.summary}</p> : null}
+                      <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                        {blog.chapterCount} chapters / {blog.wordCount.toLocaleString()} words
+                      </p>
+                    </div>
+                    <Link className="btn-secondary" href={blog.publicUrl}>
+                      View
+                    </Link>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-[var(--line)] p-5 text-[var(--muted)]">
+                No storefront blogs are published yet. Open a manuscript in Writers Corner and check Publish to storefront.
+              </div>
+            )
+          ) : (
+            <div className="rounded-md border border-dashed border-[var(--line)] p-5 text-[var(--muted)]">
+              Enable storefront blogs above, save your business profile, then publish manuscripts from Writers Corner.
+            </div>
+          )}
+          {profile?.articles.length ? (
+            <details className="rounded-md border border-[var(--line)] bg-black/10 p-4 text-sm text-[var(--muted)]">
+              <summary className="cursor-pointer font-semibold text-[var(--gold)]">Existing storefront articles</summary>
+              <div className="mt-3 grid gap-3">
+                {profile.articles.map((article) => (
+                  <article className="module-card rounded-md p-4" key={article.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-[var(--text)]">{article.title}</h3>
+                        {article.summary ? <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{article.summary}</p> : null}
+                      </div>
+                      <Link className="btn-secondary" href={article.publicUrl}>
+                        View
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
       </section>
     </div>

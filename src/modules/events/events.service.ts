@@ -312,7 +312,7 @@ export async function createEvent(viewerUserId: string, input: unknown) {
   const canCreate = await viewerCanCreateEvent(viewerUserId);
 
   if (!canCreate) {
-    return { ok: false as const, error: "Contributor, Professional, Auditor, or Admin access is required to create events." };
+    return { ok: false as const, error: "Professional access is required to create events." };
   }
 
   const parsedDates = parseEventDates(parsed.data.startsAt, parsed.data.endsAt);

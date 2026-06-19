@@ -71,6 +71,18 @@ function MailAttachmentPreview({ attachment }: { attachment: MailAttachmentView 
   );
 }
 
+function mailDeliveryListLabel(deliveryKind: MailDeliveryKind) {
+  if (deliveryKind === MailDeliveryKind.INQUIRY) return "Inquiry";
+  if (deliveryKind === MailDeliveryKind.MASS_INTERNAL) return "Mass internal";
+  return "Direct";
+}
+
+function mailDeliveryReaderLabel(deliveryKind: MailDeliveryKind) {
+  if (deliveryKind === MailDeliveryKind.INQUIRY) return "Storefront inquiry";
+  if (deliveryKind === MailDeliveryKind.MASS_INTERNAL) return "Internal mass mail";
+  return "Internal mail";
+}
+
 export function MailClient({
   initialFolder,
   initialPreference,
@@ -345,7 +357,7 @@ export function MailClient({
                 {thread.sender.displayName}: {thread.preview}
               </p>
               <p className="mt-2 text-xs text-[var(--muted)]">
-                {thread.deliveryKind === MailDeliveryKind.MASS_INTERNAL ? "Mass internal" : "Direct"} ·{" "}
+                {mailDeliveryListLabel(thread.deliveryKind)} ·{" "}
                 {thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : "No date"}
               </p>
             </button>
@@ -455,7 +467,7 @@ export function MailClient({
           <article className="mail-thread-detail">
             <header className="mail-reader-header">
               <p className="text-sm uppercase tracking-[0.18em] text-[var(--gold)]">
-                {selectedThread.deliveryKind === MailDeliveryKind.MASS_INTERNAL ? "Internal mass mail" : "Internal mail"}
+                {mailDeliveryReaderLabel(selectedThread.deliveryKind)}
               </p>
               <h2 className="mt-2 text-3xl font-semibold">{selectedThread.subject}</h2>
               <p className="mt-2 text-sm text-[var(--muted)]">

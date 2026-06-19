@@ -1,5 +1,6 @@
-import { AdPlacement, ScientologyClassification } from "@prisma/client";
+import { AdDestinationKind, AdPlacement, InterestCategory } from "@prisma/client";
 import { z } from "zod";
+import type { AdPricingPackageView } from "@/modules/platform-pricing/types";
 
 export const adPlacementLabels: Record<AdPlacement, string> = {
   RIGHT_STREAM: "Right ad stream",
@@ -12,30 +13,40 @@ export const adPlacementOptions = Object.entries(adPlacementLabels).map(([value,
   label
 }));
 
-export const adClassificationLabels: Record<ScientologyClassification, string> = {
-  PUBLIC: "Public",
-  PRECLEAR: "Preclear",
-  CLEAR: "Clear",
-  OT: "OT",
-  AUDITOR: "Auditor",
-  STAFF: "Staff",
-  SEA_ORG: "Sea Org",
-  OTHER: "Other"
+export const interestCategoryLabels: Record<InterestCategory, string> = {
+  AUDITING: "Auditing",
+  TRAINING: "Training",
+  EVENTS: "Events",
+  MARKET: "The Market",
+  JOBS: "Jobs",
+  BUSINESS: "Business",
+  WRITERS: "Writers",
+  FUNDRAISERS: "Fundraisers",
+  GROUPS: "Groups",
+  FAMILY_COMMUNITY: "Family and community",
+  TECH: "Tech",
+  COURSE_SUPPLIES: "Course supplies"
 };
 
-export const adClassificationOptions = Object.entries(adClassificationLabels).map(([value, label]) => ({
-  value: value as ScientologyClassification,
+export const interestCategoryOptions = Object.entries(interestCategoryLabels).map(([value, label]) => ({
+  value: value as InterestCategory,
   label
 }));
 
 export const createAdCampaignSchema = z.object({
   title: z.string().trim().min(2).max(120),
   body: z.string().trim().min(8).max(280),
-  destinationUrl: z.string().trim().url().max(240).optional().or(z.literal("")),
+  imageMediaAssetId: z.string().trim().optional().or(z.literal("")),
+  externalImageUrl: z.string().trim().max(600).optional().or(z.literal("")),
+  destinationKind: z.nativeEnum(AdDestinationKind).default(AdDestinationKind.STOREFRONT),
+  marketListingId: z.string().trim().optional().or(z.literal("")),
+  businessArticleId: z.string().trim().optional().or(z.literal("")),
+  customDestinationUrl: z.string().trim().max(600).optional().or(z.literal("")),
   placement: z.nativeEnum(AdPlacement).default(AdPlacement.RIGHT_STREAM),
   targetLocation: z.string().trim().max(120).optional(),
-  targetClassification: z.nativeEnum(ScientologyClassification).optional().nullable(),
-  totalBudgetCredits: z.coerce.number().int().min(1).max(100000),
+  targetInterestCategories: z.array(z.nativeEnum(InterestCategory)).max(6).default([]),
+  pricingRuleKey: z.string().trim().min(2).max(120),
+  totalBudgetCredits: z.coerce.number().int().min(1).max(100000).optional(),
   dailyBudgetCredits: z.coerce.number().int().min(0).max(100000).optional().nullable()
 });
 
@@ -44,15 +55,32 @@ export type AdCampaignCardView = {
   title: string;
   body: string;
   destinationUrl: string | null;
+  imageUrl: string | null;
+  destinationKind: AdDestinationKind;
   placement: AdPlacement;
   placementLabel: string;
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED" | "ARCHIVED";
   targetLocation: string | null;
-  targetClassification: ScientologyClassification | null;
+  targetInterestLabels: string[];
   totalBudgetCredits: number;
   dailyBudgetCredits: number | null;
   spentCredits: number;
+  startsAt: string | null;
+  endsAt: string | null;
   createdAt: string;
+};
+
+export type AdPlacementCardView = {
+  id: string;
+  title: string;
+  body: string;
+  destinationUrl: string | null;
+  imageUrl: string | null;
+  imageAlt: string;
+  totalBudgetCredits: number;
+  spentCredits: number;
+  remainingCredits: number;
+  rotationHoldMs: number;
 };
 
 export type AdsManagerView = {
@@ -60,4 +88,10 @@ export type AdsManagerView = {
   reason?: string;
   platformCredits: number;
   campaigns: AdCampaignCardView[];
+  destinationOptions: {
+    storefronts: Array<{ id: string; label: string; href: string }>;
+    marketListings: Array<{ id: string; label: string; href: string }>;
+    businessArticles: Array<{ id: string; label: string; href: string }>;
+  };
+  pricingPackages: AdPricingPackageView[];
 };

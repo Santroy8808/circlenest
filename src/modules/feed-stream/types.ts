@@ -1,17 +1,23 @@
-import { FeedReactionType, FeedVisibility } from "@prisma/client";
+import { FeedReactionType, FeedVisibility, MembershipTier } from "@prisma/client";
 import { z } from "zod";
 
 export const createFeedPostSchema = z.object({
-  body: z.string().min(1, "Write something first.").max(4000),
+  body: z.string().max(4000).default(""),
   visibility: z.nativeEnum(FeedVisibility).default(FeedVisibility.MEMBERS),
   mediaAssetId: z.string().optional().or(z.literal(""))
+}).refine((value) => value.body.trim().length > 0 || Boolean(value.mediaAssetId), {
+  message: "Write something or attach a picture.",
+  path: ["body"]
 });
 
 export const createFeedCommentSchema = z.object({
   postId: z.string().min(1),
   parentCommentId: z.string().optional().or(z.literal("")),
-  body: z.string().min(1, "Write a comment first.").max(2000),
+  body: z.string().max(2000).default(""),
   mediaAssetId: z.string().optional().or(z.literal(""))
+}).refine((value) => value.body.trim().length > 0 || Boolean(value.mediaAssetId), {
+  message: "Write a comment or attach a picture.",
+  path: ["body"]
 });
 
 export const reactToFeedPostSchema = z.object({
@@ -24,27 +30,41 @@ export const reactToFeedCommentSchema = z.object({
   type: z.nativeEnum(FeedReactionType)
 });
 
+export type FeedMediaView = {
+  id: string;
+  publicUrl?: string | null;
+  mimeType: string;
+  originalName?: string | null;
+};
+
+export type FeedAuthorView = {
+  id: string;
+  username: string;
+  displayName: string;
+  tier: MembershipTier;
+  avatarUrl?: string | null;
+};
+
+export type FeedCommentView = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: FeedAuthorView;
+  media?: FeedMediaView | null;
+  reactions: Partial<Record<FeedReactionType, number>>;
+  replyCount: number;
+  replies?: FeedCommentView[];
+};
+
 export type FeedPostView = {
   id: string;
   body: string;
   visibility: FeedVisibility;
+  isAdminAnnouncement: boolean;
+  pinnedUntil?: string | null;
   createdAt: string;
-  author: {
-    username: string;
-    displayName: string;
-    avatarUrl?: string | null;
-  };
+  media?: FeedMediaView | null;
+  author: FeedAuthorView;
   reactions: Partial<Record<FeedReactionType, number>>;
-  comments: Array<{
-    id: string;
-    body: string;
-    createdAt: string;
-    author: {
-      username: string;
-      displayName: string;
-      avatarUrl?: string | null;
-    };
-    reactions: Partial<Record<FeedReactionType, number>>;
-    replyCount: number;
-  }>;
+  comments: FeedCommentView[];
 };

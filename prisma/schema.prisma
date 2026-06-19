@@ -14,6 +14,11 @@ enum MembershipTier {
   AUDITOR
 }
 
+enum PromotionAccessScope {
+  GLOBAL
+  USER
+}
+
 enum UserRole {
   MEMBER
   ADMIN
@@ -76,6 +81,13 @@ enum SocialRelationshipType {
   MUTE
 }
 
+enum FamilyRelationshipRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELED
+}
+
 enum ChatThreadType {
   DIRECT
   GROUP
@@ -89,6 +101,7 @@ enum ChatAttachmentKind {
 enum MailDeliveryKind {
   DIRECT
   MASS_INTERNAL
+  INQUIRY
 }
 
 enum MailRecipientType {
@@ -229,9 +242,62 @@ enum AdPlacement {
   RESERVED_STREAM
 }
 
+enum AdDestinationKind {
+  STOREFRONT
+  MARKET_LISTING
+  BUSINESS_ARTICLE
+  EXTERNAL_URL
+}
+
 enum AdDeliveryEventType {
   IMPRESSION
   CLICK
+}
+
+enum InterestCategory {
+  AUDITING
+  TRAINING
+  EVENTS
+  MARKET
+  JOBS
+  BUSINESS
+  WRITERS
+  FUNDRAISERS
+  GROUPS
+  FAMILY_COMMUNITY
+  TECH
+  COURSE_SUPPLIES
+}
+
+enum PlatformActivityEventType {
+  PAGE_VIEW
+  HEARTBEAT
+  NAVIGATION
+  ACTION
+  SEARCH
+  AD_INTERACTION
+  SESSION_START
+  SESSION_END
+}
+
+enum PlatformCostSubject {
+  MARKET_PRODUCT_LISTING
+  MARKET_PRODUCT_EXTRA_LISTING
+  MARKET_PRODUCT_RENEW
+  MARKET_PRODUCT_BOOST
+  MARKET_SERVICE_POST
+  MARKET_SERVICE_BOOST
+  MONTHLY_SPECIAL
+  MAIN_STREAM_PROMOTED_POST
+  MAIL_SPONSORED_INTERNAL
+  AD_RIGHT_BILLBOARD_SMALL
+  AD_RIGHT_BILLBOARD_MEDIUM
+  AD_RIGHT_BILLBOARD_LARGE
+  AD_BUSINESS_SPOTLIGHT
+  AD_RESERVED_STREAM
+  POST_BOOST
+  EVENT_BOOST
+  STOREFRONT_SPOTLIGHT
 }
 
 enum FundraiserCategory {
@@ -307,92 +373,97 @@ enum ScientologyVisibility {
 
 enum ScientologyClassification {
   PUBLIC
-  PRECLEAR
-  CLEAR
-  OT
-  AUDITOR
   STAFF
   SEA_ORG
-  OTHER
+  AUDITOR
 }
 
 model User {
-  id                       String                   @id @default(cuid())
-  email                    String                   @unique
-  username                 String                   @unique
-  passwordHash             String?
-  role                     UserRole                 @default(MEMBER)
-  emailVerified            DateTime?
-  deactivatedAt            DateTime?
-  sessionVersion           Int                      @default(1)
-  failedLoginCount         Int                      @default(0)
-  lastLoginAt              DateTime?
-  lastPasswordChangedAt    DateTime?
-  sessionsRevokedAt        DateTime?
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  profile                  Profile?
-  scientologyProfile       ScientologyProfile?
-  membership               Membership?
-  mediaAssets              MediaAsset[]
-  mediaCollections         MediaCollection[]
-  feedPosts                FeedPost[]                @relation("FeedPostAuthor")
-  feedComments             FeedComment[]             @relation("FeedCommentAuthor")
-  feedPostReactions        FeedPostReaction[]
-  feedCommentReactions     FeedCommentReaction[]
-  socialRelationshipsFrom  SocialRelationship[]      @relation("SocialRelationshipFrom")
-  socialRelationshipsTo    SocialRelationship[]      @relation("SocialRelationshipTo")
-  createdChatThreads       ChatThread[]              @relation("ChatThreadCreator")
-  chatParticipants         ChatParticipant[]
-  chatMessages             ChatMessage[]             @relation("ChatMessageSender")
-  createdMailThreads       MailThread[]              @relation("MailThreadCreator")
-  sentMailMessages         MailMessage[]             @relation("MailMessageSender")
-  mailRecipients           MailRecipient[]
-  ownedMailContacts        MailContact[]             @relation("MailContactOwner")
-  contactMailEntries       MailContact[]             @relation("MailContactUser")
-  mailPreference           MailPreference?
-  mailSenderOptOuts        MailSenderOptOut[]        @relation("MailOptOutOwner")
-  mailSenderBlocks         MailSenderOptOut[]        @relation("MailOptOutSender")
-  createdGroups            Group[]                    @relation("GroupCreator")
-  groupMemberships         GroupMember[]
-  groupJoinRequests        GroupJoinRequest[]         @relation("GroupJoinRequester")
-  reviewedGroupJoinRequests GroupJoinRequest[]        @relation("GroupJoinReviewer")
-  groupPins                GroupUserPin[]
-  groupForumThreads        GroupForumThread[]         @relation("GroupForumThreadAuthor")
-  endedGroupForumThreads   GroupForumThread[]         @relation("GroupForumThreadEnder")
-  deletedGroupForumThreads GroupForumThread[]         @relation("GroupForumThreadDeleter")
-  groupForumPosts          GroupForumPost[]           @relation("GroupForumPostAuthor")
-  groupForumThreadReactions GroupForumThreadReaction[]
-  groupForumPostReactions  GroupForumPostReaction[]
-  uploadedGroupAssets      GroupAsset[]               @relation("GroupAssetUploader")
-  groupAssetComments       GroupAssetComment[]         @relation("GroupAssetCommentAuthor")
-  createdEvents            Event[]                    @relation("EventCreator")
-  eventModerations         EventModerator[]
-  eventInvitationsSent     EventInvitation[]          @relation("EventInvitationSender")
-  eventInvitationsReceived EventInvitation[]          @relation("EventInvitationInvitee")
-  eventRsvps               EventRsvp[]
-  marketListings           MarketListing[]           @relation("MarketListingSeller")
-  jobListings              JobListing[]              @relation("JobListingEmployer")
-  auditorProfile           AuditorProfile?
-  businessProfile          BusinessProfile?          @relation("BusinessProfileOwner")
-  adCampaigns              AdCampaign[]              @relation("AdCampaignOwner")
-  adCreditLedgerEntries    AdCreditLedgerEntry[]
-  adDeliveryLogs           AdDeliveryLog[]           @relation("AdDeliveryViewer")
-  fundraiserCampaigns      FundraiserCampaign[]      @relation("FundraiserCreator")
-  fundContributionIntents  FundContributionIntent[]  @relation("FundContributionContributor")
-  manuscripts              WriterManuscript[]        @relation("WriterManuscriptAuthor")
-  notifications            Notification[]
-  alerts                   Alert[]
-  diagnostics              DiagnosticLog[]
-  auditLogs                AuditLog[]               @relation("AuditActor")
-  adminActions             AdminAction[]            @relation("AdminActionActor")
-  authSecurityEvents       AuthSecurityEvent[]
-  emailVerificationTokens  EmailVerificationToken[]
-  passwordResetTokens      PasswordResetToken[]
-  twoFactorConfig          TwoFactorConfig?
-  feedbackTickets          FeedbackTicket[]         @relation("FeedbackReporter")
-  membershipOverrides      MembershipPolicyOverride[] @relation("MembershipOverrideSubject")
-  createdMembershipOverrides MembershipPolicyOverride[] @relation("MembershipOverrideCreator")
+  id                         String                      @id @default(cuid())
+  email                      String                      @unique
+  username                   String                      @unique
+  passwordHash               String?
+  role                       UserRole                    @default(MEMBER)
+  emailVerified              DateTime?
+  deactivatedAt              DateTime?
+  sessionVersion             Int                         @default(1)
+  failedLoginCount           Int                         @default(0)
+  lastLoginAt                DateTime?
+  lastPasswordChangedAt      DateTime?
+  sessionsRevokedAt          DateTime?
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  profile                    Profile?
+  scientologyProfile         ScientologyProfile?
+  membership                 Membership?
+  mediaAssets                MediaAsset[]
+  mediaCollections           MediaCollection[]
+  feedPosts                  FeedPost[]                  @relation("FeedPostAuthor")
+  feedComments               FeedComment[]               @relation("FeedCommentAuthor")
+  feedPostReactions          FeedPostReaction[]
+  feedCommentReactions       FeedCommentReaction[]
+  feedPostDismissals         FeedPostDismissal[]
+  socialRelationshipsFrom    SocialRelationship[]        @relation("SocialRelationshipFrom")
+  socialRelationshipsTo      SocialRelationship[]        @relation("SocialRelationshipTo")
+  familyRequestsSent         FamilyRelationshipRequest[] @relation("FamilyRequestRequester")
+  familyRequestsReceived     FamilyRelationshipRequest[] @relation("FamilyRequestTarget")
+  createdChatThreads         ChatThread[]                @relation("ChatThreadCreator")
+  chatParticipants           ChatParticipant[]
+  chatMessages               ChatMessage[]               @relation("ChatMessageSender")
+  createdMailThreads         MailThread[]                @relation("MailThreadCreator")
+  sentMailMessages           MailMessage[]               @relation("MailMessageSender")
+  mailRecipients             MailRecipient[]
+  ownedMailContacts          MailContact[]               @relation("MailContactOwner")
+  contactMailEntries         MailContact[]               @relation("MailContactUser")
+  mailPreference             MailPreference?
+  mailSenderOptOuts          MailSenderOptOut[]          @relation("MailOptOutOwner")
+  mailSenderBlocks           MailSenderOptOut[]          @relation("MailOptOutSender")
+  businessArticles           BusinessArticle[]
+  createdGroups              Group[]                     @relation("GroupCreator")
+  groupMemberships           GroupMember[]
+  groupJoinRequests          GroupJoinRequest[]          @relation("GroupJoinRequester")
+  reviewedGroupJoinRequests  GroupJoinRequest[]          @relation("GroupJoinReviewer")
+  groupPins                  GroupUserPin[]
+  groupForumThreads          GroupForumThread[]          @relation("GroupForumThreadAuthor")
+  endedGroupForumThreads     GroupForumThread[]          @relation("GroupForumThreadEnder")
+  deletedGroupForumThreads   GroupForumThread[]          @relation("GroupForumThreadDeleter")
+  groupForumPosts            GroupForumPost[]            @relation("GroupForumPostAuthor")
+  groupForumThreadReactions  GroupForumThreadReaction[]
+  groupForumPostReactions    GroupForumPostReaction[]
+  uploadedGroupAssets        GroupAsset[]                @relation("GroupAssetUploader")
+  groupAssetComments         GroupAssetComment[]         @relation("GroupAssetCommentAuthor")
+  createdEvents              Event[]                     @relation("EventCreator")
+  eventModerations           EventModerator[]
+  eventInvitationsSent       EventInvitation[]           @relation("EventInvitationSender")
+  eventInvitationsReceived   EventInvitation[]           @relation("EventInvitationInvitee")
+  eventRsvps                 EventRsvp[]
+  marketListings             MarketListing[]             @relation("MarketListingSeller")
+  jobListings                JobListing[]                @relation("JobListingEmployer")
+  auditorProfile             AuditorProfile?
+  businessProfile            BusinessProfile?            @relation("BusinessProfileOwner")
+  adCampaigns                AdCampaign[]                @relation("AdCampaignOwner")
+  adCreditLedgerEntries      AdCreditLedgerEntry[]
+  adDeliveryLogs             AdDeliveryLog[]             @relation("AdDeliveryViewer")
+  fundraiserCampaigns        FundraiserCampaign[]        @relation("FundraiserCreator")
+  fundContributionIntents    FundContributionIntent[]    @relation("FundContributionContributor")
+  manuscripts                WriterManuscript[]          @relation("WriterManuscriptAuthor")
+  notifications              Notification[]
+  alerts                     Alert[]
+  diagnostics                DiagnosticLog[]
+  auditLogs                  AuditLog[]                  @relation("AuditActor")
+  adminActions               AdminAction[]               @relation("AdminActionActor")
+  updatedPlatformCostRules   PlatformCostRule[]          @relation("PlatformCostRuleUpdater")
+  platformActivityEvents     PlatformActivityEvent[]     @relation("PlatformActivityUser")
+  interests                  UserInterest[]
+  authSecurityEvents         AuthSecurityEvent[]
+  emailVerificationTokens    EmailVerificationToken[]
+  passwordResetTokens        PasswordResetToken[]
+  twoFactorConfig            TwoFactorConfig?
+  feedbackTickets            FeedbackTicket[]            @relation("FeedbackReporter")
+  membershipOverrides        MembershipPolicyOverride[]  @relation("MembershipOverrideSubject")
+  createdMembershipOverrides MembershipPolicyOverride[]  @relation("MembershipOverrideCreator")
+  promotionGrants            MembershipPromotionGrant[]  @relation("PromotionGrantUser")
+  createdPromotionGrants     MembershipPromotionGrant[]  @relation("PromotionGrantCreator")
 }
 
 model Profile {
@@ -405,7 +476,7 @@ model Profile {
   bannerUrl   String?
   location    String?
   visibility  ProfileVisibility @default(MEMBERS)
-  theme        Json?
+  theme       Json?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -424,34 +495,81 @@ model ScientologyProfile {
   goodStandingUpdatedAt DateTime?
   educationNotes        String?
   visibility            ScientologyVisibility     @default(PRIVATE)
-  adTargetingAllowed    Boolean                   @default(false)
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   user                  User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Membership {
-  id                 String         @id @default(cuid())
-  userId             String         @unique
-  tier               MembershipTier @default(FREE)
-  inviteEligibleAt   DateTime?
-  storageLimitBytes  BigInt         @default(104857600)
-  platformCredits    Int            @default(0)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  tier              MembershipTier @default(FREE)
+  inviteEligibleAt  DateTime?
+  storageLimitBytes BigInt         @default(104857600)
+  platformCredits   Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MembershipPromotionGrant {
+  id              String               @id @default(cuid())
+  scope           PromotionAccessScope @default(USER)
+  userId          String?
+  sourceTier      MembershipTier       @default(FREE)
+  targetTier      MembershipTier
+  label           String
+  reason          String?
+  active          Boolean              @default(true)
+  startsAt        DateTime             @default(now())
+  expiresAt       DateTime
+  createdByUserId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  user            User?                @relation("PromotionGrantUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy       User?                @relation("PromotionGrantCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([scope, sourceTier, targetTier, active, startsAt, expiresAt])
+  @@index([userId, active, startsAt, expiresAt])
+}
+
+model SubscriptionPlanRule {
+  id                    String         @id @default(cuid())
+  tier                  MembershipTier @unique
+  displayName           String
+  standardPriceCents    Int
+  founderPriceCents     Int?
+  founderMemberCap      Int?
+  founderWindowDays     Int?
+  monthlyCreditBudget   Int            @default(0)
+  populationCreditTiers Json?
+  active                Boolean        @default(true)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+}
+
+model AdExperienceRule {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String?
+  value       Int
+  unit        String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model DiagnosticLog {
-  id         String   @id @default(cuid())
-  level      LogLevel
-  module     String
-  message    String
-  context    Json?
-  requestId  String?
-  userId     String?
-  createdAt  DateTime @default(now())
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id        String   @id @default(cuid())
+  level     LogLevel
+  module    String
+  message   String
+  context   Json?
+  requestId String?
+  userId    String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([module, createdAt])
   @@index([level, createdAt])
@@ -473,6 +591,41 @@ model AuditLog {
   @@index([actorUserId, createdAt])
 }
 
+model PlatformActivityEvent {
+  id            String                    @id @default(cuid())
+  userId        String?
+  sessionKey    String?
+  eventType     PlatformActivityEventType
+  route         String?
+  module        String?
+  action        String?
+  targetType    String?
+  targetId      String?
+  metadata      Json?
+  ipHash        String?
+  userAgentHash String?
+  createdAt     DateTime                  @default(now())
+  user          User?                     @relation("PlatformActivityUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([route, createdAt])
+  @@index([module, action, createdAt])
+}
+
+model UserInterest {
+  id        String           @id @default(cuid())
+  userId    String
+  category  InterestCategory
+  source    String           @default("self")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([category])
+}
+
 model FeatureFlag {
   id          String   @id @default(cuid())
   key         String   @unique
@@ -484,12 +637,12 @@ model FeatureFlag {
 }
 
 model ModuleHealthCheck {
-  id          String             @id @default(cuid())
-  module      String             @unique
-  status      ModuleHealthStatus @default(unknown)
-  message     String?
-  checkedAt   DateTime           @default(now())
-  metadata    Json?
+  id        String             @id @default(cuid())
+  module    String             @unique
+  status    ModuleHealthStatus @default(unknown)
+  message   String?
+  checkedAt DateTime           @default(now())
+  metadata  Json?
 }
 
 model AdminAction {
@@ -506,40 +659,64 @@ model AdminAction {
   @@index([actorUserId, createdAt])
 }
 
+model PublicAnnouncement {
+  id                       String   @id @default(cuid())
+  createdByUserId          String
+  title                    String
+  body                     String
+  audienceKind             String
+  audienceValue            String?
+  channels                 String[] @default([])
+  recipientCount           Int      @default(0)
+  chatDeliveryCount        Int      @default(0)
+  mailDeliveryCount        Int      @default(0)
+  popupDeliveryCount       Int      @default(0)
+  globalPostDeliveryCount  Int      @default(0)
+  personalEmailQueuedCount Int      @default(0)
+  feedPostId               String?
+  metadata                 Json?
+  createdAt                DateTime @default(now())
+
+  @@index([createdByUserId, createdAt])
+  @@index([audienceKind, createdAt])
+}
+
 model MediaAsset {
-  id           String          @id @default(cuid())
-  ownerUserId  String
-  storageKey   String          @unique
-  publicUrl    String?
-  mimeType     String
-  sizeBytes    BigInt
-  originalName String?
-  visibility   MediaVisibility @default(PRIVATE)
-  metadata     Json?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  owner        User            @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  collections  MediaCollectionAsset[]
-  feedPosts    FeedPost[]
-  feedComments FeedComment[]
-  chatAttachments ChatAttachment[]
-  mailAttachments MailAttachment[]
-  groupForumPosts GroupForumPost[]
-  groupAssets   GroupAsset[]
-  marketListingPhotos MarketListingPhoto[]
+  id                    String                 @id @default(cuid())
+  ownerUserId           String
+  storageKey            String                 @unique
+  publicUrl             String?
+  mimeType              String
+  sizeBytes             BigInt
+  originalName          String?
+  visibility            MediaVisibility        @default(PRIVATE)
+  metadata              Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  owner                 User                   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  collections           MediaCollectionAsset[]
+  feedPosts             FeedPost[]
+  feedComments          FeedComment[]
+  adCampaignImages      AdCampaign[]           @relation("AdCampaignImage")
+  businessArticleCovers BusinessArticle[]      @relation("BusinessArticleCover")
+  chatAttachments       ChatAttachment[]
+  mailAttachments       MailAttachment[]
+  groupForumPosts       GroupForumPost[]
+  groupAssets           GroupAsset[]
+  marketListingPhotos   MarketListingPhoto[]
 
   @@index([ownerUserId, createdAt])
 }
 
 model MediaCollection {
-  id          String              @id @default(cuid())
+  id          String                 @id @default(cuid())
   ownerUserId String
   type        MediaCollectionType
   name        String
   slug        String
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  owner       User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  owner       User                   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   assets      MediaCollectionAsset[]
 
   @@unique([ownerUserId, type, slug])
@@ -559,20 +736,36 @@ model MediaCollectionAsset {
 }
 
 model FeedPost {
-  id           String             @id @default(cuid())
-  authorUserId String
-  body         String
-  visibility   FeedVisibility     @default(MEMBERS)
-  mediaAssetId String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  author       User               @relation("FeedPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  mediaAsset   MediaAsset?        @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
-  comments     FeedComment[]
-  reactions    FeedPostReaction[]
+  id                  String              @id @default(cuid())
+  authorUserId        String
+  body                String
+  visibility          FeedVisibility      @default(MEMBERS)
+  mediaAssetId        String?
+  isAdminAnnouncement Boolean             @default(false)
+  pinnedUntil         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  author              User                @relation("FeedPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  mediaAsset          MediaAsset?         @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  comments            FeedComment[]
+  reactions           FeedPostReaction[]
+  dismissals          FeedPostDismissal[]
 
   @@index([visibility, createdAt])
+  @@index([isAdminAnnouncement, pinnedUntil, createdAt])
   @@index([authorUserId, createdAt])
+}
+
+model FeedPostDismissal {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
 }
 
 model FeedComment {
@@ -626,30 +819,50 @@ model FeedCommentReaction {
 }
 
 model SocialRelationship {
-  id           String                 @id @default(cuid())
-  fromUserId   String
-  toUserId     String
-  type         SocialRelationshipType
-  note         String?
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  fromUser     User                   @relation("SocialRelationshipFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUser       User                   @relation("SocialRelationshipTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  id         String                 @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  type       SocialRelationshipType
+  note       String?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  fromUser   User                   @relation("SocialRelationshipFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User                   @relation("SocialRelationshipTo", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@unique([fromUserId, toUserId, type])
   @@index([fromUserId, type, createdAt])
   @@index([toUserId, type, createdAt])
 }
 
+model FamilyRelationshipRequest {
+  id                String                          @id @default(cuid())
+  requesterUserId   String
+  targetUserId      String
+  relationshipLabel String
+  reciprocalLabel   String
+  status            FamilyRelationshipRequestStatus @default(PENDING)
+  message           String?
+  alertId           String?
+  respondedAt       DateTime?
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+  requester         User                            @relation("FamilyRequestRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  target            User                            @relation("FamilyRequestTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([requesterUserId, status, createdAt])
+  @@index([targetUserId, status, createdAt])
+  @@index([alertId])
+}
+
 model ChatThread {
-  id              String             @id @default(cuid())
+  id              String            @id @default(cuid())
   type            ChatThreadType
   title           String?
   createdByUserId String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   lastMessageAt   DateTime?
-  createdBy       User?              @relation("ChatThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdBy       User?             @relation("ChatThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   participants    ChatParticipant[]
   messages        ChatMessage[]
 
@@ -658,16 +871,16 @@ model ChatThread {
 }
 
 model ChatParticipant {
-  id          String     @id @default(cuid())
-  threadId    String
-  userId      String
-  nickname    String?
-  mutedAt     DateTime?
-  archivedAt  DateTime?
-  lastReadAt  DateTime?
-  createdAt   DateTime   @default(now())
-  thread      ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String     @id @default(cuid())
+  threadId   String
+  userId     String
+  nickname   String?
+  mutedAt    DateTime?
+  archivedAt DateTime?
+  lastReadAt DateTime?
+  createdAt  DateTime   @default(now())
+  thread     ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([threadId, userId])
   @@index([userId, archivedAt, createdAt])
@@ -816,9 +1029,9 @@ model MailSenderOptOut {
 
 model MailPolicyConfig {
   id                              String   @id @default("default")
-  contributorMassRecipientCap     Int      @default(5)
+  contributorMassRecipientCap     Int      @default(1)
   professionalMassRecipientCap    Int      @default(25)
-  auditorMassRecipientCap         Int      @default(5)
+  auditorMassRecipientCap         Int      @default(1)
   adminMassRecipientCap           Int      @default(100)
   massMailCostPerRecipientCredits Int      @default(0)
   createdAt                       DateTime @default(now())
@@ -826,21 +1039,21 @@ model MailPolicyConfig {
 }
 
 model Group {
-  id                String          @id @default(cuid())
-  slug              String          @unique
+  id                String             @id @default(cuid())
+  slug              String             @unique
   name              String
   tagline           String?
   description       String?
   avatarUrl         String?
   bannerUrl         String?
-  visibility        GroupVisibility @default(PUBLIC)
-  joinPolicy        GroupJoinPolicy @default(OPEN)
+  visibility        GroupVisibility    @default(PUBLIC)
+  joinPolicy        GroupJoinPolicy    @default(OPEN)
   createdByUserId   String?
-  storageLimitBytes BigInt          @default(41943040)
+  storageLimitBytes BigInt             @default(41943040)
   archivedAt        DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  createdBy         User?           @relation("GroupCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  createdBy         User?              @relation("GroupCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   members           GroupMember[]
   joinRequests      GroupJoinRequest[]
   pins              GroupUserPin[]
@@ -899,24 +1112,24 @@ model GroupUserPin {
 }
 
 model GroupForumThread {
-  id                String                      @id @default(cuid())
+  id                String                     @id @default(cuid())
   groupId           String
   authorUserId      String
   title             String
   body              String
-  allowPhotoReplies Boolean                     @default(false)
+  allowPhotoReplies Boolean                    @default(false)
   pinnedAt          DateTime?
-  sortOrder         Int                         @default(0)
+  sortOrder         Int                        @default(0)
   endedAt           DateTime?
   endedByUserId     String?
   deletedAt         DateTime?
   deletedByUserId   String?
-  createdAt         DateTime                    @default(now())
-  updatedAt         DateTime                    @updatedAt
-  group             Group                       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  author            User                        @relation("GroupForumThreadAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  endedBy           User?                       @relation("GroupForumThreadEnder", fields: [endedByUserId], references: [id], onDelete: SetNull)
-  deletedBy         User?                       @relation("GroupForumThreadDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  group             Group                      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author            User                       @relation("GroupForumThreadAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  endedBy           User?                      @relation("GroupForumThreadEnder", fields: [endedByUserId], references: [id], onDelete: SetNull)
+  deletedBy         User?                      @relation("GroupForumThreadDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   posts             GroupForumPost[]
   reactions         GroupForumThreadReaction[]
 
@@ -975,7 +1188,7 @@ model GroupForumPostReaction {
 }
 
 model GroupAsset {
-  id             String             @id @default(cuid())
+  id             String              @id @default(cuid())
   groupId        String
   mediaAssetId   String
   uploaderUserId String
@@ -983,11 +1196,11 @@ model GroupAsset {
   headline       String?
   description    String?
   deletedAt      DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  group          Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  mediaAsset     MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
-  uploader       User               @relation("GroupAssetUploader", fields: [uploaderUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  group          Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  mediaAsset     MediaAsset          @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  uploader       User                @relation("GroupAssetUploader", fields: [uploaderUserId], references: [id], onDelete: Cascade)
   comments       GroupAssetComment[]
 
   @@index([groupId, kind, createdAt])
@@ -995,14 +1208,14 @@ model GroupAsset {
 }
 
 model GroupAssetComment {
-  id            String     @id @default(cuid())
-  groupAssetId  String
-  authorUserId  String
-  body          String
-  deletedAt     DateTime?
-  createdAt     DateTime   @default(now())
-  asset         GroupAsset @relation(fields: [groupAssetId], references: [id], onDelete: Cascade)
-  author        User       @relation("GroupAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  groupAssetId String
+  authorUserId String
+  body         String
+  deletedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  asset        GroupAsset @relation(fields: [groupAssetId], references: [id], onDelete: Cascade)
+  author       User       @relation("GroupAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
 
   @@index([groupAssetId, createdAt])
   @@index([authorUserId, createdAt])
@@ -1084,6 +1297,7 @@ model MarketListing {
   title        String
   description  String
   category     MarketListingCategory
+  location     String?
   priceCents   Int?
   currency     String                @default("USD")
   status       MarketListingStatus   @default(ACTIVE)
@@ -1092,6 +1306,7 @@ model MarketListing {
   updatedAt    DateTime              @updatedAt
   seller       User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
   photos       MarketListingPhoto[]
+  adCampaigns  AdCampaign[]
 
   @@index([status, category, createdAt])
   @@index([sellerUserId, createdAt])
@@ -1099,13 +1314,13 @@ model MarketListing {
 }
 
 model MarketListingPhoto {
-  id              String        @id @default(cuid())
-  listingId       String
-  mediaAssetId    String
-  sortOrder       Int           @default(0)
-  createdAt       DateTime      @default(now())
-  listing         MarketListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  mediaAsset      MediaAsset    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  listingId    String
+  mediaAssetId String
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  listing      MarketListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
 
   @@unique([listingId, mediaAssetId])
   @@index([mediaAssetId, createdAt])
@@ -1113,8 +1328,8 @@ model MarketListingPhoto {
 }
 
 model JobListing {
-  id                  String             @id @default(cuid())
-  slug                String             @unique
+  id                  String            @id @default(cuid())
+  slug                String            @unique
   employerUserId      String
   title               String
   companyName         String?
@@ -1123,14 +1338,14 @@ model JobListing {
   category            JobCategory
   employmentType      JobEmploymentType
   location            String?
-  remote              Boolean            @default(false)
+  remote              Boolean           @default(false)
   compensation        String?
   contactEmail        String?
   contactInstructions String?
-  status              JobListingStatus   @default(ACTIVE)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  employer            User               @relation("JobListingEmployer", fields: [employerUserId], references: [id], onDelete: Cascade)
+  status              JobListingStatus  @default(ACTIVE)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  employer            User              @relation("JobListingEmployer", fields: [employerUserId], references: [id], onDelete: Cascade)
 
   @@index([status, category, createdAt])
   @@index([employerUserId, createdAt])
@@ -1165,6 +1380,11 @@ model BusinessProfile {
   publicEmail             String?
   phone                   String?
   website                 String?
+  logoUrl                 String?
+  bannerUrl               String?
+  heroImageUrl            String?
+  galleryImageUrls        String[]          @default([])
+  blogEnabled             Boolean           @default(false)
   publicStorefrontEnabled Boolean           @default(false)
   emailLinkingEnabled     Boolean           @default(false)
   createdAt               DateTime          @default(now())
@@ -1172,6 +1392,7 @@ model BusinessProfile {
   owner                   User              @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   inquiries               BusinessInquiry[]
   adCampaigns             AdCampaign[]
+  articles                BusinessArticle[]
 
   @@index([publicStorefrontEnabled, updatedAt])
 }
@@ -1179,6 +1400,7 @@ model BusinessProfile {
 model BusinessInquiry {
   id                String                @id @default(cuid())
   businessProfileId String
+  mailThreadId      String?
   senderName        String
   senderEmail       String?
   message           String
@@ -1187,44 +1409,110 @@ model BusinessInquiry {
   businessProfile   BusinessProfile       @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
 
   @@index([businessProfileId, status, createdAt])
+  @@index([mailThreadId])
+}
+
+model BusinessArticle {
+  id                String          @id @default(cuid())
+  ownerUserId       String
+  businessProfileId String
+  coverMediaAssetId String?
+  slug              String          @unique
+  title             String
+  summary           String?
+  body              String
+  published         Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  owner             User            @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  coverMediaAsset   MediaAsset?     @relation("BusinessArticleCover", fields: [coverMediaAssetId], references: [id], onDelete: SetNull)
+  adCampaigns       AdCampaign[]
+
+  @@index([ownerUserId, createdAt])
+  @@index([businessProfileId, published, createdAt])
+}
+
+model PlatformCostRule {
+  id              String              @id @default(cuid())
+  key             String              @unique
+  subject         PlatformCostSubject
+  label           String
+  description     String?
+  creditCost      Int
+  durationDays    Int?
+  includedUnits   Int?
+  unitLabel       String              @default("package")
+  active          Boolean             @default(true)
+  sortOrder       Int                 @default(0)
+  metadata        Json?
+  updatedByUserId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  updatedBy       User?               @relation("PlatformCostRuleUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([subject, active, sortOrder])
+  @@index([updatedByUserId, updatedAt])
 }
 
 model AdCampaign {
-  id                   String                     @id @default(cuid())
-  ownerUserId          String
-  businessProfileId    String?
-  title                String
-  body                 String
-  destinationUrl       String?
-  placement            AdPlacement                @default(RIGHT_STREAM)
-  status               AdCampaignStatus           @default(ACTIVE)
-  targetLocation       String?
-  targetClassification ScientologyClassification?
-  totalBudgetCredits   Int
-  dailyBudgetCredits   Int?
-  spentCredits         Int                        @default(0)
-  startsAt             DateTime?
-  endsAt               DateTime?
-  createdAt            DateTime                   @default(now())
-  updatedAt            DateTime                   @updatedAt
-  owner                User                       @relation("AdCampaignOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  businessProfile      BusinessProfile?           @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
-  deliveryLogs         AdDeliveryLog[]
+  id                 String                     @id @default(cuid())
+  ownerUserId        String
+  businessProfileId  String?
+  marketListingId    String?
+  businessArticleId  String?
+  imageMediaAssetId  String?
+  externalImageUrl   String?
+  title              String
+  body               String
+  destinationUrl     String?
+  destinationKind    AdDestinationKind          @default(STOREFRONT)
+  placement          AdPlacement                @default(RIGHT_STREAM)
+  status             AdCampaignStatus           @default(ACTIVE)
+  targetLocation     String?
+  totalBudgetCredits Int
+  dailyBudgetCredits Int?
+  spentCredits       Int                        @default(0)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  owner              User                       @relation("AdCampaignOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  businessProfile    BusinessProfile?           @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  marketListing      MarketListing?             @relation(fields: [marketListingId], references: [id], onDelete: SetNull)
+  businessArticle    BusinessArticle?           @relation(fields: [businessArticleId], references: [id], onDelete: SetNull)
+  imageMediaAsset    MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
+  deliveryLogs       AdDeliveryLog[]
+  targetInterests    AdCampaignInterestTarget[]
 
   @@index([status, placement, createdAt])
   @@index([ownerUserId, createdAt])
   @@index([businessProfileId, createdAt])
+  @@index([marketListingId, createdAt])
+  @@index([businessArticleId, createdAt])
+  @@index([imageMediaAssetId])
+}
+
+model AdCampaignInterestTarget {
+  id         String           @id @default(cuid())
+  campaignId String
+  category   InterestCategory
+  createdAt  DateTime         @default(now())
+  campaign   AdCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, category])
+  @@index([category])
 }
 
 model AdCreditLedgerEntry {
-  id          String   @id @default(cuid())
-  userId      String
-  amount      Int
-  reason      String
-  sourceType  String?
-  sourceId    String?
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  amount     Int
+  reason     String
+  sourceType String?
+  sourceId   String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([sourceType, sourceId])
@@ -1247,42 +1535,42 @@ model AdDeliveryLog {
 }
 
 model FundraiserCampaign {
-  id             String                     @id @default(cuid())
-  slug           String                     @unique
-  creatorUserId  String
-  title          String
-  summary        String?
-  description    String
-  category       FundraiserCategory
+  id              String                   @id @default(cuid())
+  slug            String                   @unique
+  creatorUserId   String
+  title           String
+  summary         String?
+  description     String
+  category        FundraiserCategory
   goalAmountCents Int?
-  currency       String                     @default("USD")
-  status         FundraiserStatus           @default(ACTIVE)
-  endsAt         DateTime?
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
-  creator        User                       @relation("FundraiserCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
-  contributions  FundContributionIntent[]
-  ledgerEntries  FundLedgerEntry[]
+  currency        String                   @default("USD")
+  status          FundraiserStatus         @default(ACTIVE)
+  endsAt          DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  creator         User                     @relation("FundraiserCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  contributions   FundContributionIntent[]
+  ledgerEntries   FundLedgerEntry[]
 
   @@index([status, category, createdAt])
   @@index([creatorUserId, createdAt])
 }
 
 model FundContributionIntent {
-  id                String                 @id @default(cuid())
-  campaignId        String
-  contributorUserId String?
-  contributorName   String?
-  amountCents       Int
-  currency          String                 @default("USD")
-  status            FundContributionStatus @default(PLEDGED)
-  processorProvider String?
+  id                 String                 @id @default(cuid())
+  campaignId         String
+  contributorUserId  String?
+  contributorName    String?
+  amountCents        Int
+  currency           String                 @default("USD")
+  status             FundContributionStatus @default(PLEDGED)
+  processorProvider  String?
   processorReference String?
-  note              String?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-  campaign          FundraiserCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contributor       User?                  @relation("FundContributionContributor", fields: [contributorUserId], references: [id], onDelete: SetNull)
+  note               String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  campaign           FundraiserCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contributor        User?                  @relation("FundContributionContributor", fields: [contributorUserId], references: [id], onDelete: SetNull)
 
   @@index([campaignId, status, createdAt])
   @@index([contributorUserId, createdAt])
@@ -1305,19 +1593,21 @@ model FundLedgerEntry {
 }
 
 model WriterManuscript {
-  id          String                @id @default(cuid())
-  slug        String                @unique
-  authorUserId String
-  title       String
-  genre       String?
-  summary     String?
-  visibility  ManuscriptVisibility  @default(MEMBERS)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  author      User                  @relation("WriterManuscriptAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  chapters    WriterChapter[]
+  id                  String               @id @default(cuid())
+  slug                String               @unique
+  authorUserId        String
+  title               String
+  genre               String?
+  summary             String?
+  visibility          ManuscriptVisibility @default(MEMBERS)
+  publishToStorefront Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  author              User                 @relation("WriterManuscriptAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  chapters            WriterChapter[]
 
   @@index([authorUserId, updatedAt])
+  @@index([authorUserId, publishToStorefront, updatedAt])
   @@index([visibility, updatedAt])
 }
 
@@ -1366,15 +1656,15 @@ model Alert {
 }
 
 model AuthSecurityEvent {
-  id          String                @id @default(cuid())
-  userId      String?
-  type        AuthSecurityEventType
-  identifier  String?
-  ipAddress   String?
-  userAgent   String?
-  metadata    Json?
-  createdAt   DateTime              @default(now())
-  user        User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id         String                @id @default(cuid())
+  userId     String?
+  type       AuthSecurityEventType
+  identifier String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime              @default(now())
+  user       User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([type, createdAt])
   @@index([userId, createdAt])
@@ -1442,12 +1732,12 @@ model FeedbackTicket {
 }
 
 model FeedbackTicketEvent {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   ticketId  String
   actorId   String?
   action    String
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
   ticket    FeedbackTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])

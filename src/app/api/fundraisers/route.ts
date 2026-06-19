@@ -3,6 +3,12 @@ import { auth } from "@/auth";
 import { createFundraiser, listFundraisers } from "@/modules/fundraisers-funds/fundraisers-funds.service";
 
 export async function GET(request: NextRequest) {
+  const session = await auth();
+
+  if (!session?.user || session.user.revoked) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
   const fundraisers = await listFundraisers({
     category: request.nextUrl.searchParams.get("category")
   });

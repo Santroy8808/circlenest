@@ -2,6 +2,7 @@ import { ProfileVisibility } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
+import { listApprovedFamilyMembers } from "@/modules/social-graph/social-graph.service";
 
 const MODULE_KEY = "profile-identity";
 const PROFILE_DB_TIMEOUT_MS = 2500;
@@ -16,6 +17,7 @@ function withProfileDbTimeout<T>(promise: Promise<T>, operation: string): Promis
 }
 
 function toProfileCard(user: {
+  id: string;
   username: string;
   role: string;
   profile: {
@@ -28,7 +30,7 @@ function toProfileCard(user: {
     visibility: ProfileVisibility;
   } | null;
   membership: { tier: string } | null;
-}): ProfileCardView {
+}, familyMembers: ProfileCardView["familyMembers"] = []): ProfileCardView {
   return {
     username: user.username,
     displayName: user.profile?.displayName ?? user.username,
@@ -39,7 +41,8 @@ function toProfileCard(user: {
     location: user.profile?.location,
     visibility: user.profile?.visibility ?? ProfileVisibility.MEMBERS,
     tier: user.membership?.tier ?? "FREE",
-    role: user.role
+    role: user.role,
+    familyMembers
   };
 }
 
@@ -58,7 +61,8 @@ export async function getPublicProfileByUsername(username: string) {
 
     if (!user || user.deactivatedAt) return null;
 
-    return toProfileCard(user);
+    const familyMembers = await listApprovedFamilyMembers(user.id);
+    return toProfileCard(user, familyMembers);
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not load public profile.", {
       username,
@@ -81,7 +85,8 @@ export async function getProfileForOwner(userId: string) {
   );
 
   if (!user) return null;
-  return toProfileCard(user);
+  const familyMembers = await listApprovedFamilyMembers(user.id);
+  return toProfileCard(user, familyMembers);
 }
 
 export async function updateProfileIdentity(userId: string, input: unknown) {

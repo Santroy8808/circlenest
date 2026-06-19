@@ -340,7 +340,7 @@ export const milestoneDefinitions = [
     label: "Phase 22",
     title: "Fundraisers Funds",
     status: "Ready",
-    detail: "Contributor/Professional fundraiser rules, campaign pages, internal payments-ready structure, and money boundary controls."
+    detail: "Professional fundraiser rules, campaign pages, internal payments-ready structure, and money boundary controls."
   },
   {
     label: "Phase 23",

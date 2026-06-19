@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ListingViewSwitcher } from "@/components/listings/listing-view-switcher";
+import type { ListingViewMode } from "@/modules/listing-preferences/types";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingCardView } from "@/modules/market/types";
 
 function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currency">) {
@@ -14,15 +16,21 @@ function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currenc
 
 export function MarketDirectoryClient({
   initialListings,
-  createState
+  createState,
+  initialView
 }: {
   initialListings: MarketListingCardView[];
   createState: MarketCreateState;
+  initialView: ListingViewMode;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
+  const [view, setView] = useState<ListingViewMode>(initialView);
   const listings = initialListings.filter((listing) => {
-    const matchesQuery = [listing.title, listing.categoryLabel, listing.seller.displayName].join(" ").toLowerCase().includes(query.trim().toLowerCase());
+    const matchesQuery = [listing.title, listing.categoryLabel, listing.location, listing.seller.displayName]
+      .join(" ")
+      .toLowerCase()
+      .includes(query.trim().toLowerCase());
     const matchesCategory = category ? listing.category === category : true;
     return matchesQuery && matchesCategory;
   });
@@ -52,7 +60,7 @@ export function MarketDirectoryClient({
             </Link>
           ) : null}
         </div>
-        <div className="mt-6 grid gap-3 md:grid-cols-[1fr_260px]">
+        <div className="mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
           <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search The Market..." value={query} />
           <select className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
             <option value="">All categories</option>
@@ -62,6 +70,7 @@ export function MarketDirectoryClient({
               </option>
             ))}
           </select>
+          <ListingViewSwitcher onChange={setView} surface="market" value={view} />
         </div>
       </section>
 
@@ -71,21 +80,26 @@ export function MarketDirectoryClient({
           <p className="mt-2 text-[var(--muted)]">Listings will appear here as clean thumbnails with title and price.</p>
         </section>
       ) : (
-        <section className="market-grid">
+        <section className={`listing-grid listing-grid--${view}`}>
           {listings.map((listing) => (
-            <Link className="market-card" href={`/market/${listing.slug}`} key={listing.id}>
-              <div className="market-thumb">
+            <Link className={`listing-square-card listing-card--${view} market-card`} href={`/market/${listing.slug}`} key={listing.id}>
+              <div className="listing-square-visual">
                 {listing.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img alt="" src={listing.thumbnailUrl} />
                 ) : (
-                  <span>{listing.categoryLabel}</span>
+                  <span className="listing-square-fallback">{listing.categoryLabel}</span>
                 )}
               </div>
-              <div className="market-card-meta">
-                <h2 className="truncate text-lg font-semibold">{listing.title}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{listing.categoryLabel}</p>
-                <p className="mt-3 text-xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
+              <span className="listing-square-top-badge">{priceLabel(listing)}</span>
+              <div className="listing-square-meta">
+                <p className="listing-square-kicker">{listing.categoryLabel}</p>
+                <h2>{listing.title}</h2>
+                <p className="listing-square-subtitle">By {listing.seller.displayName}</p>
+                <div className="listing-square-facts">
+                  <span>{listing.location || "Location TBD"}</span>
+                  <strong>{priceLabel(listing)}</strong>
+                </div>
               </div>
             </Link>
           ))}

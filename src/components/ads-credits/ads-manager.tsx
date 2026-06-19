@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { AdsManagerView } from "@/modules/ads-credits/types";
 
+function isExternalUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
 export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
   return (
     <div className="grid gap-5">
@@ -29,22 +33,47 @@ export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
           {adsManager.campaigns.length > 0 ? (
             adsManager.campaigns.map((campaign) => (
               <article className="module-card rounded-md p-5" key={campaign.id}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="grid gap-4 md:grid-cols-[160px_minmax(0,1fr)]">
+                  {campaign.imageUrl ? (
+                    <a className="ad-manager-image" href={campaign.destinationUrl ?? "#"} rel={campaign.destinationUrl && isExternalUrl(campaign.destinationUrl) ? "noreferrer" : undefined} target={campaign.destinationUrl && isExternalUrl(campaign.destinationUrl) ? "_blank" : undefined}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img alt={campaign.title} src={campaign.imageUrl} />
+                    </a>
+                  ) : (
+                    <div className="ad-manager-image is-empty">No image</div>
+                  )}
                   <div>
-                    <h3 className="text-xl font-semibold">{campaign.title}</h3>
-                    <p className="mt-2 leading-6 text-[var(--muted)]">{campaign.body}</p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-xl font-semibold">{campaign.title}</h3>
+                        <p className="mt-2 leading-6 text-[var(--muted)]">{campaign.body}</p>
+                      </div>
+                      <span className="pill rounded-full px-3 py-1 text-xs">{campaign.status}</span>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+                      <span className="pill rounded-full px-3 py-1">{campaign.destinationKind.toLowerCase().replace("_", " ")}</span>
+                      <span className="pill rounded-full px-3 py-1">{campaign.placementLabel}</span>
+                      <span className="pill rounded-full px-3 py-1">
+                      {campaign.totalBudgetCredits} credits reserved
+                      </span>
+                      {campaign.endsAt ? <span className="pill rounded-full px-3 py-1">Ends {new Date(campaign.endsAt).toLocaleDateString()}</span> : null}
+                      {campaign.targetLocation ? <span className="pill rounded-full px-3 py-1">Location: {campaign.targetLocation}</span> : null}
+                      <span className="pill rounded-full px-3 py-1">
+                        {campaign.targetInterestLabels.length > 0 ? `Interests: ${campaign.targetInterestLabels.join(", ")}` : "Broad interests"}
+                      </span>
+                    </div>
+                    {campaign.destinationUrl ? (
+                      isExternalUrl(campaign.destinationUrl) ? (
+                        <a className="mt-4 inline-block text-sm font-semibold text-[var(--gold)] underline" href={campaign.destinationUrl} rel="noreferrer" target="_blank">
+                          View destination
+                        </a>
+                      ) : (
+                        <Link className="mt-4 inline-block text-sm font-semibold text-[var(--gold)] underline" href={campaign.destinationUrl}>
+                          View destination
+                        </Link>
+                      )
+                    ) : null}
                   </div>
-                  <span className="pill rounded-full px-3 py-1 text-xs">{campaign.status}</span>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-                  <span className="pill rounded-full px-3 py-1">{campaign.placementLabel}</span>
-                  <span className="pill rounded-full px-3 py-1">
-                    {campaign.spentCredits}/{campaign.totalBudgetCredits} credits spent
-                  </span>
-                  {campaign.targetLocation ? <span className="pill rounded-full px-3 py-1">Location: {campaign.targetLocation}</span> : null}
-                  {campaign.targetClassification ? (
-                    <span className="pill rounded-full px-3 py-1">Classification: {campaign.targetClassification}</span>
-                  ) : null}
                 </div>
               </article>
             ))

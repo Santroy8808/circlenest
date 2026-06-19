@@ -66,8 +66,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       description: "Browse member fundraiser campaigns with payment-ready contribution intent flow.",
       href: "/fundraisers",
       badge: "Browse",
-      available: features["fundraisers.create"],
-      reason: "Contributor or Professional access required."
+      available: true
     }),
     card({
       title: "Writers Corner",
@@ -86,7 +85,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       href: "/events/create",
       badge: "Create",
       available: features["events.create"],
-      reason: "Contributor, Professional, Auditor, or Admin access required."
+      reason: "Professional access required."
     }),
     card({
       title: "Create Market Listing",
