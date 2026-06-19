@@ -4,6 +4,7 @@ export type AdminActionCard = {
   description: string;
   risk: "low" | "medium" | "high";
   steps: string[];
+  keywords?: string[];
 };
 
 export type AdminLogView = {

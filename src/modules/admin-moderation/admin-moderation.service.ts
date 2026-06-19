@@ -13,6 +13,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Session Revocation",
     description: "Force-log-out a compromised or suspicious user by revoking active sessions.",
     risk: "high",
+    keywords: ["force logout", "log out", "compromised account", "security", "sessions", "suspicious user"],
     steps: ["Find the user.", "Review recent login/security activity.", "Confirm revocation reason.", "Revoke sessions and write audit log."]
   },
   {
@@ -20,6 +21,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Email Verification Resend",
     description: "Resend verification emails for users stuck during signup.",
     risk: "low",
+    keywords: ["verify email", "signup stuck", "new user", "registration", "resend email"],
     steps: ["Find the user.", "Confirm email address.", "Send verification email.", "Log support action."]
   },
   {
@@ -27,6 +29,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Feature Flags",
     description: "Turn risky or unfinished modules on/off without redeploying.",
     risk: "medium",
+    keywords: ["toggle feature", "enable module", "disable module", "configuration", "flags"],
     steps: ["Choose feature key.", "Set enabled state.", "Describe reason.", "Save flag and write audit log."]
   },
   {
@@ -34,6 +37,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Platform Pricing",
     description: "Manage global credit costs for listings, boosts, mail ads, and paid placement packages without creating campaigns for users.",
     risk: "high",
+    keywords: ["ad spend", "ads", "cost", "pricing", "boost", "listing cost", "mail ads", "credits price"],
     steps: [
       "Review the current global pricing table.",
       "Choose one existing price rule/package.",
@@ -46,6 +50,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Platform Credits",
     description: "Grant or remove platform-only credits for a member with a required reason, ledger entry, and audit trail.",
     risk: "high",
+    keywords: ["ad spend", "ads", "credits", "grant credits", "remove credits", "member balance"],
     steps: [
       "Search for the member by email or username.",
       "Review the current platform-credit balance.",
@@ -58,6 +63,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Launch Access",
     description: "Manage founder pricing, ad-experience guardrails, and temporary Free-to-Contributor/Professional promotional access.",
     risk: "high",
+    keywords: ["new user", "invite", "invite code", "free account", "founder pricing", "promotional access", "launch", "temporary tier"],
     steps: [
       "Review founder pricing and anti-spam guardrails.",
       "Choose global or individual launch access.",
@@ -70,6 +76,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "View As Role",
     description: "Preview Free, Contributor, Professional, Auditor, or Admin visibility without impersonating users.",
     risk: "low",
+    keywords: ["preview", "role preview", "tier preview", "visibility", "view as"],
     steps: ["Pick role/tier.", "Open read-only preview.", "Do not perform actions as the user.", "Exit preview mode."]
   },
   {
@@ -77,6 +84,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Audit Viewer",
     description: "Review privileged actions and module audit history.",
     risk: "medium",
+    keywords: ["audit", "logs", "history", "admin actions", "trail"],
     steps: ["Choose module/action filter.", "Inspect audit trail.", "Attach support note if needed.", "Escalate if critical."]
   },
   {
@@ -84,6 +92,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Reports Queue",
     description: "Review shared feedback, bug reports, abuse reports, content reports, and support tickets.",
     risk: "medium",
+    keywords: ["tickets", "support", "feedback", "bugs", "abuse", "reports", "issue queue"],
     steps: ["Open the shared admin queue.", "Review the exact issue and source page.", "Move the ticket into review or resolve it.", "Leave admin notes when deeper action is needed."]
   },
   {
@@ -91,6 +100,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Business Verification",
     description: "Approve, reject, request changes, or place business profiles on hold.",
     risk: "medium",
+    keywords: ["business", "storefront", "verify", "approve business", "hold business"],
     steps: ["Open business profile.", "Review verification evidence.", "Choose outcome.", "Write internal note."]
   },
   {
@@ -98,6 +108,7 @@ export const adminActionCards: AdminActionCard[] = [
     title: "Public Announcements",
     description: "Send global, tier-specific, or targeted platform notices.",
     risk: "high",
+    keywords: ["announcement", "notice", "broadcast", "global message", "popup", "personal email", "mail everyone"],
     steps: [
       "Choose global, tier, role, or specific-user audience.",
       "Choose delivery channels: chat, mail, login pop-up, persistent pinned stream announcement, or queued personal email.",
