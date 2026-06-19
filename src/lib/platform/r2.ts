@@ -2,27 +2,42 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readPlatformEnv } from "@/lib/platform/env";
 
-export function getR2Client() {
+export function readR2Config() {
   const env = readPlatformEnv();
+  const accountId = env.CLOUDFLARE_R2_ACCOUNT_ID ?? env.R2_ACCOUNT_ID;
+  const endpoint =
+    env.R2_ENDPOINT ?? (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
 
-  if (!env.CLOUDFLARE_R2_ACCOUNT_ID || !env.CLOUDFLARE_R2_ACCESS_KEY_ID || !env.CLOUDFLARE_R2_SECRET_ACCESS_KEY) {
+  return {
+    endpoint,
+    accessKeyId: env.CLOUDFLARE_R2_ACCESS_KEY_ID ?? env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.CLOUDFLARE_R2_SECRET_ACCESS_KEY ?? env.R2_SECRET_ACCESS_KEY,
+    bucket: env.CLOUDFLARE_R2_BUCKET ?? env.R2_BUCKET,
+    publicBaseUrl: env.CLOUDFLARE_R2_PUBLIC_BASE_URL ?? env.R2_PUBLIC_BASE_URL
+  };
+}
+
+export function getR2Client() {
+  const r2 = readR2Config();
+
+  if (!r2.endpoint || !r2.accessKeyId || !r2.secretAccessKey) {
     throw new Error("Cloudflare R2 credentials are not configured.");
   }
 
   return new S3Client({
     region: "auto",
-    endpoint: `https://${env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    endpoint: r2.endpoint,
     credentials: {
-      accessKeyId: env.CLOUDFLARE_R2_ACCESS_KEY_ID,
-      secretAccessKey: env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      accessKeyId: r2.accessKeyId,
+      secretAccessKey: r2.secretAccessKey
     }
   });
 }
 
 export function getR2PublicUrl(storageKey: string) {
-  const env = readPlatformEnv();
-  if (!env.CLOUDFLARE_R2_PUBLIC_BASE_URL) return null;
-  return `${env.CLOUDFLARE_R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${storageKey.replace(/^\//, "")}`;
+  const r2 = readR2Config();
+  if (!r2.publicBaseUrl) return null;
+  return `${r2.publicBaseUrl.replace(/\/$/, "")}/${storageKey.replace(/^\//, "")}`;
 }
 
 export async function createPresignedR2PutUrl(input: {
@@ -31,14 +46,14 @@ export async function createPresignedR2PutUrl(input: {
   sizeBytes: number;
   expiresInSeconds?: number;
 }) {
-  const env = readPlatformEnv();
+  const r2 = readR2Config();
 
-  if (!env.CLOUDFLARE_R2_BUCKET) {
+  if (!r2.bucket) {
     throw new Error("Cloudflare R2 bucket is not configured.");
   }
 
   const command = new PutObjectCommand({
-    Bucket: env.CLOUDFLARE_R2_BUCKET,
+    Bucket: r2.bucket,
     Key: input.storageKey,
     ContentType: input.mimeType,
     ContentLength: input.sizeBytes

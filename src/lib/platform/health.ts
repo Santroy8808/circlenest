@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/platform/db";
 import { safeReadPlatformEnv } from "@/lib/platform/env";
+import { readR2Config } from "@/lib/platform/r2";
 
 export type HealthCheckResult = {
   name: string;
@@ -28,18 +29,13 @@ export async function getPlatformHealth(): Promise<HealthCheckResult[]> {
     });
   }
 
+  const r2 = env.success ? readR2Config() : null;
+
   checks.push({
     name: "cloudflare-r2",
-    status:
-      process.env.CLOUDFLARE_R2_ACCOUNT_ID && process.env.CLOUDFLARE_R2_BUCKET
-        ? "healthy"
-        : "unknown",
-    message:
-      process.env.CLOUDFLARE_R2_ACCOUNT_ID && process.env.CLOUDFLARE_R2_BUCKET
-        ? "R2 configuration is present."
-        : "R2 configuration is not complete yet."
+    status: r2?.endpoint && r2.bucket ? "healthy" : "unknown",
+    message: r2?.endpoint && r2.bucket ? "R2 configuration is present." : "R2 configuration is not complete yet."
   });
 
   return checks;
 }
-
