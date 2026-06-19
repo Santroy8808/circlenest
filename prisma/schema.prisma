@@ -494,6 +494,11 @@ model ScientologyProfile {
   lastServiceAt         DateTime?
   trainingLevel         String?
   processingStatus      String?
+  courseCompletions     Json?
+  introServices         Json?
+  technicalCourses      Json?
+  specialistCourses     Json?
+  additionalProcessing  Json?
   goodStandingAttested  Boolean                   @default(false)
   goodStandingUpdatedAt DateTime?
   educationNotes        String?
@@ -501,6 +506,20 @@ model ScientologyProfile {
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   user                  User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commendations         ScientologyCommendation[]
+}
+
+model ScientologyCommendation {
+  id                   String             @id @default(cuid())
+  scientologyProfileId String
+  mediaAssetId         String             @unique
+  title                String?
+  isFlattenedPdf       Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  profile              ScientologyProfile @relation(fields: [scientologyProfileId], references: [id], onDelete: Cascade)
+  mediaAsset           MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@index([scientologyProfileId, createdAt])
 }
 
 model Membership {
@@ -709,28 +728,29 @@ model PublicAnnouncement {
 }
 
 model MediaAsset {
-  id                    String                 @id @default(cuid())
-  ownerUserId           String
-  storageKey            String                 @unique
-  publicUrl             String?
-  mimeType              String
-  sizeBytes             BigInt
-  originalName          String?
-  visibility            MediaVisibility        @default(PRIVATE)
-  metadata              Json?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  owner                 User                   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  collections           MediaCollectionAsset[]
-  feedPosts             FeedPost[]
-  feedComments          FeedComment[]
-  adCampaignImages      AdCampaign[]           @relation("AdCampaignImage")
-  businessArticleCovers BusinessArticle[]      @relation("BusinessArticleCover")
-  chatAttachments       ChatAttachment[]
-  mailAttachments       MailAttachment[]
-  groupForumPosts       GroupForumPost[]
-  groupAssets           GroupAsset[]
-  marketListingPhotos   MarketListingPhoto[]
+  id                      String                   @id @default(cuid())
+  ownerUserId             String
+  storageKey              String                   @unique
+  publicUrl               String?
+  mimeType                String
+  sizeBytes               BigInt
+  originalName            String?
+  visibility              MediaVisibility          @default(PRIVATE)
+  metadata                Json?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  owner                   User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  collections             MediaCollectionAsset[]
+  feedPosts               FeedPost[]
+  feedComments            FeedComment[]
+  adCampaignImages        AdCampaign[]             @relation("AdCampaignImage")
+  businessArticleCovers   BusinessArticle[]        @relation("BusinessArticleCover")
+  chatAttachments         ChatAttachment[]
+  mailAttachments         MailAttachment[]
+  groupForumPosts         GroupForumPost[]
+  groupAssets             GroupAsset[]
+  marketListingPhotos     MarketListingPhoto[]
+  scientologyCommendation ScientologyCommendation?
 
   @@index([ownerUserId, createdAt])
 }

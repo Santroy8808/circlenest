@@ -24,6 +24,14 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_SECURE === "true",
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
+    ignoreTLS: env.SMTP_IGNORE_TLS === "true",
+    requireTLS: env.SMTP_SECURE !== "true",
+    tls: {
+      servername: env.SMTP_HOST
+    },
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS

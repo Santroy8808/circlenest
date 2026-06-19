@@ -25,7 +25,8 @@ export const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().email().optional(),
-  SMTP_SECURE: z.enum(["true", "false"]).optional()
+  SMTP_SECURE: z.enum(["true", "false"]).optional(),
+  SMTP_IGNORE_TLS: z.enum(["true", "false"]).optional()
 });
 
 export type PlatformEnv = z.infer<typeof envSchema>;
