@@ -36,13 +36,10 @@ C:\Users\MikeDeArmon\OneDrive - Santroy\Theta-Space.net\android-apk
 
 ## Do Not Use
 
-Do not implement current Theta-Space work in:
+Archived legacy/reference material lives in:
 
-- `C:\Repos\thetansplace\circlenest`
-- `C:\Repos\thetansplace\circlenest-dev`
-- `C:\Repos\thetansplace\circlenest-prodpush`
-- `C:\Repos\thetansplace\theta-space-android`
-- `C:\Repos\circlenest-dev`
-- Any Compass OneDrive folder
+```powershell
+C:\Repos\Theta-Space-net\repo-archive\archive-2026-06-20
+```
 
-Those locations are legacy/reference only unless the user explicitly says otherwise.
+Do not implement current Theta-Space work in that archive or in any Compass OneDrive folder unless the user explicitly asks for rollback/reference inspection.

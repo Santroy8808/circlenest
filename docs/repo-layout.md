@@ -24,12 +24,21 @@ npm run typecheck
 
 ## Legacy Folders
 
-The following are legacy/reference folders and should not receive new implementation work without an explicit user instruction:
+Legacy/reference folders were archived on 2026-06-20 under:
 
-- `C:\Repos\thetansplace\circlenest`
-- `C:\Repos\thetansplace\circlenest-dev`
-- `C:\Repos\thetansplace\circlenest-prodpush`
-- `C:\Repos\thetansplace\theta-space-android`
-- `C:\Repos\circlenest-dev`
+```powershell
+C:\Repos\Theta-Space-net\repo-archive\archive-2026-06-20
+```
+
+Archived items:
+
+- `thetansplace`
+- `circlenest-dev`
+- `Theta-Space-Platforms.md`
+- `Theta-Place.png`
+- `Theta-space-net-android-icon.png`
+- `gradle-8.10.2-bin.zip`
+
+Do not implement new work in the archive unless the user explicitly asks for a historical comparison or rollback inspection.
 
 Compass OneDrive paths are not project workspaces.
