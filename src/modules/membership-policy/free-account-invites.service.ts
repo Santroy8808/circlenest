@@ -5,6 +5,7 @@ import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { sendSmtpMail } from "@/lib/platform/smtp";
+import { tierPolicies } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "free-account-invites";
 
@@ -124,6 +125,140 @@ export async function listFreeAccountInviteAdminView() {
     revokedAt: invite.revokedAt?.toISOString() ?? null,
     createdAt: invite.createdAt.toISOString()
   }));
+}
+
+export async function listOwnFreeAccountInvites(userId: string) {
+  const invites = await prisma.freeAccountInviteCode.findMany({
+    where: {
+      generatedByUserId: userId
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10
+  });
+
+  return invites.map((invite) => ({
+    id: invite.id,
+    codePreview: invite.codePreview,
+    recipientEmail: invite.recipientEmail,
+    emailedAt: invite.emailedAt?.toISOString() ?? null,
+    usedAt: invite.usedAt?.toISOString() ?? null,
+    expiresAt: invite.expiresAt.toISOString(),
+    revokedAt: invite.revokedAt?.toISOString() ?? null,
+    createdAt: invite.createdAt.toISOString()
+  }));
+}
+
+async function canGenerateMemberInvite(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      membership: true,
+      membershipOverrides: {
+        where: {
+          featureKey: "invites.send",
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+        }
+      }
+    }
+  });
+
+  if (!user) return false;
+  if (user.role === UserRole.ADMIN) return true;
+  const override = user.membershipOverrides[0];
+  if (override) return override.allowed;
+
+  return tierPolicies[user.membership?.tier ?? "FREE"].features["invites.send"];
+}
+
+export async function createMemberFreeAccountInviteCode(actorUserId: string, input: unknown) {
+  if (!(await canGenerateMemberInvite(actorUserId))) {
+    return { ok: false as const, error: "Invite permission is not available on this account." };
+  }
+
+  const parsed = generateInviteSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid invite request." };
+  }
+
+  const recipientEmail = normalizeOptionalEmail(parsed.data.recipientEmail);
+
+  if (parsed.data.sendEmail && !recipientEmail) {
+    return { ok: false as const, error: "Enter an email address before sending the invite code." };
+  }
+
+  const expiresAt = new Date(Date.now() + parsed.data.expiresInDays * 24 * 60 * 60 * 1000);
+  let code = createInviteCode();
+  let codeHash = hashFreeAccountInviteCode(code);
+
+  for (let attempts = 0; attempts < 3; attempts += 1) {
+    const existing = await prisma.freeAccountInviteCode.findUnique({ where: { codeHash }, select: { id: true } });
+    if (!existing) break;
+    code = createInviteCode();
+    codeHash = hashFreeAccountInviteCode(code);
+  }
+
+  const invite = await prisma.freeAccountInviteCode.create({
+    data: {
+      codeHash,
+      codePreview: previewCode(code),
+      recipientEmail,
+      generatedByUserId: actorUserId,
+      expiresAt
+    }
+  });
+
+  let emailed = false;
+  let emailError: string | undefined;
+
+  if (parsed.data.sendEmail && recipientEmail) {
+    try {
+      await sendInviteEmail(recipientEmail, code);
+      await prisma.freeAccountInviteCode.update({
+        where: { id: invite.id },
+        data: { emailedAt: new Date() }
+      });
+      emailed = true;
+    } catch (error) {
+      emailError = error instanceof Error ? error.message : "Could not send SMTP email.";
+      await diagnostics.warn(MODULE_KEY, "Member invite SMTP send failed.", {
+        inviteId: invite.id,
+        recipientEmail,
+        error: emailError
+      });
+    }
+  }
+
+  await writeAuditLog({
+    actorUserId,
+    module: MODULE_KEY,
+    action: "member-free-invite.generated",
+    targetType: "FreeAccountInviteCode",
+    targetId: invite.id,
+    severity: AuditSeverity.info,
+    metadata: {
+      recipientEmail,
+      expiresAt: expiresAt.toISOString(),
+      emailed
+    }
+  });
+
+  return {
+    ok: true as const,
+    invite: {
+      id: invite.id,
+      codePreview: invite.codePreview,
+      recipientEmail: invite.recipientEmail,
+      emailedAt: emailed ? new Date().toISOString() : null,
+      usedAt: null,
+      expiresAt: invite.expiresAt.toISOString(),
+      revokedAt: null,
+      createdAt: invite.createdAt.toISOString()
+    },
+    inviteCode: normalizeFreeAccountInviteCode(code),
+    emailed,
+    emailError
+  };
 }
 
 export async function createFreeAccountInviteCode(actorUserId: string, input: unknown) {
