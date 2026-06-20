@@ -13,10 +13,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ listing: result.listing });
   }
 
-  return NextResponse.json({
-    listings: await safeListMarketListings({
-      query: request.nextUrl.searchParams.get("q"),
-      category: request.nextUrl.searchParams.get("category")
-    })
+  const kind = request.nextUrl.searchParams.get("kind");
+  const listings = await safeListMarketListings({
+    query: request.nextUrl.searchParams.get("q"),
+    category: request.nextUrl.searchParams.get("category")
   });
+  const productCategories = new Set([
+    "BOOKS_MATERIALS",
+    "COURSE_SUPPLIES",
+    "AUDITING_SUPPLIES",
+    "E_METERS",
+    "FURNITURE_EQUIPMENT",
+    "EVENTS_SUPPLIES",
+    "OTHER"
+  ]);
+  const serviceCategories = new Set(["SERVICES", "BUSINESS_SERVICES"]);
+  const scopedListings =
+    kind === "products"
+      ? listings.filter((listing) => productCategories.has(listing.category))
+      : kind === "services"
+        ? listings.filter((listing) => serviceCategories.has(listing.category))
+        : listings;
+
+  return NextResponse.json({ listings: scopedListings });
 }
