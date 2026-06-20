@@ -4,12 +4,19 @@ import { AppShell } from "@/components/platform/app-shell";
 import { ProfileEditForm } from "@/components/profile/profile-edit-form";
 import { getProfileForOwner } from "@/modules/profile-identity/profile-identity.service";
 
-export default async function EditProfilePage() {
+export default async function EditProfilePage({
+  searchParams
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/profile/edit");
   }
+
+  const resolvedSearchParams = await searchParams;
+  const next = resolvedSearchParams?.next?.trim() || "/home";
 
   const profile = await getProfileForOwner(session.user.id);
 
@@ -27,7 +34,7 @@ export default async function EditProfilePage() {
         </p>
       </section>
       <section className="mt-5">
-        <ProfileEditForm profile={profile} />
+        <ProfileEditForm profile={profile} nextPath={next} />
       </section>
     </AppShell>
   );

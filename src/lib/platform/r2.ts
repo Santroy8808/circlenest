@@ -6,7 +6,9 @@ export function readR2Config() {
   const env = readPlatformEnv();
   const accountId = env.CLOUDFLARE_R2_ACCOUNT_ID ?? env.R2_ACCOUNT_ID;
   const endpoint =
-    env.R2_ENDPOINT ?? (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
+    env.CLOUDFLARE_R2_ENDPOINT ??
+    env.R2_ENDPOINT ??
+    (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
 
   return {
     endpoint,
@@ -27,6 +29,7 @@ export function getR2Client() {
   return new S3Client({
     region: "auto",
     endpoint: r2.endpoint,
+    forcePathStyle: true,
     credentials: {
       accessKeyId: r2.accessKeyId,
       secretAccessKey: r2.secretAccessKey

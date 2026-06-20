@@ -1,17 +1,162 @@
 "use client";
 
-import { ProfileVisibility } from "@prisma/client";
+import { MediaVisibility, ProfileVisibility } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
-export function ProfileEditForm({ profile }: { profile: ProfileCardView }) {
+type UploadState = {
+  fileName: string;
+  status: "idle" | "uploading" | "done" | "error";
+  progress: number;
+  error?: string;
+};
+
+function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with ${request.status}.`));
+      }
+    };
+    request.onerror = () => reject(new Error("Upload network error."));
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", file.type);
+    request.send(file);
+  });
+}
+
+async function uploadAvatarOrBanner(
+  file: File,
+  options: { fileNamePrefix: string; onProgress: (progress: number) => void }
+): Promise<string> {
+  if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
+    throw new Error("Use JPG, PNG, GIF, or WEBP images.");
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("Image must be 10MB or smaller.");
+  }
+
+  const intentResponse = await fetch("/api/media/upload-intent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileName: `${options.fileNamePrefix}-${file.name}`,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      visibility: MediaVisibility.PRIVATE
+    })
+  });
+
+  const intent = (await intentResponse.json()) as {
+    error?: string;
+    uploadUrl?: string;
+    storageKey?: string;
+  };
+
+  if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+    throw new Error(intent.error ?? "Could not prepare upload.");
+  }
+
+  await uploadWithProgress(intent.uploadUrl, file, options.onProgress);
+
+  const completeResponse = await fetch("/api/media/complete-upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      storageKey: intent.storageKey,
+      fileName: `${options.fileNamePrefix}-${file.name}`,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      visibility: MediaVisibility.PRIVATE,
+      tags: []
+    })
+  });
+
+  const complete = (await completeResponse.json()) as { error?: string; asset?: { publicUrl?: string | null } };
+
+  if (!completeResponse.ok || !complete.asset?.publicUrl) {
+    throw new Error(complete.error ?? "Could not save upload record.");
+  }
+
+  return complete.asset.publicUrl;
+}
+
+export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardView; nextPath: string }) {
   const router = useRouter();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [avatarUpload, setAvatarUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
+  const [bannerUpload, setBannerUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
+  const [bannerUrl, setBannerUrl] = useState(profile.bannerUrl ?? "");
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function resetInput(ref: { current: HTMLInputElement | null }) {
+    if (ref.current) {
+      ref.current.value = "";
+    }
+  }
+
+  async function handleImageUpload(file: File, type: "avatar" | "banner") {
+    if (type === "avatar") {
+      setAvatarUpload({ fileName: file.name, progress: 1, status: "uploading" });
+      setError("");
+      setMessage("");
+    } else {
+      setBannerUpload({ fileName: file.name, progress: 1, status: "uploading" });
+      setError("");
+      setMessage("");
+    }
+
+    try {
+      const publicUrl = await uploadAvatarOrBanner(file, {
+        fileNamePrefix: `${type}-${Date.now()}`,
+        onProgress: (progress) => {
+          if (type === "avatar") {
+            setAvatarUpload({ fileName: file.name, progress, status: "uploading" });
+          } else {
+            setBannerUpload({ fileName: file.name, progress, status: "uploading" });
+          }
+        }
+      });
+
+      if (type === "avatar") {
+        setAvatarUrl(publicUrl);
+        setAvatarUpload({ fileName: file.name, progress: 100, status: "done" });
+      } else {
+        setBannerUrl(publicUrl);
+        setBannerUpload({ fileName: file.name, progress: 100, status: "done" });
+      }
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Could not upload image.";
+      if (type === "avatar") {
+        setAvatarUpload({ fileName: file.name, progress: 0, status: "error", error: message });
+      } else {
+        setBannerUpload({ fileName: file.name, progress: 0, status: "error", error: message });
+      }
+    } finally {
+      if (type === "avatar") {
+        resetInput(avatarInputRef);
+      } else {
+        resetInput(bannerInputRef);
+      }
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setMessage("");
@@ -26,8 +171,8 @@ export function ProfileEditForm({ profile }: { profile: ProfileCardView }) {
           tagline: formData.get("tagline"),
           bio: formData.get("bio"),
           location: formData.get("location"),
-          avatarUrl: formData.get("avatarUrl"),
-          bannerUrl: formData.get("bannerUrl"),
+          avatarUrl,
+          bannerUrl,
           visibility: formData.get("visibility")
         })
       });
@@ -39,28 +184,20 @@ export function ProfileEditForm({ profile }: { profile: ProfileCardView }) {
       }
 
       setMessage("Profile updated.");
-      router.refresh();
+      if (nextPath) {
+        router.push(nextPath);
+      } else {
+        router.refresh();
+      }
     });
   }
 
   return (
     <form className="surface grid gap-4 rounded-md p-5" onSubmit={handleSubmit}>
-      <label className="grid gap-2">
-        <span className="form-label">Display name</span>
-        <input className="form-field" name="displayName" defaultValue={profile.displayName} required />
-      </label>
-      <label className="grid gap-2">
-        <span className="form-label">Tagline</span>
-        <input className="form-field" name="tagline" defaultValue={profile.tagline ?? ""} />
-      </label>
-      <label className="grid gap-2">
-        <span className="form-label">Bio</span>
-        <textarea className="form-field min-h-40 resize-y" name="bio" defaultValue={profile.bio ?? ""} />
-      </label>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
-          <span className="form-label">Location</span>
-          <input className="form-field" name="location" defaultValue={profile.location ?? ""} />
+          <span className="form-label">Display name</span>
+          <input className="form-field" name="displayName" defaultValue={profile.displayName} required />
         </label>
         <label className="grid gap-2">
           <span className="form-label">Visibility</span>
@@ -71,16 +208,96 @@ export function ProfileEditForm({ profile }: { profile: ProfileCardView }) {
           </select>
         </label>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="form-label">Avatar URL</span>
-          <input className="form-field" name="avatarUrl" defaultValue={profile.avatarUrl ?? ""} />
-        </label>
-        <label className="grid gap-2">
-          <span className="form-label">Banner URL</span>
-          <input className="form-field" name="bannerUrl" defaultValue={profile.bannerUrl ?? ""} />
-        </label>
-      </div>
+
+      <label className="grid gap-2">
+        <span className="form-label">Tagline</span>
+        <input className="form-field" name="tagline" defaultValue={profile.tagline ?? ""} />
+      </label>
+
+      <label className="grid gap-2">
+        <span className="form-label">Bio</span>
+        <textarea className="form-field min-h-40 resize-y" name="bio" defaultValue={profile.bio ?? ""} />
+      </label>
+
+      <label className="grid gap-2">
+        <span className="form-label">Location</span>
+        <input className="form-field" name="location" defaultValue={profile.location ?? ""} />
+      </label>
+
+      <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-2">
+        <div className="grid gap-3">
+          <span className="form-label">Avatar</span>
+          <p className="text-sm text-[var(--muted)]">JPG/PNG/GIF/WEBP, up to 10MB.</p>
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={() => {
+              avatarInputRef.current?.click();
+            }}
+          >
+            Upload avatar
+          </button>
+          <input
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="sr-only"
+            ref={avatarInputRef}
+            type="file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void handleImageUpload(file, "avatar");
+              }
+            }}
+          />
+          {avatarUpload.status !== "idle" ? (
+            <p className="text-sm text-[var(--muted)]">
+              Avatar {avatarUpload.status === "uploading" ? `${avatarUpload.progress}%` : avatarUpload.status}
+            </p>
+          ) : null}
+          {avatarUpload.error ? <p className="text-sm text-red-100">{avatarUpload.error}</p> : null}
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="Avatar preview" className="h-20 w-20 rounded-full object-cover" src={avatarUrl} />
+          ) : null}
+        </div>
+
+        <div className="grid gap-3">
+          <span className="form-label">Banner</span>
+          <p className="text-sm text-[var(--muted)]">JPG/PNG/GIF/WEBP, up to 10MB.</p>
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={() => {
+              bannerInputRef.current?.click();
+            }}
+          >
+            Upload banner
+          </button>
+          <input
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="sr-only"
+            ref={bannerInputRef}
+            type="file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void handleImageUpload(file, "banner");
+              }
+            }}
+          />
+          {bannerUpload.status !== "idle" ? (
+            <p className="text-sm text-[var(--muted)]">
+              Banner {bannerUpload.status === "uploading" ? `${bannerUpload.progress}%` : bannerUpload.status}
+            </p>
+          ) : null}
+          {bannerUpload.error ? <p className="text-sm text-red-100">{bannerUpload.error}</p> : null}
+          {bannerUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="Banner preview" className="h-16 w-full object-cover rounded-md" src={bannerUrl} />
+          ) : null}
+        </div>
+      </section>
+
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       {message ? <p className="rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">

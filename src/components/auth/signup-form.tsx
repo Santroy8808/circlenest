@@ -12,28 +12,37 @@ export function SignupForm() {
     setMessage("");
     setError("");
     const formData = new FormData(event.currentTarget);
+    const inviteCode = formData.get("inviteCode");
+    const email = formData.get("email");
+    const username = formData.get("username");
+    const displayName = formData.get("displayName");
+    const password = formData.get("password");
 
     startTransition(async () => {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.get("email"),
-          username: formData.get("username"),
-          displayName: formData.get("displayName"),
-          password: formData.get("password"),
-          inviteCode: formData.get("inviteCode")
-        })
-      });
-      const payload = (await response.json()) as { error?: string };
+      try {
+        const response = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            username,
+            displayName,
+            password,
+            inviteCode
+          })
+        });
+        const payload = (await response.json()) as { error?: string };
 
-      if (!response.ok) {
-        setError(payload.error ?? "Could not create account.");
-        return;
+        if (!response.ok) {
+          setError(payload.error ?? "Could not create account.");
+          return;
+        }
+
+        setMessage("Account created. Check verification status before first production use.");
+        event.currentTarget.reset();
+      } catch (apiError) {
+        setError(apiError instanceof Error ? apiError.message : "Could not create account.");
       }
-
-      setMessage("Account created. Check verification status before first production use.");
-      event.currentTarget.reset();
     });
   }
 

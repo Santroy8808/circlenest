@@ -3,7 +3,13 @@ import { getRequestContext } from "@/lib/platform/request-context";
 import { createMemberAccount } from "@/modules/auth-security/auth-security.service";
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid signup payload." }, { status: 400 });
+  }
+
   const result = await createMemberAccount(body, {
     preverified: process.env.AUTH_SIGNUP_PREVERIFIED === "true",
     context: getRequestContext(request)

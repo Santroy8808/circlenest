@@ -13,6 +13,7 @@ export const envSchema = z.object({
   CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().optional(),
   CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().optional(),
   CLOUDFLARE_R2_BUCKET: z.string().optional(),
+  CLOUDFLARE_R2_ENDPOINT: optionalUrl,
   CLOUDFLARE_R2_PUBLIC_BASE_URL: optionalUrl,
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ENDPOINT: optionalUrl,

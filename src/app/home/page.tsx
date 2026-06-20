@@ -11,7 +11,7 @@ export default async function AppHomePage() {
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/home");
   }
-  const [posts, profile, latestAlert] = await Promise.all([
+  const [posts, profile, latestAlert, scienceProfile] = await Promise.all([
     safeListFeedPosts(20, session.user.id),
     prisma.profile.findUnique({
       where: { userId: session.user.id },
@@ -34,8 +34,17 @@ export default async function AppHomePage() {
         body: true,
         href: true
       }
+    }),
+    prisma.scientologyProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true }
     })
   ]);
+
+  if (!scienceProfile && profile) {
+    redirect("/profile/edit?next=/profile/scientology");
+  }
+
   const displayName = profile?.displayName ?? session.user.name ?? session.user.username;
 
   return (
