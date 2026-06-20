@@ -21,7 +21,8 @@
     "cutover:runbook": "tsx scripts/cutover-runbook.ts",
     "browser:smoke": "tsx scripts/browser-smoke-checklist.ts",
     "promote:dry-run": "tsx scripts/promotion-dry-run.ts",
-    "services:readiness": "tsx scripts/external-services-readiness.ts"
+    "services:readiness": "tsx scripts/external-services-readiness.ts",
+    "workspace:verify": "tsx scripts/verify-workspace.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

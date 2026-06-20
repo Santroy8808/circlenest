@@ -22,6 +22,7 @@ Current implementation status:
 
 ```powershell
 npm install
+npm run workspace:verify
 npm run env:check
 npm run db:generate
 npm run lint
@@ -35,6 +36,18 @@ npm run promote:dry-run
 npm run services:readiness
 npm run dev
 ```
+
+## Canonical Workspace Guardrail
+
+Before editing, run:
+
+```powershell
+npm run workspace:verify
+```
+
+This confirms the working path is `C:\Repos\Theta-Space-net\NewRepo`, the remote is `https://github.com/Santroy8808/circlenest.git`, and the branch is `main`.
+
+Repo layout details are in `docs/repo-layout.md`.
 
 ## Production Cutover Rule
 
