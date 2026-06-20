@@ -68,11 +68,33 @@ function uploadWithProgress(url: string, file: File, onProgress: (progress: numb
         reject(new Error(`Upload failed with ${request.status}.`));
       }
     };
-    request.onerror = () => reject(new Error("Upload network error."));
+    request.onerror = () => reject(new Error("Direct storage upload failed."));
     request.open("PUT", url);
     request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     request.send(file);
   });
+}
+
+async function uploadThroughServerFallback(
+  storageKey: string,
+  file: File,
+  onProgress: (progress: number) => void
+) {
+  const formData = new FormData();
+  formData.set("storageKey", storageKey);
+  formData.set("file", file);
+
+  onProgress(45);
+  const response = await fetch("/api/media/proxy-upload", {
+    method: "POST",
+    body: formData
+  });
+  onProgress(95);
+  const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Image upload could not reach storage. Check connection and try again.");
+  }
 }
 
 function createImageAttachment(file: File): FeedImageAttachment {
@@ -103,7 +125,11 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
     throw new Error(intent.error ?? "Could not prepare image upload.");
   }
 
-  await uploadWithProgress(intent.uploadUrl, image.file, (progress) => onUpdate({ progress }));
+  try {
+    await uploadWithProgress(intent.uploadUrl, image.file, (progress) => onUpdate({ progress }));
+  } catch {
+    await uploadThroughServerFallback(intent.storageKey, image.file, (progress) => onUpdate({ progress }));
+  }
 
   const completeResponse = await fetch("/api/media/complete-upload", {
     method: "POST",
