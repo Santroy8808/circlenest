@@ -3335,7 +3335,8 @@ body.theta-android-app {
   overflow: hidden;
 }
 
-.theta-android-app .app-shell {
+.theta-android-app .app-shell,
+.app-shell.is-android-app {
   display: block;
   height: 100dvh;
   inset: 0;
@@ -3344,7 +3345,8 @@ body.theta-android-app {
   width: 100vw;
 }
 
-.theta-android-app .side-nav {
+.theta-android-app .side-nav,
+.app-shell.is-android-app .side-nav {
   border-bottom: 0;
   border-right: 1px solid rgba(214, 178, 74, 0.24);
   bottom: 0;
@@ -3366,18 +3368,21 @@ html.theta-android-app.theta-menu-open .side-nav {
   transform: translateX(0);
 }
 
-.theta-android-app .ad-rail {
+.theta-android-app .ad-rail,
+.app-shell.is-android-app .ad-rail {
   display: none;
 }
 
-.theta-android-app .main-surface {
+.theta-android-app .main-surface,
+.app-shell.is-android-app .main-surface {
   height: 100dvh;
   overflow: hidden auto;
-  padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+  padding: max(8px, env(safe-area-inset-top)) 10px max(16px, env(safe-area-inset-bottom));
   scrollbar-width: none;
 }
 
-.theta-android-app .main-surface::-webkit-scrollbar {
+.theta-android-app .main-surface::-webkit-scrollbar,
+.app-shell.is-android-app .main-surface::-webkit-scrollbar {
   display: none;
   height: 0;
   width: 0;
@@ -3406,7 +3411,23 @@ html.theta-android-app.theta-menu-open .theta-android-menu-toggle {
   color: #080b10;
 }
 
-.theta-android-app .feed-stream-shell {
+.theta-android-app .home-stream-hero,
+.app-shell.is-android-app .home-stream-hero,
+.theta-android-app .feed-loop-panel,
+.app-shell.is-android-app .feed-loop-panel,
+.theta-android-app .feedback-fab,
+body.theta-android-app .feedback-fab,
+.app-shell.is-android-app ~ .feedback-fab {
+  display: none !important;
+}
+
+.theta-android-app .home-stream-hero + section,
+.app-shell.is-android-app .home-stream-hero + section {
+  margin-top: 0 !important;
+}
+
+.theta-android-app .feed-stream-shell,
+.app-shell.is-android-app .feed-stream-shell {
   gap: 8px;
   max-width: none;
   width: 100%;
@@ -3439,17 +3460,20 @@ html.theta-android-app.theta-menu-open .theta-android-menu-toggle {
   flex: 0 0 auto;
 }
 
-.theta-android-app .feed-communicate-wrap {
+.theta-android-app .feed-communicate-wrap,
+.app-shell.is-android-app .feed-communicate-wrap {
   position: sticky;
-  top: 55px;
+  top: 0;
   z-index: 19;
 }
 
-.theta-android-app .feed-communicate-trigger {
+.theta-android-app .feed-communicate-trigger,
+.app-shell.is-android-app .feed-communicate-trigger {
   padding: 9px 12px;
 }
 
-.theta-android-app .feed-composer {
+.theta-android-app .feed-composer,
+.app-shell.is-android-app .feed-composer {
   bottom: max(12px, env(safe-area-inset-bottom));
   left: 10px;
   max-height: calc(100dvh - 24px);
@@ -3460,11 +3484,13 @@ html.theta-android-app.theta-menu-open .theta-android-menu-toggle {
   z-index: 80;
 }
 
-.theta-android-app .feed-entry-list {
+.theta-android-app .feed-entry-list,
+.app-shell.is-android-app .feed-entry-list {
   gap: 10px;
 }
 
-.theta-android-app .feed-post {
+.theta-android-app .feed-post,
+.app-shell.is-android-app .feed-post {
   padding: 12px;
 }
 

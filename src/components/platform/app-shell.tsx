@@ -1,4 +1,5 @@
 import { AdPlacement, MembershipTier, UserRole } from "@prisma/client";
+import { cookies, headers } from "next/headers";
 import { auth } from "@/auth";
 import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
 import { prisma } from "@/lib/platform/db";
@@ -139,6 +140,23 @@ function initials(value: string) {
     .toUpperCase();
 }
 
+function isAndroidAppRequest() {
+  const requestHeaders = headers();
+  const cookieStore = cookies();
+  const userAgent = requestHeaders.get("user-agent") ?? "";
+  const platformCookie = cookieStore.get("theta_platform")?.value ?? "";
+  const platformHeader = requestHeaders.get("x-theta-platform") ?? "";
+
+  return [
+    userAgent,
+    platformCookie,
+    platformHeader,
+    requestHeaders.get("x-requested-with") ?? "",
+    requestHeaders.get("sec-ch-ua-platform") ?? "",
+    requestHeaders.get("sec-ch-ua-model") ?? ""
+  ].some((value) => /android|theta-space|thetaspace|webview|wv/i.test(value));
+}
+
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
@@ -151,9 +169,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   ]);
   const navSections = getNavSections({ isAdmin, isBusinessAccount, isSignedIn });
   const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
+  const isAndroidApp = isAndroidAppRequest();
 
   return (
-    <div className="app-shell">
+    <div className={isAndroidApp ? "app-shell is-android-app" : "app-shell"}>
       {isSignedIn ? <ActivityTracker /> : null}
       <aside className="side-nav">
         <div className="side-nav-profile">
