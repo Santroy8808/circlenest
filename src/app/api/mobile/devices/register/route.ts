@@ -16,34 +16,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Device ID and public key are required." }, { status: 400 });
   }
 
-  const device = await prisma.userDevice.upsert({
-    where: {
-      userId_deviceId: {
+  let device;
+
+  try {
+    device = await prisma.userDevice.upsert({
+      where: {
+        userId_deviceId: {
+          userId: session.user.id,
+          deviceId
+        }
+      },
+      update: {
+        publicKey,
+        platform,
+        appVersion: appVersion || null,
+        revokedAt: null,
+        lastSeenAt: new Date()
+      },
+      create: {
         userId: session.user.id,
-        deviceId
+        deviceId,
+        publicKey,
+        platform,
+        appVersion: appVersion || null
+      },
+      select: {
+        id: true,
+        deviceId: true,
+        publicKey: true,
+        lastSeenAt: true
       }
-    },
-    update: {
-      publicKey,
-      platform,
-      appVersion: appVersion || null,
-      revokedAt: null,
-      lastSeenAt: new Date()
-    },
-    create: {
-      userId: session.user.id,
-      deviceId,
-      publicKey,
-      platform,
-      appVersion: appVersion || null
-    },
-    select: {
-      id: true,
-      deviceId: true,
-      publicKey: true,
-      lastSeenAt: true
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("UserDevice") || message.includes("user_devices") || message.includes("does not exist")) {
+      return NextResponse.json(
+        { error: "Mobile communications database tables are not deployed yet. Run the production Prisma schema sync." },
+        { status: 503 }
+      );
     }
-  });
+
+    console.error("mobile device registration failed", error);
+    return NextResponse.json({ error: "Device registration failed." }, { status: 500 });
+  }
 
   return NextResponse.json({ device });
 }
