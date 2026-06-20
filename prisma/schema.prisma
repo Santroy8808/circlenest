@@ -407,6 +407,10 @@ model User {
   socialRelationshipsTo      SocialRelationship[]        @relation("SocialRelationshipTo")
   familyRequestsSent         FamilyRelationshipRequest[] @relation("FamilyRequestRequester")
   familyRequestsReceived     FamilyRelationshipRequest[] @relation("FamilyRequestTarget")
+  devices                    UserDevice[]
+  encryptedChatParticipants  EncryptedChatParticipant[]
+  encryptedChatMessages      EncryptedChatMessage[]      @relation("EncryptedChatMessageSender")
+  encryptedChatEnvelopes     EncryptedChatEnvelope[]     @relation("EncryptedChatEnvelopeRecipient")
   createdChatThreads         ChatThread[]                @relation("ChatThreadCreator")
   chatParticipants           ChatParticipant[]
   chatMessages               ChatMessage[]               @relation("ChatMessageSender")
@@ -467,6 +471,26 @@ model User {
   generatedFreeInvites       FreeAccountInviteCode[]     @relation("FreeInviteGeneratedBy")
   assignedFreeInvites        FreeAccountInviteCode[]     @relation("FreeInviteAssignedUser")
   usedFreeInvites            FreeAccountInviteCode[]     @relation("FreeInviteUsedBy")
+}
+
+model UserDevice {
+  id                      String                  @id @default(cuid())
+  userId                  String
+  deviceId                String
+  publicKey               String
+  platform                String                  @default("android")
+  appVersion              String?
+  lastSeenAt              DateTime                @default(now())
+  revokedAt               DateTime?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  user                    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentEncryptedMessages   EncryptedChatMessage[]
+  receivedChatEnvelopes   EncryptedChatEnvelope[]
+
+  @@unique([userId, deviceId])
+  @@index([deviceId])
+  @@index([userId, revokedAt, lastSeenAt])
 }
 
 model Profile {
@@ -965,6 +989,62 @@ model ChatAttachment {
 
   @@index([messageId, createdAt])
   @@index([mediaAssetId])
+}
+
+model EncryptedChatThread {
+  id            String                     @id @default(cuid())
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  lastMessageAt DateTime?
+  participants  EncryptedChatParticipant[]
+  messages      EncryptedChatMessage[]
+
+  @@index([lastMessageAt])
+}
+
+model EncryptedChatParticipant {
+  id        String              @id @default(cuid())
+  threadId  String
+  userId    String
+  createdAt DateTime            @default(now())
+  thread    EncryptedChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId, createdAt])
+}
+
+model EncryptedChatMessage {
+  id             String                  @id @default(cuid())
+  threadId       String
+  senderUserId   String
+  senderDeviceId String
+  createdAt      DateTime                @default(now())
+  thread         EncryptedChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender         User                    @relation("EncryptedChatMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  senderDevice   UserDevice              @relation(fields: [senderDeviceId], references: [id], onDelete: Cascade)
+  envelopes      EncryptedChatEnvelope[]
+
+  @@index([threadId, createdAt])
+  @@index([senderUserId, createdAt])
+}
+
+model EncryptedChatEnvelope {
+  id                String               @id @default(cuid())
+  messageId         String
+  recipientUserId   String
+  recipientDeviceId String
+  ciphertext        String
+  createdAt         DateTime             @default(now())
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  message           EncryptedChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient         User                 @relation("EncryptedChatEnvelopeRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  recipientDevice   UserDevice           @relation(fields: [recipientDeviceId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, recipientDeviceId])
+  @@index([recipientDeviceId, createdAt])
+  @@index([recipientUserId, readAt, createdAt])
 }
 
 model MailThread {
