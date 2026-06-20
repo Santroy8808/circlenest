@@ -3377,7 +3377,7 @@ html.theta-android-app.theta-menu-open .side-nav {
 .app-shell.is-android-app .main-surface {
   height: 100dvh;
   overflow: hidden auto;
-  padding: max(8px, env(safe-area-inset-top)) 10px max(16px, env(safe-area-inset-bottom));
+  padding: max(8px, env(safe-area-inset-top)) 10px calc(74px + env(safe-area-inset-bottom));
   scrollbar-width: none;
 }
 
@@ -3551,6 +3551,140 @@ body.theta-android-app .feedback-fab,
 
 .theta-android-app .chat-composer {
   padding: 10px;
+}
+
+.android-drawer-scrim,
+.android-shortcut-scrim {
+  appearance: none;
+  background: rgba(0, 0, 0, 0.42);
+  border: 0;
+  bottom: 0;
+  cursor: pointer;
+  left: 0;
+  padding: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 82;
+}
+
+.android-drawer-scrim {
+  z-index: 84;
+}
+
+.android-bottom-nav {
+  align-items: center;
+  background: rgba(8, 11, 16, 0.9);
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 999px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  left: 10px;
+  min-height: 48px;
+  padding: 5px;
+  position: fixed;
+  right: 10px;
+  z-index: 95;
+}
+
+.android-bottom-nav-button,
+.android-bottom-nav-link,
+.android-shortcut-card,
+.android-full-drawer-button {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 38px;
+  min-width: 38px;
+  padding: 0;
+  position: relative;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.android-bottom-nav-button,
+.android-bottom-nav-link {
+  border-radius: 999px;
+}
+
+.android-bottom-nav-button,
+.android-bottom-nav-link.is-active,
+.android-bottom-nav-link:hover,
+.android-shortcut-card.is-active,
+.android-shortcut-card:hover,
+.android-full-drawer-button:hover {
+  background: rgba(255, 216, 95, 0.12);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.android-control-icon {
+  display: block;
+  height: 20px;
+  width: 20px;
+}
+
+.android-control-badge {
+  align-items: center;
+  background: var(--gold);
+  border: 1px solid rgba(8, 11, 16, 0.8);
+  border-radius: 999px;
+  color: #080b10;
+  display: inline-flex;
+  font-size: 0.62rem;
+  font-weight: 900;
+  height: 17px;
+  justify-content: center;
+  min-width: 17px;
+  padding-inline: 4px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.android-shortcut-sheet {
+  background: rgba(11, 15, 23, 0.96);
+  border: 1px solid rgba(214, 178, 74, 0.26);
+  border-radius: 18px 18px 0 0;
+  bottom: 0;
+  box-shadow: 0 -18px 46px rgba(0, 0, 0, 0.46);
+  left: 0;
+  padding: 12px 12px calc(70px + env(safe-area-inset-bottom));
+  position: fixed;
+  right: 0;
+  transform: translateY(calc(100% - 1px));
+  transition: transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  z-index: 93;
+}
+
+.android-shortcut-sheet.is-open {
+  transform: translateY(0);
+}
+
+.android-shortcut-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.android-shortcut-card,
+.android-full-drawer-button {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 14px;
+  background: rgba(23, 33, 51, 0.68);
+  min-height: 46px;
+}
+
+.android-full-drawer-button {
+  margin-top: 8px;
+  width: 100%;
 }
 
 @media (min-width: 861px) and (max-width: 940px) {

@@ -2,6 +2,7 @@ import { AdPlacement, MembershipTier, UserRole } from "@prisma/client";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/auth";
 import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
+import { AndroidAppControls } from "@/components/platform/android-app-controls";
 import { prisma } from "@/lib/platform/db";
 import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
@@ -205,6 +206,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </section>
       </aside>
+      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} sections={navSections} /> : null}
     </div>
   );
 }
