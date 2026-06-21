@@ -27,7 +27,18 @@ export async function GET(request: NextRequest) {
       participants: {
         include: {
           user: {
-            include: { profile: true }
+            include: {
+              profile: true,
+              devices: {
+                where: { revokedAt: null },
+                select: {
+                  id: true,
+                  deviceId: true,
+                  publicKey: true,
+                  lastSeenAt: true
+                }
+              }
+            }
           }
         }
       },
@@ -85,7 +96,13 @@ export async function GET(request: NextRequest) {
           id: participant.user.id,
           username: participant.user.username,
           displayName: participant.user.profile?.displayName ?? participant.user.username,
-          avatarUrl: participant.user.profile?.avatarUrl
+          avatarUrl: participant.user.profile?.avatarUrl,
+          devices: participant.user.devices.map((device) => ({
+            id: device.id,
+            deviceId: device.deviceId,
+            publicKey: device.publicKey,
+            lastSeenAt: device.lastSeenAt.toISOString()
+          }))
         })),
         messages
       };
