@@ -172,8 +172,9 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
               placeholder="jules, jules@theta-space.net, or Jules"
               value={inviteIdentifier}
             />
-            <button className="btn-primary justify-self-end" disabled={isPending || inviteIdentifier.trim().length < 2} type="submit">
-              Send invite
+            <button className="btn-primary send-logo-button justify-self-end" disabled={isPending || inviteIdentifier.trim().length < 2} type="submit">
+              <span aria-hidden="true" className="send-logo-icon" />
+              <span className="sr-only">Send invite</span>
             </button>
           </form>
 

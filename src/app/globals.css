@@ -462,6 +462,33 @@ a {
   transform: none;
 }
 
+.send-logo-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+  min-height: 46px;
+  min-width: 74px;
+  padding-block: 7px;
+}
+
+.send-logo-icon {
+  background: url("/assets/theta-send-logo.png") center / contain no-repeat;
+  display: inline-block;
+  height: 28px;
+  width: 64px;
+}
+
+.send-logo-button.is-compact {
+  min-width: 60px;
+  padding-inline: 10px;
+}
+
+.send-logo-button.is-compact .send-logo-icon {
+  height: 24px;
+  width: 54px;
+}
+
 .feedback-fab {
   position: fixed;
   right: 18px;

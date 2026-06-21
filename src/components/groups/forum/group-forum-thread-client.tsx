@@ -192,8 +192,9 @@ export function GroupForumThreadClient({
             <p className="mt-2 text-sm text-[var(--muted)]">Photo reply plumbing is enabled; picker comes with the group media module.</p>
           ) : null}
           {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-          <button className="btn-primary mt-4" disabled={isPending || !body.trim()} type="submit">
-            {isPending ? "Replying..." : "Post reply"}
+          <button className="btn-primary send-logo-button mt-4" disabled={isPending || !body.trim()} type="submit">
+            <span aria-hidden="true" className="send-logo-icon" />
+            <span className="sr-only">{isPending ? "Replying..." : "Post reply"}</span>
           </button>
         </form>
       ) : (

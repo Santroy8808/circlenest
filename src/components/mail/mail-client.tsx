@@ -458,8 +458,9 @@ export function MailClient({
               <button className="btn-secondary" onClick={() => setIsComposing(false)} type="button">
                 Cancel
               </button>
-              <button className="btn-primary" disabled={isPending || recipients.length === 0 || !subject.trim() || !bodyText.trim()} type="submit">
-                {isPending ? "Sending..." : "Send mail"}
+              <button className="btn-primary send-logo-button" disabled={isPending || recipients.length === 0 || !subject.trim() || !bodyText.trim()} type="submit">
+                <span aria-hidden="true" className="send-logo-icon" />
+                <span className="sr-only">{isPending ? "Sending..." : "Send mail"}</span>
               </button>
             </div>
           </form>
