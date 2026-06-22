@@ -99,7 +99,7 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
       <article className="ad-placement-card">
         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Reserved</span>
         <strong className="mt-2 block">Right stream placement</strong>
-        <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">Active ads will appear here.</span>
+        <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">No active ads are available for this placement.</span>
       </article>
     );
   }

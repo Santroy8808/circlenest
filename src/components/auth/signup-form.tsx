@@ -38,7 +38,7 @@ export function SignupForm() {
           return;
         }
 
-        setMessage("Account created. Check verification status before first production use.");
+        setMessage("Account created. Verify your email before first production use.");
         event.currentTarget.reset();
       } catch (apiError) {
         setError(apiError instanceof Error ? apiError.message : "Could not create account.");
@@ -50,7 +50,7 @@ export function SignupForm() {
     <form className="grid gap-4" onSubmit={handleSubmit}>
       <label className="grid gap-2">
         <span className="form-label">Invite code</span>
-        <input className="form-field" name="inviteCode" placeholder="Required once invite module is active" />
+        <input className="form-field" name="inviteCode" placeholder="Enter your one-time invite code" required />
       </label>
       <label className="grid gap-2">
         <span className="form-label">Display name</span>

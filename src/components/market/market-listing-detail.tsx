@@ -1,3 +1,4 @@
+import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import type { MarketListingDetailView } from "@/modules/market/types";
 
@@ -72,8 +73,11 @@ export function MarketListingDetail({ listing }: { listing: MarketListingDetailV
             Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
           </p>
           {listing.viewerCanPromote ? (
-            <Link className="btn-secondary mt-4 inline-block" href="/docs/modules/21-ads-credits">
-              Ad handoff notes
+            <Link
+              className="btn-secondary mt-4 inline-block"
+              href={`/ads/create?destinationKind=${AdDestinationKind.MARKET_LISTING}&marketListingId=${listing.id}&title=${encodeURIComponent(`Promote ${listing.title}`)}&body=${encodeURIComponent(listing.description.slice(0, 220) || `View ${listing.title} in The Market.`)}&targetInterestCategories=${InterestCategory.MARKET}`}
+            >
+              Create listing ad
             </Link>
           ) : null}
         </article>

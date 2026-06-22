@@ -369,13 +369,6 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           </span>
         </label>
 
-        <section className="rounded-md border border-[var(--line)] bg-black/10 p-4">
-          <h2 className="font-semibold text-[var(--gold)]">Coming soon: email linking</h2>
-          <p className="mt-2 leading-6 text-[var(--muted)]">
-            Professional storefronts are structured for future email-account linking, but external email is intentionally disabled in this phase.
-          </p>
-        </section>
-
         {profile ? (
           <p className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm text-[var(--muted)]">
             Public URL: <span className="text-[var(--text)]">{profile.publicUrl}</span>
@@ -396,7 +389,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
 
       <section className="surface rounded-md p-6">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Recent inquiries</h2>
-        <p className="mt-2 text-[var(--muted)]">External storefront inquiries land here. Reply workflow belongs to future mail/external-email phases.</p>
+        <p className="mt-2 text-[var(--muted)]">External storefront inquiries land here with the sender email when supplied.</p>
         <div className="mt-5 grid gap-3">
           {businessCenter.inquiries.length > 0 ? (
             businessCenter.inquiries.map((inquiry) => (
@@ -407,6 +400,11 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
                 </div>
                 <p className="mt-2 text-sm text-[var(--muted)]">{inquiry.senderEmail ?? "No email supplied"}</p>
                 <p className="mt-3 leading-6">{inquiry.message}</p>
+                {inquiry.senderEmail ? (
+                  <a className="btn-secondary mt-4 inline-flex" href={`mailto:${inquiry.senderEmail}?subject=${encodeURIComponent(`Re: ${profile?.businessName ?? "Storefront inquiry"}`)}`}>
+                    Reply by email
+                  </a>
+                ) : null}
               </article>
             ))
           ) : (

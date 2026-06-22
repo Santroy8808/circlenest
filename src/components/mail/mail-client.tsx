@@ -504,7 +504,7 @@ export function MailClient({
           <div className="mail-empty-state">
             <h2 className="text-3xl font-semibold text-[var(--gold)]">Select a message</h2>
             <p className="mt-3 max-w-lg text-[var(--muted)]">
-              Mail is for formal internal messages. Chat stays in Messages; future external email linking can build from here.
+              Mail is for formal internal messages. Chat stays in Messages.
             </p>
             {notice ? <p className="mt-4 rounded-md border border-[var(--line)] p-3 text-sm text-[var(--gold)]">{notice}</p> : null}
           </div>

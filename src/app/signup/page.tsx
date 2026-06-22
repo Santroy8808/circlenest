@@ -6,7 +6,7 @@ export default function SignupPage() {
     <AuthCard
       eyebrow="Invitation Required"
       title="Create account"
-      subtitle="This is the invite-ready signup shell. The full qualification flow lands in the membership-policy module."
+      subtitle="Use the one-time invite code you received to create your Theta-Space account."
     >
       <SignupForm />
     </AuthCard>

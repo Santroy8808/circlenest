@@ -77,7 +77,7 @@ export function MarketDirectoryClient({
       {listings.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No listings yet</h2>
-          <p className="mt-2 text-[var(--muted)]">Listings will appear here as clean thumbnails with title and price.</p>
+          <p className="mt-2 text-[var(--muted)]">No listings match this view.</p>
         </section>
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>

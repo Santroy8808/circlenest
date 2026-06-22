@@ -6,7 +6,7 @@ export default function VerifyEmailPage() {
     <AuthCard
       eyebrow="Verification"
       title="Verify email"
-      subtitle="Email verification is token-backed now, with production email templates planned later."
+      subtitle="Enter the verification token from your Theta-Space email."
     >
       <EmailVerificationForm />
     </AuthCard>

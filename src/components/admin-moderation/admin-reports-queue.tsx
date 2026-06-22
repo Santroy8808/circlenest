@@ -25,7 +25,7 @@ export function AdminReportsQueue({ tickets }: { tickets: AdminFeedbackTicketVie
       {tickets.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No reports waiting</h2>
-          <p className="mt-2 text-[var(--muted)]">New feedback, bug reports, and support tickets will appear here.</p>
+          <p className="mt-2 text-[var(--muted)]">There are no feedback, bug report, or support tickets in the queue.</p>
         </section>
       ) : (
         <section className="grid gap-4">

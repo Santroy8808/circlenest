@@ -47,7 +47,7 @@ export function CreateEventForm() {
     <form className="surface grid gap-5 rounded-md p-6" onSubmit={submitEvent}>
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Create Event</p>
-        <h1 className="mt-3 text-3xl font-semibold">Set up the invitation shell</h1>
+        <h1 className="mt-3 text-3xl font-semibold">Set up the event</h1>
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
           Create the event first. Invites, moderators, RSVP, and promotion are managed from the event detail page.
         </p>

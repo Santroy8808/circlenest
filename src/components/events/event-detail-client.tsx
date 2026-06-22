@@ -1,6 +1,6 @@
 "use client";
 
-import { EventRsvpStatus, EventStatus } from "@prisma/client";
+import { AdDestinationKind, EventRsvpStatus, EventStatus, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { EventDetailView } from "@/modules/events/types";
@@ -144,10 +144,13 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Promoting an event creates a normal ad campaign later. Ads do not appear inside this event listing.
+            Promoting an event creates a normal ad campaign. Ads do not appear inside this event listing.
           </p>
-          <Link className="btn-secondary mt-4 inline-block" href="/docs/modules/21-ads-credits">
-            Ad handoff notes
+          <Link
+            className="btn-secondary mt-4 inline-block"
+            href={`/ads/create?destinationKind=${AdDestinationKind.EXTERNAL_URL}&customDestinationUrl=${encodeURIComponent(`/events/${event.slug}`)}&title=${encodeURIComponent(`Promote ${event.title}`)}&body=${encodeURIComponent(event.summary ?? `Join ${event.title} on Theta-Space.`)}&targetInterestCategories=${InterestCategory.EVENTS}`}
+          >
+            Create event ad
           </Link>
         </article>
 

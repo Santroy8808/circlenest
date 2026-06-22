@@ -1,3 +1,4 @@
+import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import type { JobListingDetailView } from "@/modules/jobs/types";
 
@@ -38,8 +39,11 @@ export function JobListingDetail({ job }: { job: JobListingDetailView }) {
             Promoting a job creates a normal ad campaign. Ads do not appear inside the job listing.
           </p>
           {job.viewerCanPromote ? (
-            <Link className="btn-secondary mt-4 inline-block" href="/docs/modules/21-ads-credits">
-              Ad handoff notes
+            <Link
+              className="btn-secondary mt-4 inline-block"
+              href={`/ads/create?destinationKind=${AdDestinationKind.EXTERNAL_URL}&customDestinationUrl=${encodeURIComponent(`/jobs/${job.slug}`)}&title=${encodeURIComponent(`Promote ${job.title}`)}&body=${encodeURIComponent(job.summary ?? `View this ${job.employmentTypeLabel.toLowerCase()} role on Theta-Space.`)}&targetInterestCategories=${InterestCategory.JOBS}`}
+            >
+              Create job ad
             </Link>
           ) : null}
         </article>

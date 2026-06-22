@@ -1,0 +1,121 @@
+"use client";
+
+import { useState, useTransition } from "react";
+
+type OwnInvite = {
+  id: string;
+  codePreview: string;
+  recipientEmail: string | null;
+  emailedAt: string | null;
+  usedAt: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export function InviteSettingsClient({
+  canInvite,
+  reason,
+  initialInvites
+}: {
+  canInvite: boolean;
+  reason: string;
+  initialInvites: OwnInvite[];
+}) {
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sendEmail, setSendEmail] = useState(false);
+  const [expiresInDays, setExpiresInDays] = useState(7);
+  const [invites, setInvites] = useState(initialInvites);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function generateInvite(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setGeneratedCode("");
+    setMessage("");
+    setError("");
+
+    startTransition(async () => {
+      const response = await fetch("/api/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientEmail,
+          sendEmail,
+          expiresInDays
+        })
+      });
+      const payload = (await response.json()) as { error?: string; inviteCode?: string; invites?: OwnInvite[] };
+
+      if (!response.ok || !payload.inviteCode) {
+        setError(payload.error ?? "Could not generate invite.");
+        return;
+      }
+
+      setGeneratedCode(payload.inviteCode);
+      setInvites(payload.invites ?? invites);
+      setMessage(sendEmail ? "Invite code generated and emailed." : "Invite code generated.");
+    });
+  }
+
+  return (
+    <div className="grid gap-5">
+      <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">Generate free account invite</h2>
+        <p className="mt-2 leading-6 text-[var(--muted)]">{reason}</p>
+        {canInvite ? (
+          <form className="mt-5 grid gap-4" onSubmit={generateInvite}>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
+              <label className="grid gap-2">
+                <span className="form-label">Recipient email</span>
+                <input className="form-field" onChange={(event) => setRecipientEmail(event.target.value)} type="email" value={recipientEmail} />
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Expires in days</span>
+                <input className="form-field" max={90} min={1} onChange={(event) => setExpiresInDays(Number(event.target.value))} type="number" value={expiresInDays} />
+              </label>
+            </div>
+            <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+              <input checked={sendEmail} onChange={(event) => setSendEmail(event.target.checked)} type="checkbox" />
+              Email this invite code immediately.
+            </label>
+            <button className="btn-primary w-fit" disabled={isPending || (sendEmail && recipientEmail.trim().length < 3)} type="submit">
+              {isPending ? "Generating..." : "Generate invite code"}
+            </button>
+          </form>
+        ) : null}
+        {generatedCode ? (
+          <div className="mt-4 rounded-md border border-[var(--line)] bg-black/20 p-4">
+            <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted)]">Generated code</p>
+            <p className="mt-2 font-mono text-xl text-[var(--gold)]">{generatedCode}</p>
+          </div>
+        ) : null}
+        {message ? <p className="mt-4 rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
+        {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      </section>
+
+      <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">Recent invite codes</h2>
+        <div className="mt-4 grid gap-3">
+          {invites.length > 0 ? (
+            invites.map((invite) => (
+              <article className="module-card rounded-md p-4" key={invite.id}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <strong>{invite.codePreview}</strong>
+                  <span className="pill rounded-full px-3 py-1 text-xs">{invite.usedAt ? "Used" : invite.revokedAt ? "Revoked" : "Available"}</span>
+                </div>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Recipient: {invite.recipientEmail ?? "Any email"} / Expires {new Date(invite.expiresAt).toLocaleDateString()}
+                </p>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)]">No invite codes generated yet.</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}

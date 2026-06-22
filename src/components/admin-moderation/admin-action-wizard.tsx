@@ -76,11 +76,8 @@ export function AdminActionWizard({ action }: { action: AdminActionCard }) {
         </form>
       ) : (
         <section className="surface rounded-md p-6">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">Implementation boundary</h2>
-          <p className="mt-3 leading-7 text-[var(--muted)]">
-            This wizard defines the safe operational flow. The specific mutation form for this action will be added only when its policy,
-            audit, and rollback behavior are explicit.
-          </p>
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Action unavailable</h2>
+          <p className="mt-3 leading-7 text-[var(--muted)]">This admin action is not enabled in the live action list.</p>
         </section>
       )}
     </div>

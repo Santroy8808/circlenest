@@ -23,7 +23,7 @@ export function NoticeList({ items, emptyTitle }: { items: NoticeItem[]; emptyTi
     return (
       <section className="surface rounded-md p-6 text-center">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">{emptyTitle}</h2>
-        <p className="mt-2 text-[var(--muted)]">New items will appear here when the platform creates them.</p>
+        <p className="mt-2 text-[var(--muted)]">There are no items in this inbox.</p>
       </section>
     );
   }

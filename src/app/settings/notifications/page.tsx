@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
+import { SecureActionGrid } from "@/components/settings-secure-areas/secure-action-grid";
 import { SecureSettingsPanel } from "@/components/settings-secure-areas/secure-settings-panel";
 
 export default async function NotificationSettingsPage() {
@@ -12,7 +13,30 @@ export default async function NotificationSettingsPage() {
 
   return (
     <AppShell>
-      <SecureSettingsPanel title="Notification Rules" description="Notification dings, quiet rules, mail opt-outs, and alert preferences belong here." />
+      <SecureSettingsPanel title="Notification Rules" description="Open the working notification and alert inboxes. Mail recipient controls are managed inside Mail.">
+        <SecureActionGrid
+          actions={[
+            {
+              title: "Notifications",
+              description: "View and act on mentions, replies, family requests, and social updates.",
+              href: "/notifications",
+              badge: "social"
+            },
+            {
+              title: "Alerts",
+              description: "Open account-critical notices, admin replies, reports, invoices, and platform announcements.",
+              href: "/alerts",
+              badge: "critical"
+            },
+            {
+              title: "Mail",
+              description: "Manage formal internal mail, recipients, and message threads.",
+              href: "/mail",
+              badge: "mail"
+            }
+          ]}
+        />
+      </SecureSettingsPanel>
     </AppShell>
   );
 }

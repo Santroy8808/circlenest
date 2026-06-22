@@ -19,6 +19,16 @@ type AdImageAttachment = {
   error?: string;
 };
 
+export type InitialAdCampaignDraft = {
+  title?: string;
+  body?: string;
+  destinationKind?: AdDestinationKind;
+  marketListingId?: string;
+  businessArticleId?: string;
+  customDestinationUrl?: string;
+  targetInterestCategories?: InterestCategory[];
+};
+
 const MAX_AD_IMAGE_BYTES = 10 * 1024 * 1024;
 const AD_IMAGE_GUIDANCE = "Recommended: 1200 x 675px, minimum 600 x 338px. JPG, PNG, GIF, or WEBP up to 10MB.";
 
@@ -89,7 +99,8 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
   return complete.asset.id;
 }
 
-function initialDestinationKind(adsManager: AdsManagerView) {
+function initialDestinationKind(adsManager: AdsManagerView, initialDraft?: InitialAdCampaignDraft) {
+  if (initialDraft?.destinationKind) return initialDraft.destinationKind;
   if (adsManager.destinationOptions.storefronts.length > 0) return AdDestinationKind.STOREFRONT;
   if (adsManager.destinationOptions.marketListings.length > 0) return AdDestinationKind.MARKET_LISTING;
   if (adsManager.destinationOptions.businessArticles.length > 0) return AdDestinationKind.BUSINESS_ARTICLE;
@@ -102,19 +113,19 @@ function durationLabel(days: number | null) {
   return `${days} days`;
 }
 
-export function CreateAdCampaignForm({ adsManager }: { adsManager: AdsManagerView }) {
+export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager: AdsManagerView; initialDraft?: InitialAdCampaignDraft }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [destinationKind, setDestinationKind] = useState<AdDestinationKind>(() => initialDestinationKind(adsManager));
-  const [marketListingId, setMarketListingId] = useState(adsManager.destinationOptions.marketListings[0]?.id ?? "");
-  const [businessArticleId, setBusinessArticleId] = useState(adsManager.destinationOptions.businessArticles[0]?.id ?? "");
-  const [customDestinationUrl, setCustomDestinationUrl] = useState("");
+  const [title, setTitle] = useState(initialDraft?.title ?? "");
+  const [body, setBody] = useState(initialDraft?.body ?? "");
+  const [destinationKind, setDestinationKind] = useState<AdDestinationKind>(() => initialDestinationKind(adsManager, initialDraft));
+  const [marketListingId, setMarketListingId] = useState(initialDraft?.marketListingId ?? adsManager.destinationOptions.marketListings[0]?.id ?? "");
+  const [businessArticleId, setBusinessArticleId] = useState(initialDraft?.businessArticleId ?? adsManager.destinationOptions.businessArticles[0]?.id ?? "");
+  const [customDestinationUrl, setCustomDestinationUrl] = useState(initialDraft?.customDestinationUrl ?? "");
   const initialPricingPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === AdPlacement.RIGHT_STREAM) ?? adsManager.pricingPackages[0];
   const [placement, setPlacement] = useState<AdPlacement>(initialPricingPackage?.placement ?? AdPlacement.RIGHT_STREAM);
   const [pricingRuleKey, setPricingRuleKey] = useState(initialPricingPackage?.key ?? "");
   const [targetLocation, setTargetLocation] = useState("");
-  const [targetInterestCategories, setTargetInterestCategories] = useState<InterestCategory[]>([]);
+  const [targetInterestCategories, setTargetInterestCategories] = useState<InterestCategory[]>(initialDraft?.targetInterestCategories ?? []);
   const [image, setImage] = useState<AdImageAttachment | null>(null);
   const [externalImageUrl, setExternalImageUrl] = useState("");
   const [error, setError] = useState(adsManager.canCreate ? "" : adsManager.reason ?? "This account cannot create ads.");

@@ -45,7 +45,7 @@ export function CreateGroupForm() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Create Group</p>
         <h1 className="mt-3 text-3xl font-semibold">Set up the group profile</h1>
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          This wizard only creates the group shell. Forum threads, photos, docs, and member tools stay in their own later modules.
+          Create the group profile, then manage discussions, photos, docs, and members from the group page.
         </p>
       </div>
 

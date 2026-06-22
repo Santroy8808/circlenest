@@ -9,22 +9,6 @@ const MODULE_KEY = "admin-moderation";
 
 export const adminActionCards: AdminActionCard[] = [
   {
-    key: "session-revocation",
-    title: "Session Revocation",
-    description: "Force-log-out a compromised or suspicious user by revoking active sessions.",
-    risk: "high",
-    keywords: ["force logout", "log out", "compromised account", "security", "sessions", "suspicious user"],
-    steps: ["Find the user.", "Review recent login/security activity.", "Confirm revocation reason.", "Revoke sessions and write audit log."]
-  },
-  {
-    key: "email-verification-resend",
-    title: "Email Verification Resend",
-    description: "Resend verification emails for users stuck during signup.",
-    risk: "low",
-    keywords: ["verify email", "signup stuck", "new user", "registration", "resend email"],
-    steps: ["Find the user.", "Confirm email address.", "Send verification email.", "Log support action."]
-  },
-  {
     key: "feature-flags",
     title: "Feature Flags",
     description: "Turn risky or unfinished modules on/off without redeploying.",
@@ -72,36 +56,12 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
-    key: "view-as-role",
-    title: "View As Role",
-    description: "Preview Free, Contributor, Professional, Auditor, or Admin visibility without impersonating users.",
-    risk: "low",
-    keywords: ["preview", "role preview", "tier preview", "visibility", "view as"],
-    steps: ["Pick role/tier.", "Open read-only preview.", "Do not perform actions as the user.", "Exit preview mode."]
-  },
-  {
-    key: "audit-viewer",
-    title: "Audit Viewer",
-    description: "Review privileged actions and module audit history.",
-    risk: "medium",
-    keywords: ["audit", "logs", "history", "admin actions", "trail"],
-    steps: ["Choose module/action filter.", "Inspect audit trail.", "Attach support note if needed.", "Escalate if critical."]
-  },
-  {
     key: "reports-queue",
     title: "Reports Queue",
     description: "Review shared feedback, bug reports, abuse reports, content reports, and support tickets.",
     risk: "medium",
     keywords: ["tickets", "support", "feedback", "bugs", "abuse", "reports", "issue queue"],
     steps: ["Open the shared admin queue.", "Review the exact issue and source page.", "Move the ticket into review or resolve it.", "Leave admin notes when deeper action is needed."]
-  },
-  {
-    key: "business-verification",
-    title: "Business Verification",
-    description: "Approve, reject, request changes, or place business profiles on hold.",
-    risk: "medium",
-    keywords: ["business", "storefront", "verify", "approve business", "hold business"],
-    steps: ["Open business profile.", "Review verification evidence.", "Choose outcome.", "Write internal note."]
   },
   {
     key: "announcements",

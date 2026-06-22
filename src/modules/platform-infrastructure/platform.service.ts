@@ -89,7 +89,7 @@ export const moduleDefinitions: PlatformModuleDefinition[] = [
     key: "mail",
     title: "Mail",
     status: "ready",
-    purpose: "Gmail-like internal mail, contacts, multi-recipient send, and future external mail.",
+    purpose: "Gmail-like internal mail, contacts, and multi-recipient send.",
     href: "/docs/modules/11-mail"
   },
   {

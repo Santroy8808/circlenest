@@ -32,7 +32,7 @@ export function PeopleGrid({
     return (
       <section className="surface rounded-md p-6 text-center">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">No people yet</h2>
-        <p className="mt-2 text-[var(--muted)]">Friends, family, and contacts will appear here as relationship data is created.</p>
+        <p className="mt-2 text-[var(--muted)]">No matching people were found.</p>
       </section>
     );
   }
