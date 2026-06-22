@@ -1,4 +1,4 @@
-import { FeedReactionType, FeedVisibility, MembershipTier } from "@prisma/client";
+import { FeedReactionType, FeedVisibility, MembershipTier, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
@@ -12,6 +12,7 @@ import {
 
 const MODULE_KEY = "feed-stream";
 const FEED_DB_TIMEOUT_MS = 2500;
+const FEED_THREAD_REPLY_DEPTH = 8;
 
 function withFeedDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -85,6 +86,60 @@ type FeedCommentRecord = {
   replies?: FeedCommentRecord[];
 };
 
+type FeedPostRecord = {
+  id: string;
+  body: string;
+  visibility: FeedVisibility;
+  isAdminAnnouncement: boolean;
+  pinnedUntil: Date | null;
+  createdAt: Date;
+  mediaAsset: {
+    id: string;
+    publicUrl: string | null;
+    mimeType: string;
+    originalName: string | null;
+  } | null;
+  author: FeedCommentRecord["author"];
+  reactions: Array<{ type: FeedReactionType }>;
+  comments: FeedCommentRecord[];
+};
+
+function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
+  return {
+    author: {
+      include: {
+        profile: true,
+        membership: true
+      }
+    },
+    mediaAsset: {
+      select: {
+        id: true,
+        publicUrl: true,
+        mimeType: true,
+        originalName: true
+      }
+    },
+    reactions: true,
+    _count: {
+      select: {
+        replies: {
+          where: { deletedAt: null }
+        }
+      }
+    },
+    ...(depth > 0
+      ? {
+          replies: {
+            where: { deletedAt: null },
+            include: feedThreadCommentInclude(depth - 1),
+            orderBy: { createdAt: "asc" as const }
+          }
+        }
+      : {})
+  };
+}
+
 function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
   const replies = comment.replies?.map(toFeedCommentView);
 
@@ -100,7 +155,7 @@ function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
   };
 }
 
-function toFeedPostView(post: Awaited<ReturnType<typeof fetchFeedPosts>>[number]): FeedPostView {
+function toFeedPostView(post: FeedPostRecord): FeedPostView {
   return {
     id: post.id,
     body: post.body,
@@ -231,58 +286,7 @@ function fetchFeedPostThread(postId: string) {
           parentCommentId: null,
           deletedAt: null
         },
-        include: {
-          author: {
-            include: {
-              profile: true,
-              membership: true
-            }
-          },
-          mediaAsset: {
-            select: {
-              id: true,
-              publicUrl: true,
-              mimeType: true,
-              originalName: true
-            }
-          },
-          reactions: true,
-          _count: {
-            select: {
-              replies: {
-                where: { deletedAt: null }
-              }
-            }
-          },
-          replies: {
-            where: { deletedAt: null },
-            include: {
-              author: {
-                include: {
-                  profile: true,
-                  membership: true
-                }
-              },
-              mediaAsset: {
-                select: {
-                  id: true,
-                  publicUrl: true,
-                  mimeType: true,
-                  originalName: true
-                }
-              },
-              reactions: true,
-              _count: {
-                select: {
-                  replies: {
-                    where: { deletedAt: null }
-                  }
-                }
-              }
-            },
-            orderBy: { createdAt: "asc" }
-          }
-        },
+        include: feedThreadCommentInclude(FEED_THREAD_REPLY_DEPTH),
         orderBy: { createdAt: "asc" }
       }
     }
@@ -367,7 +371,7 @@ export async function dismissFeedPost(userId: string, postId: string) {
 
 export async function getFeedPostThread(postId: string) {
   const post = await withFeedDbTimeout(fetchFeedPostThread(postId), "feed thread lookup");
-  return post ? toFeedPostView(post) : null;
+  return post ? toFeedPostView(post as unknown as FeedPostRecord) : null;
 }
 
 export async function safeGetFeedPostThread(postId: string) {

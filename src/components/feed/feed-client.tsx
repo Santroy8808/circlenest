@@ -460,16 +460,23 @@ function ImagePreview({
 function FeedCommentRow({
   comment,
   depth = 0,
+  defaultExpanded = false,
   onReact,
   onReply,
   onShare
 }: {
   comment: FeedCommentView;
   depth?: number;
+  defaultExpanded?: boolean;
   onReact: (commentId: string, type: FeedReactionType) => void;
   onReply: (comment: FeedCommentView) => void;
   onShare: (commentId: string) => void;
 }) {
+  const loadedReplies = comment.replies ?? [];
+  const hasLoadedReplies = loadedReplies.length > 0;
+  const hasHiddenReplies = comment.replyCount > 0 && !hasLoadedReplies;
+  const [expanded, setExpanded] = useState(defaultExpanded || depth === 0);
+
   return (
     <div className={depth > 0 ? "comment-bubble is-reply" : "comment-bubble"} id={`comment-${comment.id}`}>
       <div className="comment-bubble-main">
@@ -479,12 +486,17 @@ function FeedCommentRow({
             <strong>{comment.author.displayName}</strong>
             <span>@{comment.author.username}</span>
             <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
-            {comment.replyCount > 0 && !comment.replies?.length ? <span>{comment.replyCount} replies</span> : null}
+            {hasHiddenReplies ? <span>{comment.replyCount} replies</span> : null}
           </div>
           <RichText value={comment.body} />
           <FeedMedia media={comment.media} />
           <div className="comment-action-row">
             <ReactionButtons compact counts={comment.reactions} onReact={(reaction) => onReact(comment.id, reaction)} />
+            {hasLoadedReplies ? (
+              <button className="comment-reply-link" onClick={() => setExpanded((value) => !value)} type="button">
+                {expanded ? "Collapse" : `Expand ${loadedReplies.length}`}
+              </button>
+            ) : null}
             <button aria-label="Reply to comment" className="comment-reply-link" onClick={() => onReply(comment)} title="Reply" type="button">
               <span aria-hidden="true">{"\u21A9"}</span>
             </button>
@@ -494,10 +506,18 @@ function FeedCommentRow({
           </div>
         </div>
       </div>
-      {comment.replies?.length ? (
+      {hasLoadedReplies && expanded ? (
         <div className="comment-replies">
-          {comment.replies.map((reply) => (
-            <FeedCommentRow comment={reply} depth={depth + 1} key={reply.id} onReact={onReact} onReply={onReply} onShare={onShare} />
+          {loadedReplies.map((reply) => (
+            <FeedCommentRow
+              comment={reply}
+              defaultExpanded={defaultExpanded}
+              depth={depth + 1}
+              key={reply.id}
+              onReact={onReact}
+              onReply={onReply}
+              onShare={onShare}
+            />
           ))}
         </div>
       ) : null}
@@ -975,6 +995,7 @@ export function FeedClient({
                 {previewComments.map((comment) => (
                   <FeedCommentRow
                     comment={comment}
+                    defaultExpanded={defaultExpanded}
                     key={comment.id}
                     onReact={reactToComment}
                     onReply={(target) => activateReply(post.id, target)}
