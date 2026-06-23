@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatThreadType } from "@prisma/client";
+import { ChatAttachmentKind, ChatThreadType } from "@prisma/client";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type {
@@ -244,8 +244,17 @@ export function MessagesClient({
     const optimisticSender =
       selectedThread.participants.find((participant) => participant.id === currentUserId) ??
       ({ id: currentUserId, username: "you", displayName: "You", avatarUrl: null, tagline: null } satisfies ChatPersonView);
+    const optimisticAttachments: ChatAttachmentView[] = attachments.map((item) => ({
+      id: `local-attachment-${item.id}`,
+      kind: item.file.type.startsWith("image/") ? ChatAttachmentKind.IMAGE : ChatAttachmentKind.FILE,
+      fileName: item.file.name,
+      mimeType: item.file.type || "application/octet-stream",
+      sizeBytes: String(item.file.size),
+      publicUrl: item.previewUrl,
+      mediaAssetId: null
+    }));
 
-    if (bodyToSend) {
+    if (bodyToSend || optimisticAttachments.length > 0) {
       setSelectedThread((current) =>
         current
           ? {
@@ -257,7 +266,7 @@ export function MessagesClient({
                   body: bodyToSend,
                   createdAt: new Date().toISOString(),
                   sender: optimisticSender,
-                  attachments: [],
+                  attachments: optimisticAttachments,
                   deliveryState: "SENDING"
                 }
               ]
