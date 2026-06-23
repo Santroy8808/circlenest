@@ -69,6 +69,19 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
+    key: "account-support",
+    title: "Account Support",
+    description: "Create preverified accounts without SMTP and reset account passwords with session revocation.",
+    risk: "high",
+    keywords: ["create user", "new user", "password reset", "reset password", "account support", "smtp", "preverified"],
+    steps: [
+      "Choose Create User or Reset Password.",
+      "Enter the account fields or target account identifier.",
+      "Confirm a required audit reason.",
+      "Create the account or reset the password and write audit logs."
+    ]
+  },
+  {
     key: "reports-queue",
     title: "Reports Queue",
     description: "Review shared feedback, bug reports, abuse reports, content reports, and support tickets.",

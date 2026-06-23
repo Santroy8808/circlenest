@@ -18,9 +18,25 @@ const shortcutEntries: AdminSearchEntry[] = [
     href: "/admin/actions/launch-access?tool=invite",
     title: "New User > Invite",
     category: "Membership",
-    description: "Generate a free account invite code, email it, or attach it to an account.",
+    description: "Generate a free account invite code, email it, or attach it to an existing account.",
     badge: "invite",
     keywords: ["new user", "invite", "invite code", "free account", "signup", "registration", "email invite", "grant invite"]
+  },
+  {
+    href: "/admin/actions/account-support?tool=create-user",
+    title: "New User > Create User",
+    category: "Membership",
+    description: "Create a preverified user account directly without SMTP.",
+    badge: "create",
+    keywords: ["new user", "create user", "account creation", "preverified", "without smtp", "manual account"]
+  },
+  {
+    href: "/admin/actions/account-support?tool=reset-password",
+    title: "Account Support > Reset Password",
+    category: "Security",
+    description: "Reset an account password and revoke active sessions.",
+    badge: "password",
+    keywords: ["reset password", "password reset", "account support", "session revoke", "security"]
   },
   {
     href: "/admin/actions/launch-access?tool=promo",
@@ -154,7 +170,7 @@ export function AdminPortal({ portal }: { portal: AdminPortalView }) {
             aria-label="Search admin functions"
             className="form-field"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Try: new user, invite, ad spend, credits, announcement, reports"
+            placeholder="Try: new user, create user, reset password, invite, ad spend, credits, reports"
             type="search"
             value={query}
           />

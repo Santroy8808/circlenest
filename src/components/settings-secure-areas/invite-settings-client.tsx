@@ -60,6 +60,28 @@ export function InviteSettingsClient({
     });
   }
 
+  function revokeInvite(inviteId: string) {
+    setMessage("");
+    setError("");
+
+    startTransition(async () => {
+      const response = await fetch("/api/invites", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId })
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string; invites?: OwnInvite[] } | null;
+
+      if (!response.ok) {
+        setError(payload?.error ?? "Could not revoke invite.");
+        return;
+      }
+
+      setInvites(payload?.invites ?? []);
+      setMessage("Invite revoked.");
+    });
+  }
+
   return (
     <div className="grid gap-5">
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
@@ -97,22 +119,25 @@ export function InviteSettingsClient({
       </section>
 
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Recent invite codes</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">Active invite codes</h2>
         <div className="mt-4 grid gap-3">
           {invites.length > 0 ? (
             invites.map((invite) => (
               <article className="module-card rounded-md p-4" key={invite.id}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <strong>{invite.codePreview}</strong>
-                  <span className="pill rounded-full px-3 py-1 text-xs">{invite.usedAt ? "Used" : invite.revokedAt ? "Revoked" : "Available"}</span>
+                  <span className="pill rounded-full px-3 py-1 text-xs">Available</span>
                 </div>
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   Recipient: {invite.recipientEmail ?? "Any email"} / Expires {new Date(invite.expiresAt).toLocaleDateString()}
                 </p>
+                <button className="btn-secondary mt-3 px-3 py-2 text-sm" disabled={isPending} onClick={() => revokeInvite(invite.id)} type="button">
+                  Revoke unused invite
+                </button>
               </article>
             ))
           ) : (
-            <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)]">No invite codes generated yet.</p>
+            <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)]">No active invite codes.</p>
           )}
         </div>
       </section>

@@ -403,6 +403,14 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
             <div className="rounded-md border border-dashed border-[var(--line)] bg-black/20 p-4">
               <p className="form-label">Generated code</p>
               <p className="mt-3 font-mono text-lg">{generatedInviteCode || "No code generated in this session."}</p>
+              {generatedInviteCode ? (
+                <Link
+                  className="btn-secondary mt-4 inline-flex"
+                  href={`/admin/actions/account-support?tool=create-user&inviteCode=${encodeURIComponent(generatedInviteCode)}`}
+                >
+                  Create User with this code
+                </Link>
+              ) : null}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2">
@@ -500,14 +508,14 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
           </div>
         </div>
         <div className="surface rounded-md p-5">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">Recent free account invite codes</h2>
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Active free account invite codes</h2>
           <div className="mt-4 grid gap-3">
             {(view.freeInvites ?? []).length > 0 ? (
               (view.freeInvites ?? []).map((invite) => (
                 <article className="rounded-md border border-[var(--line)] bg-black/10 p-4" key={invite.id}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <strong>{invite.codePreview}</strong>
-                    <span className="pill rounded-full px-3 py-1 text-xs">{invite.usedAt ? "Used" : invite.revokedAt ? "Revoked" : "Available"}</span>
+                    <span className="pill rounded-full px-3 py-1 text-xs">Available</span>
                   </div>
                   <p className="mt-2 text-sm text-[var(--muted)]">
                     Recipient: {invite.recipientEmail ?? "Any email"} - Assigned: {invite.assignedUserLabel ?? "No account"} - Expires {new Date(invite.expiresAt).toLocaleDateString()}
@@ -515,7 +523,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                 </article>
               ))
             ) : (
-              <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)]">No free account invite codes generated yet.</p>
+              <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)]">No active free account invite codes.</p>
             )}
           </div>
         </div>

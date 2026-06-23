@@ -30,11 +30,11 @@ export const settingsCards: SettingsCard[] = [
     badge: "Rules"
   },
   {
-    title: "Invite Controls",
-    description: "Invite eligibility, invite codes, and private membership invite tools.",
+    title: "My Invite Codes",
+    description: "Your invite eligibility and unused private membership invite codes.",
     href: "/secure-area?next=/settings/invite",
     sensitive: true,
-    badge: "Security"
+    badge: "Invites"
   }
 ];
 

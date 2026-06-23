@@ -55,12 +55,12 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["notifications", "dings", "quiet", "mail opt out", "alerts", "sounds"]
   },
   {
-    title: "Security > Invite Controls",
-    description: "Open invite eligibility, invite codes, and private membership invite controls.",
+    title: "Security > My Invite Codes",
+    description: "Open your invite eligibility and unused private membership invite codes.",
     href: "/secure-area?next=/settings/invite",
     badge: "secure",
     sensitive: true,
-    keywords: ["invite", "invite code", "new user", "membership invite", "eligibility"]
+    keywords: ["invite", "invite code", "my invite codes", "membership invite", "eligibility"]
   }
 ];
 

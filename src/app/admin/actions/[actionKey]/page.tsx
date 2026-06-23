@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { AdminAccountSupportWizard } from "@/components/admin-moderation/admin-account-support-wizard";
 import { AdminAnnouncementWizard } from "@/components/admin-moderation/admin-announcement-wizard";
 import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
 import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wizard";
@@ -19,7 +20,7 @@ export default async function AdminActionPage({
   searchParams
 }: {
   params: { actionKey: string };
-  searchParams?: { tool?: string };
+  searchParams?: { tool?: string; inviteCode?: string };
 }) {
   const session = await auth();
 
@@ -81,6 +82,14 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminAnnouncementWizard recentAnnouncements={recentAnnouncements} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "account-support") {
+    return (
+      <AppShell>
+        <AdminAccountSupportWizard inviteCode={searchParams?.inviteCode} mode={searchParams?.tool} />
       </AppShell>
     );
   }

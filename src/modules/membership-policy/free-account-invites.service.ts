@@ -28,6 +28,10 @@ const applyInviteSchema = z.object({
   userIdentifier: z.string().trim().min(2).max(180)
 });
 
+const revokeInviteSchema = z.object({
+  inviteId: z.string().min(1)
+});
+
 async function isAdminUser(userId?: string) {
   if (!userId) return false;
   const user = await prisma.user.findUnique({
@@ -103,6 +107,11 @@ async function sendInviteEmail(recipientEmail: string, code: string) {
 
 export async function listFreeAccountInviteAdminView() {
   const invites = await prisma.freeAccountInviteCode.findMany({
+    where: {
+      usedAt: null,
+      revokedAt: null,
+      expiresAt: { gt: new Date() }
+    },
     orderBy: { createdAt: "desc" },
     take: 25,
     include: {
@@ -130,7 +139,10 @@ export async function listFreeAccountInviteAdminView() {
 export async function listOwnFreeAccountInvites(userId: string) {
   const invites = await prisma.freeAccountInviteCode.findMany({
     where: {
-      generatedByUserId: userId
+      generatedByUserId: userId,
+      usedAt: null,
+      revokedAt: null,
+      expiresAt: { gt: new Date() }
     },
     orderBy: { createdAt: "desc" },
     take: 10
@@ -458,6 +470,49 @@ export async function applyFreeAccountInviteCodeToAccount(actorUserId: string, i
   });
 
   return { ok: true as const, userLabel: userLabel(user) };
+}
+
+export async function revokeOwnFreeAccountInviteCode(actorUserId: string, input: unknown) {
+  const parsed = revokeInviteSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid invite revoke request." };
+  }
+
+  const invite = await prisma.freeAccountInviteCode.findFirst({
+    where: {
+      id: parsed.data.inviteId,
+      generatedByUserId: actorUserId
+    }
+  });
+
+  if (!invite) {
+    return { ok: false as const, error: "Invite code was not found." };
+  }
+
+  if (invite.usedAt) {
+    return { ok: false as const, error: "Used invite codes cannot be revoked." };
+  }
+
+  if (invite.revokedAt) {
+    return { ok: false as const, error: "Invite code was already revoked." };
+  }
+
+  await prisma.freeAccountInviteCode.update({
+    where: { id: invite.id },
+    data: { revokedAt: new Date() }
+  });
+
+  await writeAuditLog({
+    actorUserId,
+    module: MODULE_KEY,
+    action: "member-free-invite.revoked",
+    targetType: "FreeAccountInviteCode",
+    targetId: invite.id,
+    severity: AuditSeverity.info
+  });
+
+  return { ok: true as const };
 }
 
 export async function findUsableFreeInviteForSignup(
