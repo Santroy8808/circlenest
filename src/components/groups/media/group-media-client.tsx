@@ -2,6 +2,7 @@
 
 import { GroupAssetKind } from "@prisma/client";
 import { useRef, useState } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { GroupAssetView } from "@/modules/group-media-docs/types";
 
 type UploadItem = {
@@ -25,29 +26,6 @@ type GroupMediaClientProps = {
   viewerCanUpload: boolean;
   viewerCanComment: boolean;
 };
-
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Upload network error."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type);
-    request.send(file);
-  });
-}
 
 function bytesLabel(value: string | number) {
   const bytes = typeof value === "string" ? Number(value) : value;
@@ -153,7 +131,14 @@ export function GroupMediaClient({
           throw new Error(intent.error ?? "Could not prepare upload.");
         }
 
-        await uploadWithProgress(intent.uploadUrl, item.file, (progress) => updateItem(item.id, { progress }));
+        await uploadWithResilientFallback({
+          uploadUrl: intent.uploadUrl,
+          storageKey: intent.storageKey,
+          file: item.file,
+          onProgress: (progress) => updateItem(item.id, { progress }),
+          proxyUrl: `/api/groups/${group.slug}/media/proxy-upload`,
+          fields: { kind: selectedKind }
+        });
 
         const completeResponse = await fetch(`/api/groups/${group.slug}/media/complete-upload`, {
           method: "POST",

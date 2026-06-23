@@ -3,6 +3,7 @@
 import { AdDestinationKind, AdPlacement, InterestCategory, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   adPlacementOptions,
   interestCategoryOptions,
@@ -32,27 +33,6 @@ export type InitialAdCampaignDraft = {
 const MAX_AD_IMAGE_BYTES = 10 * 1024 * 1024;
 const AD_IMAGE_GUIDANCE = "Recommended: 1200 x 675px, minimum 600 x 338px. JPG, PNG, GIF, or WEBP up to 10MB.";
 
-function uploadWithProgress(uploadUrl: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.upload.addEventListener("progress", (event) => {
-      if (!event.lengthComputable) return;
-      onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
-    });
-    request.addEventListener("load", () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error("The image upload did not finish."));
-      }
-    });
-    request.addEventListener("error", () => reject(new Error("The image upload could not reach storage.")));
-    request.open("PUT", uploadUrl);
-    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    request.send(file);
-  });
-}
-
 async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial<AdImageAttachment>) => void) {
   if (image.mediaAssetId) return image.mediaAssetId;
 
@@ -74,7 +54,12 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
     throw new Error(intent.error ?? "Could not prepare ad image upload.");
   }
 
-  await uploadWithProgress(intent.uploadUrl, image.file, (progress) => onUpdate({ progress }));
+  await uploadWithResilientFallback({
+    uploadUrl: intent.uploadUrl,
+    storageKey: intent.storageKey,
+    file: image.file,
+    onProgress: (progress) => onUpdate({ progress })
+  });
 
   const completeResponse = await fetch("/api/media/complete-upload", {
     method: "POST",

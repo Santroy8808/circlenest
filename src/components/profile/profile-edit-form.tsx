@@ -3,6 +3,7 @@
 import { MediaVisibility, ProfileVisibility } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
 type UploadState = {
@@ -11,29 +12,6 @@ type UploadState = {
   progress: number;
   error?: string;
 };
-
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Upload network error."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type);
-    request.send(file);
-  });
-}
 
 async function uploadAvatarOrBanner(
   file: File,
@@ -68,7 +46,12 @@ async function uploadAvatarOrBanner(
     throw new Error(intent.error ?? "Could not prepare upload.");
   }
 
-  await uploadWithProgress(intent.uploadUrl, file, options.onProgress);
+  await uploadWithResilientFallback({
+    uploadUrl: intent.uploadUrl,
+    storageKey: intent.storageKey,
+    file,
+    onProgress: options.onProgress
+  });
 
   const completeResponse = await fetch("/api/media/complete-upload", {
     method: "POST",

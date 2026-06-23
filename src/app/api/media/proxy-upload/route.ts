@@ -2,7 +2,30 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getR2Client, readR2Config } from "@/lib/platform/r2";
+import { MAX_CHAT_ATTACHMENT_BYTES } from "@/modules/chat-messages/types";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/modules/gallery-media-storage/types";
+import { MAX_MAIL_ATTACHMENT_BYTES } from "@/modules/mail/types";
+import { MAX_MARKET_PHOTO_BYTES } from "@/modules/market/types";
+
+function authorizedUploadTarget(storageKey: string, userId: string) {
+  if (storageKey.startsWith(`users/${userId}/my-pics/`)) {
+    return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true };
+  }
+
+  if (storageKey.startsWith(`users/${userId}/chat/`)) {
+    return { ok: true as const, maxBytes: MAX_CHAT_ATTACHMENT_BYTES, imageOnly: false };
+  }
+
+  if (storageKey.startsWith(`users/${userId}/mail/`)) {
+    return { ok: true as const, maxBytes: MAX_MAIL_ATTACHMENT_BYTES, imageOnly: false };
+  }
+
+  if (storageKey.startsWith(`market/${userId}/`)) {
+    return { ok: true as const, maxBytes: MAX_MARKET_PHOTO_BYTES, imageOnly: true };
+  }
+
+  return { ok: false as const };
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -20,16 +43,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Image file required." }, { status: 400 });
     }
 
-    if (!storageKey.startsWith(`users/${session.user.id}/my-pics/`)) {
+    const target = authorizedUploadTarget(storageKey, session.user.id);
+
+    if (!target.ok) {
       return NextResponse.json({ error: "Invalid upload target." }, { status: 400 });
     }
 
-    if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) {
+    if (target.imageOnly && !/^image\/(jpeg|png|gif|webp)$/.test(file.type)) {
       return NextResponse.json({ error: "Only JPG, PNG, GIF, or WebP images can be uploaded." }, { status: 400 });
     }
 
-    if (file.size <= 0 || file.size > MAX_IMAGE_UPLOAD_BYTES) {
-      return NextResponse.json({ error: "Image must be 10MB or smaller." }, { status: 400 });
+    if (file.size <= 0 || file.size > target.maxBytes) {
+      return NextResponse.json({ error: `Upload must be ${Math.round(target.maxBytes / (1024 * 1024))}MB or smaller.` }, { status: 400 });
     }
 
     const r2 = readR2Config();

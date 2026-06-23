@@ -3,6 +3,7 @@
 import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { BusinessCenterView, BusinessProfileView } from "@/modules/business-storefront/types";
 
 type FormState = {
@@ -27,29 +28,6 @@ type HeroUploadState = {
   status: "idle" | "uploading" | "done" | "error";
   error?: string;
 };
-
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Upload network error."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type);
-    request.send(file);
-  });
-}
 
 function initialForm(profile: BusinessProfileView | null): FormState {
   return {
@@ -114,7 +92,12 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         throw new Error(intent.error ?? "Could not prepare hero image upload.");
       }
 
-      await uploadWithProgress(intent.uploadUrl, file, (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" }));
+      await uploadWithResilientFallback({
+        uploadUrl: intent.uploadUrl,
+        storageKey: intent.storageKey,
+        file,
+        onProgress: (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" })
+      });
 
       const completeResponse = await fetch("/api/media/complete-upload", {
         method: "POST",

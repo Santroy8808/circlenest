@@ -3,6 +3,7 @@
 import { FeedReactionType, FeedVisibility, MediaVisibility } from "@prisma/client";
 import { useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { FeedCommentView, FeedPostView } from "@/modules/feed-stream/types";
 
 type FeedImageAttachment = {
@@ -52,51 +53,6 @@ const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [
 
 const emojiChoices = ["\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F64F}", "\u{1F525}", "\u{1F389}", "\u{1F44F}", "\u{1F4AF}", "\u{2728}", "\u{2615}"];
 
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Direct storage upload failed."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    request.send(file);
-  });
-}
-
-async function uploadThroughServerFallback(
-  storageKey: string,
-  file: File,
-  onProgress: (progress: number) => void
-) {
-  const formData = new FormData();
-  formData.set("storageKey", storageKey);
-  formData.set("file", file);
-
-  onProgress(45);
-  const response = await fetch("/api/media/proxy-upload", {
-    method: "POST",
-    body: formData
-  });
-  onProgress(95);
-  const payload = (await response.json().catch(() => ({}))) as { error?: string };
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "Image upload could not reach storage. Check connection and try again.");
-  }
-}
-
 function createImageAttachment(file: File): FeedImageAttachment {
   return {
     file,
@@ -125,11 +81,12 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
     throw new Error(intent.error ?? "Could not prepare image upload.");
   }
 
-  try {
-    await uploadWithProgress(intent.uploadUrl, image.file, (progress) => onUpdate({ progress }));
-  } catch {
-    await uploadThroughServerFallback(intent.storageKey, image.file, (progress) => onUpdate({ progress }));
-  }
+  await uploadWithResilientFallback({
+    uploadUrl: intent.uploadUrl,
+    storageKey: intent.storageKey,
+    file: image.file,
+    onProgress: (progress) => onUpdate({ progress })
+  });
 
   const completeResponse = await fetch("/api/media/complete-upload", {
     method: "POST",

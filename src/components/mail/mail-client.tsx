@@ -2,6 +2,7 @@
 
 import { MailDeliveryKind } from "@prisma/client";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type {
   MailAttachmentView,
   MailFolder,
@@ -28,29 +29,6 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Upload network error."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    request.send(file);
-  });
 }
 
 function MailAttachmentPreview({ attachment }: { attachment: MailAttachmentView }) {
@@ -193,7 +171,12 @@ export function MailClient({
       throw new Error(intent.error ?? "Could not prepare attachment.");
     }
 
-    await uploadWithProgress(intent.uploadUrl, item.file, (progress) => updateAttachment(item.id, { progress }));
+    await uploadWithResilientFallback({
+      uploadUrl: intent.uploadUrl,
+      storageKey: intent.storageKey,
+      file: item.file,
+      onProgress: (progress) => updateAttachment(item.id, { progress })
+    });
 
     const completeResponse = await fetch("/api/mail/complete-upload", {
       method: "POST",

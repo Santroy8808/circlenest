@@ -3,6 +3,7 @@
 import { MarketListingCategory } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { marketCategoryOptions, type MarketCreateState } from "@/modules/market/types";
 
 type UploadItem = {
@@ -14,29 +15,6 @@ type UploadItem = {
   mediaAssetId?: string;
   error?: string;
 };
-
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Upload network error."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type);
-    request.send(file);
-  });
-}
 
 function parsePriceCents(value: string) {
   const clean = value.trim();
@@ -101,7 +79,12 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
         throw new Error(intent.error ?? "Could not prepare photo upload.");
       }
 
-      await uploadWithProgress(intent.uploadUrl, item.file, (progress) => updateItem(item.id, { progress }));
+      await uploadWithResilientFallback({
+        uploadUrl: intent.uploadUrl,
+        storageKey: intent.storageKey,
+        file: item.file,
+        onProgress: (progress) => updateItem(item.id, { progress })
+      });
 
       const completeResponse = await fetch("/api/market/photos/complete-upload", {
         method: "POST",

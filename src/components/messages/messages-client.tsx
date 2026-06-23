@@ -2,6 +2,7 @@
 
 import { ChatThreadType } from "@prisma/client";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type {
   ChatAttachmentView,
   ChatMessageView,
@@ -18,29 +19,6 @@ type QueuedAttachment = {
   status: "queued" | "uploading" | "done" | "error";
   error?: string;
 };
-
-function uploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with ${request.status}.`));
-      }
-    };
-    request.onerror = () => reject(new Error("Upload network error."));
-    request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    request.send(file);
-  });
-}
 
 function initials(name: string) {
   return name
@@ -190,7 +168,12 @@ export function MessagesClient({
       throw new Error(intent.error ?? "Could not prepare attachment.");
     }
 
-    await uploadWithProgress(intent.uploadUrl, item.file, (progress) => updateAttachment(item.id, { progress }));
+    await uploadWithResilientFallback({
+      uploadUrl: intent.uploadUrl,
+      storageKey: intent.storageKey,
+      file: item.file,
+      onProgress: (progress) => updateAttachment(item.id, { progress })
+    });
 
     const completeResponse = await fetch("/api/chat/complete-upload", {
       method: "POST",

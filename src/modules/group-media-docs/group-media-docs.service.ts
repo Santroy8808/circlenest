@@ -50,7 +50,7 @@ function dateSlug(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-async function getGroupMediaContext(viewerUserId: string, groupIdOrSlug: string) {
+export async function getGroupMediaContext(viewerUserId: string, groupIdOrSlug: string) {
   const [viewer, group] = await Promise.all([
     prisma.user.findUnique({
       where: { id: viewerUserId },
@@ -90,7 +90,7 @@ async function getGroupMediaContext(viewerUserId: string, groupIdOrSlug: string)
   };
 }
 
-async function currentGroupStorageBytes(groupId: string) {
+export async function currentGroupStorageBytes(groupId: string) {
   const assets = await prisma.groupAsset.findMany({
     where: {
       groupId,
