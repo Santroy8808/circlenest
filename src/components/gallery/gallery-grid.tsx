@@ -18,9 +18,9 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     <section className="gallery-grid">
       {assets.map((asset) => (
         <article key={asset.id} className="gallery-tile">
-          {asset.publicUrl ? (
+          {asset.publicUrl || asset.id ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img alt={asset.originalName ?? "Gallery photo"} src={asset.publicUrl} />
+            <img alt={asset.originalName ?? "Gallery photo"} src={asset.publicUrl ?? `/api/media/assets/${asset.id}`} />
           ) : (
             <div className="gallery-tile-fallback">No preview</div>
           )}
