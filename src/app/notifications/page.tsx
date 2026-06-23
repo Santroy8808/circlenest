@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { NoticeList } from "@/components/notifications/notice-list";
+import { NotificationsClient } from "@/components/notifications/notifications-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { listNotifications } from "@/modules/notifications-alerts/notifications-alerts.service";
 
@@ -23,7 +23,7 @@ export default async function NotificationsPage() {
         </p>
       </section>
       <div className="mt-5">
-        <NoticeList emptyTitle="No notifications yet" items={items} />
+        <NotificationsClient initialItems={items} />
       </div>
     </AppShell>
   );

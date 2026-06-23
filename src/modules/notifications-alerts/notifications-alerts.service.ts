@@ -147,6 +147,15 @@ export async function markNotificationRead(userId: string, notificationId: strin
   return { ok: true as const };
 }
 
+export async function markAllNotificationsRead(userId: string) {
+  await prisma.notification.updateMany({
+    where: { userId, readAt: null },
+    data: { readAt: new Date() }
+  });
+
+  return { ok: true as const };
+}
+
 export async function markAlertRead(userId: string, alertId: string) {
   await prisma.alert.updateMany({
     where: { id: alertId, userId },
