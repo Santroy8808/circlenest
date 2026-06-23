@@ -2125,6 +2125,25 @@ a {
   margin-bottom: 6px;
 }
 
+.chat-message-meta-right {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.chat-delivery-mark {
+  color: var(--gold);
+  filter: drop-shadow(0 0 6px rgba(255, 216, 95, 0.45));
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+}
+
+.chat-message:not(.is-mine) .chat-delivery-mark {
+  color: rgba(220, 230, 246, 0.88);
+}
+
 .chat-composer {
   background:
     linear-gradient(180deg, rgba(8, 13, 23, 0.18), rgba(8, 13, 23, 0.74)),

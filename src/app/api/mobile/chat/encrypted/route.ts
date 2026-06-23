@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireMobileSession } from "@/lib/platform/mobile-auth";
 import { prisma } from "@/lib/platform/db";
+import { diagnostics } from "@/lib/platform/logging";
+import { mirrorThetaCommMessageToDesktopChat } from "@/modules/chat-messages/chat-messages.service";
 
 type EnvelopeInput = {
   recipientUserId?: string;
@@ -54,6 +56,7 @@ export async function POST(request: NextRequest) {
   const senderDeviceId = typeof body.senderDeviceId === "string" ? body.senderDeviceId.trim() : "";
   const threadId = typeof body.threadId === "string" ? body.threadId.trim() : "";
   const targetUserId = typeof body.targetUserId === "string" ? body.targetUserId.trim() : "";
+  const desktopMirrorBody = typeof body.desktopMirrorBody === "string" ? body.desktopMirrorBody.trim() : "";
   const envelopes = Array.isArray(body.envelopes) ? (body.envelopes as EnvelopeInput[]) : [];
 
   if (!senderDeviceId || envelopes.length === 0) {
@@ -144,6 +147,23 @@ export async function POST(request: NextRequest) {
 
     return created;
   });
+
+  if (desktopMirrorBody) {
+    try {
+      await mirrorThetaCommMessageToDesktopChat({
+        senderUserId: session.user.id,
+        participantUserIds: Array.from(participantIds),
+        body: desktopMirrorBody
+      });
+    } catch (error) {
+      await diagnostics.warn("mobile-chat", "Could not mirror ThetaComm message to desktop chat.", {
+        userId: session.user.id,
+        encryptedThreadId: thread.id,
+        encryptedMessageId: message.id,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+    }
+  }
 
   return NextResponse.json({
     message: {

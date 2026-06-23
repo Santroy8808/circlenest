@@ -93,6 +93,17 @@ function toMessageView(
   };
 }
 
+function messageDeliveryState(
+  currentUserId: string,
+  message: { senderUserId: string; createdAt: Date },
+  participants: Array<{ userId: string; lastReadAt: Date | null }>
+) {
+  if (message.senderUserId !== currentUserId) return undefined;
+  const recipients = participants.filter((participant) => participant.userId !== currentUserId);
+  if (recipients.length === 0) return "SENT" as const;
+  return recipients.every((participant) => participant.lastReadAt && participant.lastReadAt >= message.createdAt) ? "SEEN" : "SENT";
+}
+
 function titleForThread(
   currentUserId: string,
   thread: Prisma.ChatThreadGetPayload<{
@@ -159,7 +170,10 @@ function toThreadDetailView(
 ): ChatThreadDetailView {
   return {
     ...toThreadView(currentUserId, thread),
-    messages: [...thread.messages].reverse().map(toMessageView)
+    messages: [...thread.messages].reverse().map((message) => ({
+      ...toMessageView(message),
+      deliveryState: messageDeliveryState(currentUserId, message, thread.participants)
+    }))
   };
 }
 
@@ -353,6 +367,112 @@ async function mirrorDesktopMessageToThetaComm(
       where: { id: encryptedThread.id },
       data: { lastMessageAt: created.createdAt }
     });
+  });
+}
+
+export async function mirrorThetaCommMessageToDesktopChat(input: {
+  senderUserId: string;
+  participantUserIds: string[];
+  body?: string;
+}) {
+  const participantUserIds = Array.from(new Set([input.senderUserId, ...input.participantUserIds])).filter(Boolean).sort();
+  const body = input.body?.trim();
+
+  if (participantUserIds.length !== 2 || !body) return;
+
+  const targetUserId = participantUserIds.find((userId) => userId !== input.senderUserId);
+  if (!targetUserId) return;
+
+  const target = await prisma.user.findFirst({
+    where: {
+      id: targetUserId,
+      deactivatedAt: null
+    },
+    select: { id: true }
+  });
+
+  if (!target || (await isBlockedBetween(input.senderUserId, target.id))) return;
+
+  const candidates = await prisma.chatThread.findMany({
+    where: {
+      type: ChatThreadType.DIRECT,
+      participants: { some: { userId: input.senderUserId } },
+      AND: [{ participants: { some: { userId: target.id } } }]
+    },
+    include: { participants: true },
+    take: 10
+  });
+  const existing = candidates.find((thread) => thread.participants.length === 2);
+
+  const now = new Date();
+  const thread =
+    existing ??
+    (await prisma.chatThread.create({
+      data: {
+        type: ChatThreadType.DIRECT,
+        createdByUserId: input.senderUserId,
+        participants: {
+          create: [
+            { userId: input.senderUserId, lastReadAt: now },
+            { userId: target.id }
+          ]
+        }
+      },
+      include: { participants: true }
+    }));
+
+  const message = await prisma.$transaction(async (tx) => {
+    await tx.chatParticipant.updateMany({
+      where: {
+        threadId: thread.id,
+        userId: { in: participantUserIds }
+      },
+      data: { archivedAt: null }
+    });
+
+    const created = await tx.chatMessage.create({
+      data: {
+        threadId: thread.id,
+        senderUserId: input.senderUserId,
+        body
+      },
+      include: {
+        sender: { include: { profile: true } },
+        attachments: { include: { mediaAsset: true } }
+      }
+    });
+
+    await tx.chatThread.update({
+      where: { id: thread.id },
+      data: { lastMessageAt: created.createdAt }
+    });
+
+    await tx.chatParticipant.updateMany({
+      where: {
+        threadId: thread.id,
+        userId: input.senderUserId
+      },
+      data: { lastReadAt: created.createdAt }
+    });
+
+    return created;
+  });
+
+  const sender = toPersonView(message.sender);
+  await prisma.notification.create({
+    data: {
+      userId: target.id,
+      title: `New chat from ${sender.displayName}`,
+      body: body.slice(0, 180),
+      href: `/messages?thread=${thread.id}`
+    }
+  });
+
+  await diagnostics.info(MODULE_KEY, "ThetaComm message mirrored to desktop chat.", {
+    senderUserId: input.senderUserId,
+    targetUserId: target.id,
+    threadId: thread.id,
+    messageId: message.id
   });
 }
 

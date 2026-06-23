@@ -40,6 +40,13 @@ function shortMessagePreview(message?: ChatMessageView | null) {
   return preview.length > 30 ? `${preview.slice(0, 30).trimEnd()}...` : preview;
 }
 
+function deliveryMark(message: ChatMessageView) {
+  if (message.deliveryState === "FAILED") return "!";
+  if (message.deliveryState === "SENDING") return "θ...";
+  if (message.deliveryState === "SEEN") return "θθ";
+  return "θ";
+}
+
 function AttachmentPreview({ attachment }: { attachment: ChatAttachmentView }) {
   if (attachment.kind === "IMAGE" && attachment.publicUrl) {
     return (
@@ -68,6 +75,7 @@ export function MessagesClient({
   initialThreads: ChatThreadView[];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
   const [threads, setThreads] = useState(initialThreads);
   const [selectedThread, setSelectedThread] = useState<ChatThreadDetailView | null>(initialSelectedThread ?? null);
   const [threadQuery, setThreadQuery] = useState("");
@@ -99,13 +107,13 @@ export function MessagesClient({
     }
   }
 
-  async function loadThread(threadId: string) {
-    setError("");
+  async function loadThread(threadId: string, options?: { silent?: boolean }) {
+    if (!options?.silent) setError("");
     const response = await fetch(`/api/chat/threads/${threadId}`, { cache: "no-store" });
     const payload = (await response.json()) as { error?: string; thread?: ChatThreadDetailView };
 
     if (!response.ok || !payload.thread) {
-      setError(payload.error ?? "Could not open chat.");
+      if (!options?.silent) setError(payload.error ?? "Could not open chat.");
       return;
     }
 
@@ -113,6 +121,37 @@ export function MessagesClient({
     await fetch(`/api/chat/threads/${threadId}/read`, { method: "POST" });
     await refreshThreads();
   }
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshThreads();
+    }, 7000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedThread?.id) return;
+
+    const interval = window.setInterval(() => {
+      void (async () => {
+        const response = await fetch(`/api/chat/threads/${selectedThread.id}`, { cache: "no-store" });
+        const payload = (await response.json()) as { thread?: ChatThreadDetailView };
+        if (response.ok && payload.thread) {
+          setSelectedThread(payload.thread);
+          await fetch(`/api/chat/threads/${selectedThread.id}/read`, { method: "POST" });
+        }
+      })();
+    }, 3500);
+
+    return () => window.clearInterval(interval);
+  }, [selectedThread?.id]);
+
+  useEffect(() => {
+    const list = messageListRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+  }, [selectedThread?.id, selectedThread?.messages.length]);
 
   function startDirectChat(person: ChatPersonView) {
     setError("");
@@ -200,6 +239,34 @@ export function MessagesClient({
     if (!selectedThread) return;
 
     setError("");
+    const bodyToSend = body.trim();
+    const optimisticId = `local-${crypto.randomUUID()}`;
+    const optimisticSender =
+      selectedThread.participants.find((participant) => participant.id === currentUserId) ??
+      ({ id: currentUserId, username: "you", displayName: "You", avatarUrl: null, tagline: null } satisfies ChatPersonView);
+
+    if (bodyToSend) {
+      setSelectedThread((current) =>
+        current
+          ? {
+              ...current,
+              messages: [
+                ...current.messages,
+                {
+                  id: optimisticId,
+                  body: bodyToSend,
+                  createdAt: new Date().toISOString(),
+                  sender: optimisticSender,
+                  attachments: [],
+                  deliveryState: "SENDING"
+                }
+              ]
+            }
+          : current
+      );
+      setBody("");
+    }
+
     startTransition(async () => {
       try {
         const uploaded = [];
@@ -213,7 +280,7 @@ export function MessagesClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             threadId: selectedThread.id,
-            body,
+            body: bodyToSend,
             attachments: uploaded
           })
         });
@@ -223,13 +290,34 @@ export function MessagesClient({
           throw new Error(payload.error ?? "Could not send message.");
         }
 
+        const savedMessage = payload.message;
         setSelectedThread((current) =>
-          current ? { ...current, messages: [...current.messages, payload.message as ChatMessageView] } : current
+          current
+            ? {
+                ...current,
+                messages: current.messages.some((message) => message.id === optimisticId)
+                  ? current.messages.map((message) =>
+                      message.id === optimisticId
+                        ? ({ ...savedMessage, deliveryState: savedMessage.deliveryState ?? "SENT" } as ChatMessageView)
+                        : message
+                    )
+                  : [...current.messages, savedMessage as ChatMessageView]
+              }
+            : current
         );
-        setBody("");
         setAttachments([]);
         await refreshThreads();
       } catch (caught) {
+        setSelectedThread((current) =>
+          current
+            ? {
+                ...current,
+                messages: current.messages.map((message) =>
+                  message.id === optimisticId ? { ...message, deliveryState: "FAILED" } : message
+                )
+              }
+            : current
+        );
         setError(caught instanceof Error ? caught.message : "Could not send message.");
       }
     });
@@ -343,7 +431,7 @@ export function MessagesClient({
               </div>
             </header>
 
-            <div className="chat-message-list">
+            <div className="chat-message-list" ref={messageListRef}>
               {selectedThread.messages.length === 0 ? (
                 <div className="chat-empty-state">
                   <h3 className="text-xl font-semibold text-[var(--gold)]">No messages yet</h3>
@@ -356,7 +444,14 @@ export function MessagesClient({
                   <article className={isMine ? "chat-message is-mine" : "chat-message"} key={message.id}>
                     <div className="chat-message-meta">
                       <span>{isMine ? "You" : message.sender.displayName}</span>
-                      <span>{new Date(message.createdAt).toLocaleString()}</span>
+                      <span className="chat-message-meta-right">
+                        <span>{new Date(message.createdAt).toLocaleString()}</span>
+                        {isMine ? (
+                          <span className="chat-delivery-mark" title={message.deliveryState?.toLowerCase() ?? "sent"}>
+                            {deliveryMark(message)}
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
                     {message.body ? <p className="whitespace-pre-wrap">{message.body}</p> : null}
                     {message.attachments.length > 0 ? (

@@ -66,6 +66,7 @@ export type ChatMessageView = {
   createdAt: string;
   sender: ChatPersonView;
   attachments: ChatAttachmentView[];
+  deliveryState?: "SENDING" | "SENT" | "SEEN" | "FAILED";
 };
 
 export type ChatThreadView = {
