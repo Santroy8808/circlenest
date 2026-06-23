@@ -217,6 +217,14 @@ a {
     transform 160ms ease;
 }
 
+.control-panel-action {
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
 .control-panel-link:hover,
 .control-panel-link.is-active {
   border-color: rgba(214, 178, 74, 0.32);

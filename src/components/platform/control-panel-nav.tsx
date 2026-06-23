@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -8,8 +9,9 @@ type NavCountKey = "messages" | "mail" | "notifications" | "alerts";
 
 export type NavItem = {
   label: string;
-  href: string;
+  href?: string;
   countKey?: NavCountKey;
+  action?: "logout";
 };
 
 export type NavSection = {
@@ -30,10 +32,14 @@ function matchesPath(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }
 
+function itemMatchesPath(pathname: string, item: NavItem) {
+  return item.href ? matchesPath(pathname, item.href) : false;
+}
+
 export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const pathname = usePathname();
   const activeSection = useMemo(
-    () => sections.find((section) => section.items.some((item) => matchesPath(pathname, item.href)))?.label ?? sections[0]?.label ?? "",
+    () => sections.find((section) => section.items.some((item) => itemMatchesPath(pathname, item)))?.label ?? sections[0]?.label ?? "",
     [pathname, sections]
   );
   const [openSection, setOpenSection] = useState(activeSection);
@@ -72,14 +78,28 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
             >
               <div className="control-panel-items-inner">
                 {section.items.map((item) => {
-                  const isActive = matchesPath(pathname, item.href);
+                  const isActive = itemMatchesPath(pathname, item);
                   const count = item.countKey ? counts[item.countKey] : 0;
+
+                  if (item.action === "logout") {
+                    return (
+                      <button
+                        className="control-panel-link control-panel-action"
+                        key={item.label}
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        tabIndex={isOpen ? undefined : -1}
+                        type="button"
+                      >
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  }
 
                   return (
                     <Link
                       className={isActive ? "control-panel-link is-active" : "control-panel-link"}
-                      href={item.href}
-                      key={item.href}
+                      href={item.href ?? "/"}
+                      key={item.href ?? item.label}
                       tabIndex={isOpen ? undefined : -1}
                     >
                       <span>{item.label}</span>

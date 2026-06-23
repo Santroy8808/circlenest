@@ -15,7 +15,8 @@ const homeSection: NavSection = {
     { label: "My Stream", href: "/home" },
     { label: "My Pics", href: "/profile/gallery" },
     { label: "Search", href: "/search" },
-    { label: "Membership", href: "/membership" }
+    { label: "Membership", href: "/membership" },
+    { label: "Logout", action: "logout" }
   ]
 };
 
