@@ -57,6 +57,11 @@ function messagePreview(message?: ChatMessageView | null) {
   return `${message.attachments.length} attachment${message.attachments.length === 1 ? "" : "s"}`;
 }
 
+function shortMessagePreview(message?: ChatMessageView | null) {
+  const preview = messagePreview(message);
+  return preview.length > 30 ? `${preview.slice(0, 30).trimEnd()}...` : preview;
+}
+
 function AttachmentPreview({ attachment }: { attachment: ChatAttachmentView }) {
   if (attachment.kind === "IMAGE" && attachment.publicUrl) {
     return (
@@ -310,7 +315,7 @@ export function MessagesClient({
               <span className="chat-avatar">{initials(thread.title)}</span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold">{thread.title}</span>
-                <span className="block truncate text-sm text-[var(--muted)]">{messagePreview(thread.lastMessage)}</span>
+                <span className="block truncate text-sm text-[var(--muted)]">{shortMessagePreview(thread.lastMessage)}</span>
               </span>
               {thread.unread ? <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
             </button>

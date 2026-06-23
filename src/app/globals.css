@@ -1903,11 +1903,13 @@ a {
 }
 
 .chat-thread-list {
-  display: grid;
   flex: 1;
-  gap: 10px;
   overflow: auto;
   padding: 0 14px 16px;
+}
+
+.chat-thread-list > * + * {
+  margin-top: 10px;
 }
 
 .chat-thread-card,
@@ -1923,6 +1925,18 @@ a {
   padding: 12px;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
   width: 100%;
+}
+
+.chat-thread-card {
+  height: 76px;
+  max-height: 76px;
+  min-height: 76px;
+}
+
+.chat-thread-card .chat-avatar {
+  flex-basis: 46px;
+  height: 46px;
+  width: 46px;
 }
 
 .chat-thread-card:hover,
