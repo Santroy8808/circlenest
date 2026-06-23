@@ -31,6 +31,14 @@ const shortcutEntries: AdminSearchEntry[] = [
     keywords: ["promotional access", "temporary tier", "free upgrade", "contributor trial", "professional trial"]
   },
   {
+    href: "/admin/actions/status-change",
+    title: "Membership > Status Change",
+    category: "Membership",
+    description: "Permanently change an account's membership tier.",
+    badge: "tier",
+    keywords: ["membership", "tier", "status change", "account status", "free", "contributor", "professional", "auditor"]
+  },
+  {
     href: "/admin/actions/launch-access?tool=founder-pricing",
     title: "Launch Access > Founder Pricing",
     category: "Membership",

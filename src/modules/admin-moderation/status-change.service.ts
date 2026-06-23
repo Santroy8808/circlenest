@@ -1,0 +1,169 @@
+import { AuditSeverity, MembershipTier, Prisma, UserRole } from "@prisma/client";
+import { z } from "zod";
+import { writeAuditLog } from "@/lib/platform/audit";
+import { prisma } from "@/lib/platform/db";
+import { diagnostics } from "@/lib/platform/logging";
+import { getTierPolicy } from "@/modules/membership-policy/policy";
+
+const MODULE_KEY = "admin-status-change";
+
+export const statusChangeSchema = z.object({
+  userIdentifier: z.string().trim().min(1).max(160),
+  targetTier: z.nativeEnum(MembershipTier),
+  reason: z.string().trim().min(5).max(500)
+});
+
+async function isAdminUser(userId?: string) {
+  if (!userId) return false;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true }
+  });
+
+  return user?.role === UserRole.ADMIN;
+}
+
+function normalizeIdentifier(value: string) {
+  return value.trim().replace(/^@/, "").toLowerCase();
+}
+
+export async function findStatusChangeAccount(identifier: string) {
+  const normalized = normalizeIdentifier(identifier);
+
+  if (!normalized) return null;
+
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: normalized }, { username: normalized }]
+    },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+      profile: {
+        select: {
+          displayName: true
+        }
+      },
+      membership: {
+        select: {
+          tier: true,
+          storageLimitBytes: true,
+          platformCredits: true
+        }
+      }
+    }
+  });
+
+  if (!user) return null;
+
+  const currentTier = user.membership?.tier ?? MembershipTier.FREE;
+  const policy = getTierPolicy(currentTier);
+
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    displayName: user.profile?.displayName ?? user.username,
+    role: user.role,
+    tier: currentTier,
+    tierName: policy.displayName,
+    storageLimitBytes: (user.membership?.storageLimitBytes ?? BigInt(policy.limits.storageLimitBytes)).toString(),
+    platformCredits: user.membership?.platformCredits ?? 0
+  };
+}
+
+export async function changeMembershipStatus(actorUserId: string, input: unknown) {
+  if (!(await isAdminUser(actorUserId))) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+
+  const parsed = statusChangeSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid status change." };
+  }
+
+  const target = await findStatusChangeAccount(parsed.data.userIdentifier);
+
+  if (!target) {
+    return { ok: false as const, error: "User was not found." };
+  }
+
+  if (target.tier === parsed.data.targetTier) {
+    return { ok: false as const, error: "Account is already on that membership tier." };
+  }
+
+  const targetPolicy = getTierPolicy(parsed.data.targetTier);
+  const previousTier = target.tier;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const membership = await tx.membership.upsert({
+      where: { userId: target.id },
+      update: {
+        tier: parsed.data.targetTier,
+        storageLimitBytes: BigInt(targetPolicy.limits.storageLimitBytes)
+      },
+      create: {
+        userId: target.id,
+        tier: parsed.data.targetTier,
+        storageLimitBytes: BigInt(targetPolicy.limits.storageLimitBytes)
+      },
+      select: {
+        tier: true,
+        storageLimitBytes: true,
+        platformCredits: true
+      }
+    });
+
+    await tx.adminAction.create({
+      data: {
+        actorUserId,
+        actionKey: "status-change",
+        module: MODULE_KEY,
+        status: "completed",
+        metadata: {
+          targetUserId: target.id,
+          previousTier,
+          targetTier: parsed.data.targetTier,
+          reason: parsed.data.reason
+        } as Prisma.InputJsonObject
+      }
+    });
+
+    return membership;
+  });
+
+  await writeAuditLog({
+    actorUserId,
+    module: MODULE_KEY,
+    action: "membership.status.changed",
+    targetType: "User",
+    targetId: target.id,
+    severity: AuditSeverity.warning,
+    metadata: {
+      previousTier,
+      targetTier: updated.tier,
+      reason: parsed.data.reason,
+      storageLimitBytes: updated.storageLimitBytes.toString()
+    } as Prisma.InputJsonObject
+  });
+  await diagnostics.info(MODULE_KEY, "Admin changed membership status.", {
+    actorUserId,
+    targetUserId: target.id,
+    previousTier,
+    targetTier: updated.tier
+  });
+
+  return {
+    ok: true as const,
+    account: {
+      ...target,
+      tier: updated.tier,
+      tierName: targetPolicy.displayName,
+      storageLimitBytes: updated.storageLimitBytes.toString(),
+      platformCredits: updated.platformCredits
+    }
+  };
+}

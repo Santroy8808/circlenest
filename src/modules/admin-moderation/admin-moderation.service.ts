@@ -43,6 +43,19 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
+    key: "status-change",
+    title: "Status Change",
+    description: "Change an account's permanent membership tier without changing admin role or real-money balances.",
+    risk: "high",
+    keywords: ["membership", "tier", "status", "change tier", "free", "contributor", "professional", "auditor", "account status"],
+    steps: [
+      "Search for the account by email or username.",
+      "Review the current membership tier and account role.",
+      "Choose Free, Contributor, Professional, or Auditor.",
+      "Confirm the audit reason, update membership status, and write audit log."
+    ]
+  },
+  {
     key: "launch-access",
     title: "Launch Access",
     description: "Manage founder pricing, ad-experience guardrails, and temporary Free-to-Contributor/Professional promotional access.",

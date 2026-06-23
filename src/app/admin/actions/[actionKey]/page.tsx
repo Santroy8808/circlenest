@@ -6,6 +6,7 @@ import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wi
 import { AdminLaunchAccessWizard } from "@/components/admin-moderation/admin-launch-access-wizard";
 import { AdminPlatformCreditsWizard } from "@/components/admin-moderation/admin-platform-credits-wizard";
 import { AdminPricingWizard } from "@/components/admin-moderation/admin-pricing-wizard";
+import { AdminStatusChangeWizard } from "@/components/admin-moderation/admin-status-change-wizard";
 import { AppShell } from "@/components/platform/app-shell";
 import { listRecentPublicAnnouncements } from "@/modules/admin-moderation/announcements.service";
 import { getAdminActionCard, getAdminFeedbackTicketQueue, isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
@@ -62,6 +63,14 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminPlatformCreditsWizard recentLedger={view.recentLedger} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "status-change") {
+    return (
+      <AppShell>
+        <AdminStatusChangeWizard />
       </AppShell>
     );
   }

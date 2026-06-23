@@ -8,7 +8,10 @@ Provide safe administrative and moderation operations through guided cards and w
 
 - `/admin` for the admin portal.
 - `/admin/actions/[actionKey]` for literal guided action walkthroughs.
-- `/api/admin/feature-flags` for the first live audited admin mutation.
+- `/api/admin/feature-flags` for feature switches.
+- `/api/admin/status-change` for audited membership tier changes.
+- `/api/admin/platform-credits` for platform-only credit adjustments.
+- `/api/admin/announcements` for public announcement publishing.
 
 ## Primary Code Areas
 
@@ -31,6 +34,9 @@ Provide safe administrative and moderation operations through guided cards and w
 - Admin chooses an action card.
 - Action opens a wizard with explicit steps and risk label.
 - Feature flag wizard can save a flag and writes `AdminAction` plus `AuditLog`.
+- Status Change wizard permanently changes a member's tier without changing admin role or real-money balances.
+- Platform Credits wizard grants/removes platform-only credits with ledger and audit records.
+- Public Announcement wizard publishes notices through selected delivery channels.
 - Other action wizards define safe flow until their mutation policies are explicit.
 
 ## Access Rules
@@ -45,6 +51,7 @@ Provide safe administrative and moderation operations through guided cards and w
 - Session revocation.
 - Email verification resend.
 - Feature flags.
+- Status Change membership tier wizard.
 - View-as-role preview.
 - Audit viewer.
 - Reports queue.
@@ -59,7 +66,7 @@ Provide safe administrative and moderation operations through guided cards and w
 
 ## Diagnostics And Audit
 
-- Feature flag updates write `AdminAction`, `AuditLog`, and diagnostic logs.
+- Feature flag, Status Change, Platform Credits, and Public Announcement updates write `AdminAction`, `AuditLog`, and diagnostic logs.
 - Portal reads recent audit and diagnostic entries.
 
 ## Smoke Checklist
@@ -67,4 +74,5 @@ Provide safe administrative and moderation operations through guided cards and w
 - `/admin` redirects logged-out users to login.
 - Non-admin users cannot see admin portal.
 - Feature flag update writes audit/admin action.
+- Status Change can find a member, change tier, reset storage limit to the selected tier policy, and write audit/admin action.
 - Dashboard shows Phase 24 as Ready and Phase 25 as Next.
