@@ -443,10 +443,12 @@ export function MessagesClient({
                 </div>
               ) : null}
               {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-              <button className="btn-primary send-logo-button mt-4" disabled={isPending || (!body.trim() && attachments.length === 0)} type="submit">
-                <span aria-hidden="true" className="send-logo-icon" />
-                <span className="sr-only">{isPending ? "Sending..." : "Send"}</span>
-              </button>
+              <div className="mt-4 flex justify-end">
+                <button className="btn-primary send-logo-button" disabled={isPending || (!body.trim() && attachments.length === 0)} type="submit">
+                  <span aria-hidden="true" className="send-logo-icon" />
+                  <span className="sr-only">{isPending ? "Sending..." : "Send"}</span>
+                </button>
+              </div>
             </form>
           </>
         ) : (
