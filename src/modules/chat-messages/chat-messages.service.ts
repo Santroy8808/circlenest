@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { constants, createPublicKey, publicEncrypt, randomBytes } from "crypto";
 import {
   ChatAttachmentKind,
   ChatThreadType,
@@ -24,6 +24,7 @@ import {
 
 const MODULE_KEY = "chat-messages";
 const CHAT_DB_TIMEOUT_MS = 2500;
+const DESKTOP_BRIDGE_DEVICE_ID = "theta-space-desktop-bridge";
 
 function withChatDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -188,6 +189,171 @@ async function isBlockedBetween(firstUserId: string, secondUserId: string) {
   });
 
   return Boolean(relationship);
+}
+
+function encryptForMobileDevice(publicKey: string, body: string) {
+  const key = createPublicKey({
+    key: Buffer.from(publicKey, "base64"),
+    format: "der",
+    type: "spki"
+  });
+
+  return publicEncrypt(
+    {
+      key,
+      padding: constants.RSA_PKCS1_PADDING
+    },
+    Buffer.from(body, "utf8")
+  ).toString("base64");
+}
+
+async function findOrCreateEncryptedThreadForParticipants(participantUserIds: string[]) {
+  const uniqueUserIds = Array.from(new Set(participantUserIds)).sort();
+  if (uniqueUserIds.length < 2) return null;
+
+  const candidates = await prisma.encryptedChatThread.findMany({
+    where: {
+      AND: uniqueUserIds.map((userId) => ({
+        participants: { some: { userId } }
+      }))
+    },
+    include: { participants: true },
+    take: 10
+  });
+
+  const existing = candidates.find((thread) => {
+    const ids = thread.participants.map((participant) => participant.userId).sort();
+    return ids.length === uniqueUserIds.length && ids.every((id, index) => id === uniqueUserIds[index]);
+  });
+
+  if (existing) return existing;
+
+  return prisma.encryptedChatThread.create({
+    data: {
+      participants: {
+        create: uniqueUserIds.map((userId) => ({ userId }))
+      }
+    },
+    include: { participants: true }
+  });
+}
+
+function mobileBridgeBody(message: Prisma.ChatMessageGetPayload<{ include: { attachments: { include: { mediaAsset: true } } } }>) {
+  const parts: string[] = [];
+  const body = message.body?.trim();
+  if (body) parts.push(body);
+
+  for (const attachment of message.attachments) {
+    const publicUrl = attachment.publicUrl ?? attachment.mediaAsset?.publicUrl;
+    if (publicUrl) {
+      parts.push(`${attachment.kind === ChatAttachmentKind.IMAGE ? "[photo]" : "[file]"} ${attachment.fileName}: ${publicUrl}`);
+    } else {
+      parts.push(`${attachment.kind === ChatAttachmentKind.IMAGE ? "[photo]" : "[file]"} ${attachment.fileName}`);
+    }
+  }
+
+  return parts.join("\n").trim();
+}
+
+async function mirrorDesktopMessageToThetaComm(
+  senderUserId: string,
+  threadId: string,
+  message: Prisma.ChatMessageGetPayload<{
+    include: {
+      attachments: { include: { mediaAsset: true } };
+    };
+  }>
+) {
+  const thread = await prisma.chatThread.findUnique({
+    where: { id: threadId },
+    include: {
+      participants: {
+        where: { archivedAt: null },
+        select: { userId: true }
+      }
+    }
+  });
+
+  if (!thread || thread.type !== ChatThreadType.DIRECT) return;
+
+  const participantUserIds = thread.participants.map((participant) => participant.userId);
+  if (participantUserIds.length !== 2) return;
+
+  const body = mobileBridgeBody(message);
+  if (!body) return;
+
+  const devices = await prisma.userDevice.findMany({
+    where: {
+      userId: { in: participantUserIds },
+      revokedAt: null
+    },
+    select: {
+      id: true,
+      userId: true,
+      publicKey: true
+    }
+  });
+
+  if (devices.length === 0) return;
+
+  const encryptedThread = await findOrCreateEncryptedThreadForParticipants(participantUserIds);
+  if (!encryptedThread) return;
+
+  const bridgeDevice = await prisma.userDevice.upsert({
+    where: {
+      userId_deviceId: {
+        userId: senderUserId,
+        deviceId: DESKTOP_BRIDGE_DEVICE_ID
+      }
+    },
+    update: {
+      revokedAt: new Date(),
+      lastSeenAt: new Date()
+    },
+    create: {
+      userId: senderUserId,
+      deviceId: DESKTOP_BRIDGE_DEVICE_ID,
+      publicKey: "desktop-bridge-not-advertised",
+      platform: "desktop",
+      appVersion: "server-bridge",
+      revokedAt: new Date()
+    }
+  });
+
+  const envelopeInputs = devices
+    .map((device) => {
+      try {
+        return {
+          recipientUserId: device.userId,
+          recipientDeviceId: device.id,
+          ciphertext: encryptForMobileDevice(device.publicKey, body)
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter((envelope): envelope is { recipientUserId: string; recipientDeviceId: string; ciphertext: string } => Boolean(envelope));
+
+  if (envelopeInputs.length === 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    const created = await tx.encryptedChatMessage.create({
+      data: {
+        threadId: encryptedThread.id,
+        senderUserId,
+        senderDeviceId: bridgeDevice.id,
+        createdAt: message.createdAt,
+        envelopes: {
+          create: envelopeInputs
+        }
+      }
+    });
+
+    await tx.encryptedChatThread.update({
+      where: { id: encryptedThread.id },
+      data: { lastMessageAt: created.createdAt }
+    });
+  });
 }
 
 export async function listChatThreads(userId: string): Promise<ChatThreadView[]> {
@@ -582,6 +748,17 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     select: { userId: true }
   });
   const sender = toPersonView(message.sender);
+
+  try {
+    await mirrorDesktopMessageToThetaComm(senderUserId, parsed.data.threadId, message);
+  } catch (error) {
+    await diagnostics.warn(MODULE_KEY, "Could not mirror desktop chat message to ThetaComm.", {
+      senderUserId,
+      threadId: parsed.data.threadId,
+      messageId: message.id,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
 
   if (participants.length > 0) {
     await prisma.notification.createMany({
