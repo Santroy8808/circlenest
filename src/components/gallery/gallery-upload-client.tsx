@@ -9,10 +9,22 @@ type UploadItem = {
   id: string;
   file: File;
   previewUrl: string;
+  assetId?: string;
   progress: number;
   status: "queued" | "uploading" | "done" | "error";
   error?: string;
 };
+
+async function readJsonResponse<T>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text.trim()) return null;
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
 
 export function GalleryUploadClient() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,10 +66,10 @@ export function GalleryUploadClient() {
             visibility
           })
         });
-        const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+        const intent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(intentResponse);
 
-        if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
-          throw new Error(intent.error ?? "Could not prepare upload.");
+        if (!intentResponse.ok || !intent?.uploadUrl || !intent.storageKey) {
+          throw new Error(intent?.error ?? "Could not prepare upload.");
         }
 
         await uploadWithResilientFallback({
@@ -79,13 +91,17 @@ export function GalleryUploadClient() {
             tags: []
           })
         });
-        const complete = (await completeResponse.json()) as { error?: string };
+        const complete = await readJsonResponse<{ error?: string; asset?: { id: string } }>(completeResponse);
 
         if (!completeResponse.ok) {
-          throw new Error(complete.error ?? "Could not save photo record.");
+          throw new Error(complete?.error ?? "Could not save photo record.");
         }
 
-        updateItem(item.id, { status: "done", progress: 100 });
+        if (!complete?.asset?.id) {
+          throw new Error("Photo uploaded, but the gallery record was not returned.");
+        }
+
+        updateItem(item.id, { assetId: complete.asset.id, status: "done", progress: 100 });
       } catch (caught) {
         updateItem(item.id, {
           status: "error",

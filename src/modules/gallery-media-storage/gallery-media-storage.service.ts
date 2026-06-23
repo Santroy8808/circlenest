@@ -142,9 +142,26 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
+  if (!parsed.data.storageKey.startsWith(`users/${userId}/my-pics/`)) {
+    return { ok: false as const, error: "Invalid upload target." };
+  }
+
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);
-  const asset = await prisma.mediaAsset.create({
-    data: {
+  const asset = await prisma.mediaAsset.upsert({
+    where: {
+      storageKey: parsed.data.storageKey
+    },
+    update: {
+      publicUrl,
+      mimeType: parsed.data.mimeType,
+      sizeBytes: BigInt(parsed.data.sizeBytes),
+      originalName: parsed.data.fileName,
+      visibility: parsed.data.visibility,
+      metadata: {
+        caption: parsed.data.caption || null
+      }
+    },
+    create: {
       ownerUserId: userId,
       storageKey: parsed.data.storageKey,
       publicUrl,
@@ -172,7 +189,18 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     storageKey: asset.storageKey
   });
 
-  return { ok: true as const, asset };
+  const trackedAsset = await prisma.mediaAsset.findUnique({
+    where: { id: asset.id },
+    include: {
+      collections: {
+        include: {
+          collection: true
+        }
+      }
+    }
+  });
+
+  return { ok: true as const, asset: trackedAsset ? toGalleryAssetView(trackedAsset) : null };
 }
 
 export async function listMyPics(userId: string, take = 24): Promise<GalleryAssetView[]> {

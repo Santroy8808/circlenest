@@ -304,8 +304,25 @@ export async function completeMarketPhotoUpload(userId: string, input: unknown) 
     return { ok: false as const, error: state.reason ?? "You cannot create Market listings." };
   }
 
-  const asset = await prisma.mediaAsset.create({
-    data: {
+  if (!parsed.data.storageKey.startsWith(`market/${userId}/`)) {
+    return { ok: false as const, error: "Invalid upload target." };
+  }
+
+  const asset = await prisma.mediaAsset.upsert({
+    where: {
+      storageKey: parsed.data.storageKey
+    },
+    update: {
+      publicUrl: getR2PublicUrl(parsed.data.storageKey),
+      mimeType: parsed.data.mimeType,
+      sizeBytes: BigInt(parsed.data.sizeBytes),
+      originalName: parsed.data.fileName,
+      visibility: MediaVisibility.PUBLIC,
+      metadata: {
+        module: MODULE_KEY
+      }
+    },
+    create: {
       ownerUserId: userId,
       storageKey: parsed.data.storageKey,
       publicUrl: getR2PublicUrl(parsed.data.storageKey),
@@ -324,7 +341,13 @@ export async function completeMarketPhotoUpload(userId: string, input: unknown) 
     mediaAssetId: asset.id
   });
 
-  return { ok: true as const, asset };
+  return {
+    ok: true as const,
+    asset: {
+      id: asset.id,
+      publicUrl: asset.publicUrl
+    }
+  };
 }
 
 export async function createMarketListing(userId: string, input: unknown) {
