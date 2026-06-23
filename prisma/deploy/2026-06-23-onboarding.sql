@@ -1,0 +1,6 @@
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "onboardingCompletedAt" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "profileOnboardingSkippedAt" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "scientologyOnboardingSkippedAt" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "termsAcceptedAt" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "goodStandingDeniedAt" TIMESTAMP(3);
+ALTER TABLE "ScientologyProfile" ADD COLUMN IF NOT EXISTS "iasMembershipLast6" TEXT;

@@ -139,6 +139,7 @@ export const updateScientologyProfileSchema = z.object({
   orgName: z.string().max(160).optional().or(z.literal("")),
   lastServiceName: z.string().max(160).optional().or(z.literal("")),
   lastServiceAt: z.string().optional().or(z.literal("")),
+  iasMembershipLast6: z.string().regex(/^\d{6}$/, "IAS membership last 6 must be exactly 6 digits.").optional().or(z.literal("")),
   trainingLevel: z.enum(scientologyTrainingLevels).optional().default(""),
   processingStatus: z.enum(scientologyProcessingStatuses).optional().default(""),
   courseCompletions: stringArray,

@@ -1,11 +1,13 @@
 import { AdPlacement, MembershipTier, UserRole } from "@prisma/client";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
 import { AndroidAppControls } from "@/components/platform/android-app-controls";
 import { prisma } from "@/lib/platform/db";
 import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
+import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
 
@@ -162,6 +164,17 @@ function isAndroidAppRequest() {
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
+  const currentPath = headers().get("x-current-path") ?? "";
+  const isOnboardingPath = currentPath.startsWith("/onboarding");
+
+  if (isSignedIn && session?.user?.id && !isOnboardingPath) {
+    const onboarding = await getOnboardingState(session.user.id);
+
+    if (onboarding?.nextPath) {
+      redirect(onboarding.nextPath);
+    }
+  }
+
   const isAdmin = session?.user?.role === UserRole.ADMIN;
   const isBusinessAccount = session?.user?.tier === MembershipTier.PROFESSIONAL;
   const [counts, rightStreamAds, shellProfile] = await Promise.all([

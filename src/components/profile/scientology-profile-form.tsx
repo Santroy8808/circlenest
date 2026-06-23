@@ -84,6 +84,7 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
           orgName: formData.get("orgName"),
           lastServiceName: formData.get("lastServiceName"),
           lastServiceAt: formData.get("lastServiceAt"),
+          iasMembershipLast6: formData.get("iasMembershipLast6"),
           trainingLevel: formData.get("trainingLevel"),
           processingStatus: formData.get("processingStatus"),
           courseCompletions: checkedValues(formData, "courseCompletions"),
@@ -217,6 +218,18 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
             <input className="form-field" name="lastServiceAt" type="date" defaultValue={lastServiceDate} />
           </label>
         </div>
+        <label className="grid gap-2">
+          <span className="form-label">Last 6 of IAS membership number, optional</span>
+          <input
+            className="form-field"
+            name="iasMembershipLast6"
+            inputMode="numeric"
+            maxLength={6}
+            pattern="[0-9]{6}"
+            placeholder="123456"
+            defaultValue={profile?.iasMembershipLast6 ?? ""}
+          />
+        </label>
 
         <div className="grid gap-5 lg:grid-cols-2">
           <section className="grid gap-4">

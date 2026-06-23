@@ -391,6 +391,11 @@ model User {
   lastLoginAt                DateTime?
   lastPasswordChangedAt      DateTime?
   sessionsRevokedAt          DateTime?
+  onboardingCompletedAt      DateTime?
+  profileOnboardingSkippedAt DateTime?
+  scientologyOnboardingSkippedAt DateTime?
+  termsAcceptedAt            DateTime?
+  goodStandingDeniedAt       DateTime?
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
   profile                    Profile?
@@ -516,6 +521,7 @@ model ScientologyProfile {
   orgName               String?
   lastServiceName       String?
   lastServiceAt         DateTime?
+  iasMembershipLast6    String?
   trainingLevel         String?
   processingStatus      String?
   courseCompletions     Json?
