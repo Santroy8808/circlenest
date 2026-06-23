@@ -240,6 +240,27 @@ export async function safeListMyPics(userId: string, take = 24): Promise<Gallery
   }
 }
 
+export async function getMyPic(userId: string, mediaAssetId: string): Promise<GalleryAssetView | null> {
+  const asset = await prisma.mediaAsset.findFirst({
+    where: {
+      id: mediaAssetId,
+      ownerUserId: userId,
+      mimeType: {
+        startsWith: "image/"
+      }
+    },
+    include: {
+      collections: {
+        include: {
+          collection: true
+        }
+      }
+    }
+  });
+
+  return asset ? toGalleryAssetView(asset) : null;
+}
+
 export async function createGalleryAlbum(userId: string, name: string) {
   const cleanName = name.trim();
 

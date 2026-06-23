@@ -66,13 +66,13 @@ async function uploadAvatarOrBanner(
     })
   });
 
-  const complete = (await completeResponse.json()) as { error?: string; asset?: { publicUrl?: string | null } };
+  const complete = (await completeResponse.json()) as { error?: string; asset?: { id: string; publicUrl?: string | null } };
 
-  if (!completeResponse.ok || !complete.asset?.publicUrl) {
+  if (!completeResponse.ok || !complete.asset?.id) {
     throw new Error(complete.error ?? "Could not save upload record.");
   }
 
-  return complete.asset.publicUrl;
+  return complete.asset.publicUrl ?? `/api/media/assets/${complete.asset.id}`;
 }
 
 export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardView; nextPath: string }) {

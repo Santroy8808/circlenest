@@ -17,7 +17,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   return (
     <section className="gallery-grid">
       {assets.map((asset) => (
-        <article key={asset.id} className="gallery-tile">
+        <Link key={asset.id} className="gallery-tile" href={`/profile/gallery/${asset.id}`}>
           {asset.publicUrl || asset.id ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt={asset.originalName ?? "Gallery photo"} src={asset.publicUrl ?? `/api/media/assets/${asset.id}`} />
@@ -26,9 +26,9 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
           )}
           <div className="gallery-tile-meta">
             <p className="truncate font-semibold">{asset.originalName ?? "Photo"}</p>
-            <p className="text-xs text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>
+              <p className="text-xs text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>
           </div>
-        </article>
+        </Link>
       ))}
     </section>
   );

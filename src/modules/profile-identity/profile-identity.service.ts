@@ -1,7 +1,7 @@
 import { ProfileVisibility } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
+import { setProfileMediaSchema, updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
 import { listApprovedFamilyMembers } from "@/modules/social-graph/social-graph.service";
 
 const MODULE_KEY = "profile-identity";
@@ -131,4 +131,58 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
   });
 
   return { ok: true as const, profile };
+}
+
+export async function setProfileMediaFromGallery(userId: string, input: unknown) {
+  const parsed = setProfileMediaSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid profile image." };
+  }
+
+  const [user, asset] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true }
+    }),
+    prisma.mediaAsset.findFirst({
+      where: {
+        id: parsed.data.mediaAssetId,
+        ownerUserId: userId,
+        mimeType: { startsWith: "image/" }
+      },
+      select: {
+        id: true,
+        publicUrl: true
+      }
+    })
+  ]);
+
+  if (!user) {
+    return { ok: false as const, error: "User was not found." };
+  }
+
+  if (!asset) {
+    return { ok: false as const, error: "That photo was not found in My Pics." };
+  }
+
+  const mediaUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+  const profile = await prisma.profile.upsert({
+    where: { userId },
+    update: parsed.data.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },
+    create: {
+      userId,
+      displayName: user.profile?.displayName ?? user.username,
+      avatarUrl: parsed.data.target === "avatar" ? mediaUrl : null,
+      bannerUrl: parsed.data.target === "banner" ? mediaUrl : null
+    }
+  });
+
+  await diagnostics.info(MODULE_KEY, "Profile media selected from gallery.", {
+    userId,
+    mediaAssetId: asset.id,
+    target: parsed.data.target
+  });
+
+  return { ok: true as const, profile, mediaUrl };
 }
