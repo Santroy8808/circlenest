@@ -408,6 +408,7 @@ model User {
   feedPostReactions          FeedPostReaction[]
   feedCommentReactions       FeedCommentReaction[]
   feedPostDismissals         FeedPostDismissal[]
+  galleryAssetComments       GalleryAssetComment[]       @relation("GalleryAssetCommentAuthor")
   socialRelationshipsFrom    SocialRelationship[]        @relation("SocialRelationshipFrom")
   socialRelationshipsTo      SocialRelationship[]        @relation("SocialRelationshipTo")
   familyRequestsSent         FamilyRelationshipRequest[] @relation("FamilyRequestRequester")
@@ -773,6 +774,7 @@ model MediaAsset {
   collections             MediaCollectionAsset[]
   feedPosts               FeedPost[]
   feedComments            FeedComment[]
+  galleryComments         GalleryAssetComment[]
   adCampaignImages        AdCampaign[]             @relation("AdCampaignImage")
   businessArticleCovers   BusinessArticle[]        @relation("BusinessArticleCover")
   chatAttachments         ChatAttachment[]
@@ -783,6 +785,21 @@ model MediaAsset {
   scientologyCommendation ScientologyCommendation?
 
   @@index([ownerUserId, createdAt])
+}
+
+model GalleryAssetComment {
+  id            String     @id @default(cuid())
+  mediaAssetId  String
+  authorUserId  String
+  body          String
+  deletedAt     DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  mediaAsset    MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  author        User       @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([mediaAssetId, deletedAt, createdAt])
+  @@index([authorUserId, createdAt])
 }
 
 model MediaCollection {

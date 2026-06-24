@@ -703,6 +703,37 @@ a {
   justify-content: space-between;
 }
 
+.gallery-comment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.gallery-comment {
+  background: linear-gradient(135deg, rgba(21, 31, 47, 0.76), rgba(9, 14, 23, 0.88));
+  border: 1px solid rgba(214, 178, 74, 0.14);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.gallery-comment strong {
+  color: var(--gold);
+  display: block;
+  font-size: 0.9rem;
+}
+
+.gallery-comment span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+.gallery-comment p {
+  line-height: 1.45;
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+}
+
 .upload-drop-zone {
   border: 1px dashed rgba(214, 178, 74, 0.34);
   border-radius: 22px;

@@ -16,7 +16,19 @@ export const createUploadIntentSchema = z.object({
 export const completeUploadSchema = createUploadIntentSchema.extend({
   storageKey: z.string().min(1).max(600),
   caption: z.string().max(500).optional().or(z.literal("")),
+  commentsEnabled: z.boolean().default(false),
   tags: z.array(z.string().min(1).max(40)).max(20).default([])
+});
+
+export const updateGalleryAssetSettingsSchema = z.object({
+  mediaAssetId: z.string().min(1),
+  visibility: z.nativeEnum(MediaVisibility),
+  commentsEnabled: z.boolean().default(false)
+});
+
+export const createGalleryAssetCommentSchema = z.object({
+  mediaAssetId: z.string().min(1),
+  body: z.string().trim().min(1, "Write a comment first.").max(1000, "Comment is too long.")
 });
 
 export type GalleryAssetView = {
@@ -28,6 +40,7 @@ export type GalleryAssetView = {
   sizeBytes: string;
   visibility: MediaVisibility;
   caption?: string | null;
+  commentsEnabled: boolean;
   createdAt: string;
   collections: Array<{
     name: string;
@@ -42,6 +55,19 @@ export type GalleryAssetNeighbor = {
 
 export type GalleryAssetViewer = {
   asset: GalleryAssetView;
+  comments: GalleryAssetCommentView[];
   previous: GalleryAssetNeighbor | null;
   next: GalleryAssetNeighbor | null;
+};
+
+export type GalleryAssetCommentView = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: {
+    id: string;
+    displayName: string;
+    username: string;
+    avatarUrl?: string | null;
+  };
 };

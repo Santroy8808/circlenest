@@ -15,6 +15,16 @@ type UploadItem = {
   error?: string;
 };
 
+type GalleryAccess = "PRIVATE" | "MEMBERS_NO_COMMENTS" | "MEMBERS_COMMENTS" | "PUBLIC_NO_COMMENTS" | "PUBLIC_COMMENTS";
+
+function accessToSettings(access: GalleryAccess) {
+  if (access === "MEMBERS_COMMENTS") return { visibility: MediaVisibility.MEMBERS, commentsEnabled: true };
+  if (access === "PUBLIC_NO_COMMENTS") return { visibility: MediaVisibility.PUBLIC, commentsEnabled: false };
+  if (access === "PUBLIC_COMMENTS") return { visibility: MediaVisibility.PUBLIC, commentsEnabled: true };
+  if (access === "MEMBERS_NO_COMMENTS") return { visibility: MediaVisibility.MEMBERS, commentsEnabled: false };
+  return { visibility: MediaVisibility.PRIVATE, commentsEnabled: false };
+}
+
 async function readJsonResponse<T>(response: Response): Promise<T | null> {
   const text = await response.text();
   if (!text.trim()) return null;
@@ -29,9 +39,10 @@ async function readJsonResponse<T>(response: Response): Promise<T | null> {
 export function GalleryUploadClient() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadItem[]>([]);
-  const [visibility, setVisibility] = useState<MediaVisibility>(MediaVisibility.PRIVATE);
+  const [access, setAccess] = useState<GalleryAccess>("PRIVATE");
   const [error, setError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const selectedSettings = accessToSettings(access);
 
   function addFiles(files: FileList | File[]) {
     const next = Array.from(files).map((file) => ({
@@ -63,7 +74,8 @@ export function GalleryUploadClient() {
             fileName: item.file.name,
             mimeType: item.file.type,
             sizeBytes: item.file.size,
-            visibility
+            visibility: selectedSettings.visibility,
+            source: "GALLERY"
           })
         });
         const intent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(intentResponse);
@@ -87,7 +99,9 @@ export function GalleryUploadClient() {
             fileName: item.file.name,
             mimeType: item.file.type,
             sizeBytes: item.file.size,
-            visibility,
+            visibility: selectedSettings.visibility,
+            commentsEnabled: selectedSettings.commentsEnabled,
+            source: "GALLERY",
             tags: []
           })
         });
@@ -141,10 +155,12 @@ export function GalleryUploadClient() {
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-[1fr_auto]">
-        <select className="form-field" onChange={(event) => setVisibility(event.target.value as MediaVisibility)} value={visibility}>
-          <option value={MediaVisibility.PRIVATE}>Private</option>
-          <option value={MediaVisibility.MEMBERS}>Members</option>
-          <option value={MediaVisibility.PUBLIC}>Public</option>
+        <select className="form-field" onChange={(event) => setAccess(event.target.value as GalleryAccess)} value={access}>
+          <option value="PRIVATE">Private - only me, comments off</option>
+          <option value="MEMBERS_NO_COMMENTS">Members can view, comments off</option>
+          <option value="MEMBERS_COMMENTS">Members can view and comment</option>
+          <option value="PUBLIC_NO_COMMENTS">Public can view, comments off</option>
+          <option value="PUBLIC_COMMENTS">Public can view, members can comment</option>
         </select>
         <div className="flex gap-3">
           <Link className="btn-secondary" href="/profile/gallery">
