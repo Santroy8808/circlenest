@@ -64,6 +64,31 @@ const settingsSection: NavSection = {
   ]
 };
 
+const AD_RAIL_DISABLED_PREFIXES = [
+  "/admin",
+  "/alerts",
+  "/cutover",
+  "/dev",
+  "/docs",
+  "/feedback",
+  "/health",
+  "/mail",
+  "/messages",
+  "/notifications",
+  "/onboarding",
+  "/profile/edit",
+  "/profile/gallery",
+  "/profile/interests",
+  "/profile/scientology",
+  "/secure-area",
+  "/settings"
+];
+
+function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isAndroidApp: boolean) {
+  if (!isSignedIn || isAndroidApp) return false;
+  return !AD_RAIL_DISABLED_PREFIXES.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`));
+}
+
 function getNavSections(input: {
   isAdmin: boolean;
   isBusinessAccount: boolean;
@@ -177,17 +202,18 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAdmin = session?.user?.role === UserRole.ADMIN;
   const isBusinessAccount = session?.user?.tier === MembershipTier.PROFESSIONAL;
+  const isAndroidApp = isAndroidAppRequest();
+  const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp);
   const [counts, rightStreamAds, shellProfile] = await Promise.all([
     getUnreadCounts(session?.user?.id),
-    getRightStreamAds(isSignedIn, session?.user?.id),
+    showAdRail ? getRightStreamAds(isSignedIn, session?.user?.id) : Promise.resolve([]),
     getShellProfile(session?.user?.id)
   ]);
   const navSections = getNavSections({ isAdmin, isBusinessAccount, isSignedIn });
   const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
-  const isAndroidApp = isAndroidAppRequest();
 
   return (
-    <div className={isAndroidApp ? "app-shell is-android-app" : "app-shell"}>
+    <div className={["app-shell", isAndroidApp ? "is-android-app" : "", showAdRail ? "" : "no-ad-rail"].filter(Boolean).join(" ")}>
       {isSignedIn ? <ActivityTracker /> : null}
       <aside className="side-nav">
         <div className="side-nav-profile">
@@ -211,15 +237,17 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="main-surface">{children}</main>
-      <aside className="ad-rail">
-        <section className="ad-rail-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
-          <div className="mt-5 grid gap-3">
-            <AdRailRotator initialAds={rightStreamAds} />
-          </div>
-        </section>
-      </aside>
+      {showAdRail ? (
+        <aside className="ad-rail">
+          <section className="ad-rail-card">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
+            <div className="mt-5 grid gap-3">
+              <AdRailRotator initialAds={rightStreamAds} />
+            </div>
+          </section>
+        </aside>
+      ) : null}
       {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} sections={navSections} /> : null}
     </div>
   );

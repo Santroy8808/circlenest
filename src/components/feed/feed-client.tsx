@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedReactionType, FeedVisibility, MediaVisibility } from "@prisma/client";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
@@ -501,6 +502,7 @@ export function FeedClient({
   refreshPath?: string;
   showThreadLinks?: boolean;
 }) {
+  const router = useRouter();
   const [posts, setPosts] = useState(initialPosts);
   const [feedMode, setFeedMode] = useState<FeedMode>("latest");
   const [body, setBody] = useState("");
@@ -793,7 +795,7 @@ export function FeedClient({
 
   function openThread(postId: string) {
     if (!showThreadLinks) return;
-    window.location.assign(`/posts/${postId}`);
+    router.push(`/posts/${postId}`);
   }
 
   function openThreadForReply(postId: string) {
@@ -802,7 +804,7 @@ export function FeedClient({
       return;
     }
 
-    window.location.assign(`/posts/${postId}?reply=op`);
+    router.push(`/posts/${postId}?reply=op`);
   }
 
   function handlePostClick(postId: string, event: MouseEvent<HTMLElement>) {

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GalleryAssetActions } from "@/components/gallery/gallery-asset-actions";
 import { AppShell } from "@/components/platform/app-shell";
-import { getMyPic } from "@/modules/gallery-media-storage/gallery-media-storage.service";
+import { getMyPicViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export default async function GalleryAssetPage({ params }: { params: { assetId: string } }) {
   const session = await auth();
@@ -12,12 +12,13 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
     redirect(`/login?callbackUrl=/profile/gallery/${params.assetId}`);
   }
 
-  const asset = await getMyPic(session.user.id, params.assetId);
+  const viewer = await getMyPicViewer(session.user.id, params.assetId);
 
-  if (!asset) {
+  if (!viewer) {
     notFound();
   }
 
+  const { asset, next, previous } = viewer;
   const imageUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
 
   return (
@@ -36,7 +37,23 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
       </section>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="surface rounded-md p-4">
+        <section className="surface gallery-viewer rounded-md p-4">
+          <div className="gallery-viewer-nav">
+            {previous ? (
+              <Link className="btn-secondary" href={`/profile/gallery/${previous.id}`} prefetch>
+                Previous
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link className="btn-secondary" href={`/profile/gallery/${next.id}`} prefetch>
+                Next
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img alt={asset.originalName ?? "Gallery photo"} className="max-h-[72vh] w-full rounded-md object-contain" src={imageUrl} />
         </section>

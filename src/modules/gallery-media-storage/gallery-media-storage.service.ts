@@ -6,6 +6,7 @@ import { diagnostics } from "@/lib/platform/logging";
 import {
   completeUploadSchema,
   createUploadIntentSchema,
+  type GalleryAssetViewer,
   type GalleryAssetView
 } from "@/modules/gallery-media-storage/types";
 
@@ -259,6 +260,72 @@ export async function getMyPic(userId: string, mediaAssetId: string): Promise<Ga
   });
 
   return asset ? toGalleryAssetView(asset) : null;
+}
+
+export async function getMyPicViewer(userId: string, mediaAssetId: string): Promise<GalleryAssetViewer | null> {
+  const asset = await prisma.mediaAsset.findFirst({
+    where: {
+      id: mediaAssetId,
+      ownerUserId: userId,
+      mimeType: {
+        startsWith: "image/"
+      }
+    },
+    include: {
+      collections: {
+        include: {
+          collection: true
+        }
+      }
+    }
+  });
+
+  if (!asset) return null;
+
+  const [previous, next] = await Promise.all([
+    prisma.mediaAsset.findFirst({
+      where: {
+        ownerUserId: userId,
+        mimeType: {
+          startsWith: "image/"
+        },
+        createdAt: {
+          gt: asset.createdAt
+        }
+      },
+      orderBy: {
+        createdAt: "asc"
+      },
+      select: {
+        id: true,
+        originalName: true
+      }
+    }),
+    prisma.mediaAsset.findFirst({
+      where: {
+        ownerUserId: userId,
+        mimeType: {
+          startsWith: "image/"
+        },
+        createdAt: {
+          lt: asset.createdAt
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      select: {
+        id: true,
+        originalName: true
+      }
+    })
+  ]);
+
+  return {
+    asset: toGalleryAssetView(asset),
+    previous,
+    next
+  };
 }
 
 export async function createGalleryAlbum(userId: string, name: string) {

@@ -50,6 +50,10 @@ a {
   width: 100%;
 }
 
+.app-shell.no-ad-rail {
+  grid-template-columns: 255px minmax(0, 1fr);
+}
+
 .side-nav {
   border-right: 1px solid rgba(214, 178, 74, 0.22);
   background: rgba(10, 14, 22, 0.88);
@@ -686,6 +690,17 @@ a {
   padding: 48px 12px 12px;
   position: absolute;
   right: 0;
+}
+
+.gallery-viewer {
+  display: grid;
+  gap: 14px;
+}
+
+.gallery-viewer-nav {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
 }
 
 .upload-drop-zone {

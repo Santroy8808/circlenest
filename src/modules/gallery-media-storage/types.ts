@@ -31,3 +31,14 @@ export type GalleryAssetView = {
     type: string;
   }>;
 };
+
+export type GalleryAssetNeighbor = {
+  id: string;
+  originalName: string | null;
+};
+
+export type GalleryAssetViewer = {
+  asset: GalleryAssetView;
+  previous: GalleryAssetNeighbor | null;
+  next: GalleryAssetNeighbor | null;
+};
