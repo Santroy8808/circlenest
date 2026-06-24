@@ -32,6 +32,11 @@ export default async function FeedPostThreadPage({
         </Link>
       </div>
       <FeedClient
+        currentAuthor={{
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.username,
+          username: session.user.username
+        }}
         defaultExpanded
         initialPosts={[post]}
         initialReplyPostId={searchParams?.reply === "op" ? post.id : undefined}

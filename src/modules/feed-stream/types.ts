@@ -45,6 +45,8 @@ export type FeedAuthorView = {
   avatarUrl?: string | null;
 };
 
+export type FeedReactionReactorsView = Partial<Record<FeedReactionType, FeedAuthorView[]>>;
+
 export type FeedCommentView = {
   id: string;
   body: string;
@@ -52,6 +54,7 @@ export type FeedCommentView = {
   author: FeedAuthorView;
   media?: FeedMediaView | null;
   reactions: Partial<Record<FeedReactionType, number>>;
+  reactionReactors: FeedReactionReactorsView;
   replyCount: number;
   replies?: FeedCommentView[];
 };
@@ -66,5 +69,6 @@ export type FeedPostView = {
   media?: FeedMediaView | null;
   author: FeedAuthorView;
   reactions: Partial<Record<FeedReactionType, number>>;
+  reactionReactors: FeedReactionReactorsView;
   comments: FeedCommentView[];
 };

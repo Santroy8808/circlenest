@@ -1,11 +1,11 @@
 "use client";
 
-import { FeedReactionType, FeedVisibility, MediaVisibility } from "@prisma/client";
+import { FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
-import type { FeedCommentView, FeedPostView } from "@/modules/feed-stream/types";
+import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
 
 type FeedImageAttachment = {
   file: File;
@@ -18,6 +18,7 @@ type FeedImageAttachment = {
 type FeedCurrentAuthor = {
   id?: string;
   displayName: string;
+  tier?: MembershipTier;
   username: string;
   avatarUrl?: string | null;
 };
@@ -53,6 +54,10 @@ const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [
 ];
 
 const emojiChoices = ["\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F64F}", "\u{1F525}", "\u{1F389}", "\u{1F44F}", "\u{1F4AF}", "\u{2728}", "\u{2615}"];
+
+function reactionMeta(type: FeedReactionType) {
+  return quickReactions.find((reaction) => reaction.type === type) ?? quickReactions[0];
+}
 
 function createImageAttachment(file: File): FeedImageAttachment {
   return {
@@ -289,36 +294,130 @@ function reactionTotal(counts: Partial<Record<FeedReactionType, number>>) {
 function ReactionButtons({
   counts,
   compact = false,
-  onReact
+  currentUserId,
+  onReact,
+  reactors = {}
 }: {
   counts: Partial<Record<FeedReactionType, number>>;
   compact?: boolean;
+  currentUserId?: string;
   onReact: (type: FeedReactionType) => void;
+  reactors?: FeedReactionReactorsView;
 }) {
   const total = reactionTotal(counts);
+  const closeTimerRef = useRef<number | undefined>(undefined);
+  const [choicesOpen, setChoicesOpen] = useState(false);
+  const [detailsType, setDetailsType] = useState<FeedReactionType | "ALL" | null>(null);
+  const myReactionType = currentUserId
+    ? quickReactions.find((reaction) => reactors[reaction.type]?.some((reactor) => reactor.id === currentUserId))?.type
+    : undefined;
+  const topReactionType =
+    myReactionType ??
+    quickReactions.reduce<FeedReactionType>((current, reaction) => {
+      return (counts[reaction.type] ?? 0) > (counts[current] ?? 0) ? reaction.type : current;
+    }, quickReactions[0].type);
+  const triggerReaction = reactionMeta(topReactionType);
+  const detailReactors =
+    detailsType === "ALL"
+      ? quickReactions.flatMap((reaction) => (reactors[reaction.type] ?? []).map((reactor) => ({ reaction, reactor })))
+      : detailsType
+        ? (reactors[detailsType] ?? []).map((reactor) => ({ reaction: reactionMeta(detailsType), reactor }))
+        : [];
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  function openChoices() {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    setChoicesOpen(true);
+  }
+
+  function scheduleCloseChoices() {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 220);
+  }
+
+  function chooseReaction(type: FeedReactionType) {
+    setChoicesOpen(false);
+    setDetailsType(null);
+    onReact(type);
+  }
 
   return (
-    <div className={compact ? "feed-reaction-menu is-compact" : "feed-reaction-menu"}>
-      <button aria-label="React" className="feed-reaction-trigger" type="button">
-        <span aria-hidden="true">{quickReactions[0].icon}</span>
-        {total > 0 ? <span>{total}</span> : null}
+    <div
+      className={`${compact ? "feed-reaction-menu is-compact" : "feed-reaction-menu"}${choicesOpen ? " is-open" : ""}`}
+      onBlur={scheduleCloseChoices}
+      onFocus={openChoices}
+      onMouseEnter={openChoices}
+      onMouseLeave={scheduleCloseChoices}
+    >
+      <button
+        aria-expanded={choicesOpen}
+        aria-label="React"
+        className={myReactionType ? "feed-reaction-trigger has-user-reaction" : "feed-reaction-trigger"}
+        onClick={() => setChoicesOpen((open) => !open)}
+        type="button"
+      >
+        <span aria-hidden="true">{triggerReaction.icon}</span>
       </button>
+      {total > 0 ? (
+        <button
+          aria-expanded={detailsType === "ALL"}
+          className="feed-reaction-count-trigger"
+          onClick={() => setDetailsType((current) => (current === "ALL" ? null : "ALL"))}
+          title="See who reacted"
+          type="button"
+        >
+          {total}
+        </button>
+      ) : null}
       <div className="feed-reaction-popover" role="menu" aria-label="Reaction options">
         {quickReactions.map((reaction) => (
-          <button
-            aria-label={reaction.label}
-            className="feed-reaction-choice"
-            key={reaction.type}
-            onClick={() => onReact(reaction.type)}
-            role="menuitem"
-            title={reaction.label}
-            type="button"
-          >
-            <span aria-hidden="true">{reaction.icon}</span>
-            <span>{counts[reaction.type] ?? 0}</span>
-          </button>
+          <span className="feed-reaction-choice-group" key={reaction.type}>
+            <button
+              aria-label={reaction.label}
+              className={myReactionType === reaction.type ? "feed-reaction-choice is-selected" : "feed-reaction-choice"}
+              onClick={() => chooseReaction(reaction.type)}
+              role="menuitem"
+              title={reaction.label}
+              type="button"
+            >
+              <span aria-hidden="true">{reaction.icon}</span>
+            </button>
+            {(counts[reaction.type] ?? 0) > 0 ? (
+              <button
+                aria-label={`See ${reaction.label} reactions`}
+                className="feed-reaction-choice-count"
+                onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
+                type="button"
+              >
+                {counts[reaction.type]}
+              </button>
+            ) : null}
+          </span>
         ))}
       </div>
+      {detailsType ? (
+        <div className="feed-reaction-details-popover" role="dialog" aria-label="People who reacted">
+          <strong>{detailsType === "ALL" ? "Reactions" : reactionMeta(detailsType).label}</strong>
+          {detailReactors.length > 0 ? (
+            <ul>
+              {detailReactors.map(({ reaction, reactor }) => (
+                <li key={`${reaction.type}-${reactor.id}`}>
+                  <span aria-hidden="true">{reaction.icon}</span>
+                  <span>{reactor.displayName}</span>
+                  <small>@{reactor.username}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No reactions yet.</p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -417,6 +516,7 @@ function ImagePreview({
 
 function FeedCommentRow({
   comment,
+  currentUserId,
   depth = 0,
   defaultExpanded = false,
   onReact,
@@ -424,6 +524,7 @@ function FeedCommentRow({
   onShare
 }: {
   comment: FeedCommentView;
+  currentUserId?: string;
   depth?: number;
   defaultExpanded?: boolean;
   onReact: (commentId: string, type: FeedReactionType) => void;
@@ -449,7 +550,13 @@ function FeedCommentRow({
           <RichText value={comment.body} />
           <FeedMedia media={comment.media} />
           <div className="comment-action-row">
-            <ReactionButtons compact counts={comment.reactions} onReact={(reaction) => onReact(comment.id, reaction)} />
+            <ReactionButtons
+              compact
+              counts={comment.reactions}
+              currentUserId={currentUserId}
+              onReact={(reaction) => onReact(comment.id, reaction)}
+              reactors={comment.reactionReactors}
+            />
             {hasLoadedReplies ? (
               <button className="comment-reply-link" onClick={() => setExpanded((value) => !value)} type="button">
                 {expanded ? "Collapse" : `Expand ${loadedReplies.length}`}
@@ -469,6 +576,7 @@ function FeedCommentRow({
           {loadedReplies.map((reply) => (
             <FeedCommentRow
               comment={reply}
+              currentUserId={currentUserId}
               defaultExpanded={defaultExpanded}
               depth={depth + 1}
               key={reply.id}
@@ -586,6 +694,72 @@ export function FeedClient({
     setPosts(payload.posts ?? []);
   }
 
+  function currentReactionAuthor(): FeedAuthorView | null {
+    if (!composerIdentity.id) return null;
+
+    return {
+      id: composerIdentity.id,
+      avatarUrl: composerIdentity.avatarUrl,
+      displayName: composerIdentity.displayName,
+      tier: composerIdentity.tier ?? MembershipTier.FREE,
+      username: composerIdentity.username
+    };
+  }
+
+  function applyReactionToReactors(reactors: FeedReactionReactorsView, type: FeedReactionType) {
+    const author = currentReactionAuthor();
+
+    if (!author) return { reactors, counts: undefined };
+
+    const nextReactors = quickReactions.reduce<FeedReactionReactorsView>((acc, reaction) => {
+      const existing = reactors[reaction.type] ?? [];
+      acc[reaction.type] = existing.filter((reactor) => reactor.id !== author.id);
+      return acc;
+    }, {});
+
+    nextReactors[type] = [author, ...(nextReactors[type] ?? [])];
+
+    const counts = quickReactions.reduce<Partial<Record<FeedReactionType, number>>>((acc, reaction) => {
+      const count = nextReactors[reaction.type]?.length ?? 0;
+      if (count > 0) acc[reaction.type] = count;
+      return acc;
+    }, {});
+
+    return { reactors: nextReactors, counts };
+  }
+
+  function updateCommentReactionTree(comments: FeedCommentView[], commentId: string, type: FeedReactionType): FeedCommentView[] {
+    return comments.map((comment) => {
+      if (comment.id === commentId) {
+        const next = applyReactionToReactors(comment.reactionReactors, type);
+        return next.counts ? { ...comment, reactionReactors: next.reactors, reactions: next.counts } : comment;
+      }
+
+      return comment.replies?.length
+        ? { ...comment, replies: updateCommentReactionTree(comment.replies, commentId, type) }
+        : comment;
+    });
+  }
+
+  function applyOptimisticPostReaction(postId: string, type: FeedReactionType) {
+    setPosts((current) =>
+      current.map((post) => {
+        if (post.id !== postId) return post;
+        const next = applyReactionToReactors(post.reactionReactors, type);
+        return next.counts ? { ...post, reactionReactors: next.reactors, reactions: next.counts } : post;
+      })
+    );
+  }
+
+  function applyOptimisticCommentReaction(commentId: string, type: FeedReactionType) {
+    setPosts((current) =>
+      current.map((post) => ({
+        ...post,
+        comments: updateCommentReactionTree(post.comments, commentId, type)
+      }))
+    );
+  }
+
   function updatePostImage(patch: Partial<FeedImageAttachment>) {
     setPostImage((current) => (current ? { ...current, ...patch } : current));
   }
@@ -664,6 +838,7 @@ export function FeedClient({
   }
 
   function reactToPost(postId: string, type: FeedReactionType) {
+    applyOptimisticPostReaction(postId, type);
     startTransition(async () => {
       const response = await fetch("/api/feed/reactions/post", {
         method: "POST",
@@ -678,6 +853,7 @@ export function FeedClient({
   }
 
   function reactToComment(commentId: string, type: FeedReactionType) {
+    applyOptimisticCommentReaction(commentId, type);
     startTransition(async () => {
       const response = await fetch("/api/feed/reactions/comment", {
         method: "POST",
@@ -977,7 +1153,12 @@ export function FeedClient({
               <RichText value={post.body} />
               <FeedMedia media={post.media} />
               <div className="feed-post-actions">
-                <ReactionButtons counts={post.reactions} onReact={(reaction) => reactToPost(post.id, reaction)} />
+                <ReactionButtons
+                  counts={post.reactions}
+                  currentUserId={composerIdentity.id}
+                  onReact={(reaction) => reactToPost(post.id, reaction)}
+                  reactors={post.reactionReactors}
+                />
                 <button
                   aria-label="Reply"
                   className="feed-reply-button"
@@ -1015,6 +1196,7 @@ export function FeedClient({
                 {previewComments.map((comment) => (
                   <FeedCommentRow
                     comment={comment}
+                    currentUserId={composerIdentity.id}
                     defaultExpanded={defaultExpanded}
                     key={comment.id}
                     onReact={reactToComment}

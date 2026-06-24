@@ -5,6 +5,7 @@ import {
   createFeedCommentSchema,
   createFeedPostSchema,
   type FeedCommentView,
+  type FeedReactionReactorsView,
   type FeedPostView,
   reactToFeedCommentSchema,
   reactToFeedPostSchema
@@ -26,6 +27,14 @@ function withFeedDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T
 function countReactions<T extends { type: FeedReactionType }>(reactions: T[]) {
   return reactions.reduce<Partial<Record<FeedReactionType, number>>>((acc, reaction) => {
     acc[reaction.type] = (acc[reaction.type] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+function reactionReactors<T extends { type: FeedReactionType; user?: FeedReactionUser | null }>(reactions: T[]) {
+  return reactions.reduce<FeedReactionReactorsView>((acc, reaction) => {
+    if (!reaction.user) return acc;
+    acc[reaction.type] = [...(acc[reaction.type] ?? []), toFeedAuthorView(reaction.user)];
     return acc;
   }, {});
 }
@@ -65,6 +74,18 @@ function toFeedMediaView(mediaAsset: {
   };
 }
 
+type FeedReactionUser = {
+  id: string;
+  username: string;
+  profile: { displayName: string | null; avatarUrl?: string | null } | null;
+  membership?: { tier: MembershipTier } | null;
+};
+
+type FeedReactionRecord = {
+  type: FeedReactionType;
+  user?: FeedReactionUser | null;
+};
+
 type FeedCommentRecord = {
   id: string;
   body: string;
@@ -81,7 +102,7 @@ type FeedCommentRecord = {
     mimeType: string;
     originalName: string | null;
   } | null;
-  reactions: Array<{ type: FeedReactionType }>;
+  reactions: FeedReactionRecord[];
   _count?: { replies: number };
   replies?: FeedCommentRecord[];
 };
@@ -100,9 +121,22 @@ type FeedPostRecord = {
     originalName: string | null;
   } | null;
   author: FeedCommentRecord["author"];
-  reactions: Array<{ type: FeedReactionType }>;
+  reactions: FeedReactionRecord[];
   comments: FeedCommentRecord[];
 };
+
+function feedReactionInclude() {
+  return {
+    include: {
+      user: {
+        include: {
+          profile: true,
+          membership: true
+        }
+      }
+    }
+  };
+}
 
 function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
   return {
@@ -120,7 +154,7 @@ function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
         originalName: true
       }
     },
-    reactions: true,
+    reactions: feedReactionInclude(),
     _count: {
       select: {
         replies: {
@@ -150,6 +184,7 @@ function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
     author: toFeedAuthorView(comment.author),
     media: toFeedMediaView(comment.mediaAsset),
     reactions: countReactions(comment.reactions),
+    reactionReactors: reactionReactors(comment.reactions),
     replyCount: comment._count?.replies ?? replies?.length ?? 0,
     replies
   };
@@ -166,6 +201,7 @@ function toFeedPostView(post: FeedPostRecord): FeedPostView {
     media: toFeedMediaView(post.mediaAsset),
     author: toFeedAuthorView(post.author),
     reactions: countReactions(post.reactions),
+    reactionReactors: reactionReactors(post.reactions),
     comments: post.comments.map(toFeedCommentView)
   };
 }
@@ -186,7 +222,7 @@ function feedPostInclude() {
         originalName: true
       }
     },
-    reactions: true,
+    reactions: feedReactionInclude(),
     comments: {
       where: {
         parentCommentId: null,
@@ -207,7 +243,7 @@ function feedPostInclude() {
             originalName: true
           }
         },
-        reactions: true,
+        reactions: feedReactionInclude(),
         _count: {
           select: {
             replies: {
@@ -280,7 +316,7 @@ function fetchFeedPostThread(postId: string) {
           originalName: true
         }
       },
-      reactions: true,
+      reactions: feedReactionInclude(),
       comments: {
         where: {
           parentCommentId: null,
