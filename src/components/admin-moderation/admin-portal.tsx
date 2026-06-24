@@ -148,7 +148,9 @@ export function AdminPortal({ portal }: { portal: AdminPortalView }) {
     const byHref = new Map<string, AdminSearchEntry>();
 
     [...shortcutEntries, ...actionEntries].forEach((entry) => {
-      byHref.set(`${entry.href}:${entry.title}`, entry);
+      if (!byHref.has(entry.href)) {
+        byHref.set(entry.href, entry);
+      }
     });
 
     return [...byHref.values()];

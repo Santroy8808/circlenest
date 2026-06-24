@@ -521,7 +521,35 @@ export async function listChatThreads(userId: string): Promise<ChatThreadView[]>
     "chat thread lookup"
   );
 
-  return threads.map((thread) => toThreadView(userId, thread));
+  const views = threads.map((thread) => toThreadView(userId, thread));
+  const directThreadsByPeer = new Map<string, ChatThreadView>();
+  const deduped: ChatThreadView[] = [];
+
+  for (const view of views) {
+    if (view.type !== ChatThreadType.DIRECT) {
+      deduped.push(view);
+      continue;
+    }
+
+    const peerId = view.participants.find((participant) => participant.id !== userId)?.id;
+
+    if (!peerId) {
+      deduped.push(view);
+      continue;
+    }
+
+    const existing = directThreadsByPeer.get(peerId);
+
+    if (existing) {
+      existing.unread = existing.unread || view.unread;
+      continue;
+    }
+
+    directThreadsByPeer.set(peerId, view);
+    deduped.push(view);
+  }
+
+  return deduped;
 }
 
 export async function safeListChatThreads(userId: string): Promise<ChatThreadView[]> {
@@ -628,6 +656,7 @@ export async function findOrCreateDirectChatThread(currentUserId: string, input:
     include: {
       participants: true
     },
+    orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
     take: 10
   });
 
@@ -1083,7 +1112,12 @@ export async function countUnreadChatThreads(userId?: string) {
         include: {
           thread: {
             select: {
-              lastMessageAt: true
+              type: true,
+              lastMessageAt: true,
+              participants: {
+                where: { archivedAt: null },
+                select: { userId: true }
+              }
             }
           }
         },
@@ -1092,10 +1126,24 @@ export async function countUnreadChatThreads(userId?: string) {
       "unread chat count"
     );
 
-    return participants.filter((participant) => {
+    const unreadKeys = new Set<string>();
+
+    participants.forEach((participant) => {
       const lastMessageAt = participant.thread.lastMessageAt;
-      return Boolean(lastMessageAt && (!participant.lastReadAt || participant.lastReadAt < lastMessageAt));
-    }).length;
+      const unread = Boolean(lastMessageAt && (!participant.lastReadAt || participant.lastReadAt < lastMessageAt));
+
+      if (!unread) return;
+
+      if (participant.thread.type === ChatThreadType.DIRECT) {
+        const peerId = participant.thread.participants.find((threadParticipant) => threadParticipant.userId !== userId)?.userId;
+        unreadKeys.add(peerId ? `direct:${peerId}` : `thread:${participant.threadId}`);
+        return;
+      }
+
+      unreadKeys.add(`thread:${participant.threadId}`);
+    });
+
+    return unreadKeys.size;
   } catch (error) {
     await diagnostics.warn(MODULE_KEY, "Could not count unread chat threads.", {
       userId,
