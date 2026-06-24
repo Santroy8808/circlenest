@@ -1814,8 +1814,15 @@ a {
 .people-card--compact .people-card-link {
   align-items: center;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
   gap: 14px;
+}
+
+.people-card--row .people-card-link {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.people-card--compact .people-card-link {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .people-card--row {
@@ -1829,8 +1836,9 @@ a {
   align-items: center;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
 }
 
 .people-card:hover {
@@ -1852,6 +1860,35 @@ a {
 .people-card--row .people-card-copy h2,
 .people-card--compact .people-card-copy h2 {
   margin-top: 0;
+}
+
+.people-card--compact .people-card-copy {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.people-card--compact .people-card-copy h2,
+.people-card--compact .people-card-copy p {
+  margin: 0;
+}
+
+.people-card--compact .people-card-copy h2 {
+  font-size: 0.98rem;
+  min-width: 150px;
+}
+
+.people-card--compact .people-full-name,
+.people-card--compact .people-relationship-pills {
+  display: none;
+}
+
+.people-card--compact .people-location,
+.people-card--compact .people-username {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .people-card--row .people-card-copy .pill,
@@ -1921,6 +1958,18 @@ a {
   border-color: rgba(214, 178, 74, 0.58);
   background: #172133;
   transform: translateY(-2px);
+}
+
+.notice-card--clickable {
+  cursor: pointer;
+}
+
+.notice-card-row,
+.notice-card-title-row {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
 }
 
 .family-alert-panel {
@@ -2133,11 +2182,16 @@ a {
 }
 
 .chat-delivery-mark {
-  color: var(--gold);
-  filter: drop-shadow(0 0 6px rgba(255, 216, 95, 0.45));
-  font-size: 0.86rem;
-  font-weight: 900;
-  letter-spacing: -0.08em;
+  bottom: 8px;
+  color: rgba(255, 216, 95, 0.72);
+  filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.24));
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  position: absolute;
+  right: 12px;
 }
 
 .chat-message:not(.is-mine) .chat-delivery-mark {
@@ -2331,6 +2385,14 @@ a {
   border-radius: 16px;
   background: rgba(16, 25, 40, 0.72);
   padding: 12px;
+}
+
+.mail-recipient-search-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 220px;
+  overflow: auto;
 }
 
 .mail-format-row {

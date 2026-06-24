@@ -87,6 +87,31 @@ export function MessagesClient({
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  function mergePendingMessages(
+    incomingThread: ChatThreadDetailView,
+    currentThread: ChatThreadDetailView | null
+  ): ChatThreadDetailView {
+    if (!currentThread || currentThread.id !== incomingThread.id) return incomingThread;
+
+    const pending = currentThread.messages.filter((message) => message.id.startsWith("local-"));
+    if (pending.length === 0) return incomingThread;
+
+    return {
+      ...incomingThread,
+      messages: [
+        ...incomingThread.messages,
+        ...pending.filter((pendingMessage) => {
+          return !incomingThread.messages.some((message) => {
+            const sameBody = (message.body ?? "") === (pendingMessage.body ?? "");
+            const sameSender = message.sender.id === pendingMessage.sender.id;
+            const sameAttachmentCount = message.attachments.length === pendingMessage.attachments.length;
+            return sameBody && sameSender && sameAttachmentCount;
+          });
+        })
+      ]
+    };
+  }
+
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
       const response = await fetch(`/api/chat/contacts?q=${encodeURIComponent(contactQuery)}`, { cache: "no-store" });
@@ -117,7 +142,7 @@ export function MessagesClient({
       return;
     }
 
-    setSelectedThread(payload.thread);
+    setSelectedThread((current) => mergePendingMessages(payload.thread!, current));
     await fetch(`/api/chat/threads/${threadId}/read`, { method: "POST" });
     await refreshThreads();
   }
@@ -138,7 +163,7 @@ export function MessagesClient({
         const response = await fetch(`/api/chat/threads/${selectedThread.id}`, { cache: "no-store" });
         const payload = (await response.json()) as { thread?: ChatThreadDetailView };
         if (response.ok && payload.thread) {
-          setSelectedThread(payload.thread);
+          setSelectedThread((current) => mergePendingMessages(payload.thread!, current));
           await fetch(`/api/chat/threads/${selectedThread.id}/read`, { method: "POST" });
         }
       })();
@@ -231,7 +256,10 @@ export function MessagesClient({
     }
 
     updateAttachment(item.id, { status: "done", progress: 100 });
-    return complete.attachment;
+    return {
+      ...complete.attachment,
+      publicUrl: complete.attachment.publicUrl ?? undefined
+    };
   }
 
   function sendMessage(event: React.FormEvent<HTMLFormElement>) {
@@ -455,11 +483,6 @@ export function MessagesClient({
                       <span>{isMine ? "You" : message.sender.displayName}</span>
                       <span className="chat-message-meta-right">
                         <span>{new Date(message.createdAt).toLocaleString()}</span>
-                        {isMine ? (
-                          <span className="chat-delivery-mark" title={message.deliveryState?.toLowerCase() ?? "sent"}>
-                            {deliveryMark(message)}
-                          </span>
-                        ) : null}
                       </span>
                     </div>
                     {message.body ? <p className="whitespace-pre-wrap">{message.body}</p> : null}
@@ -469,6 +492,11 @@ export function MessagesClient({
                           <AttachmentPreview attachment={attachment} key={attachment.id} />
                         ))}
                       </div>
+                    ) : null}
+                    {isMine ? (
+                      <span className="chat-delivery-mark" title={message.deliveryState?.toLowerCase() ?? "sent"}>
+                        {deliveryMark(message)}
+                      </span>
                     ) : null}
                   </article>
                 );

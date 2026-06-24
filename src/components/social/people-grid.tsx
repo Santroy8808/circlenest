@@ -47,20 +47,22 @@ export function PeopleGrid({
         {people.map((person) => (
           <article className={`people-card people-card--${view}`} key={person.id}>
             <Link className="people-card-link" href={`/profile/${person.username}`}>
-              <div className="people-avatar">
-                {person.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" src={person.avatarUrl} />
-                ) : (
-                  <span>{initials(person.displayName) || "TS"}</span>
-                )}
-              </div>
+              {view !== "compact" ? (
+                <div className="people-avatar">
+                  {person.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="" src={person.avatarUrl} />
+                  ) : (
+                    <span>{initials(person.displayName) || "TS"}</span>
+                  )}
+                </div>
+              ) : null}
               <div className="people-card-copy">
                 <h2 className="mt-3 text-lg font-semibold">{person.displayName}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">Full name: {person.fullName}</p>
-                <p className="text-sm text-[var(--muted)]">@{person.username}</p>
-                {person.location ? <p className="mt-1 text-sm text-[var(--muted)]">{person.location}</p> : null}
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <p className="people-full-name mt-1 text-sm text-[var(--muted)]">Full name: {person.fullName}</p>
+                <p className="people-username text-sm text-[var(--muted)]">@{person.username}</p>
+                {person.location ? <p className="people-location mt-1 text-sm text-[var(--muted)]">{person.location}</p> : null}
+                <div className="people-relationship-pills mt-3 flex flex-wrap justify-center gap-2">
                   {person.relationships.map((relationship) => (
                     <span className="pill rounded-full px-2 py-1 text-[11px] font-semibold" key={relationship}>
                       {relationship}

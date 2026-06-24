@@ -88,6 +88,11 @@ export function MailClient({
   const [notice, setNotice] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  function openCompose() {
+    setIsComposing(true);
+    setSelectedThread(null);
+  }
+
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
       const response = await fetch(`/api/mail/contacts?q=${encodeURIComponent(contactQuery)}`, { cache: "no-store" });
@@ -136,6 +141,7 @@ export function MailClient({
   function addRecipient(person: MailPersonView) {
     setRecipients((current) => (current.some((recipient) => recipient.id === person.id) ? current : [...current, person]));
     setContactQuery("");
+    openCompose();
   }
 
   function addFiles(files: FileList | File[]) {
@@ -266,8 +272,7 @@ export function MailClient({
         <button
           className="btn-primary w-full"
           onClick={() => {
-            setIsComposing(true);
-            setSelectedThread(null);
+            openCompose();
           }}
           type="button"
         >
@@ -377,7 +382,28 @@ export function MailClient({
                     </button>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-[var(--muted)]">Add recipients from the contact search on the left.</p>
+                <div className="relative mt-3">
+                  <input
+                    aria-label="Search mail recipients"
+                    className="form-field"
+                    onChange={(event) => setContactQuery(event.target.value)}
+                    placeholder="To: search name, username, email..."
+                    value={contactQuery}
+                  />
+                  {contacts.length > 0 ? (
+                    <div className="mail-recipient-search-results">
+                      {contacts.map((person) => (
+                        <button className="mail-contact-card" key={person.id} onClick={() => addRecipient(person)} type="button">
+                          <span className="mail-avatar">{initials(person.displayName)}</span>
+                          <span className="min-w-0 text-left">
+                            <span className="block truncate font-semibold">{person.displayName}</span>
+                            <span className="block truncate text-xs text-[var(--muted)]">{person.email}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <input className="form-field" onChange={(event) => setSubject(event.target.value)} placeholder="Subject" value={subject} />
               <div className="mail-format-row">

@@ -65,6 +65,12 @@ export function NotificationsClient({ initialItems }: { initialItems: Notificati
     });
   }
 
+  function openNotification(item: NotificationItem) {
+    if (item.href) {
+      router.push(item.href);
+    }
+  }
+
   if (items.length === 0) {
     return (
       <section className="surface rounded-md p-6 text-center">
@@ -84,27 +90,41 @@ export function NotificationsClient({ initialItems }: { initialItems: Notificati
       </div>
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       {items.map((item) => (
-        <article className={item.readAt ? "notice-card opacity-75" : "notice-card"} key={item.id}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--gold)]">{item.title}</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">{formatDate(item.createdAt)}</p>
+        <article
+          className={item.readAt ? "notice-card notice-card--clickable opacity-75" : "notice-card notice-card--clickable"}
+          key={item.id}
+          onClick={() => openNotification(item)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") openNotification(item);
+          }}
+          role={item.href ? "button" : undefined}
+          tabIndex={item.href ? 0 : undefined}
+        >
+          <div className="notice-card-row">
+            <div className="min-w-0">
+              <div className="notice-card-title-row">
+                <h2 className="truncate text-base font-semibold text-[var(--gold)]">{item.title}</h2>
+                <p className="shrink-0 text-xs text-[var(--muted)]">{formatDate(item.createdAt)}</p>
+              </div>
+              {item.body ? <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--muted)]">{item.body}</p> : null}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {!item.readAt ? <span className="pill rounded-full px-2 py-1 text-xs">Unread</span> : null}
               {!item.readAt ? (
-                <button className="btn-secondary px-3 py-1 text-xs" disabled={isPending} onClick={() => markRead(item.id)} type="button">
+                <button
+                  className="btn-secondary px-3 py-1 text-xs"
+                  disabled={isPending}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    markRead(item.id);
+                  }}
+                  type="button"
+                >
                   Mark read
                 </button>
               ) : null}
             </div>
           </div>
-          {item.body ? <p className="mt-3 leading-7">{item.body}</p> : null}
-          {item.href ? (
-            <a className="mt-3 inline-flex text-sm text-[var(--gold)] underline" href={item.href}>
-              Open
-            </a>
-          ) : null}
         </article>
       ))}
     </section>

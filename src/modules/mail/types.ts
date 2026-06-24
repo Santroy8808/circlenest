@@ -13,7 +13,7 @@ export const sendMailAttachmentSchema = z.object({
   mimeType: z.string().min(1).max(120),
   sizeBytes: z.number().int().positive().max(MAX_MAIL_ATTACHMENT_BYTES),
   storageKey: z.string().max(600).optional().or(z.literal("")),
-  publicUrl: z.string().url().optional().or(z.literal(""))
+  publicUrl: z.string().url().nullable().optional().or(z.literal(""))
 });
 
 export const sendMailSchema = z
