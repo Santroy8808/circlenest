@@ -3,11 +3,14 @@ import { z } from "zod";
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 
+export const uploadSourceSchema = z.enum(["GALLERY", "STREAM_POST", "STREAM_REPLY"]).default("GALLERY");
+
 export const createUploadIntentSchema = z.object({
   fileName: z.string().min(1).max(240),
   mimeType: z.string().regex(/^image\/(jpeg|png|gif|webp)$/),
   sizeBytes: z.number().int().positive().max(MAX_IMAGE_UPLOAD_BYTES),
-  visibility: z.nativeEnum(MediaVisibility).default(MediaVisibility.PRIVATE)
+  visibility: z.nativeEnum(MediaVisibility).default(MediaVisibility.PRIVATE),
+  source: uploadSourceSchema
 });
 
 export const completeUploadSchema = createUploadIntentSchema.extend({

@@ -15,6 +15,8 @@ type FeedImageAttachment = {
   error?: string;
 };
 
+type FeedImageSource = "STREAM_POST" | "STREAM_REPLY";
+
 type FeedCurrentAuthor = {
   id?: string;
   displayName: string;
@@ -68,7 +70,7 @@ function createImageAttachment(file: File): FeedImageAttachment {
   };
 }
 
-async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Partial<FeedImageAttachment>) => void) {
+async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Partial<FeedImageAttachment>) => void, source: FeedImageSource) {
   onUpdate({ status: "uploading", progress: 1, error: undefined });
 
   const intentResponse = await fetch("/api/media/upload-intent", {
@@ -78,7 +80,8 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
-      visibility: MediaVisibility.MEMBERS
+      visibility: MediaVisibility.MEMBERS,
+      source
     })
   });
   const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
@@ -104,6 +107,7 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
       sizeBytes: image.file.size,
       visibility: MediaVisibility.MEMBERS,
       caption: "",
+      source,
       tags: []
     })
   });
@@ -781,7 +785,7 @@ export function FeedClient({
 
     startTransition(async () => {
       try {
-        const mediaAssetId = postImage ? await uploadFeedImage(postImage, updatePostImage) : "";
+        const mediaAssetId = postImage ? await uploadFeedImage(postImage, updatePostImage, "STREAM_POST") : "";
         const response = await fetch("/api/feed/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -815,7 +819,7 @@ export function FeedClient({
       const commentBody = commentBodies[key] ?? "";
 
       try {
-        const mediaAssetId = image ? await uploadFeedImage(image, (patch) => updateCommentImage(key, patch)) : "";
+        const mediaAssetId = image ? await uploadFeedImage(image, (patch) => updateCommentImage(key, patch), "STREAM_REPLY") : "";
         const response = await fetch("/api/feed/comments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1236,6 +1240,12 @@ export function FeedClient({
                       }}
                       value={commentBodies[activeCommentKey] ?? ""}
                     />
+                    {commentImage ? (
+                      <ImagePreview
+                        image={commentImage}
+                        onRemove={() => setCommentImages((current) => ({ ...current, [activeCommentKey]: undefined }))}
+                      />
+                    ) : null}
                     <ComposerToolbar
                       compact
                       disabled={isPending}
@@ -1249,12 +1259,6 @@ export function FeedClient({
                         </button>
                       }
                     />
-                    {commentImage ? (
-                      <ImagePreview
-                        image={commentImage}
-                        onRemove={() => setCommentImages((current) => ({ ...current, [activeCommentKey]: undefined }))}
-                      />
-                    ) : null}
                     {commentErrors[activeCommentKey] ? (
                       <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{commentErrors[activeCommentKey]}</p>
                     ) : null}

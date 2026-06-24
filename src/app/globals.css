@@ -1979,6 +1979,17 @@ a {
   margin-top: 2px;
 }
 
+.feed-comment-composer.is-quick-reply .feed-image-preview {
+  margin-top: 0;
+  padding: 8px;
+}
+
+.feed-comment-composer.is-quick-reply .feed-image-preview img {
+  border-radius: 12px;
+  height: 56px;
+  width: 56px;
+}
+
 .feed-comment-send {
   justify-self: end;
 }

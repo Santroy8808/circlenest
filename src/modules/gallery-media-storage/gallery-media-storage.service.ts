@@ -41,6 +41,18 @@ function dateSlug(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+type UploadSource = "GALLERY" | "STREAM_POST" | "STREAM_REPLY";
+
+function sourceFolder(source: UploadSource) {
+  return source === "GALLERY" ? "my-pics" : "stream-images";
+}
+
+function sourceTags(source: UploadSource) {
+  if (source === "STREAM_POST") return ["Stream Images", "Stream Post Images"];
+  if (source === "STREAM_REPLY") return ["Stream Images", "Stream Reply Images"];
+  return [];
+}
+
 function toGalleryAssetView(asset: Prisma.MediaAssetGetPayload<{ include: { collections: { include: { collection: true } } } }>): GalleryAssetView {
   const metadata = asset.metadata as { caption?: string } | null;
 
@@ -108,7 +120,7 @@ export async function createGalleryUploadIntent(userId: string, input: unknown) 
   const storageKey = [
     "users",
     userId,
-    "my-pics",
+    sourceFolder(parsed.data.source),
     dateSlug(),
     `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
   ].join("/");
@@ -143,11 +155,17 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
-  if (!parsed.data.storageKey.startsWith(`users/${userId}/my-pics/`)) {
+  const expectedPrefix = `users/${userId}/${sourceFolder(parsed.data.source)}/`;
+
+  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
     return { ok: false as const, error: "Invalid upload target." };
   }
 
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);
+  const metadata = {
+    caption: parsed.data.caption || null,
+    source: parsed.data.source
+  };
   const asset = await prisma.mediaAsset.upsert({
     where: {
       storageKey: parsed.data.storageKey
@@ -158,9 +176,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
       sizeBytes: BigInt(parsed.data.sizeBytes),
       originalName: parsed.data.fileName,
       visibility: parsed.data.visibility,
-      metadata: {
-        caption: parsed.data.caption || null
-      }
+      metadata
     },
     create: {
       ownerUserId: userId,
@@ -170,16 +186,16 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
       sizeBytes: BigInt(parsed.data.sizeBytes),
       originalName: parsed.data.fileName,
       visibility: parsed.data.visibility,
-      metadata: {
-        caption: parsed.data.caption || null
-      }
+      metadata
     }
   });
 
   const systemDate = await upsertCollection(userId, MediaCollectionType.SYSTEM_DATE, dateSlug(asset.createdAt));
   await attachAssetToCollection(asset.id, systemDate.id);
 
-  for (const tagName of parsed.data.tags) {
+  const tagNames = [...new Set([...sourceTags(parsed.data.source), ...parsed.data.tags])];
+
+  for (const tagName of tagNames) {
     const tag = await upsertCollection(userId, MediaCollectionType.TAG, tagName);
     await attachAssetToCollection(asset.id, tag.id);
   }
