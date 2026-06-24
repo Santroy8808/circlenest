@@ -918,6 +918,17 @@ a {
   margin-top: 0;
 }
 
+.feed-toolbar:has(.feed-toolbar-action) {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.feed-toolbar-action {
+  align-items: center;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .feed-format-tools,
 .feed-reaction-row {
   align-items: center;

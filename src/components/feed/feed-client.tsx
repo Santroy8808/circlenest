@@ -3,7 +3,7 @@
 import { FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
+import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
 
@@ -427,13 +427,15 @@ function ComposerToolbar({
   disabled,
   onEmoji,
   onFile,
-  onFormat
+  onFormat,
+  trailingAction
 }: {
   compact?: boolean;
   disabled?: boolean;
   onEmoji: (emoji: string) => void;
   onFile: (file: File) => void;
   onFormat: (format: TextFormat) => void;
+  trailingAction?: ReactNode;
 }) {
   return (
     <div className={compact ? "feed-toolbar is-compact" : "feed-toolbar"}>
@@ -480,6 +482,7 @@ function ComposerToolbar({
           />
         </label>
       </div>
+      {trailingAction ? <div className="feed-toolbar-action">{trailingAction}</div> : null}
     </div>
   );
 }
@@ -1239,6 +1242,12 @@ export function FeedClient({
                       onEmoji={(emoji) => appendToComment(post.id, emoji, replyTarget.parentCommentId)}
                       onFile={(file) => setCommentImages((current) => ({ ...current, [activeCommentKey]: createImageAttachment(file) }))}
                       onFormat={(format) => formatCommentText(activeCommentKey, format)}
+                      trailingAction={
+                        <button className="btn-secondary send-logo-button is-compact feed-comment-send" disabled={isPending || (!commentBodies[activeCommentKey]?.trim() && !commentImage)} type="submit">
+                          <span aria-hidden="true" className="send-logo-icon" />
+                          <span className="sr-only">Reply</span>
+                        </button>
+                      }
                     />
                     {commentImage ? (
                       <ImagePreview
@@ -1249,10 +1258,6 @@ export function FeedClient({
                     {commentErrors[activeCommentKey] ? (
                       <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{commentErrors[activeCommentKey]}</p>
                     ) : null}
-                    <button className="btn-secondary send-logo-button is-compact feed-comment-send" disabled={isPending || (!commentBodies[activeCommentKey]?.trim() && !commentImage)} type="submit">
-                      <span aria-hidden="true" className="send-logo-icon" />
-                      <span className="sr-only">Reply</span>
-                    </button>
                   </form>
                 ) : null}
               </div>
