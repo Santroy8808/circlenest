@@ -37,7 +37,7 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
         </div>
       </section>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="gallery-detail-layout mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="surface gallery-viewer rounded-md p-4">
           <div className="gallery-viewer-nav">
             {previous ? (
@@ -59,7 +59,7 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
           <img alt={asset.originalName ?? "Gallery photo"} className="max-h-[72vh] w-full rounded-md object-contain" src={imageUrl} />
         </section>
 
-        <div className="grid content-start gap-5">
+        <div className="gallery-detail-sidebar grid content-start gap-5">
           <GalleryAssetActions mediaAssetId={asset.id} />
           <GalleryAssetEngagement asset={asset} initialComments={comments} />
           <section className="surface rounded-md p-5">

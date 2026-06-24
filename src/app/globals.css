@@ -703,9 +703,46 @@ a {
   justify-content: space-between;
 }
 
+.gallery-detail-layout {
+  align-items: start;
+}
+
+.gallery-detail-sidebar {
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding-right: 4px;
+  position: sticky;
+  scrollbar-width: thin;
+  top: 18px;
+}
+
+.gallery-detail-sidebar::-webkit-scrollbar,
+.gallery-comment-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gallery-detail-sidebar::-webkit-scrollbar-thumb,
+.gallery-comment-list::-webkit-scrollbar-thumb {
+  background: rgba(214, 178, 74, 0.3);
+  border-radius: 999px;
+}
+
+.gallery-engagement {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.gallery-comment-area {
+  min-height: 0;
+}
+
 .gallery-comment-list {
   display: grid;
   gap: 10px;
+  max-height: min(34vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .gallery-comment {
@@ -732,6 +769,19 @@ a {
   line-height: 1.45;
   margin: 8px 0 0;
   white-space: pre-wrap;
+}
+
+@media (max-width: 1279px) {
+  .gallery-detail-sidebar {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    position: static;
+  }
+
+  .gallery-comment-list {
+    max-height: 320px;
+  }
 }
 
 .upload-drop-zone {

@@ -90,7 +90,7 @@ export function GalleryAssetEngagement({
   }
 
   return (
-    <section className="surface rounded-md p-5">
+    <section className="gallery-engagement surface rounded-md p-5">
       <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Visibility and comments</p>
       <label className="mt-4 grid gap-2">
         <span className="text-sm text-[var(--muted)]">Who can view this photo?</span>
@@ -103,7 +103,7 @@ export function GalleryAssetEngagement({
         </select>
       </label>
 
-      <div className="mt-5 grid gap-3">
+      <div className="gallery-comment-area mt-5 grid gap-3">
         <div className="gallery-comment-list">
           {comments.length ? (
             comments.map((comment) => (
