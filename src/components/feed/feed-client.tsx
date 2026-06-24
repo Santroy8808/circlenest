@@ -1,7 +1,7 @@
 "use client";
 
 import { FeedReactionType, FeedVisibility, MediaVisibility } from "@prisma/client";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { FeedCommentView, FeedPostView } from "@/modules/feed-stream/types";
@@ -489,12 +489,14 @@ function shouldIgnoreCardClick(target: EventTarget | null) {
 export function FeedClient({
   currentAuthor,
   defaultExpanded = false,
+  initialReplyPostId,
   initialPosts,
   refreshPath = "/api/feed/posts",
   showThreadLinks = true
 }: {
   currentAuthor?: FeedCurrentAuthor;
   defaultExpanded?: boolean;
+  initialReplyPostId?: string;
   initialPosts: FeedPostView[];
   refreshPath?: string;
   showThreadLinks?: boolean;
@@ -507,12 +509,15 @@ export function FeedClient({
   const [commentBodies, setCommentBodies] = useState<Record<string, string>>({});
   const [commentImages, setCommentImages] = useState<Record<string, FeedImageAttachment | undefined>>({});
   const [commentErrors, setCommentErrors] = useState<Record<string, string | undefined>>({});
-  const [replyTargets, setReplyTargets] = useState<Record<string, ReplyTarget | undefined>>({});
+  const [replyTargets, setReplyTargets] = useState<Record<string, ReplyTarget | undefined>>(() =>
+    initialReplyPostId ? { [initialReplyPostId]: { label: "Replying to post" } } : {}
+  );
+  const [shareMenus, setShareMenus] = useState<Record<string, boolean>>({});
   const [hiddenPostIds, setHiddenPostIds] = useState<Record<string, boolean>>({});
   const [quietAuthorIds, setQuietAuthorIds] = useState<Record<string, boolean>>({});
   const [trustMessage, setTrustMessage] = useState("");
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>(() =>
-    defaultExpanded ? Object.fromEntries(initialPosts.map((post) => [post.id, true])) : {}
+    defaultExpanded || initialReplyPostId ? Object.fromEntries(initialPosts.map((post) => [post.id, true])) : {}
   );
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -530,6 +535,25 @@ export function FeedClient({
   function commentKey(postId: string, parentCommentId?: string) {
     return parentCommentId ? `${postId}:${parentCommentId}` : postId;
   }
+
+  function focusCommentComposer(postId: string, parentCommentId?: string) {
+    const key = commentKey(postId, parentCommentId);
+    window.requestAnimationFrame(() => {
+      const textarea = commentTextareaRefs.current[key];
+      textarea?.focus();
+      textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  useEffect(() => {
+    if (initialReplyPostId) {
+      window.requestAnimationFrame(() => {
+        const textarea = commentTextareaRefs.current[initialReplyPostId];
+        textarea?.focus();
+        textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  }, [initialReplyPostId]);
 
   function restoreTextSelection(textarea: HTMLTextAreaElement | null | undefined, result: TextFormatResult) {
     if (!textarea) return;
@@ -683,6 +707,7 @@ export function FeedClient({
       [postId]: target ? { parentCommentId: target.id, label: `Replying to ${target.author.displayName}` } : { label: "Replying to post" }
     }));
     setExpandedComments((current) => ({ ...current, [postId]: true }));
+    focusCommentComposer(postId, target?.id);
   }
 
   function hidePost(postId: string) {
@@ -733,6 +758,20 @@ export function FeedClient({
     }
   }
 
+  function prepareStreamEcho(post: FeedPostView) {
+    setShareMenus((current) => ({ ...current, [post.id]: false }));
+    setComposerOpen(true);
+    setBody((current) => {
+      const sourceUrl = streamShareUrl(post.id);
+      const draft = `Passing this along from ${post.author.displayName}:\n\n${post.body}\n\n${sourceUrl}`;
+      return current.trim() ? `${current.trim()}\n\n${draft}` : draft;
+    });
+    window.requestAnimationFrame(() => {
+      postTextareaRef.current?.focus();
+      postTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   function applyAuthorTrustAction(post: FeedPostView, type: "MUTE" | "BLOCK") {
     if (!composerIdentity.id || post.author.id === composerIdentity.id) return;
 
@@ -755,6 +794,15 @@ export function FeedClient({
   function openThread(postId: string) {
     if (!showThreadLinks) return;
     window.location.assign(`/posts/${postId}`);
+  }
+
+  function openThreadForReply(postId: string) {
+    if (!showThreadLinks) {
+      activateReply(postId);
+      return;
+    }
+
+    window.location.assign(`/posts/${postId}?reply=op`);
   }
 
   function handlePostClick(postId: string, event: MouseEvent<HTMLElement>) {
@@ -931,22 +979,35 @@ export function FeedClient({
                 <button
                   aria-label="Reply"
                   className="feed-reply-button"
-                  onClick={() => activateReply(post.id)}
+                  onClick={() => openThreadForReply(post.id)}
                   title="Reply"
                   type="button"
                 >
                   <span aria-hidden="true">{"\u21A9"}</span>
                   {commentSummary > 0 ? <span>{commentSummary}</span> : null}
                 </button>
-                <button
-                  aria-label="Share post"
-                  className="feed-share-button"
-                  onClick={() => void shareStreamUrl(post.id)}
-                  title="Share"
-                  type="button"
-                >
-                  <span aria-hidden="true">{"\u2192"}</span>
-                </button>
+                <div className="feed-share-menu">
+                  <button
+                    aria-expanded={Boolean(shareMenus[post.id])}
+                    aria-label="Share post"
+                    className="feed-share-button"
+                    onClick={() => setShareMenus((current) => ({ ...current, [post.id]: !current[post.id] }))}
+                    title="Share"
+                    type="button"
+                  >
+                    <span aria-hidden="true">{"\u2192"}</span>
+                  </button>
+                  {shareMenus[post.id] ? (
+                    <div className="feed-share-popover" role="menu">
+                      <button onClick={() => void shareStreamUrl(post.id)} role="menuitem" type="button">
+                        Pass link
+                      </button>
+                      <button onClick={() => prepareStreamEcho(post)} role="menuitem" type="button">
+                        Echo to stream
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="feed-comment-preview">
                 {previewComments.map((comment) => (

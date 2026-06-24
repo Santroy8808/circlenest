@@ -5,7 +5,13 @@ import { FeedClient } from "@/components/feed/feed-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { safeGetFeedPostThread } from "@/modules/feed-stream/feed-stream.service";
 
-export default async function FeedPostThreadPage({ params }: { params: { postId: string } }) {
+export default async function FeedPostThreadPage({
+  params,
+  searchParams
+}: {
+  params: { postId: string };
+  searchParams?: { reply?: string };
+}) {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -25,7 +31,13 @@ export default async function FeedPostThreadPage({ params }: { params: { postId:
           Back to stream
         </Link>
       </div>
-      <FeedClient defaultExpanded initialPosts={[post]} refreshPath={`/api/feed/posts/${post.id}`} showThreadLinks={false} />
+      <FeedClient
+        defaultExpanded
+        initialPosts={[post]}
+        initialReplyPostId={searchParams?.reply === "op" ? post.id : undefined}
+        refreshPath={`/api/feed/posts/${post.id}`}
+        showThreadLinks={false}
+      />
     </AppShell>
   );
 }

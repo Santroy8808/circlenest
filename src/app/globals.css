@@ -1583,6 +1583,11 @@ a {
   position: relative;
 }
 
+.feed-share-menu {
+  display: inline-flex;
+  position: relative;
+}
+
 .feed-reaction-trigger,
 .feed-reply-button,
 .feed-share-button,
@@ -1630,6 +1635,38 @@ a {
   transform: translateY(-4px) scale(0.98);
   transition: opacity 160ms ease, transform 160ms ease;
   z-index: 24;
+}
+
+.feed-share-popover {
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 16px;
+  background: rgba(8, 11, 16, 0.96);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  z-index: 26;
+}
+
+.feed-share-popover button {
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 800;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.feed-share-popover button:hover {
+  background: rgba(255, 216, 95, 0.12);
+  color: var(--gold);
 }
 
 .feed-reaction-menu:hover .feed-reaction-popover,
