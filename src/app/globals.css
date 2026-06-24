@@ -1454,11 +1454,30 @@ a {
 
 .feed-entry-list {
   display: grid;
-  gap: 9px;
+  gap: 16px;
 }
 
 .feed-post {
-  padding: 10px 12px;
+  background:
+    linear-gradient(145deg, rgba(28, 39, 58, 0.92), rgba(9, 14, 22, 0.94)),
+    rgba(12, 18, 28, 0.96);
+  border-color: rgba(214, 178, 74, 0.34);
+  box-shadow:
+    0 16px 42px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  overflow: hidden;
+  padding: 13px 15px;
+  position: relative;
+}
+
+.feed-post::before {
+  background: linear-gradient(180deg, rgba(255, 216, 95, 0.62), rgba(74, 144, 255, 0.16), transparent);
+  border-radius: 999px;
+  content: "";
+  inset: 12px auto 12px 0;
+  opacity: 0.62;
+  position: absolute;
+  width: 2px;
 }
 
 .feed-post.is-clickable {
@@ -1809,6 +1828,14 @@ a {
   padding: 10px;
 }
 
+.feed-comment-composer.is-quick-reply .feed-toolbar {
+  margin-top: 2px;
+}
+
+.feed-comment-send {
+  justify-self: end;
+}
+
 .feed-quick-reply-topline {
   align-items: center;
   display: flex;
@@ -1833,6 +1860,16 @@ a {
 
 .feed-quick-reply-topline button:hover {
   color: var(--gold);
+}
+
+@media (min-width: 900px) {
+  .feed-entry-list .feed-post:nth-child(even) {
+    margin-left: 10px;
+  }
+
+  .feed-entry-list .feed-post:nth-child(odd) {
+    margin-right: 10px;
+  }
 }
 
 .people-grid {

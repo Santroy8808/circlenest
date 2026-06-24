@@ -339,6 +339,18 @@ function ComposerToolbar({
   return (
     <div className={compact ? "feed-toolbar is-compact" : "feed-toolbar"}>
       <div className="feed-format-tools" aria-label="Text formatting">
+        <div className="feed-emoji-menu">
+          <button aria-haspopup="true" className="feed-emoji-trigger" disabled={disabled} type="button">
+            <span aria-hidden="true">{"\u{1F642}"}</span>
+          </button>
+          <div className="feed-emoji-tools" role="menu" aria-label="Emoji picker">
+            {emojiChoices.map((emoji) => (
+              <button aria-label={`Add ${emoji}`} disabled={disabled} key={emoji} onClick={() => onEmoji(emoji)} role="menuitem" type="button">
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
         <button disabled={disabled} onClick={() => onFormat("bold")} type="button">
           B
         </button>
@@ -368,18 +380,6 @@ function ComposerToolbar({
             type="file"
           />
         </label>
-      </div>
-      <div className="feed-emoji-menu">
-        <button aria-haspopup="true" className="feed-emoji-trigger" disabled={disabled} type="button">
-          <span aria-hidden="true">{"\u{1F642}"}</span>
-        </button>
-        <div className="feed-emoji-tools" role="menu" aria-label="Emoji picker">
-          {emojiChoices.map((emoji) => (
-            <button aria-label={`Add ${emoji}`} disabled={disabled} key={emoji} onClick={() => onEmoji(emoji)} role="menuitem" type="button">
-              {emoji}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -1067,7 +1067,7 @@ export function FeedClient({
                     {commentErrors[activeCommentKey] ? (
                       <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{commentErrors[activeCommentKey]}</p>
                     ) : null}
-                    <button className="btn-secondary send-logo-button is-compact justify-self-start" disabled={isPending || (!commentBodies[activeCommentKey]?.trim() && !commentImage)} type="submit">
+                    <button className="btn-secondary send-logo-button is-compact feed-comment-send" disabled={isPending || (!commentBodies[activeCommentKey]?.trim() && !commentImage)} type="submit">
                       <span aria-hidden="true" className="send-logo-icon" />
                       <span className="sr-only">Reply</span>
                     </button>
