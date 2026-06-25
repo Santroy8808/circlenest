@@ -3,7 +3,10 @@ import {
   AdDeliveryEventType,
   AdDestinationKind,
   AdPlacement,
+  EventStatus,
+  FundraiserStatus,
   InterestCategory,
+  JobListingStatus,
   MarketListingStatus,
   MembershipTier,
   PlatformActivityEventType,
@@ -385,13 +388,7 @@ async function resolveAdDestination(userId: string, input: {
       return { ok: false as const, error: "Enter a valid http(s) URL or internal /path for this ad." };
     }
 
-    return {
-      ok: true as const,
-      businessProfileId: null,
-      marketListingId: null,
-      businessArticleId: null,
-      destinationUrl
-    };
+    return verifyCustomAdDestination(userId, destinationUrl);
   }
 
   if (input.destinationKind === AdDestinationKind.STOREFRONT) {
@@ -472,6 +469,285 @@ async function resolveAdDestination(userId: string, input: {
     businessArticleId: article.id,
     destinationUrl: `/storefront/${article.businessProfile.slug}/articles/${article.slug}`
   };
+}
+
+function parseInternalDestinationPath(destinationUrl: string) {
+  if (!destinationUrl.startsWith("/") || destinationUrl.startsWith("//")) return null;
+
+  try {
+    const url = new URL(destinationUrl, "https://theta-space.local");
+    return {
+      pathname: url.pathname,
+      suffix: `${url.search}${url.hash}`,
+      parts: url.pathname.split("/").filter(Boolean).map((part) => decodeURIComponent(part))
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function verifyCustomAdDestination(userId: string, destinationUrl: string) {
+  const internal = parseInternalDestinationPath(destinationUrl);
+
+  if (!internal) {
+    return {
+      ok: true as const,
+      businessProfileId: null,
+      marketListingId: null,
+      businessArticleId: null,
+      destinationUrl
+    };
+  }
+
+  const [section, slugOrId, detailType, detailSlugOrId] = internal.parts;
+  const genericError = "Choose one of your own listings, storefronts, events, fundraisers, jobs, or manuscripts for an internal ad destination.";
+
+  if (section === "market" && slugOrId) {
+    const listing = await prisma.marketListing.findFirst({
+      where: {
+        OR: [{ id: slugOrId }, { slug: slugOrId }],
+        sellerUserId: userId,
+        status: MarketListingStatus.ACTIVE
+      },
+      select: {
+        id: true,
+        slug: true
+      }
+    });
+
+    if (!listing) return { ok: false as const, error: "Choose one of your own active Market listings for this ad." };
+
+    return {
+      ok: true as const,
+      businessProfileId: null,
+      marketListingId: listing.id,
+      businessArticleId: null,
+      destinationUrl: `/market/${listing.slug}${internal.suffix}`
+    };
+  }
+
+  if (section === "storefront" && slugOrId) {
+    if (detailType === "articles" && detailSlugOrId) {
+      const article = await prisma.businessArticle.findFirst({
+        where: {
+          OR: [{ id: detailSlugOrId }, { slug: detailSlugOrId }],
+          ownerUserId: userId,
+          published: true,
+          businessProfile: {
+            slug: slugOrId,
+            ownerUserId: userId,
+            publicStorefrontEnabled: true
+          }
+        },
+        select: {
+          id: true,
+          slug: true,
+          businessProfile: {
+            select: {
+              id: true,
+              slug: true
+            }
+          }
+        }
+      });
+
+      if (!article) return { ok: false as const, error: "Choose one of your own published storefront articles for this ad." };
+
+      return {
+        ok: true as const,
+        businessProfileId: article.businessProfile.id,
+        marketListingId: null,
+        businessArticleId: article.id,
+        destinationUrl: `/storefront/${article.businessProfile.slug}/articles/${article.slug}${internal.suffix}`
+      };
+    }
+
+    if (detailType === "blogs" && detailSlugOrId) {
+      const profile = await prisma.businessProfile.findFirst({
+        where: {
+          slug: slugOrId,
+          ownerUserId: userId,
+          publicStorefrontEnabled: true,
+          blogEnabled: true
+        },
+        select: {
+          id: true,
+          slug: true
+        }
+      });
+      const manuscript = await prisma.writerManuscript.findFirst({
+        where: {
+          OR: [{ id: detailSlugOrId }, { slug: detailSlugOrId }],
+          authorUserId: userId,
+          publishToStorefront: true
+        },
+        select: {
+          slug: true
+        }
+      });
+
+      if (!profile || !manuscript) return { ok: false as const, error: "Choose one of your own published storefront blogs for this ad." };
+
+      return {
+        ok: true as const,
+        businessProfileId: profile.id,
+        marketListingId: null,
+        businessArticleId: null,
+        destinationUrl: `/storefront/${profile.slug}/blogs/${manuscript.slug}${internal.suffix}`
+      };
+    }
+
+    const storefront = await prisma.businessProfile.findFirst({
+      where: {
+        slug: slugOrId,
+        ownerUserId: userId,
+        publicStorefrontEnabled: true
+      },
+      select: {
+        id: true,
+        slug: true
+      }
+    });
+
+    if (!storefront) return { ok: false as const, error: "Choose your own published storefront for this ad." };
+
+    return {
+      ok: true as const,
+      businessProfileId: storefront.id,
+      marketListingId: null,
+      businessArticleId: null,
+      destinationUrl: `/storefront/${storefront.slug}${internal.suffix}`
+    };
+  }
+
+  if (section === "writers-corner" && slugOrId) {
+    const manuscript = await prisma.writerManuscript.findFirst({
+      where: {
+        OR: [{ id: slugOrId }, { slug: slugOrId }],
+        authorUserId: userId
+      },
+      select: {
+        id: true,
+        slug: true
+      }
+    });
+
+    if (!manuscript) return { ok: false as const, error: "Choose one of your own manuscripts for this ad." };
+
+    if (detailType === "chapters" && detailSlugOrId) {
+      const chapter = await prisma.writerChapter.findFirst({
+        where: {
+          id: detailSlugOrId,
+          manuscriptId: manuscript.id
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (!chapter) return { ok: false as const, error: "Choose one of your own manuscript chapters for this ad." };
+
+      return {
+        ok: true as const,
+        businessProfileId: null,
+        marketListingId: null,
+        businessArticleId: null,
+        destinationUrl: `/writers-corner/${manuscript.slug}/chapters/${chapter.id}${internal.suffix}`
+      };
+    }
+
+    return {
+      ok: true as const,
+      businessProfileId: null,
+      marketListingId: null,
+      businessArticleId: null,
+      destinationUrl: `/writers-corner/${manuscript.slug}${internal.suffix}`
+    };
+  }
+
+  if (section === "fundraisers" && slugOrId) {
+    const fundraiser = await prisma.fundraiserCampaign.findFirst({
+      where: {
+        OR: [{ id: slugOrId }, { slug: slugOrId }],
+        creatorUserId: userId,
+        status: FundraiserStatus.ACTIVE
+      },
+      select: {
+        slug: true
+      }
+    });
+
+    if (!fundraiser) return { ok: false as const, error: "Choose one of your own active fundraisers for this ad." };
+
+    return {
+      ok: true as const,
+      businessProfileId: null,
+      marketListingId: null,
+      businessArticleId: null,
+      destinationUrl: `/fundraisers/${fundraiser.slug}${internal.suffix}`
+    };
+  }
+
+  if (section === "events" && slugOrId) {
+    const event = await prisma.event.findFirst({
+      where: {
+        AND: [
+          { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+          {
+            OR: [
+              { createdByUserId: userId },
+              {
+                moderators: {
+                  some: {
+                    userId
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        status: EventStatus.PUBLISHED,
+      },
+      select: {
+        slug: true
+      }
+    });
+
+    if (!event) return { ok: false as const, error: "Choose one of your own events or moderated event locations for this ad." };
+
+    return {
+      ok: true as const,
+      businessProfileId: null,
+      marketListingId: null,
+      businessArticleId: null,
+      destinationUrl: `/events/${event.slug}${internal.suffix}`
+    };
+  }
+
+  if (section === "jobs" && slugOrId) {
+    const job = await prisma.jobListing.findFirst({
+      where: {
+        OR: [{ id: slugOrId }, { slug: slugOrId }],
+        employerUserId: userId,
+        status: JobListingStatus.ACTIVE
+      },
+      select: {
+        slug: true
+      }
+    });
+
+    if (!job) return { ok: false as const, error: "Choose one of your own active job listings for this ad." };
+
+    return {
+      ok: true as const,
+      businessProfileId: null,
+      marketListingId: null,
+      businessArticleId: null,
+      destinationUrl: `/jobs/${job.slug}${internal.suffix}`
+    };
+  }
+
+  return { ok: false as const, error: genericError };
 }
 
 function normalizeCustomDestinationUrl(value?: string) {

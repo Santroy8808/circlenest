@@ -356,7 +356,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             type="button"
           >
             <span>Custom URL</span>
-            <small>Send clicks to a defined page</small>
+            <small>Use your website or one of your own internal pages</small>
           </button>
         </div>
 
@@ -392,11 +392,13 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             <input
               className="form-field"
               onChange={(event) => setCustomDestinationUrl(event.target.value)}
-              placeholder={adsManager.fundraiserOnly ? "/fundraisers/your-fundraiser" : "https://example.com/page or /market/listing"}
+              placeholder={adsManager.fundraiserOnly ? "/fundraisers/your-fundraiser" : "https://example.com/page or /market/your-listing"}
               value={customDestinationUrl}
             />
             <small className="text-[var(--muted)]">
-              {adsManager.fundraiserOnly ? "Org ads must point to one of your own fundraiser pages." : "The ad image and card will redirect here when clicked."}
+              {adsManager.fundraiserOnly
+                ? "Org ads must point to one of your own fundraiser pages."
+                : "Internal Theta-Space destinations must belong to you: your storefront, listings, jobs, events, fundraisers, or manuscripts."}
             </small>
           </label>
         ) : null}
