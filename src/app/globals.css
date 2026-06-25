@@ -3877,6 +3877,50 @@ a {
   min-height: 178px;
 }
 
+.admin-category-grid,
+.admin-function-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.admin-category-card,
+.admin-function-card {
+  background:
+    linear-gradient(145deg, rgba(20, 29, 44, 0.96), rgba(10, 15, 24, 0.98)),
+    rgba(12, 18, 28, 0.96);
+  border: 1px solid rgba(214, 178, 74, 0.2);
+  color: var(--text);
+  display: block;
+  min-height: 176px;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  width: 100%;
+}
+
+.admin-category-card:hover,
+.admin-category-card:focus-visible,
+.admin-category-card.is-active,
+.admin-function-card:hover,
+.admin-function-card:focus-visible {
+  border-color: rgba(255, 216, 95, 0.58);
+  background:
+    linear-gradient(145deg, rgba(29, 40, 60, 0.98), rgba(12, 18, 29, 0.98)),
+    rgba(18, 27, 42, 0.96);
+  transform: translateY(-2px);
+}
+
+.admin-category-card.is-active {
+  box-shadow:
+    0 0 0 2px rgba(255, 216, 95, 0.16),
+    0 16px 42px rgba(0, 0, 0, 0.26);
+}
+
+.admin-workflow-group {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  background: rgba(8, 11, 16, 0.24);
+}
+
 .settings-card-grid {
   display: grid;
   gap: 16px;
