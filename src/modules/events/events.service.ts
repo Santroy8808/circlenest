@@ -8,9 +8,11 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { sendSmtpMail } from "@/lib/platform/smtp";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createEventSchema,
+  externalEventRsvpSchema,
   eventRsvpSchema,
   inviteEventUserSchema,
   type EventCardView,
@@ -54,6 +56,15 @@ async function uniqueEventSlug(title: string) {
 
 function profileName(user: { username: string; profile: { displayName: string | null } | null }) {
   return user.profile?.displayName ?? user.username;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function personView(user: {
@@ -120,7 +131,7 @@ function canViewEvent(
     createdByUserId: string | null;
     moderators: Array<{ userId: string }>;
     invitations: Array<{ inviteeUserId: string }>;
-    rsvps: Array<{ userId: string }>;
+    rsvps: Array<{ userId: string | null }>;
   }
 ) {
   return (
@@ -497,6 +508,108 @@ export async function setEventRsvp(viewerUserId: string, eventIdOrSlug: string, 
   });
 
   return { ok: true as const, rsvp };
+}
+
+export async function submitExternalEventRsvp(eventIdOrSlug: string, input: unknown) {
+  const parsed = externalEventRsvpSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid RSVP." };
+  }
+
+  const event = await prisma.event.findFirst({
+    where: {
+      OR: [{ id: eventIdOrSlug }, { slug: eventIdOrSlug }],
+      status: EventStatus.PUBLISHED
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      startsAt: true,
+      locationName: true,
+      createdByUserId: true
+    }
+  });
+
+  if (!event) {
+    return { ok: false as const, error: "Event not found." };
+  }
+
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const existing = await prisma.eventRsvp.findUnique({
+    where: {
+      eventId_externalEmail: {
+        eventId: event.id,
+        externalEmail: normalizedEmail
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+  const rsvp = await prisma.eventRsvp.upsert({
+    where: {
+      eventId_externalEmail: {
+        eventId: event.id,
+        externalEmail: normalizedEmail
+      }
+    },
+    update: {
+      externalName: parsed.data.name,
+      status: parsed.data.status
+    },
+    create: {
+      eventId: event.id,
+      externalName: parsed.data.name,
+      externalEmail: normalizedEmail,
+      status: parsed.data.status
+    }
+  });
+
+  try {
+    await sendSmtpMail({
+      to: normalizedEmail,
+      subject: `Theta-Space RSVP confirmation: ${event.title}`,
+      text: [
+        `Your RSVP for ${event.title} has been recorded as ${parsed.data.status}.`,
+        "",
+        `When: ${event.startsAt.toLocaleString()}`,
+        event.locationName ? `Where: ${event.locationName}` : "Where: Location TBD"
+      ].join("\n"),
+      html: `<p>Your RSVP for <strong>${escapeHtml(event.title)}</strong> has been recorded as <strong>${parsed.data.status}</strong>.</p><p><strong>When:</strong> ${event.startsAt.toLocaleString()}</p><p><strong>Where:</strong> ${escapeHtml(event.locationName ?? "Location TBD")}</p>`
+    });
+
+    await prisma.eventRsvp.update({
+      where: { id: rsvp.id },
+      data: { confirmationSentAt: new Date() }
+    });
+  } catch (error) {
+    await diagnostics.warn(MODULE_KEY, "External event RSVP confirmation email failed.", {
+      eventId: event.id,
+      externalEmail: normalizedEmail,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
+
+  if (event.createdByUserId) {
+    await prisma.notification.create({
+      data: {
+        userId: event.createdByUserId,
+        title: `New RSVP for ${event.title}`,
+        body: `${parsed.data.name} RSVP'd ${parsed.data.status}.`,
+        href: `/events/${event.slug}`
+      }
+    });
+  }
+
+  await diagnostics.info(MODULE_KEY, "External event RSVP recorded.", {
+    eventId: event.id,
+    externalEmail: normalizedEmail,
+    status: rsvp.status
+  });
+
+  return { ok: true as const, rsvp, created: !existing };
 }
 
 export async function addEventModerator(viewerUserId: string, eventIdOrSlug: string, input: unknown) {

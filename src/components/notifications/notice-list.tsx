@@ -1,5 +1,6 @@
-import { FamilyRelationshipRequestStatus } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus } from "@prisma/client";
 import { FamilyRequestActions } from "@/components/notifications/family-request-actions";
+import { FriendRequestActions } from "@/components/notifications/friend-request-actions";
 
 type NoticeItem = {
   id: string;
@@ -15,6 +16,13 @@ type NoticeItem = {
     relationshipLabel: string;
     message: string | null;
     status: FamilyRelationshipRequestStatus;
+  } | null;
+  friendRequest?: {
+    id: string;
+    requesterName: string;
+    requesterUsername: string;
+    message: string | null;
+    status: FriendRelationshipRequestStatus;
   } | null;
 };
 
@@ -51,6 +59,20 @@ export function NoticeList({ items, emptyTitle }: { items: NoticeItem[]; emptyTi
                 <FamilyRequestActions requestId={item.familyRequest.id} />
               ) : (
                 <p className="mt-3 text-sm text-[var(--muted)]">Status: {item.familyRequest.status}</p>
+              )}
+            </div>
+          ) : null}
+          {item.friendRequest ? (
+            <div className="family-alert-panel mt-4">
+              <p className="text-sm font-semibold text-[var(--gold)]">
+                {item.friendRequest.requesterName} wants to add you as a friend.
+              </p>
+              <p className="mt-1 text-sm text-[var(--muted)]">@{item.friendRequest.requesterUsername}</p>
+              {item.friendRequest.message ? <p className="mt-2 text-sm">{item.friendRequest.message}</p> : null}
+              {item.friendRequest.status === FriendRelationshipRequestStatus.PENDING ? (
+                <FriendRequestActions requestId={item.friendRequest.id} />
+              ) : (
+                <p className="mt-3 text-sm text-[var(--muted)]">Status: {item.friendRequest.status}</p>
               )}
             </div>
           ) : null}

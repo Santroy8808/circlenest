@@ -21,7 +21,16 @@ export const familyRelationshipRequestSchema = z.object({
   message: z.string().max(240).optional().or(z.literal(""))
 });
 
+export const friendRelationshipRequestSchema = z.object({
+  targetUserId: z.string().min(1),
+  message: z.string().max(240).optional().or(z.literal(""))
+});
+
 export const familyRelationshipResponseSchema = z.object({
+  action: z.enum(["approve", "deny"])
+});
+
+export const friendRelationshipResponseSchema = z.object({
   action: z.enum(["approve", "deny"])
 });
 
@@ -46,6 +55,7 @@ export type PeopleCardView = {
   relationships: SocialRelationshipType[];
   familyLabel?: string | null;
   pendingFamilyRequest?: boolean;
+  pendingFriendRequest?: boolean;
 };
 
 export type FamilyMemberView = {

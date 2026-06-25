@@ -1,6 +1,6 @@
 "use client";
 
-import { MediaVisibility } from "@prisma/client";
+import { BusinessProfileKind, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
@@ -8,6 +8,7 @@ import type { BusinessCenterView, BusinessProfileView } from "@/modules/business
 
 type FormState = {
   businessName: string;
+  contactPersonName: string;
   tagline: string;
   description: string;
   location: string;
@@ -32,6 +33,7 @@ type HeroUploadState = {
 function initialForm(profile: BusinessProfileView | null): FormState {
   return {
     businessName: profile?.businessName ?? "",
+    contactPersonName: profile?.contactPersonName ?? "",
     tagline: profile?.tagline ?? "",
     description: profile?.description ?? "",
     location: profile?.location ?? "",
@@ -55,6 +57,9 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
   const [message, setMessage] = useState("");
   const [error, setError] = useState(businessCenter.canManage ? "" : businessCenter.reason ?? "Professional access required.");
   const [isPending, startTransition] = useTransition();
+  const isOrgProfile = businessCenter.profileKind === BusinessProfileKind.ORG;
+  const centerLabel = isOrgProfile ? "Org Center" : "Business Center";
+  const entityLabel = isOrgProfile ? "Org" : "Business";
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -119,7 +124,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
 
       update("heroImageUrl", complete.asset.publicUrl);
       setHeroUpload({ fileName: file.name, progress: 100, status: "done" });
-      setMessage("Hero image uploaded. Save the business profile to publish it.");
+      setMessage(`Hero image uploaded. Save the ${entityLabel.toLowerCase()} profile to publish it.`);
     } catch (caught) {
       setHeroUpload({
         fileName: file.name,
@@ -167,8 +172,8 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
   if (!businessCenter.canManage) {
     return (
       <section className="surface rounded-md p-8 text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Business Center</p>
-        <h1 className="mt-3 text-3xl font-semibold">Professional access required</h1>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{centerLabel}</p>
+        <h1 className="mt-3 text-3xl font-semibold">{isOrgProfile ? "Org access required" : "Professional access required"}</h1>
         <p className="mx-auto mt-3 max-w-xl leading-7 text-[var(--muted)]">{error}</p>
         <Link className="btn-secondary mt-5 inline-block" href="/production-zone">
           Back to Production Zone
@@ -180,12 +185,14 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Business Center</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{centerLabel}</p>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold">Business profile and storefront</h1>
+            <h1 className="text-3xl font-semibold">{isOrgProfile ? "Org profile and public page" : "Business profile and storefront"}</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Build a Professional public storefront for non-members while keeping control inside Theta-Space.
+              {isOrgProfile
+                ? "Build an org profile with contact routing, blogs, events, fundraisers, and org communication tools."
+                : "Build a Professional public storefront for non-members while keeping control inside Theta-Space."}
             </p>
           </div>
           {profile?.publicStorefrontEnabled ? (
@@ -199,7 +206,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
       <form className="surface grid gap-5 rounded-md p-6" onSubmit={submit}>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">
-            <span className="form-label">Business name</span>
+            <span className="form-label">{entityLabel} name</span>
             <input className="form-field" onChange={(event) => update("businessName", event.target.value)} value={form.businessName} />
           </label>
           <label className="grid gap-2">
@@ -208,11 +215,18 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           </label>
         </div>
 
+        {isOrgProfile ? (
+          <label className="grid gap-2">
+            <span className="form-label">Person who runs this org account</span>
+            <input className="form-field" onChange={(event) => update("contactPersonName", event.target.value)} value={form.contactPersonName} />
+          </label>
+        ) : null}
+
         <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
           <div>
-            <h2 className="font-semibold text-[var(--gold)]">Storefront visuals</h2>
+            <h2 className="font-semibold text-[var(--gold)]">{isOrgProfile ? "Org profile visuals" : "Storefront visuals"}</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Add a logo, banner, hero image, and storefront photos. If no hero image is uploaded, the storefront keeps the current open blue panel.
+              Add a logo, banner, hero image, and {isOrgProfile ? "org profile" : "storefront"} photos. If no hero image is uploaded, the page keeps the current open blue panel.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -282,7 +296,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             </div>
           </section>
           <label className="grid gap-2">
-            <span className="form-label">Storefront gallery URLs</span>
+            <span className="form-label">{isOrgProfile ? "Org gallery URLs" : "Storefront gallery URLs"}</span>
             <textarea
               className="form-field min-h-28 resize-y"
               onChange={(event) => update("galleryImageUrlsText", event.target.value)}
@@ -332,9 +346,11 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             type="checkbox"
           />
           <span>
-            <span className="block font-semibold text-[var(--gold)]">Publish public storefront</span>
+            <span className="block font-semibold text-[var(--gold)]">{isOrgProfile ? "Publish public org profile" : "Publish public storefront"}</span>
             <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
-              Makes this page reachable outside the private member app. Inquiries are captured internally.
+              {isOrgProfile
+                ? "Makes this org profile reachable and routes inquiries to the designated public contact email."
+                : "Makes this page reachable outside the private member app. Inquiries are captured internally."}
             </span>
           </span>
         </label>

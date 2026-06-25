@@ -201,7 +201,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = session?.user?.role === UserRole.ADMIN;
-  const isBusinessAccount = session?.user?.tier === MembershipTier.PROFESSIONAL;
+  const isBusinessAccount = session?.user?.tier === MembershipTier.PROFESSIONAL || session?.user?.tier === MembershipTier.ORG;
   const isAndroidApp = isAndroidAppRequest();
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp);
   const [counts, rightStreamAds, shellProfile] = await Promise.all([

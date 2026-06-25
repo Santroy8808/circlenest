@@ -1,4 +1,4 @@
-import { ProfileVisibility } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { setProfileMediaSchema, updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
@@ -32,6 +32,7 @@ function toProfileCard(user: {
   membership: { tier: string } | null;
 }, familyMembers: ProfileCardView["familyMembers"] = []): ProfileCardView {
   return {
+    id: user.id,
     username: user.username,
     displayName: user.profile?.displayName ?? user.username,
     tagline: user.profile?.tagline,
@@ -42,11 +43,55 @@ function toProfileCard(user: {
     visibility: user.profile?.visibility ?? ProfileVisibility.MEMBERS,
     tier: user.membership?.tier ?? "FREE",
     role: user.role,
-    familyMembers
+    familyMembers,
+    viewerRelationships: [],
+    pendingFriendRequest: false,
+    pendingFamilyRequest: false
   };
 }
 
-export async function getPublicProfileByUsername(username: string) {
+async function getViewerRelationshipState(viewerUserId: string | undefined, targetUserId: string) {
+  if (!viewerUserId || viewerUserId === targetUserId) {
+    return { viewerRelationships: [] as SocialRelationshipType[], pendingFamilyRequest: false };
+  }
+
+  const [relationships, pendingFriendRequest, pendingFamilyRequest] = await Promise.all([
+    prisma.socialRelationship.findMany({
+      where: {
+        fromUserId: viewerUserId,
+        toUserId: targetUserId,
+        type: {
+          in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.CONTACT]
+        }
+      },
+      select: { type: true }
+    }),
+    prisma.friendRelationshipRequest.findFirst({
+      where: {
+        requesterUserId: viewerUserId,
+        targetUserId,
+        status: FriendRelationshipRequestStatus.PENDING
+      },
+      select: { id: true }
+    }),
+    prisma.familyRelationshipRequest.findFirst({
+      where: {
+        requesterUserId: viewerUserId,
+        targetUserId,
+        status: FamilyRelationshipRequestStatus.PENDING
+      },
+      select: { id: true }
+    })
+  ]);
+
+  return {
+    viewerRelationships: relationships.map((relationship) => relationship.type),
+    pendingFriendRequest: Boolean(pendingFriendRequest),
+    pendingFamilyRequest: Boolean(pendingFamilyRequest)
+  };
+}
+
+export async function getPublicProfileByUsername(username: string, viewerUserId?: string) {
   try {
     const user = await withProfileDbTimeout(
       prisma.user.findUnique({
@@ -61,8 +106,14 @@ export async function getPublicProfileByUsername(username: string) {
 
     if (!user || user.deactivatedAt) return null;
 
-    const familyMembers = await listApprovedFamilyMembers(user.id);
-    return toProfileCard(user, familyMembers);
+    const [familyMembers, relationshipState] = await Promise.all([
+      listApprovedFamilyMembers(user.id),
+      getViewerRelationshipState(viewerUserId, user.id)
+    ]);
+    return {
+      ...toProfileCard(user, familyMembers),
+      ...relationshipState
+    };
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not load public profile.", {
       username,

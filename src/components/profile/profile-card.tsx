@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProfileRelationshipActions } from "@/components/profile/profile-relationship-actions";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
 function initials(displayName: string) {
@@ -31,7 +32,15 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
             <Link className="btn-secondary" href="/profile/edit">
               Edit profile
             </Link>
-          ) : null}
+          ) : (
+            <ProfileRelationshipActions
+              pendingFamilyRequest={profile.pendingFamilyRequest}
+              pendingFriendRequest={profile.pendingFriendRequest}
+              relationships={profile.viewerRelationships}
+              targetDisplayName={profile.displayName}
+              targetUserId={profile.id}
+            />
+          )}
         </div>
         <div className="mt-4">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">@{profile.username}</p>

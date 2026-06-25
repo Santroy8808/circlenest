@@ -1,5 +1,6 @@
 "use client";
 
+import { BusinessProfileKind } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { BusinessProfileView } from "@/modules/business-storefront/types";
@@ -19,6 +20,8 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const isOrgProfile = profile.profileKind === BusinessProfileKind.ORG;
+  const entityLabel = isOrgProfile ? "org" : "business";
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,7 +48,7 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
       setSenderName("");
       setSenderEmail("");
       setMessage("");
-      setStatus("Inquiry sent. The business owner will see it inside Theta-Space.");
+      setStatus(`Inquiry sent. The ${entityLabel} contact will see it inside Theta-Space.`);
     });
   }
 
@@ -73,14 +76,16 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
                 )}
               </div>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Theta-Space Storefront</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">
+                  {isOrgProfile ? "Theta-Space Org Profile" : "Theta-Space Storefront"}
+                </p>
                 <h1 className="mt-3 max-w-3xl text-4xl font-semibold">{profile.businessName}</h1>
               </div>
             </div>
             {profile.tagline ? <p className="mt-4 max-w-2xl text-lg text-[var(--muted)]">{profile.tagline}</p> : null}
             <div className="mt-4 flex flex-wrap gap-2">
               {profile.location ? <span className="pill rounded-full px-3 py-1 text-sm">{profile.location}</span> : null}
-              <span className="pill rounded-full px-3 py-1 text-sm">Public business profile</span>
+              <span className="pill rounded-full px-3 py-1 text-sm">{isOrgProfile ? "Public org profile" : "Public business profile"}</span>
             </div>
           </div>
           {profile.heroImageUrl ? (
@@ -97,7 +102,7 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
           {profile.blogEnabled ? (
             <nav aria-label="Storefront blogs" className="storefront-blog-nav rounded-md">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Business blogs</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{isOrgProfile ? "Org blogs" : "Business blogs"}</p>
                 <p className="mt-1 text-sm text-[var(--muted)]">Articles and updates from {profile.businessName}.</p>
               </div>
               <div className="storefront-blog-links">
@@ -120,9 +125,10 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
           <section className="surface rounded-md p-6">
             <h2 className="text-2xl font-semibold text-[var(--gold)]">About</h2>
             <p className="mt-4 whitespace-pre-wrap leading-7 text-[var(--text)]">
-              {profile.description ?? "This business has not added a full description yet."}
+              {profile.description ?? `This ${entityLabel} has not added a full description yet.`}
             </p>
             <div className="mt-6 grid gap-3 text-sm text-[var(--muted)]">
+              {profile.contactPersonName ? <p>Account contact: {profile.contactPersonName}</p> : null}
               {profile.publicEmail ? <p>Email: {profile.publicEmail}</p> : null}
               {profile.phone ? <p>Phone: {profile.phone}</p> : null}
               {profile.website ? (
@@ -200,7 +206,7 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
                       // eslint-disable-next-line @next/next/no-img-element
                       <img alt={article.title} src={article.coverImageUrl} />
                     ) : null}
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Article</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">{isOrgProfile ? "Org post" : "Article"}</span>
                     <strong className="mt-2 block">{article.title}</strong>
                     {article.summary ? <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{article.summary}</span> : null}
                   </a>
@@ -213,7 +219,9 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
         <form className="public-storefront-inquiry surface grid gap-4 rounded-md p-6" onSubmit={submit}>
           <div>
             <h2 className="text-2xl font-semibold text-[var(--gold)]">Send an inquiry</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">This sends a private inquiry into the owner&apos;s Business Center.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              This sends a private inquiry to the {isOrgProfile ? "org contact" : "storefront owner"} inside Theta-Space.
+            </p>
           </div>
           <label className="grid gap-2">
             <span className="form-label">Your name</span>

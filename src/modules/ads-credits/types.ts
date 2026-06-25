@@ -1,5 +1,6 @@
 import { AdDestinationKind, AdPlacement, InterestCategory } from "@prisma/client";
 import { z } from "zod";
+import type { StripeCreditPackageView } from "@/modules/billing/stripe-credit-checkout.service";
 import type { AdPricingPackageView } from "@/modules/platform-pricing/types";
 
 export const adPlacementLabels: Record<AdPlacement, string> = {
@@ -42,6 +43,7 @@ export const createAdCampaignSchema = z.object({
   marketListingId: z.string().trim().optional().or(z.literal("")),
   businessArticleId: z.string().trim().optional().or(z.literal("")),
   customDestinationUrl: z.string().trim().max(600).optional().or(z.literal("")),
+  subscriberTargetManuscriptId: z.string().trim().optional().or(z.literal("")),
   placement: z.nativeEnum(AdPlacement).default(AdPlacement.RIGHT_STREAM),
   targetLocation: z.string().trim().max(120).optional(),
   targetInterestCategories: z.array(z.nativeEnum(InterestCategory)).max(6).default([]),
@@ -62,6 +64,7 @@ export type AdCampaignCardView = {
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED" | "ARCHIVED";
   targetLocation: string | null;
   targetInterestLabels: string[];
+  subscriberTargetLabel: string | null;
   totalBudgetCredits: number;
   dailyBudgetCredits: number | null;
   spentCredits: number;
@@ -85,6 +88,7 @@ export type AdPlacementCardView = {
 
 export type AdsManagerView = {
   canCreate: boolean;
+  fundraiserOnly: boolean;
   reason?: string;
   platformCredits: number;
   campaigns: AdCampaignCardView[];
@@ -92,6 +96,8 @@ export type AdsManagerView = {
     storefronts: Array<{ id: string; label: string; href: string }>;
     marketListings: Array<{ id: string; label: string; href: string }>;
     businessArticles: Array<{ id: string; label: string; href: string }>;
+    writerManuscripts: Array<{ id: string; label: string; href: string; subscriberCount: number }>;
   };
   pricingPackages: AdPricingPackageView[];
+  creditPackages: StripeCreditPackageView[];
 };

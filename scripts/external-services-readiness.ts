@@ -1,3 +1,4 @@
+import "./load-next-env";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -110,6 +111,16 @@ const r2Required = [
   "CLOUDFLARE_R2_PUBLIC_BASE_URL"
 ];
 const missingR2 = r2Required.filter((name) => !envPresent(name));
+const stripeRequired = [
+  "STRIPE_PUBLISHABLE_KEY",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PRICE_CONTRIBUTOR",
+  "STRIPE_PRICE_PROFESSIONAL",
+  "STRIPE_PRICE_AUDITOR",
+  "STRIPE_PRICE_ORG"
+];
+const missingStripe = stripeRequired.filter((name) => !envPresent(name));
 const requiredRuntimeEnv = ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL"];
 const missingRuntimeEnv = requiredRuntimeEnv.filter((name) => !envPresent(name));
 const gitStatus = getGitStatus();
@@ -160,6 +171,18 @@ const checks: ServiceCheck[] = [
     r2PublicHost ? `Public media host: ${r2PublicHost}.` : "CLOUDFLARE_R2_PUBLIC_BASE_URL is missing or invalid."
   ),
   check(
+    "Stripe",
+    "Subscription env",
+    missingStripe.length === 0 ? "pass" : "warn",
+    missingStripe.length === 0 ? "All Stripe subscription variable names are present." : `Missing locally: ${missingStripe.join(", ")}.`
+  ),
+  check(
+    "Stripe",
+    "Webhook endpoint",
+    "pass",
+    "Expected production endpoint: https://theta-space.net/api/billing/stripe/webhook."
+  ),
+  check(
     "Auth",
     "Runtime auth env",
     missingRuntimeEnv.length === 0 ? "pass" : "warn",
@@ -194,8 +217,9 @@ Read-only readiness report for the external services used by Theta-Space:
 - Railway for the web application runtime.
 - Neon.tech for PostgreSQL.
 - Cloudflare R2 for media storage.
+- Stripe for paid subscription checkout and subscription webhooks.
 
-This report does not deploy Railway, connect to Neon, upload to R2, mutate environment variables, or push GitHub.
+This report does not deploy Railway, connect to Neon, upload to R2, contact Stripe, mutate environment variables, or push GitHub.
 
 ## Source
 
@@ -216,7 +240,7 @@ ${markdownTable(checks)}
 
 These variable names must exist in Railway production:
 
-${bulletList([...requiredRuntimeEnv, ...r2Required, "PLATFORM_LOG_LEVEL", "DIAGNOSTIC_LOGS_ENABLED", "AUDIT_LOGS_ENABLED"].map((name) => `\`${name}\``))}
+${bulletList([...requiredRuntimeEnv, ...r2Required, ...stripeRequired, "PLATFORM_LOG_LEVEL", "DIAGNOSTIC_LOGS_ENABLED", "AUDIT_LOGS_ENABLED"].map((name) => `\`${name}\``))}
 
 ## Manual Railway Smoke
 
@@ -242,6 +266,16 @@ ${bulletList([...requiredRuntimeEnv, ...r2Required, "PLATFORM_LOG_LEVEL", "DIAGN
 - Confirm direct browser upload writes the object to R2.
 - Confirm complete-upload stores the DB record.
 - Confirm public URL renders the image after refresh.
+
+## Manual Stripe Smoke
+
+- Confirm Railway has all Stripe variables listed above.
+- Confirm Stripe has active recurring prices for Contributor, Professional, Auditor, and Org.
+- Confirm Stripe webhook endpoint points to \`https://theta-space.net/api/billing/stripe/webhook\`.
+- Confirm webhook events include \`checkout.session.completed\`, \`customer.subscription.updated\`, and \`customer.subscription.deleted\`.
+- Confirm \`/settings/subscription\` starts Stripe checkout for a configured paid tier.
+- Confirm a completed checkout updates \`Membership.subscriptionStatus\`, \`stripeCustomerId\`, \`stripeSubscriptionId\`, and active membership tier in Neon.
+- Confirm canceled or unpaid subscriptions downgrade effective access instead of leaving paid access active.
 
 ## Warnings
 

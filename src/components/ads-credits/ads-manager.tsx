@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdCreditCheckoutButton } from "@/components/ads-credits/ad-credit-checkout-button";
 import type { AdsManagerView } from "@/modules/ads-credits/types";
 
 function isExternalUrl(value: string) {
@@ -28,6 +29,39 @@ export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
       </section>
 
       <section className="surface rounded-md p-5">
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">Buy platform credits</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+          Credits are granted only after Stripe confirms payment through the webhook.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {adsManager.creditPackages.length > 0 ? (
+            adsManager.creditPackages.map((creditPackage) => (
+              <article className="module-card rounded-md p-4" key={creditPackage.key}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">{creditPackage.label}</h3>
+                    <p className="mt-1 text-sm text-[var(--muted)]">{creditPackage.creditAmount.toLocaleString()} credits</p>
+                  </div>
+                  <span className="pill rounded-full px-3 py-1 text-xs">${(creditPackage.priceCents / 100).toFixed(2)}</span>
+                </div>
+                {creditPackage.description ? <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{creditPackage.description}</p> : null}
+                {!creditPackage.checkoutReady ? (
+                  <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">
+                    Stripe checkout is not configured for this package yet.
+                  </p>
+                ) : null}
+                <div className="mt-4">
+                  <AdCreditCheckoutButton disabled={!creditPackage.checkoutReady} packageKey={creditPackage.key} />
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-md border border-dashed border-[var(--line)] p-5 text-[var(--muted)]">No credit packages are configured.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="surface rounded-md p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Campaigns</h2>
         <div className="mt-5 grid gap-3">
           {adsManager.campaigns.length > 0 ? (
@@ -54,12 +88,15 @@ export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
                       <span className="pill rounded-full px-3 py-1">{campaign.destinationKind.toLowerCase().replace("_", " ")}</span>
                       <span className="pill rounded-full px-3 py-1">{campaign.placementLabel}</span>
                       <span className="pill rounded-full px-3 py-1">
-                      {campaign.totalBudgetCredits} credits reserved
+                        {campaign.totalBudgetCredits} credits reserved
                       </span>
                       {campaign.endsAt ? <span className="pill rounded-full px-3 py-1">Ends {new Date(campaign.endsAt).toLocaleDateString()}</span> : null}
                       {campaign.targetLocation ? <span className="pill rounded-full px-3 py-1">Location: {campaign.targetLocation}</span> : null}
                       <span className="pill rounded-full px-3 py-1">
                         {campaign.targetInterestLabels.length > 0 ? `Interests: ${campaign.targetInterestLabels.join(", ")}` : "Broad interests"}
+                      </span>
+                      <span className="pill rounded-full px-3 py-1">
+                        {campaign.subscriberTargetLabel ? `Subscribers: ${campaign.subscriberTargetLabel}` : "No subscriber audience"}
                       </span>
                     </div>
                     {campaign.destinationUrl ? (

@@ -11,7 +11,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     redirect(`/login?callbackUrl=/profile/${params.username}`);
   }
 
-  const profile = await getPublicProfileByUsername(params.username);
+  const profile = await getPublicProfileByUsername(params.username, session.user.id);
   const isOwner = Boolean(session?.user?.username && session.user.username === params.username.toLowerCase());
 
   return (

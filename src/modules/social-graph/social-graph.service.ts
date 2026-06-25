@@ -1,9 +1,11 @@
-import { FamilyRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType, UserRole } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
   familyRelationshipRequestSchema,
   familyRelationshipResponseSchema,
+  friendRelationshipRequestSchema,
+  friendRelationshipResponseSchema,
   type FamilyMemberView,
   type PeopleCardView,
   removeRelationshipSchema,
@@ -51,6 +53,20 @@ export async function setSocialRelationship(fromUserId: string, input: unknown) 
     return { ok: false as const, error: "You cannot create a relationship to yourself." };
   }
 
+  if (parsed.data.type === SocialRelationshipType.FRIEND) {
+    return { ok: false as const, error: "Friend requests must be approved first." };
+  }
+
+  const existingRelationship = await prisma.socialRelationship.findUnique({
+    where: {
+      fromUserId_toUserId_type: {
+        fromUserId,
+        toUserId: parsed.data.toUserId,
+        type: parsed.data.type
+      }
+    },
+    select: { id: true }
+  });
   const relationship = await prisma.socialRelationship.upsert({
     where: {
       fromUserId_toUserId_type: {
@@ -77,6 +93,228 @@ export async function setSocialRelationship(fromUserId: string, input: unknown) 
   });
 
   return { ok: true as const, relationship };
+}
+
+export async function requestFriendRelationship(requesterUserId: string, input: unknown) {
+  const parsed = friendRelationshipRequestSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid friend request." };
+  }
+
+  if (parsed.data.targetUserId === requesterUserId) {
+    return { ok: false as const, error: "You cannot send a friend request to yourself." };
+  }
+
+  const [requester, target, existingFriend, pendingSent, pendingReceived] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: requesterUserId },
+      include: { profile: true }
+    }),
+    prisma.user.findUnique({
+      where: { id: parsed.data.targetUserId },
+      include: { profile: true }
+    }),
+    prisma.socialRelationship.findFirst({
+      where: {
+        fromUserId: requesterUserId,
+        toUserId: parsed.data.targetUserId,
+        type: SocialRelationshipType.FRIEND
+      }
+    }),
+    prisma.friendRelationshipRequest.findFirst({
+      where: {
+        requesterUserId,
+        targetUserId: parsed.data.targetUserId,
+        status: FriendRelationshipRequestStatus.PENDING
+      }
+    }),
+    prisma.friendRelationshipRequest.findFirst({
+      where: {
+        requesterUserId: parsed.data.targetUserId,
+        targetUserId: requesterUserId,
+        status: FriendRelationshipRequestStatus.PENDING
+      }
+    })
+  ]);
+
+  if (!requester || !target || target.deactivatedAt) {
+    return { ok: false as const, error: "That member was not found." };
+  }
+
+  if (existingFriend) {
+    return { ok: false as const, error: "That member is already in your friends list." };
+  }
+
+  if (pendingSent) {
+    return { ok: false as const, error: "A friend request is already pending." };
+  }
+
+  if (pendingReceived) {
+    return { ok: false as const, error: "That member already sent you a friend request. Open Alerts to approve it." };
+  }
+
+  const requesterName = requester.profile?.displayName ?? requester.username;
+  const targetName = target.profile?.displayName ?? target.username;
+  const request = await prisma.friendRelationshipRequest.create({
+    data: {
+      requesterUserId,
+      targetUserId: target.id,
+      message: parsed.data.message || null
+    }
+  });
+
+  const alert = await prisma.alert.create({
+    data: {
+      userId: target.id,
+      title: "Friend request approval needed",
+      body: `${requesterName} wants to add you as a friend on Theta-Space.`,
+      href: `/alerts?friendRequestId=${request.id}`
+    }
+  });
+
+  await prisma.friendRelationshipRequest.update({
+    where: { id: request.id },
+    data: { alertId: alert.id }
+  });
+
+  await diagnostics.info(MODULE_KEY, "Friend relationship request created.", {
+    requesterUserId,
+    targetUserId: target.id
+  });
+
+  return {
+    ok: true as const,
+    request: {
+      id: request.id,
+      targetName
+    }
+  };
+}
+
+export async function respondToFriendRelationshipRequest(targetUserId: string, requestId: string, input: unknown) {
+  const parsed = friendRelationshipResponseSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid response." };
+  }
+
+  const request = await prisma.friendRelationshipRequest.findFirst({
+    where: {
+      id: requestId,
+      targetUserId,
+      status: FriendRelationshipRequestStatus.PENDING
+    },
+    include: {
+      requester: { include: { profile: true } },
+      target: { include: { profile: true } }
+    }
+  });
+
+  if (!request) {
+    return { ok: false as const, error: "That friend request was not found or is no longer pending." };
+  }
+
+  const now = new Date();
+
+  if (parsed.data.action === "deny") {
+    await prisma.$transaction([
+      prisma.friendRelationshipRequest.update({
+        where: { id: request.id },
+        data: {
+          status: FriendRelationshipRequestStatus.DENIED,
+          respondedAt: now
+        }
+      }),
+      ...(request.alertId
+        ? [
+            prisma.alert.updateMany({
+              where: { id: request.alertId, userId: targetUserId },
+              data: {
+                readAt: now,
+                body: `Denied friend request from ${request.requester.profile?.displayName ?? request.requester.username}.`
+              }
+            })
+          ]
+        : []),
+      prisma.alert.create({
+        data: {
+          userId: request.requesterUserId,
+          title: "Friend request denied",
+          body: `${request.target.profile?.displayName ?? request.target.username} did not approve the friend request.`,
+          href: `/profile/${request.target.username}`
+        }
+      })
+    ]);
+
+    return { ok: true as const, status: FriendRelationshipRequestStatus.DENIED };
+  }
+
+  await prisma.$transaction([
+    prisma.socialRelationship.upsert({
+      where: {
+        fromUserId_toUserId_type: {
+          fromUserId: request.requesterUserId,
+          toUserId: request.targetUserId,
+          type: SocialRelationshipType.FRIEND
+        }
+      },
+      update: {},
+      create: {
+        fromUserId: request.requesterUserId,
+        toUserId: request.targetUserId,
+        type: SocialRelationshipType.FRIEND
+      }
+    }),
+    prisma.socialRelationship.upsert({
+      where: {
+        fromUserId_toUserId_type: {
+          fromUserId: request.targetUserId,
+          toUserId: request.requesterUserId,
+          type: SocialRelationshipType.FRIEND
+        }
+      },
+      update: {},
+      create: {
+        fromUserId: request.targetUserId,
+        toUserId: request.requesterUserId,
+        type: SocialRelationshipType.FRIEND
+      }
+    }),
+    prisma.friendRelationshipRequest.update({
+      where: { id: request.id },
+      data: {
+        status: FriendRelationshipRequestStatus.APPROVED,
+        respondedAt: now
+      }
+    }),
+    ...(request.alertId
+      ? [
+          prisma.alert.updateMany({
+            where: { id: request.alertId, userId: targetUserId },
+            data: {
+              readAt: now,
+              body: `Approved friend request from ${request.requester.profile?.displayName ?? request.requester.username}.`
+            }
+          })
+        ]
+      : []),
+    prisma.alert.create({
+      data: {
+        userId: request.requesterUserId,
+        title: "Friend request approved",
+        body: `${request.target.profile?.displayName ?? request.target.username} approved your friend request.`,
+        href: `/profile/${request.target.username}`
+      }
+    })
+  ]);
+
+  await diagnostics.info(MODULE_KEY, "Friend relationship request approved.", {
+    requesterUserId: request.requesterUserId,
+    targetUserId: request.targetUserId
+  });
+
+  return { ok: true as const, status: FriendRelationshipRequestStatus.APPROVED };
 }
 
 export async function requestFamilyRelationship(requesterUserId: string, input: unknown) {

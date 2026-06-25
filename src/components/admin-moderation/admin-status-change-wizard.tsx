@@ -11,6 +11,7 @@ type StatusChangeAccount = {
   role: string;
   tier: MembershipTier;
   tierName: string;
+  orgUpgradeEligible: boolean;
   storageLimitBytes: string;
   platformCredits: number;
 };
@@ -19,7 +20,8 @@ const tierOptions = [
   { value: MembershipTier.FREE, label: "Free", summary: "Core social access." },
   { value: MembershipTier.CONTRIBUTOR, label: "Contributor", summary: "Expanded community access and storage." },
   { value: MembershipTier.PROFESSIONAL, label: "Professional", summary: "Business tools, storefront, ads, jobs, and creator access." },
-  { value: MembershipTier.AUDITOR, label: "Auditor", summary: "Auditor account status and auditor profile access." }
+  { value: MembershipTier.AUDITOR, label: "Auditor", summary: "Auditor account status and auditor profile access." },
+  { value: MembershipTier.ORG, label: "Org", summary: "Reveal the hidden Org upgrade option. Stripe payment activates the tier." }
 ];
 
 function bytesLabel(value: string) {
@@ -85,7 +87,7 @@ export function AdminStatusChangeWizard() {
 
       setAccount(payload.account);
       setTargetTier(payload.account.tier);
-      setMessage("Membership status changed.");
+      setMessage(targetTier === MembershipTier.ORG ? "Org upgrade option revealed. The member must complete Stripe checkout to activate it." : "Membership status changed.");
     });
   }
 
@@ -95,7 +97,7 @@ export function AdminStatusChangeWizard() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Admin Wizard</p>
         <h1 className="mt-3 text-3xl font-semibold">Status Change</h1>
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
-          Permanently change an account&apos;s membership tier. This is different from promotional launch access and does not grant admin role.
+          Permanently correct normal membership tiers. Choosing Org does not activate Org access; it reveals the hidden Org upgrade option so the member can complete Stripe payment.
         </p>
       </section>
 
@@ -121,6 +123,7 @@ export function AdminStatusChangeWizard() {
             <p className="mt-3 text-sm text-[var(--muted)]">
               Storage limit: {bytesLabel(account.storageLimitBytes)} - Platform credits: {account.platformCredits}
             </p>
+            {account.orgUpgradeEligible ? <p className="mt-2 text-sm text-[var(--gold)]">Org upgrade option is visible to this account.</p> : null}
           </article>
         ) : null}
       </section>
@@ -128,7 +131,7 @@ export function AdminStatusChangeWizard() {
       <section className="surface rounded-md p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">2. Choose status</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          This changes the account&apos;s actual membership tier and resets the storage limit to the selected tier policy.
+          Free, Contributor, Professional, and Auditor are direct status corrections. Org only grants upgrade eligibility; Stripe payment activates it.
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {tierOptions.map((option) => (

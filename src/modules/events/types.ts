@@ -20,6 +20,12 @@ export const eventRsvpSchema = z.object({
   status: z.nativeEnum(EventRsvpStatus)
 });
 
+export const externalEventRsvpSchema = z.object({
+  name: z.string().trim().min(2, "Enter your name.").max(120),
+  email: z.string().trim().email("Enter a real email address.").max(180),
+  status: z.nativeEnum(EventRsvpStatus).default(EventRsvpStatus.GOING)
+});
+
 export type EventPersonView = {
   id: string;
   username: string;

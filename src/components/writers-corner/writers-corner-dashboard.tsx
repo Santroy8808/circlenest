@@ -34,7 +34,7 @@ export function WritersCornerDashboard({ access, manuscripts }: { access: Writer
                   </p>
                 </div>
                 <span className="pill rounded-full px-3 py-1 text-xs">
-                  {manuscript.chapterCount} chapters · {manuscript.wordCount} words
+                  {manuscript.chapterCount} chapters / {manuscript.wordCount} words / {manuscript.subscriberCount} subscribers
                 </span>
               </div>
               <p className="mt-4 leading-6 text-[var(--muted)]">{manuscript.summary ?? "No summary yet."}</p>

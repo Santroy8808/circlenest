@@ -1,4 +1,4 @@
-import { FamilyRelationshipRequestStatus } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { countUnreadChatThreads } from "@/modules/chat-messages/chat-messages.service";
@@ -37,6 +37,13 @@ export type AlertListItem = {
     relationshipLabel: string;
     message: string | null;
     status: FamilyRelationshipRequestStatus;
+  } | null;
+  friendRequest?: {
+    id: string;
+    requesterName: string;
+    requesterUsername: string;
+    message: string | null;
+    status: FriendRelationshipRequestStatus;
   } | null;
 };
 
@@ -110,10 +117,27 @@ export async function listAlerts(userId: string) {
         }
       }
     });
+    const friendRequests = await prisma.friendRelationshipRequest.findMany({
+      where: {
+        targetUserId: userId,
+        alertId: {
+          in: alerts.map((alert) => alert.id)
+        }
+      },
+      include: {
+        requester: {
+          include: {
+            profile: true
+          }
+        }
+      }
+    });
     const familyRequestMap = new Map(familyRequests.map((request) => [request.alertId, request]));
+    const friendRequestMap = new Map(friendRequests.map((request) => [request.alertId, request]));
 
     return alerts.map<AlertListItem>((alert) => {
       const familyRequest = familyRequestMap.get(alert.id);
+      const friendRequest = friendRequestMap.get(alert.id);
 
       return {
         ...alert,
@@ -125,6 +149,15 @@ export async function listAlerts(userId: string) {
               relationshipLabel: familyRequest.relationshipLabel,
               message: familyRequest.message,
               status: familyRequest.status
+            }
+          : null,
+        friendRequest: friendRequest
+          ? {
+              id: friendRequest.id,
+              requesterName: friendRequest.requester.profile?.displayName ?? friendRequest.requester.username,
+              requesterUsername: friendRequest.requester.username,
+              message: friendRequest.message,
+              status: friendRequest.status
             }
           : null
       };

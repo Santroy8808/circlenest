@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
+import { getPublicPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
 
 export function GET() {
-  return NextResponse.json({ policies: getPolicyMatrix() });
+  return NextResponse.json({ policies: getPublicPolicyMatrix() });
 }

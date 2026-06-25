@@ -71,6 +71,14 @@ const shortcutEntries: AdminSearchEntry[] = [
     keywords: ["ad spend", "ads", "pricing", "costs", "boost price", "listing price", "mail ad price"]
   },
   {
+    href: "/admin/actions/stripe-setup",
+    title: "Billing > Stripe Setup",
+    category: "Billing",
+    description: "Configure Stripe keys, webhook readiness, subscription price IDs, and ad-credit checkout packages.",
+    badge: "stripe",
+    keywords: ["stripe", "billing", "checkout", "subscription", "webhook", "price id", "credit package", "payments"]
+  },
+  {
     href: "/admin/actions/platform-credits",
     title: "Ad Spend > Member Credits",
     category: "Ads",

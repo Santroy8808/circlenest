@@ -602,6 +602,41 @@ a {
   width: 100%;
 }
 
+.profile-relationship-actions {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.profile-family-request {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.profile-family-request .family-select {
+  min-width: 150px;
+}
+
+.profile-relationship-pill,
+.profile-relationship-message {
+  border: 1px solid rgba(214, 178, 74, 0.22);
+  border-radius: 999px;
+  background: rgba(214, 178, 74, 0.08);
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.profile-relationship-message {
+  max-width: 260px;
+  text-align: right;
+}
+
 .profile-family {
   border-top: 1px solid rgba(214, 178, 74, 0.18);
   padding-top: 18px;
@@ -1369,6 +1404,53 @@ a {
 .comment-inline-meta strong {
   color: var(--gold);
   font-size: 0.88rem;
+}
+
+.feed-author-name-link,
+.comment-inline-meta .feed-author-name-link {
+  color: var(--gold);
+  display: block;
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.feed-author-handle-link,
+.comment-inline-meta .feed-author-handle-link {
+  color: var(--muted);
+  display: block;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.comment-inline-meta .feed-author-name-link,
+.comment-inline-meta .feed-author-handle-link {
+  display: inline;
+}
+
+.comment-inline-meta .feed-author-name-link {
+  font-size: 0.88rem;
+}
+
+.comment-inline-meta .feed-author-handle-link {
+  font-size: 0.72rem;
+}
+
+.feed-profile-link {
+  color: inherit;
+  display: inline-flex;
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.feed-profile-link:hover .feed-author-avatar,
+.feed-profile-link:hover .comment-author-dot,
+.feed-author-name-link:hover,
+.feed-author-handle-link:hover {
+  border-color: rgba(214, 178, 74, 0.72);
+  color: var(--gold);
 }
 
 .comment-inline-meta span,

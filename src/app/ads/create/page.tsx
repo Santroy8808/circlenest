@@ -36,6 +36,7 @@ export default async function CreateAdPage({ searchParams }: { searchParams?: Re
     marketListingId: readText(searchParams?.marketListingId, 120),
     businessArticleId: readText(searchParams?.businessArticleId, 120),
     customDestinationUrl: readText(searchParams?.customDestinationUrl, 600),
+    subscriberTargetManuscriptId: readText(searchParams?.subscriberTargetManuscriptId, 120),
     targetInterestCategories: readInterest(searchParams?.targetInterestCategories)
   };
 

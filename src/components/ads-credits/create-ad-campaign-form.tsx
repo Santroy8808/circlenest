@@ -27,6 +27,7 @@ export type InitialAdCampaignDraft = {
   marketListingId?: string;
   businessArticleId?: string;
   customDestinationUrl?: string;
+  subscriberTargetManuscriptId?: string;
   targetInterestCategories?: InterestCategory[];
 };
 
@@ -85,6 +86,7 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
 }
 
 function initialDestinationKind(adsManager: AdsManagerView, initialDraft?: InitialAdCampaignDraft) {
+  if (adsManager.fundraiserOnly) return AdDestinationKind.EXTERNAL_URL;
   if (initialDraft?.destinationKind) return initialDraft.destinationKind;
   if (adsManager.destinationOptions.storefronts.length > 0) return AdDestinationKind.STOREFRONT;
   if (adsManager.destinationOptions.marketListings.length > 0) return AdDestinationKind.MARKET_LISTING;
@@ -106,6 +108,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
   const [marketListingId, setMarketListingId] = useState(initialDraft?.marketListingId ?? adsManager.destinationOptions.marketListings[0]?.id ?? "");
   const [businessArticleId, setBusinessArticleId] = useState(initialDraft?.businessArticleId ?? adsManager.destinationOptions.businessArticles[0]?.id ?? "");
   const [customDestinationUrl, setCustomDestinationUrl] = useState(initialDraft?.customDestinationUrl ?? "");
+  const [subscriberTargetManuscriptId, setSubscriberTargetManuscriptId] = useState(initialDraft?.subscriberTargetManuscriptId ?? "");
   const initialPricingPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === AdPlacement.RIGHT_STREAM) ?? adsManager.pricingPackages[0];
   const [placement, setPlacement] = useState<AdPlacement>(initialPricingPackage?.placement ?? AdPlacement.RIGHT_STREAM);
   const [pricingRuleKey, setPricingRuleKey] = useState(initialPricingPackage?.key ?? "");
@@ -120,7 +123,8 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
     [adsManager.pricingPackages, placement]
   );
   const selectedPricingPackage = placementPackages.find((pricingPackage) => pricingPackage.key === pricingRuleKey) ?? placementPackages[0];
-  const canAffordPackage = selectedPricingPackage ? adsManager.platformCredits >= selectedPricingPackage.creditCost : false;
+  const selectedCreditCost = selectedPricingPackage ? (adsManager.fundraiserOnly ? Math.ceil(selectedPricingPackage.creditCost / 2) : selectedPricingPackage.creditCost) : 0;
+  const canAffordPackage = selectedPricingPackage ? adsManager.platformCredits >= selectedCreditCost : false;
 
   const hasDestination =
     (destinationKind === AdDestinationKind.STOREFRONT && adsManager.destinationOptions.storefronts.length > 0) ||
@@ -194,6 +198,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             marketListingId: destinationKind === AdDestinationKind.MARKET_LISTING ? marketListingId : "",
             businessArticleId: destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? businessArticleId : "",
             customDestinationUrl: destinationKind === AdDestinationKind.EXTERNAL_URL ? customDestinationUrl : "",
+            subscriberTargetManuscriptId,
             placement,
             pricingRuleKey: selectedPricingPackage.key,
             targetLocation,
@@ -237,6 +242,11 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
           Ads use uploaded creative and a defined click-through destination. They never appear inside listings, events, posts, or detail content.
         </p>
+        {adsManager.fundraiserOnly ? (
+          <p className="mt-3 max-w-2xl rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 p-3 text-sm leading-6 text-[var(--gold)]">
+            Org accounts can create fundraiser ads only. Credits count double here, so the displayed package cost is half the normal platform price.
+          </p>
+        ) : null}
         <p className="mt-3 text-sm text-[var(--gold)]">{adsManager.platformCredits} platform credits available.</p>
       </div>
 
@@ -315,7 +325,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
         <div className="grid gap-3 md:grid-cols-4">
           <button
             className={`destination-choice ${destinationKind === AdDestinationKind.STOREFRONT ? "is-active" : ""}`}
-            disabled={adsManager.destinationOptions.storefronts.length === 0}
+            disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.storefronts.length === 0}
             onClick={() => setDestinationKind(AdDestinationKind.STOREFRONT)}
             type="button"
           >
@@ -324,7 +334,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
           </button>
           <button
             className={`destination-choice ${destinationKind === AdDestinationKind.MARKET_LISTING ? "is-active" : ""}`}
-            disabled={adsManager.destinationOptions.marketListings.length === 0}
+            disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.marketListings.length === 0}
             onClick={() => setDestinationKind(AdDestinationKind.MARKET_LISTING)}
             type="button"
           >
@@ -333,7 +343,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
           </button>
           <button
             className={`destination-choice ${destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? "is-active" : ""}`}
-            disabled={adsManager.destinationOptions.businessArticles.length === 0}
+            disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.businessArticles.length === 0}
             onClick={() => setDestinationKind(AdDestinationKind.BUSINESS_ARTICLE)}
             type="button"
           >
@@ -382,10 +392,12 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             <input
               className="form-field"
               onChange={(event) => setCustomDestinationUrl(event.target.value)}
-              placeholder="https://example.com/page or /market/listing"
+              placeholder={adsManager.fundraiserOnly ? "/fundraisers/your-fundraiser" : "https://example.com/page or /market/listing"}
               value={customDestinationUrl}
             />
-            <small className="text-[var(--muted)]">The ad image and card will redirect here when clicked.</small>
+            <small className="text-[var(--muted)]">
+              {adsManager.fundraiserOnly ? "Org ads must point to one of your own fundraiser pages." : "The ad image and card will redirect here when clicked."}
+            </small>
           </label>
         ) : null}
       </section>
@@ -422,7 +434,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
         </label>
         <div className="ad-cost-estimate">
           <span>Estimated cost</span>
-          <strong>{selectedPricingPackage ? `${selectedPricingPackage.creditCost} credits` : "No package"}</strong>
+          <strong>{selectedPricingPackage ? `${selectedCreditCost} credits` : "No package"}</strong>
           <small>{selectedPricingPackage ? `${durationLabel(selectedPricingPackage.durationDays)} | ${selectedPricingPackage.unitLabel}` : "Ask an admin to activate a package."}</small>
         </div>
       </div>
@@ -460,6 +472,24 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             Leave blank for broad delivery. Choose up to 6 categories for interest-targeted placement.
           </p>
         </div>
+        {adsManager.destinationOptions.writerManuscripts.length > 0 ? (
+          <label className="mt-4 grid gap-2">
+            <span className="form-label">Subscriber audience</span>
+            <select
+              className="form-field"
+              onChange={(event) => setSubscriberTargetManuscriptId(event.target.value)}
+              value={subscriberTargetManuscriptId}
+            >
+              <option value="">No subscriber audience</option>
+              {adsManager.destinationOptions.writerManuscripts.map((manuscript) => (
+                <option key={manuscript.id} value={manuscript.id}>
+                  {manuscript.label} ({manuscript.subscriberCount} subscribers)
+                </option>
+              ))}
+            </select>
+            <small className="text-[var(--muted)]">Choose a manuscript to limit delivery to members subscribed to that manuscript.</small>
+          </label>
+        ) : null}
       </section>
 
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}

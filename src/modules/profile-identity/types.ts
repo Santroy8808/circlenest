@@ -1,4 +1,5 @@
 import { ProfileVisibility } from "@prisma/client";
+import type { SocialRelationshipType } from "@prisma/client";
 import { z } from "zod";
 import type { FamilyMemberView } from "@/modules/social-graph/types";
 
@@ -21,6 +22,7 @@ export const setProfileMediaSchema = z.object({
 });
 
 export type ProfileCardView = {
+  id: string;
   username: string;
   displayName: string;
   tagline?: string | null;
@@ -32,4 +34,7 @@ export type ProfileCardView = {
   tier: string;
   role: string;
   familyMembers: FamilyMemberView[];
+  viewerRelationships: SocialRelationshipType[];
+  pendingFriendRequest: boolean;
+  pendingFamilyRequest: boolean;
 };

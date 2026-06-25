@@ -46,6 +46,9 @@ function money(cents: number | null) {
 
 export function MembershipMatrix({ policies, plans = [] }: { policies: TierPolicy[]; plans?: SubscriptionPlanSummary[] }) {
   const planByTier = new Map(plans.map((plan) => [plan.tier, plan]));
+  const featureGridTemplate = {
+    gridTemplateColumns: `240px repeat(${policies.length}, minmax(140px, 1fr))`
+  };
 
   return (
     <div className="grid gap-4">
@@ -82,7 +85,7 @@ export function MembershipMatrix({ policies, plans = [] }: { policies: TierPolic
       </div>
 
       <section className="surface overflow-hidden rounded-md">
-        <div className="grid min-w-[760px] grid-cols-[240px_repeat(4,1fr)] border-b border-[var(--line)] bg-black/20">
+        <div className="grid min-w-[760px] border-b border-[var(--line)] bg-black/20" style={featureGridTemplate}>
           <div className="p-3 font-semibold text-[var(--gold)]">Feature</div>
           {policies.map((policy) => (
             <div key={policy.tier} className="p-3 font-semibold">
@@ -92,7 +95,7 @@ export function MembershipMatrix({ policies, plans = [] }: { policies: TierPolic
         </div>
         <div className="overflow-x-auto">
           {featuredRows.map((row) => (
-            <div key={row.key} className="grid min-w-[760px] grid-cols-[240px_repeat(4,1fr)] border-b border-[var(--line)] last:border-b-0">
+            <div key={row.key} className="grid min-w-[760px] border-b border-[var(--line)] last:border-b-0" style={featureGridTemplate}>
               <div className="p-3 text-sm text-[var(--muted)]">{row.label}</div>
               {policies.map((policy) => (
                 <div key={`${policy.tier}-${row.key}`} className="p-3 text-sm">

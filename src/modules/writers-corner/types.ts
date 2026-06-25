@@ -26,6 +26,10 @@ export const updateManuscriptStorefrontPublishingSchema = z.object({
   publishToStorefront: z.boolean()
 });
 
+export const updateManuscriptSubscriptionSchema = z.object({
+  notify: z.boolean().default(true)
+});
+
 export type WriterAccessState = {
   canWrite: boolean;
   reason?: string;
@@ -42,6 +46,8 @@ export type ManuscriptCardView = {
   storefrontPublishingAvailable: boolean;
   chapterCount: number;
   wordCount: number;
+  subscriberCount: number;
+  viewerSubscribed: boolean;
   updatedAt: string;
   viewerCanEdit: boolean;
   author: {

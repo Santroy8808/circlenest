@@ -115,20 +115,22 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
 
   const businessCards = [
     card({
-      title: "Business Center",
-      description: "Professional hub for storefront, general ads, jobs, events, and public business tooling.",
+      title: features["org.profile"] ? "Org Center" : "Business Center",
+      description: features["org.profile"]
+        ? "Org profile, blogs, events, fundraisers, and parishioner communication tools."
+        : "Professional hub for storefront, general ads, jobs, events, and public business tooling.",
       href: "/business-center",
-      badge: "Business",
-      available: features["market.storefront"] || features["ads.createGeneral"] || features["jobs.createListing"],
-      reason: "Professional access required."
+      badge: features["org.profile"] ? "Org" : "Business",
+      available: features["market.storefront"] || features["org.profile"] || features["ads.createGeneral"] || features["jobs.createListing"],
+      reason: "Professional or Org access required."
     }),
     card({
       title: "Ad Campaigns",
       description: "Create labeled reserved-placement ads without inserting ads inside listings, events, or posts.",
       href: "/ads",
       badge: "Business",
-      available: features["ads.createGeneral"],
-      reason: "Professional, Auditor, or Admin access required."
+      available: features["ads.createGeneral"] || features["ads.createFundraiser"],
+      reason: "Professional, Auditor, Org fundraiser, or Admin access required."
     })
   ];
 

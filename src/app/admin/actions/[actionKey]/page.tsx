@@ -8,10 +8,12 @@ import { AdminLaunchAccessWizard } from "@/components/admin-moderation/admin-lau
 import { AdminPlatformCreditsWizard } from "@/components/admin-moderation/admin-platform-credits-wizard";
 import { AdminPricingWizard } from "@/components/admin-moderation/admin-pricing-wizard";
 import { AdminStatusChangeWizard } from "@/components/admin-moderation/admin-status-change-wizard";
+import { AdminStripeSetupWizard } from "@/components/admin-moderation/admin-stripe-setup-wizard";
 import { AppShell } from "@/components/platform/app-shell";
 import { listRecentPublicAnnouncements } from "@/modules/admin-moderation/announcements.service";
 import { getAdminActionCard, getAdminFeedbackTicketQueue, isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
 import { getPlatformCreditsAdminView } from "@/modules/admin-moderation/platform-credits.service";
+import { getStripeSetupAdminView } from "@/modules/billing/stripe-admin.service";
 import { listLaunchAccessAdminView } from "@/modules/membership-policy/launch-access.service";
 import { listPlatformCostRules } from "@/modules/platform-pricing/platform-pricing.service";
 
@@ -64,6 +66,16 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminPlatformCreditsWizard recentLedger={view.recentLedger} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "stripe-setup") {
+    const view = await getStripeSetupAdminView();
+
+    return (
+      <AppShell>
+        <AdminStripeSetupWizard initialView={view} />
       </AppShell>
     );
   }

@@ -5,6 +5,7 @@ import {
   AdPlacement,
   InterestCategory,
   MarketListingStatus,
+  MembershipTier,
   PlatformActivityEventType,
   Prisma
 } from "@prisma/client";
@@ -25,6 +26,7 @@ import {
   getAdPricingPackages,
   isAdPricingRuleCompatible
 } from "@/modules/platform-pricing/platform-pricing.service";
+import { listStripeCreditPackages } from "@/modules/billing/stripe-credit-checkout.service";
 
 const MODULE_KEY = "ads-credits";
 const MIN_AD_HOLD_MS = 9000;
@@ -41,14 +43,24 @@ function hashForRotation(value: string) {
 }
 
 async function getAdCreateAccess(userId: string) {
-  const access = await canUserAccessFeature(userId, "ads.createGeneral");
-  return { ...access, isAdmin: false };
+  const generalAccess = await canUserAccessFeature(userId, "ads.createGeneral");
+  if (generalAccess.allowed) {
+    return { ...generalAccess, fundraiserOnly: false, isAdmin: false };
+  }
+
+  const fundraiserAccess = await canUserAccessFeature(userId, "ads.createFundraiser");
+  return { ...fundraiserAccess, fundraiserOnly: fundraiserAccess.allowed, isAdmin: false };
 }
 
 type AdCampaignPayload = Prisma.AdCampaignGetPayload<{
   include: {
     imageMediaAsset: true;
     targetInterests: true;
+    subscriberTargetManuscript: {
+      select: {
+        title: true;
+      };
+    };
   };
 }>;
 
@@ -65,6 +77,7 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
     status: campaign.status,
     targetLocation: campaign.targetLocation,
     targetInterestLabels: campaign.targetInterests.map((target) => interestCategoryLabels[target.category]),
+    subscriberTargetLabel: campaign.subscriberTargetManuscript?.title ?? null,
     totalBudgetCredits: campaign.totalBudgetCredits,
     dailyBudgetCredits: campaign.dailyBudgetCredits,
     spentCredits: campaign.spentCredits,
@@ -104,7 +117,7 @@ function weightedRotationSort(campaigns: AdCampaignPayload[]) {
 }
 
 export async function getAdsManagerView(userId: string): Promise<AdsManagerView> {
-  const [access, membership, campaigns, storefront, marketListings, businessArticles, pricingPackages] = await Promise.all([
+  const [access, membership, campaigns, storefront, marketListings, businessArticles, writerManuscripts, pricingPackages, creditPackages] = await Promise.all([
     getAdCreateAccess(userId),
     prisma.membership.findUnique({
       where: { userId },
@@ -114,7 +127,12 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
       where: { ownerUserId: userId },
       include: {
         imageMediaAsset: true,
-        targetInterests: true
+        targetInterests: true,
+        subscriberTargetManuscript: {
+          select: {
+            title: true
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
       take: 40
@@ -159,11 +177,30 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
       orderBy: { createdAt: "desc" },
       take: 80
     }),
-    getAdPricingPackages()
+    prisma.writerManuscript.findMany({
+      where: {
+        authorUserId: userId
+      },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        _count: {
+          select: {
+            subscriptions: true
+          }
+        }
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 80
+    }),
+    getAdPricingPackages(),
+    listStripeCreditPackages()
   ]);
 
   return {
     canCreate: access.allowed,
+    fundraiserOnly: access.fundraiserOnly,
     reason: access.reason,
     platformCredits: membership?.platformCredits ?? 0,
     campaigns: campaigns.map(toCampaignCard),
@@ -180,9 +217,16 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
         id: article.id,
         label: article.title,
         href: `/storefront/${article.businessProfile.slug}/articles/${article.slug}`
+      })),
+      writerManuscripts: writerManuscripts.map((manuscript) => ({
+        id: manuscript.id,
+        label: manuscript.title,
+        href: `/writers-corner/${manuscript.slug}`,
+        subscriberCount: manuscript._count.subscriptions
       }))
     },
-    pricingPackages
+    pricingPackages,
+    creditPackages
   };
 }
 
@@ -211,14 +255,53 @@ export async function getAdPlacementPool(input: {
       ]
     },
     include: {
+      owner: {
+        include: {
+          businessProfile: true,
+          membership: true
+        }
+      },
       imageMediaAsset: true,
-      targetInterests: true
+      targetInterests: true,
+      subscriberTargetManuscript: {
+        select: {
+          title: true
+        }
+      }
     },
     orderBy: [{ updatedAt: "desc" }],
     take: Math.max((input.limit ?? 16) * 3, 16)
   });
 
+  const subscriberTargetManuscriptIds = [
+    ...new Set(campaigns.map((campaign) => campaign.subscriberTargetManuscriptId).filter((id): id is string => Boolean(id)))
+  ];
+  const viewerSubscribedManuscriptIds =
+    input.viewerUserId && subscriberTargetManuscriptIds.length > 0
+      ? new Set(
+          (
+            await prisma.writerManuscriptSubscription.findMany({
+              where: {
+                userId: input.viewerUserId,
+                manuscriptId: {
+                  in: subscriberTargetManuscriptIds
+                }
+              },
+              select: {
+                manuscriptId: true
+              }
+            })
+          ).map((subscription) => subscription.manuscriptId)
+        )
+      : new Set<string>();
+
+  const orgOwnerIds = [
+    ...new Set(campaigns.filter((campaign) => campaign.owner.membership?.tier === MembershipTier.ORG).map((campaign) => campaign.ownerUserId))
+  ];
+  const orgAdEligibleOwnerIds = await getOrgAdEligibleOwnerIds(input.viewerUserId, orgOwnerIds);
   const eligibleCampaigns = campaigns.filter((campaign) => {
+    if (campaign.owner.membership?.tier === MembershipTier.ORG && !orgAdEligibleOwnerIds.has(campaign.ownerUserId)) return false;
+    if (campaign.subscriberTargetManuscriptId && !viewerSubscribedManuscriptIds.has(campaign.subscriberTargetManuscriptId)) return false;
     if (campaign.targetInterests.length === 0) return true;
     if (!input.viewerUserId) return false;
     return campaign.targetInterests.some((target) => viewerInterestSet.has(target.category));
@@ -227,6 +310,59 @@ export async function getAdPlacementPool(input: {
   return weightedRotationSort(eligibleCampaigns)
     .slice(0, input.limit ?? 16)
     .map(toPlacementCard);
+}
+
+async function getOrgAdEligibleOwnerIds(viewerUserId: string | undefined, orgOwnerIds: string[]) {
+  const eligible = new Set<string>();
+
+  if (!viewerUserId || orgOwnerIds.length === 0) return eligible;
+
+  const [viewerScientology, orgProfiles, rsvps] = await Promise.all([
+    prisma.scientologyProfile.findUnique({
+      where: { userId: viewerUserId },
+      select: { orgName: true }
+    }),
+    prisma.businessProfile.findMany({
+      where: { ownerUserId: { in: orgOwnerIds } },
+      select: {
+        ownerUserId: true,
+        businessName: true
+      }
+    }),
+    prisma.eventRsvp.findMany({
+      where: {
+        userId: viewerUserId,
+        event: {
+          createdByUserId: { in: orgOwnerIds }
+        }
+      },
+      select: {
+        event: {
+          select: {
+            createdByUserId: true
+          }
+        }
+      }
+    })
+  ]);
+
+  const viewerOrgName = viewerScientology?.orgName?.trim().toLowerCase();
+
+  if (viewerOrgName) {
+    for (const profile of orgProfiles) {
+      if (profile.businessName.trim().toLowerCase() === viewerOrgName) {
+        eligible.add(profile.ownerUserId);
+      }
+    }
+  }
+
+  for (const rsvp of rsvps) {
+    if (rsvp.event.createdByUserId) {
+      eligible.add(rsvp.event.createdByUserId);
+    }
+  }
+
+  return eligible;
 }
 
 async function resolveAdDestination(userId: string, input: {
@@ -371,6 +507,50 @@ function normalizeExternalImageUrl(value?: string) {
   }
 }
 
+async function isOwnFundraiserDestination(userId: string, destinationUrl: string | null) {
+  if (!destinationUrl?.startsWith("/fundraisers/")) return false;
+  const slug = destinationUrl.split("?")[0]?.split("#")[0]?.split("/").filter(Boolean)[1];
+
+  if (!slug) return false;
+
+  const fundraiser = await prisma.fundraiserCampaign.findFirst({
+    where: {
+      OR: [{ id: slug }, { slug }],
+      creatorUserId: userId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return Boolean(fundraiser);
+}
+
+async function resolveSubscriberTargetManuscript(userId: string, manuscriptId?: string) {
+  const trimmed = manuscriptId?.trim();
+
+  if (!trimmed) {
+    return { ok: true as const, manuscriptId: null, title: null };
+  }
+
+  const manuscript = await prisma.writerManuscript.findFirst({
+    where: {
+      id: trimmed,
+      authorUserId: userId
+    },
+    select: {
+      id: true,
+      title: true
+    }
+  });
+
+  if (!manuscript) {
+    return { ok: false as const, error: "Choose one of your manuscripts for subscriber targeting." };
+  }
+
+  return { ok: true as const, manuscriptId: manuscript.id, title: manuscript.title };
+}
+
 async function verifyAdImage(userId: string, imageMediaAssetId?: string) {
   if (!imageMediaAssetId) return { ok: true as const, imageMediaAssetId: null };
 
@@ -417,7 +597,7 @@ export async function createAdCampaign(userId: string, input: unknown) {
     return { ok: false as const, error: "That pricing package does not match the selected placement." };
   }
 
-  const campaignCostCredits = pricingRule.creditCost;
+  const campaignCostCredits = access.fundraiserOnly ? Math.ceil(pricingRule.creditCost / 2) : pricingRule.creditCost;
   const startsAt = new Date();
   const endsAt = pricingRule.durationDays ? new Date(startsAt.getTime() + pricingRule.durationDays * 24 * 60 * 60 * 1000) : null;
   const targetInterestCategories = [...new Set(parsed.data.targetInterestCategories)] as InterestCategory[];
@@ -440,6 +620,16 @@ export async function createAdCampaign(userId: string, input: unknown) {
 
   if (!destination.ok) {
     return destination;
+  }
+
+  if (access.fundraiserOnly && !(await isOwnFundraiserDestination(userId, destination.destinationUrl))) {
+    return { ok: false as const, error: "Org ads can only promote one of the org's fundraiser pages." };
+  }
+
+  const subscriberTarget = await resolveSubscriberTargetManuscript(userId, parsed.data.subscriberTargetManuscriptId || undefined);
+
+  if (!subscriberTarget.ok) {
+    return subscriberTarget;
   }
 
   const image = await verifyAdImage(userId, parsed.data.imageMediaAssetId || undefined);
@@ -485,6 +675,7 @@ export async function createAdCampaign(userId: string, input: unknown) {
         businessProfileId: destination.businessProfileId,
         marketListingId: destination.marketListingId,
         businessArticleId: destination.businessArticleId,
+        subscriberTargetManuscriptId: subscriberTarget.manuscriptId,
         imageMediaAssetId: image.imageMediaAssetId,
         externalImageUrl,
         placement: parsed.data.placement,
@@ -504,7 +695,12 @@ export async function createAdCampaign(userId: string, input: unknown) {
       },
       include: {
         imageMediaAsset: true,
-        targetInterests: true
+        targetInterests: true,
+        subscriberTargetManuscript: {
+          select: {
+            title: true
+          }
+        }
       }
     });
   });
@@ -516,7 +712,8 @@ export async function createAdCampaign(userId: string, input: unknown) {
     pricingRuleKey: pricingRule.key,
     totalBudgetCredits: campaign.totalBudgetCredits,
     endsAt: campaign.endsAt?.toISOString(),
-    targetInterests: targetInterestCategories
+    targetInterests: targetInterestCategories,
+    subscriberTargetManuscriptId: subscriberTarget.manuscriptId
   });
   await writeAuditLog({
     actorUserId: userId,
@@ -529,7 +726,8 @@ export async function createAdCampaign(userId: string, input: unknown) {
       pricingRuleKey: pricingRule.key,
       totalBudgetCredits: campaign.totalBudgetCredits,
       endsAt: campaign.endsAt?.toISOString(),
-      targetInterests: targetInterestCategories
+      targetInterests: targetInterestCategories,
+      subscriberTargetManuscriptId: subscriberTarget.manuscriptId
     }
   });
 

@@ -12,6 +12,27 @@ enum MembershipTier {
   CONTRIBUTOR
   PROFESSIONAL
   AUDITOR
+  ORG
+}
+
+enum MembershipSubscriptionStatus {
+  NONE
+  INCOMPLETE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+enum StripeIntegrationMode {
+  TEST
+  LIVE
+}
+
+enum StripeCheckoutKind {
+  SUBSCRIPTION
+  CREDIT_PURCHASE
 }
 
 enum PromotionAccessScope {
@@ -82,6 +103,13 @@ enum SocialRelationshipType {
 }
 
 enum FamilyRelationshipRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELED
+}
+
+enum FriendRelationshipRequestStatus {
   PENDING
   APPROVED
   DENIED
@@ -175,6 +203,11 @@ enum EventRsvpStatus {
   GOING
   MAYBE
   DECLINED
+}
+
+enum BusinessProfileKind {
+  BUSINESS
+  ORG
 }
 
 enum MarketListingCategory {
@@ -379,120 +412,125 @@ enum ScientologyClassification {
 }
 
 model User {
-  id                         String                      @id @default(cuid())
-  email                      String                      @unique
-  username                   String                      @unique
-  passwordHash               String?
-  role                       UserRole                    @default(MEMBER)
-  emailVerified              DateTime?
-  deactivatedAt              DateTime?
-  sessionVersion             Int                         @default(1)
-  failedLoginCount           Int                         @default(0)
-  lastLoginAt                DateTime?
-  lastPasswordChangedAt      DateTime?
-  sessionsRevokedAt          DateTime?
-  onboardingCompletedAt      DateTime?
-  profileOnboardingSkippedAt DateTime?
-  scientologyOnboardingSkippedAt DateTime?
-  termsAcceptedAt            DateTime?
-  goodStandingDeniedAt       DateTime?
-  createdAt                  DateTime                    @default(now())
-  updatedAt                  DateTime                    @updatedAt
-  profile                    Profile?
-  scientologyProfile         ScientologyProfile?
-  membership                 Membership?
-  mediaAssets                MediaAsset[]
-  mediaCollections           MediaCollection[]
-  feedPosts                  FeedPost[]                  @relation("FeedPostAuthor")
-  feedComments               FeedComment[]               @relation("FeedCommentAuthor")
-  feedPostReactions          FeedPostReaction[]
-  feedCommentReactions       FeedCommentReaction[]
-  feedPostDismissals         FeedPostDismissal[]
-  galleryAssetComments       GalleryAssetComment[]       @relation("GalleryAssetCommentAuthor")
-  socialRelationshipsFrom    SocialRelationship[]        @relation("SocialRelationshipFrom")
-  socialRelationshipsTo      SocialRelationship[]        @relation("SocialRelationshipTo")
-  familyRequestsSent         FamilyRelationshipRequest[] @relation("FamilyRequestRequester")
-  familyRequestsReceived     FamilyRelationshipRequest[] @relation("FamilyRequestTarget")
-  devices                    UserDevice[]
-  encryptedChatParticipants  EncryptedChatParticipant[]
-  encryptedChatMessages      EncryptedChatMessage[]      @relation("EncryptedChatMessageSender")
-  encryptedChatEnvelopes     EncryptedChatEnvelope[]     @relation("EncryptedChatEnvelopeRecipient")
-  createdChatThreads         ChatThread[]                @relation("ChatThreadCreator")
-  chatParticipants           ChatParticipant[]
-  chatMessages               ChatMessage[]               @relation("ChatMessageSender")
-  createdMailThreads         MailThread[]                @relation("MailThreadCreator")
-  sentMailMessages           MailMessage[]               @relation("MailMessageSender")
-  mailRecipients             MailRecipient[]
-  ownedMailContacts          MailContact[]               @relation("MailContactOwner")
-  contactMailEntries         MailContact[]               @relation("MailContactUser")
-  mailPreference             MailPreference?
-  mailSenderOptOuts          MailSenderOptOut[]          @relation("MailOptOutOwner")
-  mailSenderBlocks           MailSenderOptOut[]          @relation("MailOptOutSender")
-  businessArticles           BusinessArticle[]
-  createdGroups              Group[]                     @relation("GroupCreator")
-  groupMemberships           GroupMember[]
-  groupJoinRequests          GroupJoinRequest[]          @relation("GroupJoinRequester")
-  reviewedGroupJoinRequests  GroupJoinRequest[]          @relation("GroupJoinReviewer")
-  groupPins                  GroupUserPin[]
-  groupForumThreads          GroupForumThread[]          @relation("GroupForumThreadAuthor")
-  endedGroupForumThreads     GroupForumThread[]          @relation("GroupForumThreadEnder")
-  deletedGroupForumThreads   GroupForumThread[]          @relation("GroupForumThreadDeleter")
-  groupForumPosts            GroupForumPost[]            @relation("GroupForumPostAuthor")
-  groupForumThreadReactions  GroupForumThreadReaction[]
-  groupForumPostReactions    GroupForumPostReaction[]
-  uploadedGroupAssets        GroupAsset[]                @relation("GroupAssetUploader")
-  groupAssetComments         GroupAssetComment[]         @relation("GroupAssetCommentAuthor")
-  createdEvents              Event[]                     @relation("EventCreator")
-  eventModerations           EventModerator[]
-  eventInvitationsSent       EventInvitation[]           @relation("EventInvitationSender")
-  eventInvitationsReceived   EventInvitation[]           @relation("EventInvitationInvitee")
-  eventRsvps                 EventRsvp[]
-  marketListings             MarketListing[]             @relation("MarketListingSeller")
-  jobListings                JobListing[]                @relation("JobListingEmployer")
-  auditorProfile             AuditorProfile?
-  businessProfile            BusinessProfile?            @relation("BusinessProfileOwner")
-  adCampaigns                AdCampaign[]                @relation("AdCampaignOwner")
-  adCreditLedgerEntries      AdCreditLedgerEntry[]
-  adDeliveryLogs             AdDeliveryLog[]             @relation("AdDeliveryViewer")
-  fundraiserCampaigns        FundraiserCampaign[]        @relation("FundraiserCreator")
-  fundContributionIntents    FundContributionIntent[]    @relation("FundContributionContributor")
-  manuscripts                WriterManuscript[]          @relation("WriterManuscriptAuthor")
-  notifications              Notification[]
-  alerts                     Alert[]
-  diagnostics                DiagnosticLog[]
-  auditLogs                  AuditLog[]                  @relation("AuditActor")
-  adminActions               AdminAction[]               @relation("AdminActionActor")
-  updatedPlatformCostRules   PlatformCostRule[]          @relation("PlatformCostRuleUpdater")
-  platformActivityEvents     PlatformActivityEvent[]     @relation("PlatformActivityUser")
-  interests                  UserInterest[]
-  authSecurityEvents         AuthSecurityEvent[]
-  emailVerificationTokens    EmailVerificationToken[]
-  passwordResetTokens        PasswordResetToken[]
-  twoFactorConfig            TwoFactorConfig?
-  feedbackTickets            FeedbackTicket[]            @relation("FeedbackReporter")
-  membershipOverrides        MembershipPolicyOverride[]  @relation("MembershipOverrideSubject")
-  createdMembershipOverrides MembershipPolicyOverride[]  @relation("MembershipOverrideCreator")
-  promotionGrants            MembershipPromotionGrant[]  @relation("PromotionGrantUser")
-  createdPromotionGrants     MembershipPromotionGrant[]  @relation("PromotionGrantCreator")
-  generatedFreeInvites       FreeAccountInviteCode[]     @relation("FreeInviteGeneratedBy")
-  assignedFreeInvites        FreeAccountInviteCode[]     @relation("FreeInviteAssignedUser")
-  usedFreeInvites            FreeAccountInviteCode[]     @relation("FreeInviteUsedBy")
+  id                              String                             @id @default(cuid())
+  email                           String                             @unique
+  username                        String                             @unique
+  passwordHash                    String?
+  role                            UserRole                           @default(MEMBER)
+  emailVerified                   DateTime?
+  deactivatedAt                   DateTime?
+  sessionVersion                  Int                                @default(1)
+  failedLoginCount                Int                                @default(0)
+  lastLoginAt                     DateTime?
+  lastPasswordChangedAt           DateTime?
+  sessionsRevokedAt               DateTime?
+  onboardingCompletedAt           DateTime?
+  profileOnboardingSkippedAt      DateTime?
+  scientologyOnboardingSkippedAt  DateTime?
+  termsAcceptedAt                 DateTime?
+  goodStandingDeniedAt            DateTime?
+  createdAt                       DateTime                           @default(now())
+  updatedAt                       DateTime                           @updatedAt
+  profile                         Profile?
+  scientologyProfile              ScientologyProfile?
+  membership                      Membership?
+  mediaAssets                     MediaAsset[]
+  mediaCollections                MediaCollection[]
+  feedPosts                       FeedPost[]                         @relation("FeedPostAuthor")
+  feedComments                    FeedComment[]                      @relation("FeedCommentAuthor")
+  feedPostReactions               FeedPostReaction[]
+  feedCommentReactions            FeedCommentReaction[]
+  feedPostDismissals              FeedPostDismissal[]
+  galleryAssetComments            GalleryAssetComment[]              @relation("GalleryAssetCommentAuthor")
+  socialRelationshipsFrom         SocialRelationship[]               @relation("SocialRelationshipFrom")
+  socialRelationshipsTo           SocialRelationship[]               @relation("SocialRelationshipTo")
+  familyRequestsSent              FamilyRelationshipRequest[]        @relation("FamilyRequestRequester")
+  familyRequestsReceived          FamilyRelationshipRequest[]        @relation("FamilyRequestTarget")
+  friendRequestsSent              FriendRelationshipRequest[]        @relation("FriendRequestRequester")
+  friendRequestsReceived          FriendRelationshipRequest[]        @relation("FriendRequestTarget")
+  devices                         UserDevice[]
+  encryptedChatParticipants       EncryptedChatParticipant[]
+  encryptedChatMessages           EncryptedChatMessage[]             @relation("EncryptedChatMessageSender")
+  encryptedChatEnvelopes          EncryptedChatEnvelope[]            @relation("EncryptedChatEnvelopeRecipient")
+  createdChatThreads              ChatThread[]                       @relation("ChatThreadCreator")
+  chatParticipants                ChatParticipant[]
+  chatMessages                    ChatMessage[]                      @relation("ChatMessageSender")
+  createdMailThreads              MailThread[]                       @relation("MailThreadCreator")
+  sentMailMessages                MailMessage[]                      @relation("MailMessageSender")
+  mailRecipients                  MailRecipient[]
+  ownedMailContacts               MailContact[]                      @relation("MailContactOwner")
+  contactMailEntries              MailContact[]                      @relation("MailContactUser")
+  mailPreference                  MailPreference?
+  mailSenderOptOuts               MailSenderOptOut[]                 @relation("MailOptOutOwner")
+  mailSenderBlocks                MailSenderOptOut[]                 @relation("MailOptOutSender")
+  businessArticles                BusinessArticle[]
+  createdGroups                   Group[]                            @relation("GroupCreator")
+  groupMemberships                GroupMember[]
+  groupJoinRequests               GroupJoinRequest[]                 @relation("GroupJoinRequester")
+  reviewedGroupJoinRequests       GroupJoinRequest[]                 @relation("GroupJoinReviewer")
+  groupPins                       GroupUserPin[]
+  groupForumThreads               GroupForumThread[]                 @relation("GroupForumThreadAuthor")
+  endedGroupForumThreads          GroupForumThread[]                 @relation("GroupForumThreadEnder")
+  deletedGroupForumThreads        GroupForumThread[]                 @relation("GroupForumThreadDeleter")
+  groupForumPosts                 GroupForumPost[]                   @relation("GroupForumPostAuthor")
+  groupForumThreadReactions       GroupForumThreadReaction[]
+  groupForumPostReactions         GroupForumPostReaction[]
+  uploadedGroupAssets             GroupAsset[]                       @relation("GroupAssetUploader")
+  groupAssetComments              GroupAssetComment[]                @relation("GroupAssetCommentAuthor")
+  createdEvents                   Event[]                            @relation("EventCreator")
+  eventModerations                EventModerator[]
+  eventInvitationsSent            EventInvitation[]                  @relation("EventInvitationSender")
+  eventInvitationsReceived        EventInvitation[]                  @relation("EventInvitationInvitee")
+  eventRsvps                      EventRsvp[]
+  marketListings                  MarketListing[]                    @relation("MarketListingSeller")
+  jobListings                     JobListing[]                       @relation("JobListingEmployer")
+  auditorProfile                  AuditorProfile?
+  businessProfile                 BusinessProfile?                   @relation("BusinessProfileOwner")
+  adCampaigns                     AdCampaign[]                       @relation("AdCampaignOwner")
+  adCreditLedgerEntries           AdCreditLedgerEntry[]
+  adDeliveryLogs                  AdDeliveryLog[]                    @relation("AdDeliveryViewer")
+  fundraiserCampaigns             FundraiserCampaign[]               @relation("FundraiserCreator")
+  fundContributionIntents         FundContributionIntent[]           @relation("FundContributionContributor")
+  manuscripts                     WriterManuscript[]                 @relation("WriterManuscriptAuthor")
+  writerManuscriptSubscriptions   WriterManuscriptSubscription[]
+  notifications                   Notification[]
+  alerts                          Alert[]
+  diagnostics                     DiagnosticLog[]
+  auditLogs                       AuditLog[]                         @relation("AuditActor")
+  adminActions                    AdminAction[]                      @relation("AdminActionActor")
+  updatedPlatformCostRules        PlatformCostRule[]                 @relation("PlatformCostRuleUpdater")
+  platformActivityEvents          PlatformActivityEvent[]            @relation("PlatformActivityUser")
+  interests                       UserInterest[]
+  authSecurityEvents              AuthSecurityEvent[]
+  emailVerificationTokens         EmailVerificationToken[]
+  passwordResetTokens             PasswordResetToken[]
+  twoFactorConfig                 TwoFactorConfig?
+  feedbackTickets                 FeedbackTicket[]                   @relation("FeedbackReporter")
+  membershipOverrides             MembershipPolicyOverride[]         @relation("MembershipOverrideSubject")
+  createdMembershipOverrides      MembershipPolicyOverride[]         @relation("MembershipOverrideCreator")
+  promotionGrants                 MembershipPromotionGrant[]         @relation("PromotionGrantUser")
+  createdPromotionGrants          MembershipPromotionGrant[]         @relation("PromotionGrantCreator")
+  tierUpgradeEligibilities        MembershipTierUpgradeEligibility[] @relation("TierUpgradeEligibilityUser")
+  createdTierUpgradeEligibilities MembershipTierUpgradeEligibility[] @relation("TierUpgradeEligibilityCreator")
+  generatedFreeInvites            FreeAccountInviteCode[]            @relation("FreeInviteGeneratedBy")
+  assignedFreeInvites             FreeAccountInviteCode[]            @relation("FreeInviteAssignedUser")
+  usedFreeInvites                 FreeAccountInviteCode[]            @relation("FreeInviteUsedBy")
 }
 
 model UserDevice {
-  id                      String                  @id @default(cuid())
-  userId                  String
-  deviceId                String
-  publicKey               String
-  platform                String                  @default("android")
-  appVersion              String?
-  lastSeenAt              DateTime                @default(now())
-  revokedAt               DateTime?
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
-  user                    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sentEncryptedMessages   EncryptedChatMessage[]
-  receivedChatEnvelopes   EncryptedChatEnvelope[]
+  id                    String                  @id @default(cuid())
+  userId                String
+  deviceId              String
+  publicKey             String
+  platform              String                  @default("android")
+  appVersion            String?
+  lastSeenAt            DateTime                @default(now())
+  revokedAt             DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentEncryptedMessages EncryptedChatMessage[]
+  receivedChatEnvelopes EncryptedChatEnvelope[]
 
   @@unique([userId, deviceId])
   @@index([deviceId])
@@ -554,15 +592,41 @@ model ScientologyCommendation {
 }
 
 model Membership {
-  id                String         @id @default(cuid())
-  userId            String         @unique
-  tier              MembershipTier @default(FREE)
-  inviteEligibleAt  DateTime?
-  storageLimitBytes BigInt         @default(104857600)
-  platformCredits   Int            @default(0)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                            String                       @id @default(cuid())
+  userId                        String                       @unique
+  tier                          MembershipTier               @default(FREE)
+  inviteEligibleAt              DateTime?
+  storageLimitBytes             BigInt                       @default(104857600)
+  platformCredits               Int                          @default(0)
+  stripeCustomerId              String?
+  stripeSubscriptionId          String?                      @unique
+  subscriptionStatus            MembershipSubscriptionStatus @default(NONE)
+  subscriptionCurrentPeriodEnd  DateTime?
+  subscriptionCancelAtPeriodEnd Boolean                      @default(false)
+  createdAt                     DateTime                     @default(now())
+  updatedAt                     DateTime                     @updatedAt
+  user                          User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([stripeCustomerId])
+  @@index([subscriptionStatus, updatedAt])
+}
+
+model MembershipTierUpgradeEligibility {
+  id              String         @id @default(cuid())
+  userId          String
+  tier            MembershipTier
+  reason          String?
+  active          Boolean        @default(true)
+  expiresAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  user            User           @relation("TierUpgradeEligibilityUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy       User?          @relation("TierUpgradeEligibilityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, tier])
+  @@index([tier, active, expiresAt])
+  @@index([createdByUserId, createdAt])
 }
 
 model MembershipPromotionGrant {
@@ -615,6 +679,7 @@ model SubscriptionPlanRule {
   tier                  MembershipTier @unique
   displayName           String
   standardPriceCents    Int
+  stripePriceId         String?
   founderPriceCents     Int?
   founderMemberCap      Int?
   founderWindowDays     Int?
@@ -623,6 +688,50 @@ model SubscriptionPlanRule {
   active                Boolean        @default(true)
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
+}
+
+model StripeIntegrationConfig {
+  id                          String                @id @default("default")
+  mode                        StripeIntegrationMode @default(TEST)
+  publishableKey              String?
+  secretKey                   String?
+  webhookSecret               String?
+  currency                    String                @default("usd")
+  subscriptionCheckoutEnabled Boolean               @default(true)
+  creditCheckoutEnabled       Boolean               @default(false)
+  updatedByUserId             String?
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+
+  @@index([updatedByUserId, updatedAt])
+}
+
+model StripeCreditPackage {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  label         String
+  description   String?
+  creditAmount  Int
+  priceCents    Int
+  stripePriceId String?
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+model StripeCheckoutFulfillment {
+  id                      String             @id @default(cuid())
+  stripeCheckoutSessionId String             @unique
+  userId                  String
+  kind                    StripeCheckoutKind
+  creditPackageKey        String?
+  creditsGranted          Int?
+  createdAt               DateTime           @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model AdExperienceRule {
@@ -788,15 +897,15 @@ model MediaAsset {
 }
 
 model GalleryAssetComment {
-  id            String     @id @default(cuid())
-  mediaAssetId  String
-  authorUserId  String
-  body          String
-  deletedAt     DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  mediaAsset    MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
-  author        User       @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  mediaAssetId String
+  authorUserId String
+  body         String
+  deletedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  author       User       @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
 
   @@index([mediaAssetId, deletedAt, createdAt])
   @@index([authorUserId, createdAt])
@@ -942,6 +1051,24 @@ model FamilyRelationshipRequest {
   updatedAt         DateTime                        @updatedAt
   requester         User                            @relation("FamilyRequestRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
   target            User                            @relation("FamilyRequestTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([requesterUserId, status, createdAt])
+  @@index([targetUserId, status, createdAt])
+  @@index([alertId])
+}
+
+model FriendRelationshipRequest {
+  id              String                          @id @default(cuid())
+  requesterUserId String
+  targetUserId    String
+  status          FriendRelationshipRequestStatus @default(PENDING)
+  message         String?
+  alertId         String?
+  respondedAt     DateTime?
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  requester       User                            @relation("FriendRequestRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  target          User                            @relation("FriendRequestTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
 
   @@index([requesterUserId, status, createdAt])
   @@index([targetUserId, status, createdAt])
@@ -1426,17 +1553,22 @@ model EventInvitation {
 }
 
 model EventRsvp {
-  id        String          @id @default(cuid())
-  eventId   String
-  userId    String
-  status    EventRsvpStatus
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String          @id @default(cuid())
+  eventId            String
+  userId             String?
+  externalName       String?
+  externalEmail      String?
+  confirmationSentAt DateTime?
+  status             EventRsvpStatus
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  event              Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user               User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
+  @@unique([eventId, externalEmail])
   @@index([userId, status, createdAt])
+  @@index([externalEmail])
   @@index([eventId, status])
 }
 
@@ -1520,10 +1652,12 @@ model AuditorProfile {
 }
 
 model BusinessProfile {
-  id                      String            @id @default(cuid())
-  ownerUserId             String            @unique
-  slug                    String            @unique
+  id                      String              @id @default(cuid())
+  ownerUserId             String              @unique
+  profileKind             BusinessProfileKind @default(BUSINESS)
+  slug                    String              @unique
   businessName            String
+  contactPersonName       String?
   tagline                 String?
   description             String?
   location                String?
@@ -1533,13 +1667,13 @@ model BusinessProfile {
   logoUrl                 String?
   bannerUrl               String?
   heroImageUrl            String?
-  galleryImageUrls        String[]          @default([])
-  blogEnabled             Boolean           @default(false)
-  publicStorefrontEnabled Boolean           @default(false)
-  emailLinkingEnabled     Boolean           @default(false)
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-  owner                   User              @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  galleryImageUrls        String[]            @default([])
+  blogEnabled             Boolean             @default(false)
+  publicStorefrontEnabled Boolean             @default(false)
+  emailLinkingEnabled     Boolean             @default(false)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  owner                   User                @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   inquiries               BusinessInquiry[]
   adCampaigns             AdCampaign[]
   articles                BusinessArticle[]
@@ -1611,6 +1745,7 @@ model AdCampaign {
   businessProfileId  String?
   marketListingId    String?
   businessArticleId  String?
+  subscriberTargetManuscriptId String?
   imageMediaAssetId  String?
   externalImageUrl   String?
   title              String
@@ -1631,6 +1766,7 @@ model AdCampaign {
   businessProfile    BusinessProfile?           @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
   marketListing      MarketListing?             @relation(fields: [marketListingId], references: [id], onDelete: SetNull)
   businessArticle    BusinessArticle?           @relation(fields: [businessArticleId], references: [id], onDelete: SetNull)
+  subscriberTargetManuscript WriterManuscript?   @relation("AdSubscriberTargetManuscript", fields: [subscriberTargetManuscriptId], references: [id], onDelete: SetNull)
   imageMediaAsset    MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
   deliveryLogs       AdDeliveryLog[]
   targetInterests    AdCampaignInterestTarget[]
@@ -1640,6 +1776,7 @@ model AdCampaign {
   @@index([businessProfileId, createdAt])
   @@index([marketListingId, createdAt])
   @@index([businessArticleId, createdAt])
+  @@index([subscriberTargetManuscriptId, createdAt])
   @@index([imageMediaAssetId])
 }
 
@@ -1755,10 +1892,27 @@ model WriterManuscript {
   updatedAt           DateTime             @updatedAt
   author              User                 @relation("WriterManuscriptAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
   chapters            WriterChapter[]
+  subscriptions       WriterManuscriptSubscription[]
+  subscriberTargetedAds AdCampaign[]       @relation("AdSubscriberTargetManuscript")
 
   @@index([authorUserId, updatedAt])
   @@index([authorUserId, publishToStorefront, updatedAt])
   @@index([visibility, updatedAt])
+}
+
+model WriterManuscriptSubscription {
+  id           String           @id @default(cuid())
+  manuscriptId String
+  userId       String
+  notify       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  manuscript   WriterManuscript @relation(fields: [manuscriptId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([manuscriptId, userId])
+  @@index([userId, updatedAt])
+  @@index([manuscriptId, notify])
 }
 
 model WriterChapter {

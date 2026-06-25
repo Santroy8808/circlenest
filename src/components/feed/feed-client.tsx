@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
@@ -280,6 +281,27 @@ function Avatar({
   );
 }
 
+function ProfileAvatarLink({ author, className }: { author: FeedAuthorView; className: string }) {
+  return (
+    <Link aria-label={`View ${author.displayName}'s profile`} className="feed-profile-link" href={`/profile/${author.username}`}>
+      <Avatar className={className} displayName={author.displayName} src={author.avatarUrl} />
+    </Link>
+  );
+}
+
+function ProfileNameLink({ author, compact = false }: { author: FeedAuthorView; compact?: boolean }) {
+  return (
+    <>
+      <Link className="feed-author-name-link" href={`/profile/${author.username}`}>
+        {author.displayName}
+      </Link>
+      <Link className={compact ? "feed-author-handle-link is-compact" : "feed-author-handle-link"} href={`/profile/${author.username}`}>
+        @{author.username}
+      </Link>
+    </>
+  );
+}
+
 function FeedMedia({ media }: { media?: FeedPostView["media"] }) {
   if (!media?.publicUrl || !media.mimeType.startsWith("image/")) return null;
 
@@ -546,11 +568,10 @@ function FeedCommentRow({
   return (
     <div className={depth > 0 ? "comment-bubble is-reply" : "comment-bubble"} id={`comment-${comment.id}`}>
       <div className="comment-bubble-main">
-        <Avatar className="comment-author-dot" displayName={comment.author.displayName} src={comment.author.avatarUrl} />
+        <ProfileAvatarLink author={comment.author} className="comment-author-dot" />
         <div className="min-w-0 flex-1">
           <div className="comment-inline-meta">
-            <strong>{comment.author.displayName}</strong>
-            <span>@{comment.author.username}</span>
+            <ProfileNameLink author={comment.author} compact />
             <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
             {hasHiddenReplies ? <span>{comment.replyCount} replies</span> : null}
           </div>
@@ -1110,12 +1131,10 @@ export function FeedClient({
             >
               <div className="feed-post-header">
                 <div className="feed-author-line">
-                  <Avatar className="feed-author-avatar" displayName={post.author.displayName} src={post.author.avatarUrl} />
+                  <ProfileAvatarLink author={post.author} className="feed-author-avatar" />
                   <div>
-                    <strong>{post.author.displayName}</strong>
-                    <span>
-                      @{post.author.username} | {new Date(post.createdAt).toLocaleString()}
-                    </span>
+                    <ProfileNameLink author={post.author} />
+                    <span>{new Date(post.createdAt).toLocaleString()}</span>
                   </div>
                 </div>
                 <div className="feed-post-header-actions">

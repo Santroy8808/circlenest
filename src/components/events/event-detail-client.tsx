@@ -15,6 +15,8 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
   const [event, setEvent] = useState(initialEvent);
   const [inviteIdentifier, setInviteIdentifier] = useState("");
   const [moderatorIdentifier, setModeratorIdentifier] = useState("");
+  const [externalName, setExternalName] = useState("");
+  const [externalEmail, setExternalEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -38,6 +40,37 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
 
       setEvent((current) => ({ ...current, viewerRsvpStatus: status }));
       setMessage(`RSVP updated to ${status}.`);
+    });
+  }
+
+  function submitExternalRsvp(eventForm: React.FormEvent<HTMLFormElement>) {
+    eventForm.preventDefault();
+    setError("");
+    setMessage("");
+
+    startTransition(async () => {
+      const response = await fetch(`/api/events/${event.slug}/external-rsvp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: externalName,
+          email: externalEmail,
+          status: EventRsvpStatus.GOING
+        })
+      });
+      const payload = (await response.json()) as { created?: boolean; error?: string };
+
+      if (!response.ok) {
+        setError(payload.error ?? "Could not submit RSVP.");
+        return;
+      }
+
+      setExternalName("");
+      setExternalEmail("");
+      if (payload.created) {
+        setEvent((current) => ({ ...current, attendeeCount: current.attendeeCount + 1 }));
+      }
+      setMessage("RSVP received. A confirmation email will be sent if SMTP is configured.");
     });
   }
 
@@ -140,6 +173,27 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
             </div>
           ) : null}
         </article>
+
+        <form className="surface grid gap-3 rounded-md p-5" onSubmit={submitExternalRsvp}>
+          <h2 className="text-xl font-semibold text-[var(--gold)]">RSVP by email</h2>
+          <p className="text-sm leading-6 text-[var(--muted)]">Use a real email address so the event host has a confirmed attendee record.</p>
+          <input
+            className="form-field"
+            onChange={(inputEvent) => setExternalName(inputEvent.target.value)}
+            placeholder="Full name"
+            value={externalName}
+          />
+          <input
+            className="form-field"
+            onChange={(inputEvent) => setExternalEmail(inputEvent.target.value)}
+            placeholder="Email address"
+            type="email"
+            value={externalEmail}
+          />
+          <button className="btn-primary justify-self-end" disabled={isPending || externalName.trim().length < 2 || externalEmail.trim().length < 5} type="submit">
+            Confirm RSVP
+          </button>
+        </form>
 
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>

@@ -14,10 +14,13 @@ export const membershipFeatureKeys = [
   "auditors.browse",
   "auditors.createProfile",
   "ads.createGeneral",
+  "ads.createFundraiser",
   "writers.access",
   "fundraisers.create",
   "invites.send",
   "mail.massSend",
+  "mail.orgMassSend",
+  "org.profile",
   "moderation.siteEligible",
   "admin.portal"
 ] as const;
@@ -36,6 +39,7 @@ export type TierPolicy = {
   tier: MembershipTier;
   displayName: string;
   summary: string;
+  publiclyListed?: boolean;
   features: Record<MembershipFeatureKey, boolean>;
   limits: TierLimits;
 };
@@ -54,10 +58,13 @@ const baseFeatures: Record<MembershipFeatureKey, boolean> = {
   "auditors.browse": true,
   "auditors.createProfile": false,
   "ads.createGeneral": false,
+  "ads.createFundraiser": false,
   "writers.access": false,
   "fundraisers.create": false,
   "invites.send": false,
   "mail.massSend": false,
+  "mail.orgMassSend": false,
+  "org.profile": false,
   "moderation.siteEligible": false,
   "admin.portal": false
 };
@@ -153,6 +160,30 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       marketListingsPer14Days: 0,
       marketListingPhotoCap: 0,
       fundraiserPerMonth: 0,
+      storageLimitBytes: 5 * 1024 * 1024 * 1024
+    }
+  },
+  [MembershipTier.ORG]: {
+    tier: MembershipTier.ORG,
+    displayName: "Org",
+    summary: "Admin-assigned org account for org profiles, events, fundraisers, and parishioner communications.",
+    publiclyListed: false,
+    features: withFeatures({
+      "feed.changeType": true,
+      "groups.create": true,
+      "events.create": true,
+      "auditors.createProfile": true,
+      "ads.createFundraiser": true,
+      "writers.access": true,
+      "fundraisers.create": true,
+      "mail.orgMassSend": true,
+      "org.profile": true
+    }),
+    limits: {
+      groupMemberCap: null,
+      marketListingsPer14Days: 0,
+      marketListingPhotoCap: 0,
+      fundraiserPerMonth: null,
       storageLimitBytes: 5 * 1024 * 1024 * 1024
     }
   }

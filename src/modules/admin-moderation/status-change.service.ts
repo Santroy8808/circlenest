@@ -52,6 +52,17 @@ export async function findStatusChangeAccount(identifier: string) {
           storageLimitBytes: true,
           platformCredits: true
         }
+      },
+      tierUpgradeEligibilities: {
+        where: {
+          tier: MembershipTier.ORG,
+          active: true,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+        },
+        select: {
+          id: true
+        },
+        take: 1
       }
     }
   });
@@ -69,6 +80,7 @@ export async function findStatusChangeAccount(identifier: string) {
     role: user.role,
     tier: currentTier,
     tierName: policy.displayName,
+    orgUpgradeEligible: user.tierUpgradeEligibilities.length > 0,
     storageLimitBytes: (user.membership?.storageLimitBytes ?? BigInt(policy.limits.storageLimitBytes)).toString(),
     platformCredits: user.membership?.platformCredits ?? 0
   };
@@ -97,6 +109,76 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
 
   const targetPolicy = getTierPolicy(parsed.data.targetTier);
   const previousTier = target.tier;
+
+  if (parsed.data.targetTier === MembershipTier.ORG) {
+    await prisma.$transaction(async (tx) => {
+      await tx.membershipTierUpgradeEligibility.upsert({
+        where: {
+          userId_tier: {
+            userId: target.id,
+            tier: MembershipTier.ORG
+          }
+        },
+        update: {
+          active: true,
+          reason: parsed.data.reason,
+          expiresAt: null,
+          createdByUserId: actorUserId
+        },
+        create: {
+          userId: target.id,
+          tier: MembershipTier.ORG,
+          reason: parsed.data.reason,
+          createdByUserId: actorUserId
+        }
+      });
+
+      await tx.adminAction.create({
+        data: {
+          actorUserId,
+          actionKey: "status-change",
+          module: MODULE_KEY,
+          status: "completed",
+          metadata: {
+            targetUserId: target.id,
+            previousTier,
+            targetTier: parsed.data.targetTier,
+            action: "grant_org_upgrade_eligibility",
+            reason: parsed.data.reason
+          } as Prisma.InputJsonObject
+        }
+      });
+    });
+
+    await writeAuditLog({
+      actorUserId,
+      module: MODULE_KEY,
+      action: "membership.org_upgrade_eligibility.granted",
+      targetType: "User",
+      targetId: target.id,
+      severity: AuditSeverity.warning,
+      metadata: {
+        previousTier,
+        targetTier: MembershipTier.ORG,
+        reason: parsed.data.reason
+      } as Prisma.InputJsonObject
+    });
+    await diagnostics.info(MODULE_KEY, "Admin granted Org upgrade eligibility.", {
+      actorUserId,
+      targetUserId: target.id,
+      previousTier,
+      targetTier: MembershipTier.ORG
+    });
+
+    return {
+      ok: true as const,
+      eligibilityGranted: true,
+      account: {
+        ...target,
+        orgUpgradeEligible: true
+      }
+    };
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const membership = await tx.membership.upsert({

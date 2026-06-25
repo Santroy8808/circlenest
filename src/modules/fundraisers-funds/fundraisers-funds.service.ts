@@ -301,5 +301,5 @@ export async function createContributionIntent(userId: string, campaignIdOrSlug:
 }
 
 export function viewerCanInteractWithFunds(tier?: MembershipTier | null) {
-  return tier === MembershipTier.PROFESSIONAL;
+  return tier === MembershipTier.PROFESSIONAL || tier === MembershipTier.ORG;
 }

@@ -8,6 +8,7 @@ import {
   createManuscriptSchema,
   updateChapterSchema,
   updateManuscriptStorefrontPublishingSchema,
+  updateManuscriptSubscriptionSchema,
   type ChapterCardView,
   type ChapterDetailView,
   type ManuscriptCardView,
@@ -120,6 +121,7 @@ type ManuscriptPayload = Prisma.WriterManuscriptGetPayload<{
   include: {
     author: { include: { profile: true } };
     chapters: true;
+    subscriptions: true;
   };
 }>;
 
@@ -135,6 +137,8 @@ function toManuscriptCard(manuscript: ManuscriptPayload, viewerUserId: string, v
     storefrontPublishingAvailable,
     chapterCount: manuscript.chapters.length,
     wordCount: manuscript.chapters.reduce((sum, chapter) => sum + chapter.wordCount, 0),
+    subscriberCount: manuscript.subscriptions.length,
+    viewerSubscribed: manuscript.subscriptions.some((subscription) => subscription.userId === viewerUserId),
     updatedAt: manuscript.updatedAt.toISOString(),
     viewerCanEdit: viewerRole === UserRole.ADMIN || manuscript.authorUserId === viewerUserId,
     author: {
@@ -167,7 +171,8 @@ export async function listManuscripts(viewerUserId: string) {
           profile: true
         }
       },
-      chapters: true
+      chapters: true,
+      subscriptions: true
     },
     orderBy: {
       updatedAt: "desc"
@@ -257,7 +262,8 @@ export async function getManuscriptDetail(viewerUserId: string, manuscriptIdOrSl
         orderBy: {
           sortOrder: "asc"
         }
-      }
+      },
+      subscriptions: true
     }
   });
 
@@ -324,7 +330,8 @@ export async function updateManuscriptStorefrontPublishing(userId: string, manus
           profile: true
         }
       },
-      chapters: true
+      chapters: true,
+      subscriptions: true
     }
   });
 
@@ -397,7 +404,92 @@ export async function createChapter(userId: string, manuscriptIdOrSlug: string, 
     chapterId: chapter.id
   });
 
+  const subscribers = await prisma.writerManuscriptSubscription.findMany({
+    where: {
+      manuscriptId: manuscript.id,
+      notify: true,
+      userId: {
+        not: manuscript.authorUserId
+      }
+    },
+    select: { userId: true }
+  });
+
+  if (subscribers.length > 0) {
+    await prisma.notification.createMany({
+      data: subscribers.map((subscriber) => ({
+        userId: subscriber.userId,
+        title: `New chapter: ${parsed.data.title}`,
+        body: `${manuscript.title} has a new chapter ready to read.`,
+        href: `/writers-corner/${manuscript.slug}/chapters/${chapter.id}`
+      }))
+    });
+  }
+
   return { ok: true as const, chapter };
+}
+
+export async function subscribeToManuscript(userId: string, manuscriptIdOrSlug: string, input: unknown) {
+  const parsed = updateManuscriptSubscriptionSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid subscription." };
+  }
+
+  const manuscript = await prisma.writerManuscript.findFirst({
+    where: {
+      OR: [{ id: manuscriptIdOrSlug }, { slug: manuscriptIdOrSlug }],
+      visibility: ManuscriptVisibility.MEMBERS
+    },
+    select: {
+      id: true,
+      authorUserId: true
+    }
+  });
+
+  if (!manuscript) return { ok: false as const, error: "Manuscript not found." };
+  if (manuscript.authorUserId === userId) {
+    return { ok: false as const, error: "You already receive creator access for this manuscript." };
+  }
+
+  const subscription = await prisma.writerManuscriptSubscription.upsert({
+    where: {
+      manuscriptId_userId: {
+        manuscriptId: manuscript.id,
+        userId
+      }
+    },
+    update: {
+      notify: parsed.data.notify
+    },
+    create: {
+      manuscriptId: manuscript.id,
+      userId,
+      notify: parsed.data.notify
+    }
+  });
+
+  return { ok: true as const, subscription };
+}
+
+export async function unsubscribeFromManuscript(userId: string, manuscriptIdOrSlug: string) {
+  const manuscript = await prisma.writerManuscript.findFirst({
+    where: {
+      OR: [{ id: manuscriptIdOrSlug }, { slug: manuscriptIdOrSlug }]
+    },
+    select: { id: true }
+  });
+
+  if (!manuscript) return { ok: false as const, error: "Manuscript not found." };
+
+  await prisma.writerManuscriptSubscription.deleteMany({
+    where: {
+      manuscriptId: manuscript.id,
+      userId
+    }
+  });
+
+  return { ok: true as const };
 }
 
 export async function getChapterDetail(viewerUserId: string, chapterId: string) {

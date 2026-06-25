@@ -1,3 +1,4 @@
+import "./load-next-env";
 import { safeReadPlatformEnv } from "../src/lib/platform/env";
 
 const result = safeReadPlatformEnv();
@@ -11,4 +12,3 @@ if (!result.success) {
 }
 
 console.info("Environment validation passed.");
-

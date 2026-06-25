@@ -1,8 +1,10 @@
 import { z } from "zod";
+import type { BusinessProfileKind } from "@prisma/client";
 import type { MarketListingCardView } from "@/modules/market/types";
 
 export const updateBusinessProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(100),
+  contactPersonName: z.string().trim().max(120).optional(),
   tagline: z.string().trim().max(160).optional(),
   description: z.string().trim().max(2400).optional(),
   location: z.string().trim().max(160).optional(),
@@ -47,7 +49,9 @@ export type BusinessArticleView = {
 export type BusinessProfileView = {
   id: string;
   slug: string;
+  profileKind: BusinessProfileKind;
   businessName: string;
+  contactPersonName: string | null;
   tagline: string | null;
   description: string | null;
   location: string | null;
@@ -108,6 +112,7 @@ export type BusinessInquiryView = {
 export type BusinessCenterView = {
   canManage: boolean;
   reason?: string;
+  profileKind: BusinessProfileKind;
   profile: BusinessProfileView | null;
   inquiries: BusinessInquiryView[];
 };

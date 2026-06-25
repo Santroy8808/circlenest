@@ -2,6 +2,7 @@ import { AuditSeverity, MembershipTier, Prisma, PromotionAccessScope, UserRole }
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
+import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
 import { listFreeAccountInviteAdminView } from "@/modules/membership-policy/free-account-invites.service";
 
@@ -57,6 +58,16 @@ const subscriptionDefaults = [
     founderWindowDays: null,
     monthlyCreditBudget: 10,
     populationCreditTiers: []
+  },
+  {
+    tier: MembershipTier.ORG,
+    displayName: "Org",
+    standardPriceCents: 999,
+    founderPriceCents: null,
+    founderMemberCap: null,
+    founderWindowDays: null,
+    monthlyCreditBudget: 10,
+    populationCreditTiers: []
   }
 ] as const;
 
@@ -105,6 +116,16 @@ const adExperienceDefaults = [
   }
 ] as const;
 
+export function stripePriceIdForTier(tier: MembershipTier) {
+  const env = readPlatformEnv();
+
+  if (tier === MembershipTier.CONTRIBUTOR) return env.STRIPE_PRICE_CONTRIBUTOR ?? null;
+  if (tier === MembershipTier.PROFESSIONAL) return env.STRIPE_PRICE_PROFESSIONAL ?? null;
+  if (tier === MembershipTier.AUDITOR) return env.STRIPE_PRICE_AUDITOR ?? null;
+  if (tier === MembershipTier.ORG) return env.STRIPE_PRICE_ORG ?? null;
+  return null;
+}
+
 export const launchAccessGrantSchema = z.object({
   scope: z.nativeEnum(PromotionAccessScope),
   userIdentifier: z.string().trim().max(160).optional(),
@@ -129,22 +150,25 @@ async function isAdminUser(userId?: string) {
 
 export async function ensureLaunchDefaults() {
   await Promise.all([
-    ...subscriptionDefaults.map((plan) =>
-      prisma.subscriptionPlanRule.upsert({
+    ...subscriptionDefaults.map((plan) => {
+      const stripePriceId = stripePriceIdForTier(plan.tier);
+
+      return prisma.subscriptionPlanRule.upsert({
         where: { tier: plan.tier },
-        update: {},
+        update: stripePriceId ? { stripePriceId } : {},
         create: {
           tier: plan.tier,
           displayName: plan.displayName,
           standardPriceCents: plan.standardPriceCents,
+          stripePriceId,
           founderPriceCents: plan.founderPriceCents,
           founderMemberCap: plan.founderMemberCap,
           founderWindowDays: plan.founderWindowDays,
           monthlyCreditBudget: plan.monthlyCreditBudget,
           populationCreditTiers: plan.populationCreditTiers as unknown as Prisma.InputJsonArray
         }
-      })
-    ),
+      });
+    }),
     ...adExperienceDefaults.map((rule) =>
       prisma.adExperienceRule.upsert({
         where: { key: rule.key },
@@ -186,6 +210,7 @@ export async function listLaunchAccessAdminView() {
       tier: plan.tier,
       displayName: plan.displayName,
       standardPriceCents: plan.standardPriceCents,
+      stripePriceId: plan.stripePriceId,
       founderPriceCents: plan.founderPriceCents,
       founderMemberCap: plan.founderMemberCap,
       founderWindowDays: plan.founderWindowDays,
@@ -226,6 +251,7 @@ export async function listSubscriptionPlanRules() {
     tier: plan.tier,
     displayName: plan.displayName,
     standardPriceCents: plan.standardPriceCents,
+    stripePriceId: plan.stripePriceId,
     founderPriceCents: plan.founderPriceCents,
     founderMemberCap: plan.founderMemberCap,
     founderWindowDays: plan.founderWindowDays,

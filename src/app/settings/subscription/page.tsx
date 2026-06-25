@@ -3,8 +3,8 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
 import { SecureSettingsPanel } from "@/components/settings-secure-areas/secure-settings-panel";
 import { SubscriptionSettingsDetail } from "@/components/settings-secure-areas/subscription-settings-detail";
-import { listSubscriptionPlanRules } from "@/modules/membership-policy/launch-access.service";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
+import { listAvailableSubscriptionUpgradePlans } from "@/modules/membership-policy/subscriptions.service";
 
 export default async function SubscriptionSettingsPage() {
   const session = await auth();
@@ -13,7 +13,7 @@ export default async function SubscriptionSettingsPage() {
     redirect("/login?callbackUrl=/settings/subscription");
   }
 
-  const [policy, plans] = await Promise.all([getEffectivePolicyForUser(session.user.id), listSubscriptionPlanRules()]);
+  const [policy, plans] = await Promise.all([getEffectivePolicyForUser(session.user.id), listAvailableSubscriptionUpgradePlans(session.user.id)]);
 
   if (!policy) {
     redirect("/login?callbackUrl=/settings/subscription");

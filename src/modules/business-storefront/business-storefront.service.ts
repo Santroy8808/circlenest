@@ -1,7 +1,8 @@
-import { MailDeliveryKind, MailRecipientType, MarketListingStatus, Prisma, UserRole } from "@prisma/client";
+import { BusinessProfileKind, MailDeliveryKind, MailRecipientType, MarketListingStatus, MembershipTier, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { sendSmtpMail } from "@/lib/platform/smtp";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
@@ -61,6 +62,15 @@ function profileName(user: { username: string; profile: { displayName: string | 
 
 function publicUrl(slug: string) {
   return `/storefront/${slug}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 type BusinessProfilePayload = Prisma.BusinessProfileGetPayload<{
@@ -226,7 +236,9 @@ function toBusinessProfileView(
   return {
     id: profile.id,
     slug: profile.slug,
+    profileKind: profile.profileKind,
     businessName: profile.businessName,
+    contactPersonName: profile.contactPersonName,
     tagline: profile.tagline,
     description: profile.description,
     location: profile.location,
@@ -274,13 +286,38 @@ function toInquiryView(inquiry: {
 async function canManageBusinessProfile(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true }
+    select: {
+      role: true,
+      membership: {
+        select: {
+          tier: true
+        }
+      }
+    }
   });
 
   if (!user) return { allowed: false, reason: "User was not found." };
   if (user.role === UserRole.ADMIN) return { allowed: true, reason: "Admin role can manage business profiles." };
 
-  return canUserAccessFeature(userId, "market.storefront");
+  const businessAccess = await canUserAccessFeature(userId, "market.storefront");
+  if (businessAccess.allowed) return businessAccess;
+
+  return canUserAccessFeature(userId, "org.profile");
+}
+
+async function getBusinessProfileKind(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      membership: {
+        select: {
+          tier: true
+        }
+      }
+    }
+  });
+
+  return user?.membership?.tier === MembershipTier.ORG ? BusinessProfileKind.ORG : BusinessProfileKind.BUSINESS;
 }
 
 async function verifyBusinessImage(userId: string, mediaAssetId?: string | null) {
@@ -370,6 +407,7 @@ export async function getBusinessCenterView(userId: string): Promise<BusinessCen
   return {
     canManage: access.allowed,
     reason: access.reason,
+    profileKind: profile?.profileKind ?? (await getBusinessProfileKind(userId)),
     profile: profile ? toBusinessProfileView(profile, marketListings, storefrontBlogs) : null,
     inquiries: profile?.inquiries.map(toInquiryView) ?? []
   };
@@ -392,8 +430,11 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
     where: { ownerUserId: userId },
     select: { id: true, slug: true }
   });
+  const profileKind = await getBusinessProfileKind(userId);
   const data = {
+    profileKind,
     businessName: parsed.data.businessName,
+    contactPersonName: parsed.data.contactPersonName || null,
     tagline: parsed.data.tagline || null,
     description: parsed.data.description || null,
     location: parsed.data.location || null,
@@ -455,6 +496,7 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
   await diagnostics.info(MODULE_KEY, "Business profile saved.", {
     userId,
     businessProfileId: profile.id,
+    profileKind: profile.profileKind,
     publicStorefrontEnabled: profile.publicStorefrontEnabled
   });
   await writeAuditLog({
@@ -464,7 +506,8 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
     targetType: "BusinessProfile",
     targetId: profile.id,
     metadata: {
-      publicStorefrontEnabled: profile.publicStorefrontEnabled
+      publicStorefrontEnabled: profile.publicStorefrontEnabled,
+      profileKind: profile.profileKind
     }
   });
 
@@ -739,7 +782,9 @@ export async function createBusinessInquiry(slug: string, input: unknown) {
     select: {
       id: true,
       businessName: true,
-      ownerUserId: true
+      ownerUserId: true,
+      publicEmail: true,
+      profileKind: true
     }
   });
 
@@ -818,10 +863,40 @@ export async function createBusinessInquiry(slug: string, input: unknown) {
 
   await diagnostics.info(MODULE_KEY, "Business storefront inquiry created.", {
     businessProfileId: profile.id,
+    profileKind: profile.profileKind,
     ownerUserId: profile.ownerUserId,
     inquiryId: inquiry.id,
     mailThreadId: inquiry.mailThreadId
   });
+
+  if (profile.publicEmail) {
+    try {
+      await sendSmtpMail({
+        to: profile.publicEmail,
+        subject: `Theta-Space inquiry: ${profile.businessName}`,
+        text: [
+          `Theta-Space inquiry for ${profile.businessName}`,
+          "",
+          `From: ${parsed.data.senderName}`,
+          `Email: ${parsed.data.senderEmail || "Not supplied"}`,
+          "",
+          parsed.data.message
+        ].join("\n"),
+        html: [
+          `<p><strong>Theta-Space inquiry for ${escapeHtml(profile.businessName)}</strong></p>`,
+          `<p><strong>From:</strong> ${escapeHtml(parsed.data.senderName)}</p>`,
+          `<p><strong>Email:</strong> ${escapeHtml(parsed.data.senderEmail || "Not supplied")}</p>`,
+          `<p>${escapeHtml(parsed.data.message).replace(/\n/g, "<br />")}</p>`
+        ].join("")
+      });
+    } catch (error) {
+      await diagnostics.warn(MODULE_KEY, "Storefront inquiry SMTP send failed.", {
+        businessProfileId: profile.id,
+        profileKind: profile.profileKind,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+    }
+  }
 
   return { ok: true as const, inquiry: toInquiryView(inquiry) };
 }

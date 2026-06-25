@@ -29,6 +29,10 @@ export function getPolicyMatrix() {
   return Object.values(tierPolicies);
 }
 
+export function getPublicPolicyMatrix() {
+  return getPolicyMatrix().filter((policy) => policy.publiclyListed !== false);
+}
+
 export function resolvePolicy(input: {
   tier?: MembershipTier | null;
   role?: UserRole | null;
@@ -64,7 +68,7 @@ export function evaluateFeatureAccess(
     return { allowed: true, reason: `${policy.displayName} includes this feature.` };
   }
 
-  const upgradeTo = getPolicyMatrix().find((candidate) => candidate.features[featureKey])?.tier;
+  const upgradeTo = getPublicPolicyMatrix().find((candidate) => candidate.features[featureKey])?.tier;
 
   return {
     allowed: false,

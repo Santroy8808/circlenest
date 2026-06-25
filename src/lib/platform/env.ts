@@ -27,7 +27,14 @@ export const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().email().optional(),
   SMTP_SECURE: z.enum(["true", "false"]).optional(),
-  SMTP_IGNORE_TLS: z.enum(["true", "false"]).optional()
+  SMTP_IGNORE_TLS: z.enum(["true", "false"]).optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_CONTRIBUTOR: z.string().optional(),
+  STRIPE_PRICE_PROFESSIONAL: z.string().optional(),
+  STRIPE_PRICE_AUDITOR: z.string().optional(),
+  STRIPE_PRICE_ORG: z.string().optional()
 });
 
 export type PlatformEnv = z.infer<typeof envSchema>;

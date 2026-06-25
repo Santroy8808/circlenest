@@ -177,8 +177,25 @@ async function getMassRecipientCap(userId: string) {
 
   if (!user) return 1;
   if (user.role === UserRole.ADMIN) return config.adminMassRecipientCap;
+  if (user.membership?.tier === MembershipTier.ORG) return config.professionalMassRecipientCap;
 
   return user.membership?.tier === MembershipTier.PROFESSIONAL ? config.professionalMassRecipientCap : 1;
+}
+
+async function getSenderTier(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      membership: {
+        select: {
+          tier: true
+        }
+      }
+    }
+  });
+
+  return user?.role === UserRole.ADMIN ? MembershipTier.PROFESSIONAL : user?.membership?.tier ?? MembershipTier.FREE;
 }
 
 async function assertThreadAccess(userId: string, threadId: string) {
@@ -249,6 +266,51 @@ async function allowedRecipientsForMassMail(senderUserId: string, recipientUserI
   const blocked = new Set([...preferences.map((item) => item.userId), ...optOuts.map((item) => item.ownerUserId)]);
 
   return recipientUserIds.filter((recipientUserId) => !blocked.has(recipientUserId));
+}
+
+async function allowedRecipientsForOrgMassMail(senderUserId: string, recipientUserIds: string[]) {
+  const profile = await prisma.businessProfile.findUnique({
+    where: { ownerUserId: senderUserId },
+    select: {
+      businessName: true
+    }
+  });
+
+  if (!profile) return [];
+
+  const [parishioners, eventRsvps] = await Promise.all([
+    prisma.scientologyProfile.findMany({
+      where: {
+        userId: { in: recipientUserIds },
+        orgName: {
+          equals: profile.businessName,
+          mode: "insensitive"
+        }
+      },
+      select: {
+        userId: true
+      }
+    }),
+    prisma.eventRsvp.findMany({
+      where: {
+        userId: { in: recipientUserIds },
+        event: {
+          createdByUserId: senderUserId
+        }
+      },
+      select: {
+        userId: true
+      }
+    })
+  ]);
+
+  const allowed = new Set<string>();
+  for (const item of parishioners) allowed.add(item.userId);
+  for (const item of eventRsvps) {
+    if (item.userId) allowed.add(item.userId);
+  }
+
+  return recipientUserIds.filter((recipientUserId) => allowed.has(recipientUserId));
 }
 
 async function upsertMailContacts(ownerUserId: string, contactUserIds: string[]) {
@@ -444,7 +506,7 @@ export async function sendMail(senderUserId: string, input: unknown) {
     return { ok: false as const, error: "Inquiry mail can only be created from storefront inquiries." };
   }
 
-  const massCap = await getMassRecipientCap(senderUserId);
+  const [massCap, senderTier] = await Promise.all([getMassRecipientCap(senderUserId), getSenderTier(senderUserId)]);
 
   if (deliveryKind === MailDeliveryKind.MASS_INTERNAL && requestedRecipientIds.length > massCap) {
     return { ok: false as const, error: `This account can send internal mass mail to ${massCap} recipients at a time.` };
@@ -471,6 +533,9 @@ export async function sendMail(senderUserId: string, input: unknown) {
 
   if (deliveryKind === MailDeliveryKind.MASS_INTERNAL) {
     finalRecipientIds = await allowedRecipientsForMassMail(senderUserId, finalRecipientIds);
+    if (senderTier === MembershipTier.ORG) {
+      finalRecipientIds = await allowedRecipientsForOrgMassMail(senderUserId, finalRecipientIds);
+    }
   }
 
   if (finalRecipientIds.length === 0) {

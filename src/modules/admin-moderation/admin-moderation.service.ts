@@ -30,6 +30,19 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
+    key: "stripe-setup",
+    title: "Stripe Setup",
+    description: "Configure Stripe connection status, membership price IDs, credit packages, and checkout enablement.",
+    risk: "high",
+    keywords: ["stripe", "billing", "checkout", "subscription", "price id", "webhook", "credit package", "payment"],
+    steps: [
+      "Review Stripe secret and webhook readiness without exposing raw secrets.",
+      "Enter or update connection keys and checkout enablement.",
+      "Attach Stripe recurring price IDs to membership tiers.",
+      "Attach Stripe one-time price IDs to ad-credit packages."
+    ]
+  },
+  {
     key: "platform-credits",
     title: "Platform Credits",
     description: "Grant or remove platform-only credits for a member with a required reason, ledger entry, and audit trail.",
