@@ -973,6 +973,96 @@ a {
   font-size: 0.76rem;
 }
 
+.ad-render-preview {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 20px;
+  background: rgba(16, 25, 40, 0.56);
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+
+.ad-render-preview-heading {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.ad-render-preview-meta {
+  border: 1px solid rgba(214, 178, 74, 0.2);
+  border-radius: 16px;
+  background: rgba(17, 24, 36, 0.72);
+  color: var(--muted);
+  display: grid;
+  gap: 3px;
+  min-width: 170px;
+  padding: 12px 14px;
+  text-align: right;
+}
+
+.ad-render-preview-meta strong {
+  color: var(--gold);
+}
+
+.ad-render-preview-meta small {
+  font-size: 0.78rem;
+}
+
+.ad-render-stage {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+}
+
+.ad-render-context {
+  border: 1px solid rgba(214, 178, 74, 0.14);
+  border-radius: 16px;
+  background: rgba(8, 11, 16, 0.2);
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+}
+
+.ad-render-context strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.ad-render-context small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.ad-render-card {
+  justify-self: end;
+  max-width: 360px;
+  width: 100%;
+}
+
+.ad-render-card:hover {
+  background: rgba(17, 24, 36, 0.86);
+  border-color: rgba(214, 178, 74, 0.18);
+  transform: none;
+}
+
+.ad-render-image-placeholder {
+  align-items: center;
+  aspect-ratio: 1.2;
+  border: 1px dashed rgba(214, 178, 74, 0.28);
+  border-radius: 14px;
+  background: rgba(8, 11, 16, 0.34);
+  color: var(--muted);
+  display: flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  justify-content: center;
+  letter-spacing: 0.16em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
 .pricing-rule-card {
   color: var(--text);
   cursor: pointer;
@@ -4076,6 +4166,24 @@ a {
     height: auto;
     overflow: visible;
     padding: 18px;
+  }
+
+  .ad-render-preview-heading {
+    display: grid;
+  }
+
+  .ad-render-preview-meta {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .ad-render-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .ad-render-card {
+    justify-self: stretch;
+    max-width: none;
   }
 
   .feed-composer {

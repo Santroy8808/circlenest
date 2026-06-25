@@ -139,6 +139,18 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
   const selectedPackageCreditCost = packageCreditCost(selectedPricingPackage, adsManager.fundraiserOnly);
   const campaignDailyWeight = campaignDurationDays > 0 ? campaignCredits / campaignDurationDays : 0;
   const canAffordBudget = selectedPricingPackage ? adsManager.platformCredits >= campaignCredits : false;
+  const placementLabel = adPlacementOptions.find((option) => option.value === placement)?.label ?? "Ad placement";
+  const previewImageUrl = image?.previewUrl ?? externalImageUrl.trim();
+  const previewTitle = title.trim() || "Your ad headline";
+  const previewBody = body.trim() || "Your ad text will appear here.";
+  const previewDestinationLabel =
+    destinationKind === AdDestinationKind.STOREFRONT
+      ? adsManager.destinationOptions.storefronts[0]?.label ?? "Storefront"
+      : destinationKind === AdDestinationKind.MARKET_LISTING
+        ? adsManager.destinationOptions.marketListings.find((listing) => listing.id === marketListingId)?.label ?? "Market listing"
+        : destinationKind === AdDestinationKind.BUSINESS_ARTICLE
+          ? adsManager.destinationOptions.businessArticles.find((article) => article.id === businessArticleId)?.label ?? "Storefront article"
+          : customDestinationUrl.trim() || "Custom URL";
 
   const hasDestination =
     (destinationKind === AdDestinationKind.STOREFRONT && adsManager.destinationOptions.storefronts.length > 0) ||
@@ -595,6 +607,47 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             <small className="text-[var(--muted)]">Choose a manuscript to limit delivery to members subscribed to that manuscript.</small>
           </label>
         ) : null}
+      </section>
+
+      <section className="ad-render-preview">
+        <div className="ad-render-preview-heading">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Preview</p>
+            <h2 className="mt-2 text-xl font-semibold">Rendered campaign</h2>
+          </div>
+          <div className="ad-render-preview-meta">
+            <span>{placementLabel}</span>
+            <strong>{campaignCredits.toLocaleString()} credits</strong>
+            <small>{durationLabel(campaignDurationDays)}</small>
+          </div>
+        </div>
+        <div className="ad-render-stage">
+          <div className="ad-render-context">
+            <span className="form-label">Destination</span>
+            <strong>{previewDestinationLabel}</strong>
+            <small>
+              {selectedPricingPackage
+                ? `${campaignDailyWeight.toFixed(1)} credits/day weight | ${targetInterestCategories.length} interest filter${targetInterestCategories.length === 1 ? "" : "s"}`
+                : "Choose an active ad package"}
+            </small>
+          </div>
+          <article className="ad-placement-card ad-render-card">
+            {previewImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt="Ad preview creative" className="ad-placement-image" src={previewImageUrl} />
+            ) : (
+              <div className="ad-render-image-placeholder">
+                <span>Creative</span>
+              </div>
+            )}
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
+            <strong className="mt-2 block">{previewTitle}</strong>
+            <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{previewBody}</span>
+            <span className="ad-rotation-meta">
+              {selectedPricingPackage ? `Preview render | ${campaignCredits.toLocaleString()} credits queued` : "Package needed"}
+            </span>
+          </article>
+        </div>
       </section>
 
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
