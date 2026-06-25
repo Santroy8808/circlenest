@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AdminFunctionCard } from "@/components/admin-moderation/admin-workflow-cards";
+import { AdminWorkflowGroupCard } from "@/components/admin-moderation/admin-workflow-cards";
 import type { AdminWorkflowCategory } from "@/modules/admin-moderation/admin-workflows";
 
 export function AdminWorkflowPage({ category }: { category: AdminWorkflowCategory }) {
@@ -14,22 +14,17 @@ export function AdminWorkflowPage({ category }: { category: AdminWorkflowCategor
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">{category.description}</p>
       </section>
 
-      <div className="grid gap-5">
-        {category.groups.map((group) => (
-          <section className="surface rounded-md p-5" key={group.title}>
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Workflow</p>
-              <h2 className="mt-2 text-2xl font-semibold">{group.title}</h2>
-              <p className="mt-2 max-w-3xl leading-7 text-[var(--muted)]">{group.description}</p>
-            </div>
-            <div className="admin-function-grid mt-5">
-              {group.entries.map((entry) => (
-                <AdminFunctionCard entry={entry} key={`${entry.href}:${entry.title}`} />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      <section className="surface rounded-md p-5">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Workflow Categories</p>
+          <h2 className="mt-2 text-2xl font-semibold">Choose the next layer</h2>
+        </div>
+        <div className="admin-category-grid mt-5">
+          {category.groups.map((group) => (
+            <AdminWorkflowGroupCard categoryKey={category.key} group={group} key={group.key} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

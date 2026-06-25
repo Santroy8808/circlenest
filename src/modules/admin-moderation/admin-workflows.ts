@@ -8,6 +8,7 @@ export type AdminFunctionEntry = {
 };
 
 export type AdminWorkflowGroup = {
+  key: string;
   title: string;
   description: string;
   entries: AdminFunctionEntry[];
@@ -36,6 +37,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       keywords: ["user", "account", "invite", "create user", "reset password", "membership", "credits", "reports"],
       groups: [
         {
+          key: "start-account-work",
           title: "Start Account Work",
           description: "Use these first when an admin needs to invite, create, or locate a member account.",
           entries: [
@@ -66,6 +68,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
           ]
         },
         {
+          key: "after-account-lookup",
           title: "After Account Lookup",
           description: "Use these after the target account is known. Each tool performs its own account search and writes audit logs.",
           entries: [
@@ -115,6 +118,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       keywords: ["membership", "launch", "founder", "pricing", "promo", "promotion", "temporary access"],
       groups: [
         {
+          key: "launch-programs",
           title: "Launch Programs",
           description: "Control temporary access and launch-era pricing references.",
           entries: [
@@ -145,6 +149,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
           ]
         },
         {
+          key: "membership-operations",
           title: "Membership Operations",
           description: "Direct tier operations for known accounts.",
           entries: [
@@ -170,6 +175,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       keywords: ["ads", "ad spend", "credits", "pricing", "guardrails", "placements"],
       groups: [
         {
+          key: "pricing-credit-controls",
           title: "Pricing And Credit Controls",
           description: "Manage platform-credit costs and member ad-credit adjustments.",
           entries: [
@@ -192,6 +198,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
           ]
         },
         {
+          key: "experience-controls",
           title: "Experience Controls",
           description: "Review density, cooldown, and sponsored-message boundaries.",
           entries: [
@@ -217,6 +224,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       keywords: ["billing", "stripe", "checkout", "payments", "subscription", "webhook"],
       groups: [
         {
+          key: "payment-configuration",
           title: "Payment Configuration",
           description: "Keep external payment plumbing separate from account and ad operations.",
           entries: [
@@ -242,6 +250,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       keywords: ["announcements", "reports", "support", "safety", "abuse", "content", "tickets"],
       groups: [
         {
+          key: "broadcasts-queues",
           title: "Broadcasts And Queues",
           description: "Separate outbound platform notices from inbound trust and support work.",
           entries: [
@@ -275,6 +284,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       keywords: ["feature flags", "configuration", "launch review", "admin"],
       groups: [
         {
+          key: "configuration",
           title: "Configuration",
           description: "Use these for broad platform operation, not user-specific support.",
           entries: [
@@ -303,6 +313,21 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
 
 export function getAdminWorkflowCategory(openFeedbackTicketCount: number, workflowKey: string) {
   return buildWorkflowCategories(openFeedbackTicketCount).find((category) => category.key === workflowKey) ?? null;
+}
+
+export function getAdminWorkflowGroup(openFeedbackTicketCount: number, workflowKey: string, groupKey: string) {
+  const category = getAdminWorkflowCategory(openFeedbackTicketCount, workflowKey);
+  const group = category?.groups.find((candidate) => candidate.key === groupKey) ?? null;
+
+  if (!category || !group) {
+    return null;
+  }
+
+  return { category, group };
+}
+
+export function getAdminWorkflowGroupHref(workflowKey: string, groupKey: string) {
+  return `/admin/workflows/${workflowKey}/${groupKey}`;
 }
 
 function normalize(value: string) {
