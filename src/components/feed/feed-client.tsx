@@ -1155,14 +1155,16 @@ export function FeedClient({
               onEmoji={appendToPost}
               onFile={(file) => setPostImage(createImageAttachment(file))}
               onFormat={formatPostText}
+              trailingAction={
+                <button className="btn-primary send-logo-button" disabled={isPending || (!body.trim() && !postImage)} type="submit">
+                  <span aria-hidden="true" className="send-logo-icon" />
+                  <span className="sr-only">{isPending ? "Posting..." : "Post"}</span>
+                </button>
+              }
             />
             {postImage?.status === "uploading" ? <p className="mt-2 text-xs text-[var(--muted)]">Uploading image...</p> : null}
             {postImage ? <ImagePreview image={postImage} onRemove={() => setPostImage(null)} /> : null}
             {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-            <button className="btn-primary send-logo-button mt-2 justify-self-end" disabled={isPending || (!body.trim() && !postImage)} type="submit">
-              <span aria-hidden="true" className="send-logo-icon" />
-              <span className="sr-only">{isPending ? "Posting..." : "Post"}</span>
-            </button>
           </form>
         ) : null}
       </div>
