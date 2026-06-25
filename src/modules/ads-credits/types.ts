@@ -49,6 +49,7 @@ export const createAdCampaignSchema = z.object({
   targetInterestCategories: z.array(z.nativeEnum(InterestCategory)).max(6).default([]),
   pricingRuleKey: z.string().trim().min(2).max(120),
   totalBudgetCredits: z.coerce.number().int().min(1).max(100000).optional(),
+  campaignDurationDays: z.coerce.number().int().min(1).max(365).optional(),
   dailyBudgetCredits: z.coerce.number().int().min(0).max(100000).optional().nullable()
 });
 

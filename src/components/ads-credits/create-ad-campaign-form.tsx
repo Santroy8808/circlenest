@@ -33,6 +33,8 @@ export type InitialAdCampaignDraft = {
 
 const MAX_AD_IMAGE_BYTES = 10 * 1024 * 1024;
 const AD_IMAGE_GUIDANCE = "Recommended: 1200 x 675px, minimum 600 x 338px. JPG, PNG, GIF, or WEBP up to 10MB.";
+const CREDIT_BUDGET_PRESETS = [10, 25, 50, 100, 250, 500];
+const CAMPAIGN_DURATION_PRESETS = [1, 3, 7, 14, 30, 60, 90];
 
 async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial<AdImageAttachment>) => void) {
   if (image.mediaAssetId) return image.mediaAssetId;
@@ -100,6 +102,15 @@ function durationLabel(days: number | null) {
   return `${days} days`;
 }
 
+function packageCreditCost(pricingPackage: { creditCost: number } | undefined, fundraiserOnly: boolean) {
+  if (!pricingPackage) return 1;
+  return fundraiserOnly ? Math.ceil(pricingPackage.creditCost / 2) : pricingPackage.creditCost;
+}
+
+function packageDurationDays(pricingPackage: { durationDays: number | null } | undefined) {
+  return pricingPackage?.durationDays && pricingPackage.durationDays > 0 ? pricingPackage.durationDays : 7;
+}
+
 export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager: AdsManagerView; initialDraft?: InitialAdCampaignDraft }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(initialDraft?.title ?? "");
@@ -112,6 +123,8 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
   const initialPricingPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === AdPlacement.RIGHT_STREAM) ?? adsManager.pricingPackages[0];
   const [placement, setPlacement] = useState<AdPlacement>(initialPricingPackage?.placement ?? AdPlacement.RIGHT_STREAM);
   const [pricingRuleKey, setPricingRuleKey] = useState(initialPricingPackage?.key ?? "");
+  const [campaignCredits, setCampaignCredits] = useState(() => packageCreditCost(initialPricingPackage, adsManager.fundraiserOnly));
+  const [campaignDurationDays, setCampaignDurationDays] = useState(() => packageDurationDays(initialPricingPackage));
   const [targetLocation, setTargetLocation] = useState("");
   const [targetInterestCategories, setTargetInterestCategories] = useState<InterestCategory[]>(initialDraft?.targetInterestCategories ?? []);
   const [image, setImage] = useState<AdImageAttachment | null>(null);
@@ -123,8 +136,9 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
     [adsManager.pricingPackages, placement]
   );
   const selectedPricingPackage = placementPackages.find((pricingPackage) => pricingPackage.key === pricingRuleKey) ?? placementPackages[0];
-  const selectedCreditCost = selectedPricingPackage ? (adsManager.fundraiserOnly ? Math.ceil(selectedPricingPackage.creditCost / 2) : selectedPricingPackage.creditCost) : 0;
-  const canAffordPackage = selectedPricingPackage ? adsManager.platformCredits >= selectedCreditCost : false;
+  const selectedPackageCreditCost = packageCreditCost(selectedPricingPackage, adsManager.fundraiserOnly);
+  const campaignDailyWeight = campaignDurationDays > 0 ? campaignCredits / campaignDurationDays : 0;
+  const canAffordBudget = selectedPricingPackage ? adsManager.platformCredits >= campaignCredits : false;
 
   const hasDestination =
     (destinationKind === AdDestinationKind.STOREFRONT && adsManager.destinationOptions.storefronts.length > 0) ||
@@ -162,6 +176,13 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
     );
   }
 
+  function applyPricingPreset(pricingPackage: AdsManagerView["pricingPackages"][number] | undefined) {
+    if (!pricingPackage) return;
+    setPricingRuleKey(pricingPackage.key);
+    setCampaignCredits(packageCreditCost(pricingPackage, adsManager.fundraiserOnly));
+    setCampaignDurationDays(packageDurationDays(pricingPackage));
+  }
+
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -180,8 +201,16 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
           setError("Choose an active ad package.");
           return;
         }
-        if (!canAffordPackage) {
-          setError("Not enough platform credits for this ad package.");
+        if (campaignCredits < 1 || campaignCredits > 100000) {
+          setError("Choose a credit budget between 1 and 100,000 credits.");
+          return;
+        }
+        if (campaignDurationDays < 1 || campaignDurationDays > 365) {
+          setError("Choose a campaign length between 1 and 365 days.");
+          return;
+        }
+        if (!canAffordBudget) {
+          setError("Not enough platform credits for this campaign budget.");
           return;
         }
 
@@ -203,7 +232,8 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             pricingRuleKey: selectedPricingPackage.key,
             targetLocation,
             targetInterestCategories,
-            totalBudgetCredits: selectedPricingPackage.creditCost
+            totalBudgetCredits: campaignCredits,
+            campaignDurationDays
           })
         });
         const payload = (await response.json()) as { error?: string; campaign?: AdCampaignCardView };
@@ -247,7 +277,9 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             Org accounts can create fundraiser ads only. Credits count double here, so the displayed package cost is half the normal platform price.
           </p>
         ) : null}
-        <p className="mt-3 text-sm text-[var(--gold)]">{adsManager.platformCredits} platform credits available.</p>
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold)]">
+          <span>{adsManager.platformCredits.toLocaleString()} credits available</span>
+        </div>
       </div>
 
       <section className="ad-creative-picker">
@@ -404,42 +436,113 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
         ) : null}
       </section>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <label className="grid gap-2">
-          <span className="form-label">Placement</span>
-          <select
-            className="form-field"
-            onChange={(event) => {
-              const nextPlacement = event.target.value as AdPlacement;
-              const nextPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === nextPlacement);
-              setPlacement(nextPlacement);
-              setPricingRuleKey(nextPackage?.key ?? "");
-            }}
-            value={placement}
-          >
-            {adPlacementOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2">
-          <span className="form-label">Package</span>
-          <select className="form-field" onChange={(event) => setPricingRuleKey(event.target.value)} value={selectedPricingPackage?.key ?? ""}>
-            {placementPackages.map((pricingPackage) => (
-              <option key={pricingPackage.key} value={pricingPackage.key}>
-                {pricingPackage.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="ad-cost-estimate">
-          <span>Estimated cost</span>
-          <strong>{selectedPricingPackage ? `${selectedCreditCost} credits` : "No package"}</strong>
-          <small>{selectedPricingPackage ? `${durationLabel(selectedPricingPackage.durationDays)} | ${selectedPricingPackage.unitLabel}` : "Ask an admin to activate a package."}</small>
+      <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
+        <div>
+          <h2 className="font-semibold text-[var(--gold)]">Budget and schedule</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Pick a placement and preset, then set how many credits and days this campaign should use.
+          </p>
         </div>
-      </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2">
+            <span className="form-label">Placement</span>
+            <select
+              className="form-field"
+              onChange={(event) => {
+                const nextPlacement = event.target.value as AdPlacement;
+                const nextPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === nextPlacement);
+                setPlacement(nextPlacement);
+                applyPricingPreset(nextPackage);
+              }}
+              value={placement}
+            >
+              {adPlacementOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="form-label">Preset package</span>
+            <select
+              className="form-field"
+              onChange={(event) => {
+                const nextPackage = placementPackages.find((pricingPackage) => pricingPackage.key === event.target.value);
+                applyPricingPreset(nextPackage);
+              }}
+              value={selectedPricingPackage?.key ?? ""}
+            >
+              {placementPackages.map((pricingPackage) => (
+                <option key={pricingPackage.key} value={pricingPackage.key}>
+                  {pricingPackage.label}
+                </option>
+              ))}
+            </select>
+            <small className="text-[var(--muted)]">
+              Presets fill a starting budget and duration. You can adjust both before creating the campaign.
+            </small>
+          </label>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_0.9fr]">
+          <label className="grid gap-2">
+            <span className="form-label">Credits to designate</span>
+            <input
+              className="form-field"
+              max={100000}
+              min={1}
+              onChange={(event) => setCampaignCredits(Math.max(1, Math.min(100000, Number(event.target.value) || 1)))}
+              type="number"
+              value={campaignCredits}
+            />
+            <div className="flex flex-wrap gap-2">
+              {CREDIT_BUDGET_PRESETS.map((credits) => (
+                <button
+                  className={`interest-chip ${campaignCredits === credits ? "is-active" : ""}`}
+                  disabled={credits > adsManager.platformCredits}
+                  key={credits}
+                  onClick={() => setCampaignCredits(credits)}
+                  type="button"
+                >
+                  {credits}
+                </button>
+              ))}
+            </div>
+          </label>
+          <label className="grid gap-2">
+            <span className="form-label">Campaign length</span>
+            <input
+              className="form-field"
+              max={365}
+              min={1}
+              onChange={(event) => setCampaignDurationDays(Math.max(1, Math.min(365, Number(event.target.value) || 1)))}
+              type="number"
+              value={campaignDurationDays}
+            />
+            <div className="flex flex-wrap gap-2">
+              {CAMPAIGN_DURATION_PRESETS.map((days) => (
+                <button
+                  className={`interest-chip ${campaignDurationDays === days ? "is-active" : ""}`}
+                  key={days}
+                  onClick={() => setCampaignDurationDays(days)}
+                  type="button"
+                >
+                  {durationLabel(days)}
+                </button>
+              ))}
+            </div>
+          </label>
+          <div className="ad-cost-estimate">
+            <span>Campaign budget</span>
+            <strong>{selectedPricingPackage ? `${campaignCredits.toLocaleString()} credits` : "No package"}</strong>
+            <small>
+              {selectedPricingPackage
+                ? `${durationLabel(campaignDurationDays)} | ${campaignDailyWeight.toFixed(1)} credits/day weight | preset ${selectedPackageCreditCost} credits`
+                : "Ask an admin to activate a package."}
+            </small>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-4">
         <h2 className="font-semibold text-[var(--gold)]">Targeting</h2>
@@ -502,7 +605,17 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
         </Link>
         <button
           className="btn-primary"
-          disabled={isPending || title.trim().length < 2 || body.trim().length < 8 || (!image && !externalImageUrl.trim()) || !hasDestination || !selectedPricingPackage || !canAffordPackage}
+          disabled={
+            isPending ||
+            title.trim().length < 2 ||
+            body.trim().length < 8 ||
+            (!image && !externalImageUrl.trim()) ||
+            !hasDestination ||
+            !selectedPricingPackage ||
+            !canAffordBudget ||
+            campaignCredits < 1 ||
+            campaignDurationDays < 1
+          }
           type="submit"
         >
           {isPending ? "Creating..." : "Create campaign"}

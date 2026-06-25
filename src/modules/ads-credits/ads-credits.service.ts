@@ -1537,9 +1537,10 @@ export async function createAdCampaign(userId: string, input: unknown) {
     return { ok: false as const, error: "That pricing package does not match the selected placement." };
   }
 
-  const campaignCostCredits = access.fundraiserOnly ? Math.ceil(pricingRule.creditCost / 2) : pricingRule.creditCost;
+  const campaignCostCredits = parsed.data.totalBudgetCredits ?? (access.fundraiserOnly ? Math.ceil(pricingRule.creditCost / 2) : pricingRule.creditCost);
+  const campaignDurationDays = parsed.data.campaignDurationDays ?? pricingRule.durationDays ?? 7;
   const startsAt = new Date();
-  const endsAt = pricingRule.durationDays ? new Date(startsAt.getTime() + pricingRule.durationDays * 24 * 60 * 60 * 1000) : null;
+  const endsAt = new Date(startsAt.getTime() + campaignDurationDays * 24 * 60 * 60 * 1000);
   const targetInterestCategories = [...new Set(parsed.data.targetInterestCategories)] as InterestCategory[];
 
   const membership = await prisma.membership.findUnique({
@@ -1611,7 +1612,7 @@ export async function createAdCampaign(userId: string, input: unknown) {
           data: {
             userId,
             amount: -campaignCostCredits,
-            reason: `Reserved ad package: ${pricingRule.label}`,
+            reason: `Reserved ad campaign: ${campaignCostCredits} credits for ${campaignDurationDays} day${campaignDurationDays === 1 ? "" : "s"} (${pricingRule.label})`,
             sourceType: "PlatformCostRule",
             sourceId: pricingRule.id
           }
@@ -1671,6 +1672,7 @@ export async function createAdCampaign(userId: string, input: unknown) {
     placement: campaign.placement,
     pricingRuleKey: pricingRule.key,
     totalBudgetCredits: campaign.totalBudgetCredits,
+    campaignDurationDays,
     endsAt: campaign.endsAt?.toISOString(),
     targetInterests: targetInterestCategories,
     subscriberTargetManuscriptId: subscriberTarget.manuscriptId
@@ -1685,6 +1687,7 @@ export async function createAdCampaign(userId: string, input: unknown) {
       placement: campaign.placement,
       pricingRuleKey: pricingRule.key,
       totalBudgetCredits: campaign.totalBudgetCredits,
+      campaignDurationDays,
       endsAt: campaign.endsAt?.toISOString(),
       targetInterests: targetInterestCategories,
       subscriberTargetManuscriptId: subscriberTarget.manuscriptId
