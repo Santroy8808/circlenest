@@ -2,6 +2,7 @@ import { MediaVisibility } from "@prisma/client";
 import { z } from "zod";
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const DEFAULT_GALLERY_TAGS = ["Family", "Friends", "Events"] as const;
 
 export const uploadSourceSchema = z.enum(["GALLERY", "STREAM_POST", "STREAM_REPLY"]).default("GALLERY");
 
@@ -31,6 +32,16 @@ export const createGalleryAssetCommentSchema = z.object({
   body: z.string().trim().min(1, "Write a comment first.").max(1000, "Comment is too long.")
 });
 
+export const updateGalleryAssetTagsSchema = z.object({
+  mediaAssetIds: z.array(z.string().min(1)).min(1).max(100),
+  tags: z.array(z.string().trim().min(1).max(40)).min(1).max(20),
+  mode: z.enum(["add", "replace"]).default("add")
+});
+
+export const deleteGalleryAssetsSchema = z.object({
+  mediaAssetIds: z.array(z.string().min(1)).min(1).max(100)
+});
+
 export type GalleryAssetView = {
   id: string;
   storageKey: string;
@@ -46,6 +57,7 @@ export type GalleryAssetView = {
     name: string;
     type: string;
   }>;
+  tags: string[];
 };
 
 export type GalleryAssetNeighbor = {

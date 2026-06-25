@@ -704,6 +704,18 @@ a {
   position: relative;
 }
 
+.gallery-tile.is-selected {
+  border-color: rgba(255, 216, 95, 0.72);
+  box-shadow: 0 0 0 2px rgba(255, 216, 95, 0.2);
+}
+
+.gallery-tile-link {
+  color: inherit;
+  display: block;
+  height: 100%;
+  text-decoration: none;
+}
+
 .gallery-tile img,
 .gallery-tile-fallback {
   height: 100%;
@@ -725,6 +737,42 @@ a {
   padding: 48px 12px 12px;
   position: absolute;
   right: 0;
+}
+
+.gallery-select,
+.gallery-delete-button {
+  align-items: center;
+  background: rgba(8, 12, 20, 0.86);
+  border: 1px solid rgba(214, 178, 74, 0.34);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+}
+
+.gallery-select {
+  left: 10px;
+}
+
+.gallery-select input {
+  accent-color: var(--gold);
+}
+
+.gallery-delete-button {
+  cursor: pointer;
+  right: 10px;
+}
+
+.gallery-delete-button:hover,
+.gallery-delete-button:focus-visible {
+  border-color: rgba(255, 216, 95, 0.74);
 }
 
 .gallery-viewer {

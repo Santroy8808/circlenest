@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GalleryAssetActions } from "@/components/gallery/gallery-asset-actions";
 import { GalleryAssetEngagement } from "@/components/gallery/gallery-asset-engagement";
+import { GalleryAssetTags } from "@/components/gallery/gallery-asset-tags";
 import { AppShell } from "@/components/platform/app-shell";
 import { getMyPicViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
@@ -61,6 +62,7 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
 
         <div className="gallery-detail-sidebar grid content-start gap-5">
           <GalleryAssetActions mediaAssetId={asset.id} />
+          <GalleryAssetTags asset={asset} />
           <GalleryAssetEngagement asset={asset} initialComments={comments} />
           <section className="surface rounded-md p-5">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Details</p>

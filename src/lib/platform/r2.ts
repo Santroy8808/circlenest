@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readPlatformEnv } from "@/lib/platform/env";
 
@@ -76,6 +76,21 @@ export async function getR2Object(storageKey: string) {
 
   return getR2Client().send(
     new GetObjectCommand({
+      Bucket: r2.bucket,
+      Key: storageKey
+    })
+  );
+}
+
+export async function deleteR2Object(storageKey: string) {
+  const r2 = readR2Config();
+
+  if (!r2.bucket) {
+    throw new Error("Cloudflare R2 bucket is not configured.");
+  }
+
+  return getR2Client().send(
+    new DeleteObjectCommand({
       Bucket: r2.bucket,
       Key: storageKey
     })

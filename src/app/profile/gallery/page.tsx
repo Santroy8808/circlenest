@@ -12,7 +12,7 @@ export default async function MyPicsPage() {
     redirect("/login?callbackUrl=/profile/gallery");
   }
 
-  const assets = await safeListMyPics(session.user.id, 24);
+  const assets = await safeListMyPics(session.user.id, 120);
 
   return (
     <AppShell>
