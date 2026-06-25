@@ -237,6 +237,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             <label className="grid gap-2">
               <span className="form-label">Banner image URL</span>
               <input className="form-field" onChange={(event) => update("bannerUrl", event.target.value)} placeholder="https://..." value={form.bannerUrl} />
+              <small className="text-[var(--muted)]">Recommended banner size: 1600 x 480px, wide landscape JPG/PNG/GIF/WEBP.</small>
             </label>
           </div>
           <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -244,7 +245,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
               <div>
                 <h3 className="font-semibold text-[var(--gold)]">Storefront feature image</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  This appears in the right side of the public storefront hero. Recommended: wide landscape image, JPG/PNG/GIF/WEBP up to 10MB.
+                  This appears inside the compact storefront banner. Recommended: 1200 x 675px, JPG/PNG/GIF/WEBP up to 10MB.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">

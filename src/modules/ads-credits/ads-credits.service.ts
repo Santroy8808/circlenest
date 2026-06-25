@@ -65,12 +65,16 @@ type AdCampaignPayload = Prisma.AdCampaignGetPayload<{
 }>;
 
 function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
+  const imageUrl = campaign.imageMediaAsset
+    ? campaign.imageMediaAsset.publicUrl ?? `/api/media/assets/${campaign.imageMediaAsset.id}`
+    : campaign.externalImageUrl;
+
   return {
     id: campaign.id,
     title: campaign.title,
     body: campaign.body,
     destinationUrl: campaign.destinationUrl,
-    imageUrl: campaign.imageMediaAsset?.publicUrl ?? campaign.externalImageUrl,
+    imageUrl,
     destinationKind: campaign.destinationKind,
     placement: campaign.placement,
     placementLabel: adPlacementLabels[campaign.placement],
@@ -90,13 +94,16 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
 function toPlacementCard(campaign: AdCampaignPayload): AdPlacementCardView {
   const reservedCredits = Math.max(campaign.totalBudgetCredits, 0);
   const paidHoldMs = Math.min(Math.floor(reservedCredits / 4) * 1000, MAX_AD_HOLD_MS - MIN_AD_HOLD_MS);
+  const imageUrl = campaign.imageMediaAsset
+    ? campaign.imageMediaAsset.publicUrl ?? `/api/media/assets/${campaign.imageMediaAsset.id}`
+    : campaign.externalImageUrl;
 
   return {
     id: campaign.id,
     title: campaign.title,
     body: campaign.body,
     destinationUrl: campaign.destinationUrl,
-    imageUrl: campaign.imageMediaAsset?.publicUrl ?? campaign.externalImageUrl,
+    imageUrl,
     imageAlt: campaign.imageMediaAsset?.originalName ?? campaign.title,
     totalBudgetCredits: campaign.totalBudgetCredits,
     spentCredits: campaign.spentCredits,

@@ -3373,8 +3373,8 @@ a {
 }
 
 .public-storefront-surface {
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow: visible;
   padding: 18px;
 }
 
@@ -3382,10 +3382,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  height: calc(100dvh - 36px);
   margin: 0 auto;
   max-width: 1420px;
-  min-height: 0;
+  min-height: calc(100dvh - 36px);
   width: 100%;
 }
 
@@ -3398,7 +3397,6 @@ a {
   flex: 1 1 auto;
   flex-direction: column;
   gap: 14px;
-  min-height: 0;
 }
 
 .public-storefront-body {
@@ -3406,30 +3404,25 @@ a {
   flex: 1 1 auto;
   gap: 16px;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-  min-height: 0;
+  align-items: start;
 }
 
 .public-storefront-main {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 0;
-  overflow: hidden auto;
-  padding-right: 4px;
-}
-
-.public-storefront-main::-webkit-scrollbar,
-.public-storefront-inquiry::-webkit-scrollbar {
-  width: 0;
 }
 
 .public-storefront-inquiry {
   align-self: start;
-  max-height: 100%;
-  min-height: 0;
-  overflow: hidden auto;
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
   position: sticky;
-  top: 0;
+  top: 18px;
+}
+
+.public-storefront-inquiry::-webkit-scrollbar {
+  width: 0;
 }
 
 .storefront-blog-nav {
@@ -3494,13 +3487,20 @@ a {
   background-position: center;
   background-size: cover;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+  display: flex;
+  min-height: clamp(190px, 32dvh, 340px);
+}
+
+.business-storefront-hero > div {
+  width: 100%;
 }
 
 .business-storefront-hero-grid {
   align-items: center;
   display: grid;
-  gap: 28px;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 42%);
+  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 34%);
+  width: 100%;
 }
 
 .business-storefront-brand {
@@ -3513,15 +3513,15 @@ a {
   align-items: center;
   background: #20304a;
   border: 1px solid rgba(214, 178, 74, 0.32);
-  border-radius: 24px;
+  border-radius: 20px;
   display: flex;
-  flex: 0 0 92px;
+  flex: 0 0 76px;
   font-size: 1.4rem;
   font-weight: 900;
-  height: 92px;
+  height: 76px;
   justify-content: center;
   overflow: hidden;
-  width: 92px;
+  width: 76px;
 }
 
 .business-storefront-logo img,
@@ -3539,13 +3539,13 @@ a {
     radial-gradient(circle at 20% 15%, rgba(63, 115, 255, 0.16), transparent 12rem),
     #13213b;
   border: 1px solid rgba(214, 178, 74, 0.28);
-  border-radius: 22px;
+  border-radius: 16px;
   color: var(--muted);
   display: flex;
   font-size: 0.9rem;
   font-weight: 800;
   justify-content: center;
-  min-height: 180px;
+  min-height: 150px;
   overflow: hidden;
 }
 
