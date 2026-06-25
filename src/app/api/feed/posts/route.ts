@@ -1,8 +1,14 @@
+import { AdPlacement } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { createFeedPost, safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
-export async function GET() {
+function deviceClassFromRequest(request: NextRequest) {
+  return /android|iphone|ipad|ipod|mobile/i.test(request.headers.get("user-agent") ?? "") ? "MOBILE" : "DESKTOP";
+}
+
+export async function GET(request: NextRequest) {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -10,7 +16,14 @@ export async function GET() {
   }
 
   const posts = await safeListFeedPosts(20, session.user.id);
-  return NextResponse.json({ posts });
+  await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, deviceClassFromRequest(request));
+  const reservedStreamAds = await getAdPlacementPool({
+    viewerUserId: session.user.id,
+    placement: AdPlacement.RESERVED_STREAM,
+    limit: 1
+  });
+
+  return NextResponse.json({ posts, reservedStreamAds });
 }
 
 export async function POST(request: NextRequest) {

@@ -1,8 +1,10 @@
+import { AdPlacement } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FeedClient } from "@/components/feed/feed-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { prisma } from "@/lib/platform/db";
+import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
 export default async function AppHomePage() {
@@ -45,6 +47,12 @@ export default async function AppHomePage() {
     redirect("/profile/edit?next=/profile/scientology");
   }
 
+  await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, "DESKTOP");
+  const reservedStreamAds = await getAdPlacementPool({
+    viewerUserId: session.user.id,
+    placement: AdPlacement.RESERVED_STREAM,
+    limit: 1
+  });
   const displayName = profile?.displayName ?? session.user.name ?? session.user.username;
 
   return (
@@ -74,6 +82,7 @@ export default async function AppHomePage() {
             displayName,
             username: session.user.username
           }}
+          initialReservedStreamAds={reservedStreamAds}
           initialPosts={posts}
         />
       </section>

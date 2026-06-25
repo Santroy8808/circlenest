@@ -34,6 +34,8 @@ import { listStripeCreditPackages } from "@/modules/billing/stripe-credit-checko
 const MODULE_KEY = "ads-credits";
 const MIN_AD_HOLD_MS = 9000;
 const MAX_AD_HOLD_MS = 45000;
+const RESERVED_STREAM_MAX_AD_SHARE = 0.05;
+const RESERVED_STREAM_MIN_SCORE = 8;
 
 function hashForRotation(value: string) {
   let hash = 0;
@@ -123,6 +125,71 @@ function weightedRotationSort(campaigns: AdCampaignPayload[]) {
     const rightScore = Math.max(right.totalBudgetCredits, 0) * 1000 + (hashForRotation(`${right.id}:${bucket}`) % 997);
 
     return rightScore - leftScore;
+  });
+}
+
+function reservedStreamOrganicGap(totalActivityScore: number) {
+  if (totalActivityScore >= 80) return 19;
+  if (totalActivityScore >= 24) return 25;
+  return 40;
+}
+
+function isReservedStreamExposureAllowed(metric: {
+  mobileActivityScore: number;
+  desktopActivityScore: number;
+  reservedStreamOrganicUnits: number;
+  reservedStreamAdImpressions: number;
+  reservedStreamOrganicUnitsAtLastAd: number;
+} | null) {
+  if (!metric) return false;
+
+  const totalActivityScore = metric.mobileActivityScore + metric.desktopActivityScore;
+  if (totalActivityScore < RESERVED_STREAM_MIN_SCORE) return false;
+
+  const organicUnitsSinceLastAd = metric.reservedStreamOrganicUnits - metric.reservedStreamOrganicUnitsAtLastAd;
+  if (organicUnitsSinceLastAd < reservedStreamOrganicGap(totalActivityScore)) return false;
+
+  const nextAdImpressions = metric.reservedStreamAdImpressions + 1;
+  const nextTotalUnits = metric.reservedStreamOrganicUnits + nextAdImpressions;
+  return nextTotalUnits > 0 && nextAdImpressions / nextTotalUnits <= RESERVED_STREAM_MAX_AD_SHARE;
+}
+
+async function canServeReservedStreamAd(viewerUserId?: string) {
+  if (!viewerUserId) return false;
+
+  const metric = await prisma.userApplicationUsageMetric.findUnique({
+    where: { userId: viewerUserId },
+    select: {
+      mobileActivityScore: true,
+      desktopActivityScore: true,
+      reservedStreamOrganicUnits: true,
+      reservedStreamAdImpressions: true,
+      reservedStreamOrganicUnitsAtLastAd: true
+    }
+  });
+
+  return isReservedStreamExposureAllowed(metric);
+}
+
+export async function recordReservedStreamOrganicFeedUnits(userId: string | undefined, unitCount: number, deviceClass: "MOBILE" | "DESKTOP" = "DESKTOP") {
+  if (!userId || unitCount <= 0) return;
+
+  const now = new Date();
+
+  await prisma.userApplicationUsageMetric.upsert({
+    where: { userId },
+    update: {
+      reservedStreamOrganicUnits: { increment: unitCount },
+      lastSeenAt: now,
+      ...(deviceClass === "MOBILE" ? { lastMobileSeenAt: now } : { lastDesktopSeenAt: now })
+    },
+    create: {
+      userId,
+      reservedStreamOrganicUnits: unitCount,
+      lastSeenAt: now,
+      lastMobileSeenAt: deviceClass === "MOBILE" ? now : undefined,
+      lastDesktopSeenAt: deviceClass === "DESKTOP" ? now : undefined
+    }
   });
 }
 
@@ -245,6 +312,10 @@ export async function getAdPlacementPool(input: {
   placement: AdPlacement;
   limit?: number;
 }) {
+  if (input.placement === AdPlacement.RESERVED_STREAM && !(await canServeReservedStreamAd(input.viewerUserId))) {
+    return [];
+  }
+
   const now = new Date();
   const viewerInterests = input.viewerUserId
     ? await prisma.userInterest.findMany({
@@ -1048,6 +1119,27 @@ export async function logAdDelivery(input: {
         } as Prisma.InputJsonObject
       }
     });
+    if (input.viewerUserId && input.placement === AdPlacement.RESERVED_STREAM && input.eventType === AdDeliveryEventType.IMPRESSION) {
+      const metric = await tx.userApplicationUsageMetric.findUnique({
+        where: { userId: input.viewerUserId },
+        select: { reservedStreamOrganicUnits: true }
+      });
+
+      await tx.userApplicationUsageMetric.upsert({
+        where: { userId: input.viewerUserId },
+        update: {
+          reservedStreamAdImpressions: { increment: 1 },
+          reservedStreamOrganicUnitsAtLastAd: metric?.reservedStreamOrganicUnits ?? 0,
+          lastReservedStreamAdAt: new Date()
+        },
+        create: {
+          userId: input.viewerUserId,
+          reservedStreamAdImpressions: 1,
+          reservedStreamOrganicUnitsAtLastAd: 0,
+          lastReservedStreamAdAt: new Date()
+        }
+      });
+    }
 
     // Delivery events are analytics only. Credits are charged when a package/time window is reserved.
   });

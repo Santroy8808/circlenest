@@ -1,11 +1,12 @@
 "use client";
 
-import { FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
+import { AdPlacement, FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
 
 type FeedImageAttachment = {
@@ -57,6 +58,9 @@ const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [
 ];
 
 const emojiChoices = ["\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F64F}", "\u{1F525}", "\u{1F389}", "\u{1F44F}", "\u{1F4AF}", "\u{2728}", "\u{2615}"];
+const RESERVED_STREAM_SLOT_INDEX = 5;
+const IMPRESSION_EVENT = "IMPRESSION";
+const CLICK_EVENT = "CLICK";
 
 function reactionMeta(type: FeedReactionType) {
   return quickReactions.find((reaction) => reaction.type === type) ?? quickReactions[0];
@@ -310,6 +314,55 @@ function FeedMedia({ media }: { media?: FeedPostView["media"] }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img alt={media.originalName ?? "Attached stream image"} src={media.publicUrl} />
     </a>
+  );
+}
+
+function postReservedStreamDeliveryEvent(ad: AdPlacementCardView, eventType: typeof IMPRESSION_EVENT | typeof CLICK_EVENT) {
+  const payload = JSON.stringify({
+    campaignId: ad.id,
+    placement: AdPlacement.RESERVED_STREAM,
+    eventType,
+    metadata: {
+      source: "reserved-stream-slot"
+    }
+  });
+
+  if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+    navigator.sendBeacon("/api/ads/delivery", new Blob([payload], { type: "application/json" }));
+    return;
+  }
+
+  void fetch("/api/ads/delivery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true
+  });
+}
+
+function ReservedStreamAdCard({ ad }: { ad: AdPlacementCardView }) {
+  const content = (
+    <>
+      {ad.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt={ad.imageAlt} className="feed-reserved-ad-image" src={ad.imageUrl} />
+      ) : null}
+      <div className="feed-reserved-ad-body">
+        <span className="feed-visibility-chip">sponsored</span>
+        <strong>{ad.title}</strong>
+        <span>{ad.body}</span>
+      </div>
+    </>
+  );
+
+  const className = `feed-reserved-ad surface rounded-md${ad.imageUrl ? "" : " has-no-image"}`;
+
+  return ad.destinationUrl ? (
+    <a className={className} href={ad.destinationUrl} onClick={() => postReservedStreamDeliveryEvent(ad, CLICK_EVENT)}>
+      {content}
+    </a>
+  ) : (
+    <article className={className}>{content}</article>
   );
 }
 
@@ -628,6 +681,7 @@ export function FeedClient({
   defaultExpanded = false,
   initialReplyPostId,
   initialPosts,
+  initialReservedStreamAds = [],
   refreshPath = "/api/feed/posts",
   showThreadLinks = true
 }: {
@@ -635,11 +689,13 @@ export function FeedClient({
   defaultExpanded?: boolean;
   initialReplyPostId?: string;
   initialPosts: FeedPostView[];
+  initialReservedStreamAds?: AdPlacementCardView[];
   refreshPath?: string;
   showThreadLinks?: boolean;
 }) {
   const router = useRouter();
   const [posts, setPosts] = useState(initialPosts);
+  const [reservedStreamAds, setReservedStreamAds] = useState(initialReservedStreamAds);
   const [feedMode, setFeedMode] = useState<FeedMode>("latest");
   const [body, setBody] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
@@ -661,6 +717,7 @@ export function FeedClient({
   const [isPending, startTransition] = useTransition();
   const postTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const reservedStreamImpressionRef = useRef("");
   const composerIdentity = currentAuthor ?? { displayName: "You", username: "member", avatarUrl: null };
   const visiblePosts = posts.filter((post) => {
     if (hiddenPostIds[post.id] || quietAuthorIds[post.author.id]) return false;
@@ -693,6 +750,16 @@ export function FeedClient({
     }
   }, [initialReplyPostId]);
 
+  useEffect(() => {
+    const firstReservedAd = reservedStreamAds[0];
+
+    if (!showThreadLinks || feedMode !== "latest" || visiblePosts.length <= RESERVED_STREAM_SLOT_INDEX || !firstReservedAd) return;
+    if (reservedStreamImpressionRef.current === firstReservedAd.id) return;
+
+    reservedStreamImpressionRef.current = firstReservedAd.id;
+    postReservedStreamDeliveryEvent(firstReservedAd, IMPRESSION_EVENT);
+  }, [feedMode, reservedStreamAds, showThreadLinks, visiblePosts.length]);
+
   function restoreTextSelection(textarea: HTMLTextAreaElement | null | undefined, result: TextFormatResult) {
     if (!textarea) return;
     window.requestAnimationFrame(() => {
@@ -718,8 +785,9 @@ export function FeedClient({
 
   async function refreshFeed() {
     const response = await fetch(refreshPath, { cache: "no-store" });
-    const payload = (await response.json()) as { posts?: FeedPostView[] };
+    const payload = (await response.json()) as { posts?: FeedPostView[]; reservedStreamAds?: AdPlacementCardView[] };
     setPosts(payload.posts ?? []);
+    setReservedStreamAds(payload.reservedStreamAds ?? []);
   }
 
   function currentReactionAuthor(): FeedAuthorView | null {
@@ -1109,7 +1177,7 @@ export function FeedClient({
       ) : null}
 
       <div className="feed-entry-list">
-        {visiblePosts.map((post) => {
+        {visiblePosts.map((post, index) => {
           const commentsExpanded = Boolean(expandedComments[post.id]);
           const replyTarget = replyTargets[post.id];
           const activeCommentKey = commentKey(post.id, replyTarget?.parentCommentId);
@@ -1118,12 +1186,13 @@ export function FeedClient({
           const hiddenPreviewCount = showThreadLinks ? Math.max(0, post.comments.length - previewComments.length) : 0;
           const replyCount = post.comments.reduce((total, comment) => total + comment.replyCount, 0);
           const commentSummary = post.comments.length + replyCount;
+          const reservedStreamAd = showThreadLinks && feedMode === "latest" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
 
           return (
+            <Fragment key={post.id}>
             <article
               aria-label={`Open ${post.author.displayName}'s post`}
               className={`${showThreadLinks ? "feed-post surface rounded-md is-clickable" : "feed-post surface rounded-md"}${post.isAdminAnnouncement ? " is-announcement" : ""}`}
-              key={post.id}
               onClick={(event) => handlePostClick(post.id, event)}
               onKeyDown={(event) => handlePostKeyDown(post.id, event)}
               role={showThreadLinks ? "link" : undefined}
@@ -1285,6 +1354,8 @@ export function FeedClient({
                 ) : null}
               </div>
             </article>
+            {reservedStreamAd ? <ReservedStreamAdCard ad={reservedStreamAd} /> : null}
+            </Fragment>
           );
         })}
       </div>

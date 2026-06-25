@@ -158,7 +158,7 @@ export const defaultPlatformCostRules: DefaultCostRule[] = [
     key: "ads.reservedStream.1d",
     subject: PlatformCostSubject.AD_RESERVED_STREAM,
     label: "Reserved stream slot, 1 day",
-    description: "Protected promoted stream placement. Use sparingly due to main-feed trust concerns.",
+    description: "Adaptive promoted stream placement for web and mobile feed use. Viewer exposure varies by use and is capped at 5% of stream experience.",
     creditCost: 60,
     durationDays: 1,
     unitLabel: "slot",

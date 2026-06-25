@@ -33,6 +33,11 @@ function getSessionKey() {
   return next;
 }
 
+function deviceClass() {
+  if (typeof window === "undefined") return "DESKTOP";
+  return window.innerWidth < 768 ? "MOBILE" : "DESKTOP";
+}
+
 function postActivity(payload: Record<string, unknown>) {
   const body = JSON.stringify({
     ...payload,
@@ -67,8 +72,10 @@ export function ActivityTracker() {
       route,
       module: activityModule,
       metadata: {
+        deviceClass: deviceClass(),
         viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight
+        viewportHeight: window.innerHeight,
+        visible: document.visibilityState === "visible"
       }
     });
   }, [activityModule, route]);
@@ -80,6 +87,7 @@ export function ActivityTracker() {
         route,
         module: activityModule,
         metadata: {
+          deviceClass: deviceClass(),
           visible: document.visibilityState === "visible"
         }
       });

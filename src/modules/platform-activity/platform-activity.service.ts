@@ -1,10 +1,11 @@
 import { createHash } from "crypto";
-import { PlatformActivityEventType } from "@prisma/client";
+import { PlatformActivityEventType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { recordPlatformActivitySchema, type PlatformActivitySummary } from "@/modules/platform-activity/types";
 
 const MODULE_KEY = "platform-activity";
+const ACTIVITY_SCORE_HALF_LIFE_DAYS = 14;
 
 function hashSignal(value?: string | null) {
   if (!value) return null;
@@ -15,6 +16,74 @@ function trimRoute(route?: string) {
   if (!route) return null;
   const withoutOrigin = route.replace(/^https?:\/\/[^/]+/i, "");
   return withoutOrigin.split("?")[0]?.slice(0, 240) || "/";
+}
+
+function metadataDeviceClass(metadata?: Record<string, string | number | boolean | null>, userAgent?: string | null) {
+  if (metadata?.deviceClass === "MOBILE" || metadata?.deviceClass === "DESKTOP") return metadata.deviceClass;
+  const lowerAgent = userAgent?.toLowerCase() ?? "";
+  return /android|iphone|ipad|ipod|mobile/.test(lowerAgent) ? "MOBILE" : "DESKTOP";
+}
+
+function scoreForActivity(eventType: PlatformActivityEventType, metadata?: Record<string, string | number | boolean | null>) {
+  if (eventType === PlatformActivityEventType.PAGE_VIEW) return 1;
+  if (eventType === PlatformActivityEventType.HEARTBEAT) return metadata?.visible === false ? 0 : 0.5;
+  if (
+    eventType === PlatformActivityEventType.ACTION ||
+    eventType === PlatformActivityEventType.SEARCH ||
+    eventType === PlatformActivityEventType.AD_INTERACTION ||
+    eventType === PlatformActivityEventType.NAVIGATION
+  ) {
+    return 0.5;
+  }
+
+  return 0;
+}
+
+function decayScore(score: number, lastSeenAt: Date | null, now: Date) {
+  if (!lastSeenAt || score <= 0) return Math.max(score, 0);
+  const elapsedDays = Math.max(0, now.getTime() - lastSeenAt.getTime()) / 86400000;
+  return score * Math.pow(0.5, elapsedDays / ACTIVITY_SCORE_HALF_LIFE_DAYS);
+}
+
+async function updateUserApplicationUsageMetric(input: {
+  userId?: string;
+  eventType: PlatformActivityEventType;
+  metadata?: Record<string, string | number | boolean | null>;
+  userAgent?: string | null;
+}) {
+  if (!input.userId) return;
+
+  const scoreIncrement = scoreForActivity(input.eventType, input.metadata);
+  if (scoreIncrement <= 0) return;
+
+  const now = new Date();
+  const deviceClass = metadataDeviceClass(input.metadata, input.userAgent);
+  const existing = await prisma.userApplicationUsageMetric.findUnique({
+    where: { userId: input.userId }
+  });
+  const mobileScore = decayScore(existing?.mobileActivityScore ?? 0, existing?.lastSeenAt ?? null, now) + (deviceClass === "MOBILE" ? scoreIncrement : 0);
+  const desktopScore = decayScore(existing?.desktopActivityScore ?? 0, existing?.lastSeenAt ?? null, now) + (deviceClass === "DESKTOP" ? scoreIncrement : 0);
+  const mobileSeenAt = deviceClass === "MOBILE" ? now : existing?.lastMobileSeenAt ?? null;
+  const desktopSeenAt = deviceClass === "DESKTOP" ? now : existing?.lastDesktopSeenAt ?? null;
+
+  await prisma.userApplicationUsageMetric.upsert({
+    where: { userId: input.userId },
+    update: {
+      mobileActivityScore: mobileScore,
+      desktopActivityScore: desktopScore,
+      lastSeenAt: now,
+      lastMobileSeenAt: mobileSeenAt,
+      lastDesktopSeenAt: desktopSeenAt
+    },
+    create: {
+      userId: input.userId,
+      mobileActivityScore: deviceClass === "MOBILE" ? scoreIncrement : 0,
+      desktopActivityScore: deviceClass === "DESKTOP" ? scoreIncrement : 0,
+      lastSeenAt: now,
+      lastMobileSeenAt: deviceClass === "MOBILE" ? now : undefined,
+      lastDesktopSeenAt: deviceClass === "DESKTOP" ? now : undefined
+    }
+  });
 }
 
 export async function recordPlatformActivity(input: {
@@ -30,6 +99,7 @@ export async function recordPlatformActivity(input: {
   }
 
   const data = parsed.data;
+  const metadata = data.metadata as Prisma.InputJsonObject | undefined;
 
   await prisma.platformActivityEvent.create({
     data: {
@@ -41,10 +111,16 @@ export async function recordPlatformActivity(input: {
       action: data.action || null,
       targetType: data.targetType || null,
       targetId: data.targetId || null,
-      metadata: data.metadata ?? undefined,
+      metadata,
       ipHash: hashSignal(input.ipAddress),
       userAgentHash: hashSignal(input.userAgent)
     }
+  });
+  await updateUserApplicationUsageMetric({
+    userId: input.userId,
+    eventType: data.eventType,
+    metadata: data.metadata,
+    userAgent: input.userAgent
   });
 
   return { ok: true as const };
