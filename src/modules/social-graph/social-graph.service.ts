@@ -744,9 +744,22 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
       targetUserId: true
     }
   });
+  const pendingFriendRequests = await prisma.friendRelationshipRequest.findMany({
+    where: {
+      requesterUserId: userId,
+      targetUserId: {
+        in: people.map((person) => person.id)
+      },
+      status: FriendRelationshipRequestStatus.PENDING
+    },
+    select: {
+      targetUserId: true
+    }
+  });
   const relationshipMap = new Map<string, SocialRelationshipType[]>();
   const familyLabelMap = new Map<string, string>();
   const pendingFamilyRequestIds = new Set(pendingFamilyRequests.map((request) => request.targetUserId));
+  const pendingFriendRequestIds = new Set(pendingFriendRequests.map((request) => request.targetUserId));
 
   for (const relationship of relationships) {
     const current = relationshipMap.get(relationship.toUserId) ?? [];
@@ -769,7 +782,8 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
       location: person.profile?.location,
       relationships: relationshipMap.get(person.id) ?? [],
       familyLabel: familyLabelMap.get(person.id) ?? null,
-      pendingFamilyRequest: pendingFamilyRequestIds.has(person.id)
+      pendingFamilyRequest: pendingFamilyRequestIds.has(person.id),
+      pendingFriendRequest: pendingFriendRequestIds.has(person.id)
     };
   });
 }
