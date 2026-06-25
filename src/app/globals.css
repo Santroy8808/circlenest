@@ -276,6 +276,12 @@ a {
   overscroll-behavior: contain;
   overflow: hidden auto;
   padding: 24px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.main-surface::-webkit-scrollbar {
+  display: none;
 }
 
 .ad-rail {
