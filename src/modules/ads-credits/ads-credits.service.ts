@@ -34,8 +34,10 @@ import { listStripeCreditPackages } from "@/modules/billing/stripe-credit-checko
 const MODULE_KEY = "ads-credits";
 const MIN_AD_HOLD_MS = 9000;
 const MAX_AD_HOLD_MS = 45000;
+const AD_IMPRESSION_CREDIT_COST = 1;
 const RESERVED_STREAM_MAX_AD_SHARE = 0.05;
 const RESERVED_STREAM_MIN_SCORE = 8;
+const INSUFFICIENT_AD_CREDITS = "INSUFFICIENT_AD_CREDITS";
 
 function hashForRotation(value: string) {
   let hash = 0;
@@ -73,6 +75,7 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
   const imageUrl = campaign.imageMediaAsset
     ? campaign.imageMediaAsset.publicUrl ?? `/api/media/assets/${campaign.imageMediaAsset.id}`
     : campaign.externalImageUrl;
+  const remainingCredits = Math.max(campaign.totalBudgetCredits - campaign.spentCredits, 0);
 
   return {
     id: campaign.id,
@@ -90,6 +93,7 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
     totalBudgetCredits: campaign.totalBudgetCredits,
     dailyBudgetCredits: campaign.dailyBudgetCredits,
     spentCredits: campaign.spentCredits,
+    remainingCredits,
     startsAt: campaign.startsAt?.toISOString() ?? null,
     endsAt: campaign.endsAt?.toISOString() ?? null,
     createdAt: campaign.createdAt.toISOString()
@@ -97,8 +101,8 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
 }
 
 function toPlacementCard(campaign: AdCampaignPayload): AdPlacementCardView {
-  const reservedCredits = Math.max(campaign.totalBudgetCredits, 0);
-  const paidHoldMs = Math.min(Math.floor(reservedCredits / 4) * 1000, MAX_AD_HOLD_MS - MIN_AD_HOLD_MS);
+  const remainingCredits = Math.max(campaign.totalBudgetCredits - campaign.spentCredits, 0);
+  const paidHoldMs = Math.min(Math.floor(remainingCredits / 4) * 1000, MAX_AD_HOLD_MS - MIN_AD_HOLD_MS);
   const imageUrl = campaign.imageMediaAsset
     ? campaign.imageMediaAsset.publicUrl ?? `/api/media/assets/${campaign.imageMediaAsset.id}`
     : campaign.externalImageUrl;
@@ -112,7 +116,7 @@ function toPlacementCard(campaign: AdCampaignPayload): AdPlacementCardView {
     imageAlt: campaign.imageMediaAsset?.originalName ?? campaign.title,
     totalBudgetCredits: campaign.totalBudgetCredits,
     spentCredits: campaign.spentCredits,
-    remainingCredits: reservedCredits,
+    remainingCredits,
     rotationHoldMs: MIN_AD_HOLD_MS + paidHoldMs
   };
 }
@@ -121,11 +125,31 @@ function weightedRotationSort(campaigns: AdCampaignPayload[]) {
   const bucket = Math.floor(Date.now() / 30000);
 
   return [...campaigns].sort((left, right) => {
-    const leftScore = Math.max(left.totalBudgetCredits, 0) * 1000 + (hashForRotation(`${left.id}:${bucket}`) % 997);
-    const rightScore = Math.max(right.totalBudgetCredits, 0) * 1000 + (hashForRotation(`${right.id}:${bucket}`) % 997);
+    const leftRemainingCredits = Math.max(left.totalBudgetCredits - left.spentCredits, 0);
+    const rightRemainingCredits = Math.max(right.totalBudgetCredits - right.spentCredits, 0);
+    const leftScore = leftRemainingCredits * 1000 + (hashForRotation(`${left.id}:${bucket}`) % 997);
+    const rightScore = rightRemainingCredits * 1000 + (hashForRotation(`${right.id}:${bucket}`) % 997);
 
     return rightScore - leftScore;
   });
+}
+
+async function reconcileEndedAdCampaigns(now = new Date()) {
+  await prisma.$executeRaw`
+    UPDATE "AdCampaign"
+    SET
+      "status" = 'ENDED'::"AdCampaignStatus",
+      "endsAt" = CASE
+        WHEN "endsAt" IS NULL OR "endsAt" > ${now} THEN ${now}
+        ELSE "endsAt"
+      END,
+      "updatedAt" = ${now}
+    WHERE "status" = 'ACTIVE'::"AdCampaignStatus"
+      AND (
+        ("endsAt" IS NOT NULL AND "endsAt" <= ${now})
+        OR "spentCredits" >= "totalBudgetCredits"
+      )
+  `;
 }
 
 function reservedStreamOrganicGap(totalActivityScore: number) {
@@ -194,6 +218,8 @@ export async function recordReservedStreamOrganicFeedUnits(userId: string | unde
 }
 
 export async function getAdsManagerView(userId: string): Promise<AdsManagerView> {
+  await reconcileEndedAdCampaigns();
+
   const [access, membership, campaigns, storefront, marketListings, businessArticles, writerManuscripts, pricingPackages, creditPackages] = await Promise.all([
     getAdCreateAccess(userId),
     prisma.membership.findUnique({
@@ -312,11 +338,13 @@ export async function getAdPlacementPool(input: {
   placement: AdPlacement;
   limit?: number;
 }) {
+  const now = new Date();
+  await reconcileEndedAdCampaigns(now);
+
   if (input.placement === AdPlacement.RESERVED_STREAM && !(await canServeReservedStreamAd(input.viewerUserId))) {
     return [];
   }
 
-  const now = new Date();
   const viewerInterests = input.viewerUserId
     ? await prisma.userInterest.findMany({
         where: { userId: input.viewerUserId },
@@ -331,7 +359,7 @@ export async function getAdPlacementPool(input: {
       OR: [{ startsAt: null }, { startsAt: { lte: now } }],
       AND: [
         {
-          OR: [{ endsAt: null }, { endsAt: { gte: now } }]
+          OR: [{ endsAt: null }, { endsAt: { gt: now } }]
         }
       ]
     },
@@ -381,6 +409,7 @@ export async function getAdPlacementPool(input: {
   ];
   const orgAdEligibleOwnerIds = await getOrgAdEligibleOwnerIds(input.viewerUserId, orgOwnerIds);
   const eligibleCampaigns = campaigns.filter((campaign) => {
+    if (campaign.spentCredits >= campaign.totalBudgetCredits) return false;
     if (campaign.owner.membership?.tier === MembershipTier.ORG && !orgAdEligibleOwnerIds.has(campaign.ownerUserId)) return false;
     if (campaign.subscriberTargetManuscriptId && !viewerSubscribedManuscriptIds.has(campaign.subscriberTargetManuscriptId)) return false;
     if (campaign.targetInterests.length === 0) return true;
@@ -998,66 +1027,86 @@ export async function createAdCampaign(userId: string, input: unknown) {
     return { ok: false as const, error: "Upload an ad image or enter a valid image URL." };
   }
 
-  const campaign = await prisma.$transaction(async (tx) => {
-    if (!access.isAdmin) {
-      await tx.membership.update({
-        where: { userId },
+  let campaign: AdCampaignPayload;
+
+  try {
+    campaign = await prisma.$transaction(async (tx) => {
+      if (!access.isAdmin) {
+        const debit = await tx.membership.updateMany({
+          where: {
+            userId,
+            platformCredits: {
+              gte: campaignCostCredits
+            }
+          },
+          data: {
+            platformCredits: {
+              decrement: campaignCostCredits
+            }
+          }
+        });
+
+        if (debit.count !== 1) {
+          throw new Error(INSUFFICIENT_AD_CREDITS);
+        }
+
+        await tx.adCreditLedgerEntry.create({
+          data: {
+            userId,
+            amount: -campaignCostCredits,
+            reason: `Reserved ad package: ${pricingRule.label}`,
+            sourceType: "PlatformCostRule",
+            sourceId: pricingRule.id
+          }
+        });
+      }
+
+      return tx.adCampaign.create({
         data: {
-          platformCredits: {
-            decrement: campaignCostCredits
+          ownerUserId: userId,
+          title: parsed.data.title,
+          body: parsed.data.body,
+          destinationUrl: destination.destinationUrl,
+          destinationKind: parsed.data.destinationKind,
+          businessProfileId: destination.businessProfileId,
+          marketListingId: destination.marketListingId,
+          businessArticleId: destination.businessArticleId,
+          subscriberTargetManuscriptId: subscriberTarget.manuscriptId,
+          imageMediaAssetId: image.imageMediaAssetId,
+          externalImageUrl,
+          placement: parsed.data.placement,
+          targetLocation: parsed.data.targetLocation || null,
+          totalBudgetCredits: campaignCostCredits,
+          dailyBudgetCredits: null,
+          startsAt,
+          endsAt,
+          targetInterests:
+            targetInterestCategories.length > 0
+              ? {
+                  createMany: {
+                    data: targetInterestCategories.map((category) => ({ category }))
+                  }
+                }
+              : undefined
+        },
+        include: {
+          imageMediaAsset: true,
+          targetInterests: true,
+          subscriberTargetManuscript: {
+            select: {
+              title: true
+            }
           }
         }
       });
-      await tx.adCreditLedgerEntry.create({
-        data: {
-          userId,
-          amount: -campaignCostCredits,
-          reason: `Reserved ad package: ${pricingRule.label}`,
-          sourceType: "PlatformCostRule",
-          sourceId: pricingRule.id
-        }
-      });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === INSUFFICIENT_AD_CREDITS) {
+      return { ok: false as const, error: "Not enough platform credits for this ad budget." };
     }
 
-    return tx.adCampaign.create({
-      data: {
-        ownerUserId: userId,
-        title: parsed.data.title,
-        body: parsed.data.body,
-        destinationUrl: destination.destinationUrl,
-        destinationKind: parsed.data.destinationKind,
-        businessProfileId: destination.businessProfileId,
-        marketListingId: destination.marketListingId,
-        businessArticleId: destination.businessArticleId,
-        subscriberTargetManuscriptId: subscriberTarget.manuscriptId,
-        imageMediaAssetId: image.imageMediaAssetId,
-        externalImageUrl,
-        placement: parsed.data.placement,
-        targetLocation: parsed.data.targetLocation || null,
-        totalBudgetCredits: campaignCostCredits,
-        dailyBudgetCredits: null,
-        startsAt,
-        endsAt,
-        targetInterests:
-          targetInterestCategories.length > 0
-            ? {
-                createMany: {
-                  data: targetInterestCategories.map((category) => ({ category }))
-                }
-              }
-            : undefined
-      },
-      include: {
-        imageMediaAsset: true,
-        targetInterests: true,
-        subscriberTargetManuscript: {
-          select: {
-            title: true
-          }
-        }
-      }
-    });
-  });
+    throw error;
+  }
 
   await diagnostics.info(MODULE_KEY, "Ad campaign created.", {
     userId,
@@ -1095,7 +1144,70 @@ export async function logAdDelivery(input: {
   eventType: AdDeliveryEventType;
   metadata?: Record<string, unknown>;
 }) {
-  await prisma.$transaction(async (tx) => {
+  const now = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    if (input.eventType === AdDeliveryEventType.IMPRESSION) {
+      const spentRows = await tx.$queryRaw<Array<{ id: string; spentCredits: number; totalBudgetCredits: number }>>`
+        UPDATE "AdCampaign"
+        SET
+          "spentCredits" = LEAST("spentCredits" + ${AD_IMPRESSION_CREDIT_COST}, "totalBudgetCredits"),
+          "status" = CASE
+            WHEN LEAST("spentCredits" + ${AD_IMPRESSION_CREDIT_COST}, "totalBudgetCredits") >= "totalBudgetCredits"
+              THEN 'ENDED'::"AdCampaignStatus"
+            ELSE "status"
+          END,
+          "endsAt" = CASE
+            WHEN LEAST("spentCredits" + ${AD_IMPRESSION_CREDIT_COST}, "totalBudgetCredits") >= "totalBudgetCredits"
+              AND ("endsAt" IS NULL OR "endsAt" > ${now})
+              THEN ${now}
+            ELSE "endsAt"
+          END,
+          "updatedAt" = ${now}
+        WHERE "id" = ${input.campaignId}
+          AND "placement" = ${input.placement}::"AdPlacement"
+          AND "status" = 'ACTIVE'::"AdCampaignStatus"
+          AND ("startsAt" IS NULL OR "startsAt" <= ${now})
+          AND ("endsAt" IS NULL OR "endsAt" > ${now})
+          AND "spentCredits" < "totalBudgetCredits"
+        RETURNING "id", "spentCredits", "totalBudgetCredits"
+      `;
+
+      if (!spentRows[0]) {
+        await tx.$executeRaw`
+          UPDATE "AdCampaign"
+          SET
+            "status" = 'ENDED'::"AdCampaignStatus",
+            "endsAt" = CASE
+              WHEN "endsAt" IS NULL OR "endsAt" > ${now} THEN ${now}
+              ELSE "endsAt"
+            END,
+            "updatedAt" = ${now}
+          WHERE "id" = ${input.campaignId}
+            AND "status" = 'ACTIVE'::"AdCampaignStatus"
+            AND (
+              ("endsAt" IS NOT NULL AND "endsAt" <= ${now})
+              OR "spentCredits" >= "totalBudgetCredits"
+            )
+        `;
+
+        return { logged: false as const };
+      }
+    } else {
+      const campaign = await tx.adCampaign.findFirst({
+        where: {
+          id: input.campaignId,
+          placement: input.placement
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (!campaign) {
+        return { logged: false as const };
+      }
+    }
+
     await tx.adDeliveryLog.create({
       data: {
         campaignId: input.campaignId,
@@ -1141,13 +1253,84 @@ export async function logAdDelivery(input: {
       });
     }
 
-    // Delivery events are analytics only. Credits are charged when a package/time window is reserved.
+    return { logged: true as const };
   });
 
-  await diagnostics.debug(MODULE_KEY, "Ad delivery event logged.", {
+  await diagnostics.debug(MODULE_KEY, result.logged ? "Ad delivery event logged." : "Ad delivery event skipped.", {
     campaignId: input.campaignId,
     viewerUserId: input.viewerUserId,
     placement: input.placement,
-    eventType: input.eventType
+    eventType: input.eventType,
+    logged: result.logged
   });
+
+  return result;
+}
+
+export async function endAdCampaign(userId: string, campaignId: string) {
+  const campaign = await prisma.adCampaign.findFirst({
+    where: {
+      id: campaignId,
+      ownerUserId: userId
+    },
+    include: {
+      imageMediaAsset: true,
+      targetInterests: true,
+      subscriberTargetManuscript: {
+        select: {
+          title: true
+        }
+      }
+    }
+  });
+
+  if (!campaign) {
+    return { ok: false as const, error: "Campaign not found." };
+  }
+
+  if (campaign.status === AdCampaignStatus.ARCHIVED) {
+    return { ok: false as const, error: "Archived campaigns cannot be changed." };
+  }
+
+  if (campaign.status === AdCampaignStatus.ENDED) {
+    return { ok: true as const, campaign: toCampaignCard(campaign) };
+  }
+
+  const now = new Date();
+  const updatedCampaign = await prisma.adCampaign.update({
+    where: {
+      id: campaign.id
+    },
+    data: {
+      status: AdCampaignStatus.ENDED,
+      endsAt: !campaign.endsAt || campaign.endsAt > now ? now : campaign.endsAt
+    },
+    include: {
+      imageMediaAsset: true,
+      targetInterests: true,
+      subscriberTargetManuscript: {
+        select: {
+          title: true
+        }
+      }
+    }
+  });
+
+  await diagnostics.info(MODULE_KEY, "Ad campaign ended by owner.", {
+    userId,
+    adCampaignId: campaign.id
+  });
+  await writeAuditLog({
+    actorUserId: userId,
+    module: MODULE_KEY,
+    action: "ad.campaign.ended",
+    targetType: "AdCampaign",
+    targetId: campaign.id,
+    metadata: {
+      endedByOwner: true,
+      previousEndsAt: campaign.endsAt?.toISOString() ?? null
+    }
+  });
+
+  return { ok: true as const, campaign: toCampaignCard(updatedCampaign) };
 }

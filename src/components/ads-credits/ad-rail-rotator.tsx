@@ -116,7 +116,7 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
             <strong className="mt-2 block">{ad.title}</strong>
             <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{ad.body}</span>
-            <span className="ad-rotation-meta">{Math.ceil(ad.rotationHoldMs / 1000)}s paid hold | {ad.totalBudgetCredits} credits reserved</span>
+            <span className="ad-rotation-meta">{Math.ceil(ad.rotationHoldMs / 1000)}s paid hold | {ad.remainingCredits} credits left</span>
           </a>
         ) : (
           <article className="ad-placement-card" key={`${ad.id}-${slot}`}>
@@ -127,7 +127,7 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
             <strong className="mt-2 block">{ad.title}</strong>
             <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{ad.body}</span>
-            <span className="ad-rotation-meta">{Math.ceil(ad.rotationHoldMs / 1000)}s paid hold | {ad.totalBudgetCredits} credits reserved</span>
+            <span className="ad-rotation-meta">{Math.ceil(ad.rotationHoldMs / 1000)}s paid hold | {ad.remainingCredits} credits left</span>
           </article>
         )
       )}

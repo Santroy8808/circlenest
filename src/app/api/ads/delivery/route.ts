@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid ad delivery event." }, { status: 400 });
   }
 
-  await logAdDelivery({
+  const result = await logAdDelivery({
     campaignId,
     viewerUserId: session.user.id,
     placement: parsePlacement(body?.placement),
@@ -51,5 +51,5 @@ export async function POST(request: NextRequest) {
     metadata
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, logged: result.logged });
 }

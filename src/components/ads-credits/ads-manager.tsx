@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdCreditCheckoutButton } from "@/components/ads-credits/ad-credit-checkout-button";
+import { EndAdCampaignButton } from "@/components/ads-credits/end-ad-campaign-button";
 import type { AdsManagerView } from "@/modules/ads-credits/types";
 
 function isExternalUrl(value: string) {
@@ -88,7 +89,10 @@ export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
                       <span className="pill rounded-full px-3 py-1">{campaign.destinationKind.toLowerCase().replace("_", " ")}</span>
                       <span className="pill rounded-full px-3 py-1">{campaign.placementLabel}</span>
                       <span className="pill rounded-full px-3 py-1">
-                        {campaign.totalBudgetCredits} credits reserved
+                        {campaign.spentCredits} / {campaign.totalBudgetCredits} credits used
+                      </span>
+                      <span className="pill rounded-full px-3 py-1">
+                        {campaign.remainingCredits} credits left
                       </span>
                       {campaign.endsAt ? <span className="pill rounded-full px-3 py-1">Ends {new Date(campaign.endsAt).toLocaleDateString()}</span> : null}
                       {campaign.targetLocation ? <span className="pill rounded-full px-3 py-1">Location: {campaign.targetLocation}</span> : null}
@@ -109,6 +113,11 @@ export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
                           View destination
                         </Link>
                       )
+                    ) : null}
+                    {campaign.status === "ACTIVE" || campaign.status === "PAUSED" || campaign.status === "DRAFT" ? (
+                      <div className="mt-4">
+                        <EndAdCampaignButton campaignId={campaign.id} />
+                      </div>
                     ) : null}
                   </div>
                 </div>

@@ -68,6 +68,7 @@ export type AdCampaignCardView = {
   totalBudgetCredits: number;
   dailyBudgetCredits: number | null;
   spentCredits: number;
+  remainingCredits: number;
   startsAt: string | null;
   endsAt: string | null;
   createdAt: string;
