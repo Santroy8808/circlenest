@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdminAccountSupportWizard } from "@/components/admin-moderation/admin-account-support-wizard";
+import { AdminAdScheduleWizard } from "@/components/admin-moderation/admin-ad-schedule-wizard";
 import { AdminAnnouncementWizard } from "@/components/admin-moderation/admin-announcement-wizard";
 import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
 import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wizard";
@@ -10,6 +11,7 @@ import { AdminPricingWizard } from "@/components/admin-moderation/admin-pricing-
 import { AdminStatusChangeWizard } from "@/components/admin-moderation/admin-status-change-wizard";
 import { AdminStripeSetupWizard } from "@/components/admin-moderation/admin-stripe-setup-wizard";
 import { AppShell } from "@/components/platform/app-shell";
+import { getAdScheduleAdminView } from "@/modules/ads-credits/ads-credits.service";
 import { listRecentPublicAnnouncements } from "@/modules/admin-moderation/announcements.service";
 import { getAdminActionCard, getAdminFeedbackTicketQueue, isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
 import { getPlatformCreditsAdminView } from "@/modules/admin-moderation/platform-credits.service";
@@ -56,6 +58,16 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminPricingWizard initialRules={rules} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "ad-schedule") {
+    const view = await getAdScheduleAdminView();
+
+    return (
+      <AppShell>
+        <AdminAdScheduleWizard initialView={view} />
       </AppShell>
     );
   }

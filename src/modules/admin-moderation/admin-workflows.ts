@@ -171,8 +171,8 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Ads And Spend",
       eyebrow: "Ads",
       description: "Pricing, credits, placement costs, and ad-experience guardrails.",
-      badge: "3 tools",
-      keywords: ["ads", "ad spend", "credits", "pricing", "guardrails", "placements"],
+      badge: "4 tools",
+      keywords: ["ads", "ad spend", "credits", "pricing", "guardrails", "placements", "schedule", "auction"],
       groups: [
         {
           key: "pricing-credit-controls",
@@ -199,9 +199,17 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
         },
         {
           key: "experience-controls",
-          title: "Experience Controls",
-          description: "Review density, cooldown, and sponsored-message boundaries.",
+          title: "Experience And Schedule Controls",
+          description: "Review density, cooldown, sponsored-message boundaries, and display-time auction schedules.",
           entries: [
+            {
+              href: "/admin/actions/ad-schedule",
+              title: "Global Ad Schedule",
+              category: "Ads And Spend",
+              description: "Force a recalculation of display-time schedules for the rest of today without skipping the next midnight calculation.",
+              badge: "schedule",
+              keywords: ["ads", "ad schedule", "auction", "display time", "placements", "recalculate", "rotation"]
+            },
             {
               href: "/admin/actions/launch-access?tool=ad-guardrails",
               title: "Experience Guardrails",

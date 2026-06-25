@@ -30,6 +30,19 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
+    key: "ad-schedule",
+    title: "Global Ad Schedule",
+    description: "Force a recalculation of ad display-time schedules for the rest of the current platform day without skipping the next midnight calculation.",
+    risk: "high",
+    keywords: ["ads", "ad schedule", "auction", "display time", "placements", "recalculate", "rotation"],
+    steps: [
+      "Review the latest schedule run for each placement.",
+      "Force a rest-of-day recalculation when campaign demand or admin policy changes.",
+      "Clear only future slots for today.",
+      "Rebuild placement schedules and write audit logs."
+    ]
+  },
+  {
     key: "stripe-setup",
     title: "Stripe Setup",
     description: "Configure Stripe connection status, membership price IDs, credit packages, and checkout enablement.",

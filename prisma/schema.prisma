@@ -1792,6 +1792,7 @@ model AdCampaign {
   imageMediaAsset    MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
   deliveryLogs       AdDeliveryLog[]
   targetInterests    AdCampaignInterestTarget[]
+  displayScheduleSlots AdDisplayScheduleSlot[]
 
   @@index([status, placement, createdAt])
   @@index([ownerUserId, createdAt])
@@ -1811,6 +1812,43 @@ model AdCampaignInterestTarget {
 
   @@unique([campaignId, category])
   @@index([category])
+}
+
+model AdDisplayScheduleRun {
+  id              String                  @id @default(cuid())
+  placement       AdPlacement
+  scheduleDate    DateTime
+  scheduledFrom   DateTime
+  scheduledUntil  DateTime
+  slotSeconds     Int                     @default(30)
+  slotCount       Int                     @default(0)
+  campaignCount   Int                     @default(0)
+  forced          Boolean                 @default(false)
+  reason          String?
+  createdByUserId String?
+  createdAt       DateTime                @default(now())
+  slots           AdDisplayScheduleSlot[]
+
+  @@index([placement, scheduleDate, createdAt])
+  @@index([createdAt])
+}
+
+model AdDisplayScheduleSlot {
+  id             String               @id @default(cuid())
+  runId          String
+  campaignId     String
+  placement      AdPlacement
+  startsAt       DateTime
+  endsAt         DateTime
+  sequence       Int
+  displaySeconds Int                  @default(30)
+  createdAt      DateTime             @default(now())
+  run            AdDisplayScheduleRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  campaign       AdCampaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([placement, startsAt, endsAt])
+  @@index([campaignId, startsAt])
+  @@index([runId, sequence])
 }
 
 model AdCreditLedgerEntry {

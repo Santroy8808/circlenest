@@ -85,6 +85,30 @@ export type AdPlacementCardView = {
   spentCredits: number;
   remainingCredits: number;
   rotationHoldMs: number;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
+};
+
+export type AdScheduleRunView = {
+  id: string;
+  placement: AdPlacement;
+  placementLabel: string;
+  scheduleDate: string;
+  scheduledFrom: string;
+  scheduledUntil: string;
+  slotSeconds: number;
+  slotCount: number;
+  campaignCount: number;
+  forced: boolean;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type AdScheduleAdminView = {
+  timeZone: string;
+  slotSeconds: number;
+  nextAutomaticRunAt: string;
+  latestRuns: AdScheduleRunView[];
 };
 
 export type AdsManagerView = {
