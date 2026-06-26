@@ -4318,6 +4318,8 @@ html.theta-android-app.theta-menu-open .side-nav {
   height: 100dvh;
   overflow: hidden auto;
   padding: max(8px, env(safe-area-inset-top)) 10px calc(74px + env(safe-area-inset-bottom));
+  scroll-padding-top: max(8px, env(safe-area-inset-top));
+  scroll-snap-type: y proximity;
   scrollbar-width: none;
 }
 
@@ -4426,12 +4428,80 @@ body.theta-android-app .feedback-fab,
 
 .theta-android-app .feed-entry-list,
 .app-shell.is-android-app .feed-entry-list {
-  gap: 10px;
+  --android-feed-gap: 10px;
+  --android-feed-card-height: clamp(
+    300px,
+    calc((100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--android-feed-gap)) / 2),
+    460px
+  );
+  gap: var(--android-feed-gap);
 }
 
 .theta-android-app .feed-post,
 .app-shell.is-android-app .feed-post {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--android-feed-card-height);
   padding: 12px;
+}
+
+.theta-android-app .feed-entry-list > :nth-child(odd),
+.app-shell.is-android-app .feed-entry-list > :nth-child(odd) {
+  scroll-snap-align: start;
+}
+
+.theta-android-app .feed-post-header,
+.app-shell.is-android-app .feed-post-header {
+  align-items: flex-start;
+}
+
+.theta-android-app .feed-post > .feed-rich-text,
+.app-shell.is-android-app .feed-post > .feed-rich-text {
+  max-height: 4.4em;
+  overflow: hidden;
+}
+
+.theta-android-app .feed-post > .feed-media-card,
+.app-shell.is-android-app .feed-post > .feed-media-card {
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+.theta-android-app .feed-post > .feed-media-card img,
+.app-shell.is-android-app .feed-post > .feed-media-card img {
+  aspect-ratio: 16 / 9;
+  height: min(24dvh, calc(var(--android-feed-card-height) * 0.42));
+  max-height: none;
+  object-fit: cover;
+  width: 100%;
+}
+
+.theta-android-app .feed-post-actions,
+.app-shell.is-android-app .feed-post-actions {
+  margin-top: auto;
+}
+
+.theta-android-app .feed-comment-preview .comment-bubble:nth-of-type(n+2),
+.app-shell.is-android-app .feed-comment-preview .comment-bubble:nth-of-type(n+2) {
+  display: none;
+}
+
+.theta-android-app .feed-comment-preview,
+.app-shell.is-android-app .feed-comment-preview {
+  max-height: calc(var(--android-feed-card-height) * 0.24);
+  overflow: hidden;
+}
+
+.theta-android-app .feed-reserved-ad,
+.app-shell.is-android-app .feed-reserved-ad {
+  min-height: var(--android-feed-card-height);
+}
+
+.theta-android-app .feed-reserved-ad-image,
+.app-shell.is-android-app .feed-reserved-ad-image {
+  aspect-ratio: 16 / 9;
+  height: min(24dvh, calc(var(--android-feed-card-height) * 0.46));
+  max-height: none;
 }
 
 .theta-android-app .chat-layout {

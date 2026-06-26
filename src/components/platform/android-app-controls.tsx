@@ -183,35 +183,6 @@ export function AndroidAppControls({ counts, sections }: AndroidAppControlsProps
     return () => document.documentElement.classList.remove("theta-menu-open");
   }, [drawerOpen]);
 
-  useEffect(() => {
-    let startX = 0;
-    let startY = 0;
-
-    function onTouchStart(event: TouchEvent) {
-      const touch = event.touches[0];
-      if (!touch) return;
-      startX = touch.clientX;
-      startY = touch.clientY;
-    }
-
-    function onTouchEnd(event: TouchEvent) {
-      const touch = event.changedTouches[0];
-      if (!touch) return;
-      const deltaX = touch.clientX - startX;
-      const deltaY = touch.clientY - startY;
-      if (Math.abs(deltaY) > 70) return;
-      if (!drawerOpen && startX <= 28 && deltaX > 70) setDrawerOpen(true);
-      if (drawerOpen && deltaX < -70) setDrawerOpen(false);
-    }
-
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [drawerOpen]);
-
   function onTouchEnd(clientY: number) {
     if (touchStartY.current === null) return;
     const delta = touchStartY.current - clientY;
