@@ -13,6 +13,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo-network": "tsx scripts/seed-demo-network.ts",
+    "db:seed:rich-feed": "tsx scripts/seed-rich-feed-posts.ts",
+    "db:seed:ads10": "tsx scripts/seed-ten-ads.ts",
     "db:seed:listing-ads": "tsx scripts/seed-listing-destination-ads.ts",
     "env:check": "tsx scripts/validate-env.ts",
     "cutover:check": "tsx scripts/cutover-readiness.ts",
