@@ -1,11 +1,12 @@
 import { AdPlacement } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { FeedClient } from "@/components/feed/feed-client";
+import { HomeStreamWorkspace } from "@/components/home/home-stream-workspace";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
+import { safeListChatThreads } from "@/modules/chat-messages/chat-messages.service";
 import { safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
 export default async function AppHomePage() {
@@ -15,7 +16,7 @@ export default async function AppHomePage() {
     redirect("/login?callbackUrl=/home");
   }
   const activeActor = await getActiveAccountActor(session.user.id);
-  const [posts, profile, actorUser, latestAlert, scienceProfile, privateProfile] = await Promise.all([
+  const [posts, profile, actorUser, latestAlert, scienceProfile, privateProfile, chatThreads] = await Promise.all([
     safeListFeedPosts(20, activeActor.actorUserId),
     prisma.profile.findUnique({
       where: { userId: activeActor.actorUserId },
@@ -52,7 +53,8 @@ export default async function AppHomePage() {
     prisma.profile.findUnique({
       where: { userId: session.user.id },
       select: { userId: true }
-    })
+    }),
+    safeListChatThreads(activeActor.actorUserId)
   ]);
 
   if (!scienceProfile && privateProfile) {
@@ -69,35 +71,19 @@ export default async function AppHomePage() {
 
   return (
     <AppShell>
-      <section
-        className="home-stream-hero surface rounded-md"
-        style={profile?.bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 11, 16, 0.86), rgba(8, 11, 16, 0.42)), url(${profile.bannerUrl})` } : undefined}
-      >
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Stream</p>
-          <h1 className="mt-3 text-3xl font-semibold">Welcome, {displayName}</h1>
-          <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Share updates, pictures, replies, and reactions with your Theta-Space network.</p>
-        </div>
-        {latestAlert ? (
-          <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
-            <strong>{latestAlert.title}</strong>
-            {latestAlert.body ? <span>{latestAlert.body}</span> : null}
-          </a>
-        ) : null}
-      </section>
-      <section className="mt-5">
-        <FeedClient
-          currentAuthor={{
-            id: activeActor.actorUserId,
-            avatarUrl: profile?.avatarUrl,
-            displayName,
-            username: actorUser?.username ?? session.user.username
-          }}
-          initialReservedStreamAds={reservedStreamAds}
-          initialPosts={posts}
-        />
-      </section>
+      <HomeStreamWorkspace
+        bannerUrl={profile?.bannerUrl}
+        currentAuthor={{
+          id: activeActor.actorUserId,
+          avatarUrl: profile?.avatarUrl,
+          displayName,
+          username: actorUser?.username ?? session.user.username
+        }}
+        initialChatThreads={chatThreads}
+        initialReservedStreamAds={reservedStreamAds}
+        initialPosts={posts}
+        latestAlert={latestAlert}
+      />
     </AppShell>
   );
 }

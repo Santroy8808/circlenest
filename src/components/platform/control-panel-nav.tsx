@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 
 type NavCountKey = "messages" | "mail" | "notifications" | "alerts";
 
@@ -47,6 +48,15 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   useEffect(() => {
     setOpenSection(activeSection);
   }, [activeSection]);
+
+  function handleItemClick(event: MouseEvent<HTMLAnchorElement>, item: NavItem) {
+    if (pathname !== "/home" || item.href !== "/messages" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent("theta:open-comm-dock"));
+  }
 
   return (
     <nav aria-label="Control panel" className="mt-8 control-panel-nav">
@@ -100,6 +110,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                       className={isActive ? "control-panel-link is-active" : "control-panel-link"}
                       href={item.href ?? "/"}
                       key={item.href ?? item.label}
+                      onClick={(event) => handleItemClick(event, item)}
                       tabIndex={isOpen ? undefined : -1}
                     >
                       <span>{item.label}</span>
