@@ -20,6 +20,8 @@ type QueuedAttachment = {
   error?: string;
 };
 
+const CHAT_THUMBNAIL_MAX_EDGE = 420;
+
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -27,6 +29,48 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function isBrowserPreviewImage(mimeType: string) {
+  return /^image\/(jpeg|png|webp|gif)$/.test(mimeType);
+}
+
+function loadImageElement(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not preview image attachment."));
+    image.src = url;
+  });
+}
+
+async function createChatThumbnail(file: File) {
+  if (!isBrowserPreviewImage(file.type)) return null;
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const scale = Math.min(1, CHAT_THUMBNAIL_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+
+    if (!context) return null;
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+    if (!blob) return null;
+
+    const fileName = file.name.replace(/\.[^.]+$/, "") || "image";
+    return new File([blob], `${fileName}-thumb.jpg`, { type: "image/jpeg", lastModified: file.lastModified });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function messagePreview(message?: ChatMessageView | null) {
@@ -48,11 +92,13 @@ function deliveryMark(message: ChatMessageView) {
 }
 
 function AttachmentPreview({ attachment }: { attachment: ChatAttachmentView }) {
-  if (attachment.kind === "IMAGE" && attachment.publicUrl) {
+  const imageUrl = attachment.thumbnailUrl ?? attachment.publicUrl;
+
+  if (attachment.kind === "IMAGE" && imageUrl) {
     return (
-      <a className="chat-attachment-image" href={attachment.publicUrl} target="_blank" rel="noreferrer">
+      <a className="chat-attachment-image" href={attachment.publicUrl ?? imageUrl} target="_blank" rel="noreferrer">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img alt={attachment.fileName} src={attachment.publicUrl} />
+        <img alt={attachment.fileName} loading="lazy" src={imageUrl} />
       </a>
     );
   }
@@ -76,6 +122,7 @@ export function MessagesClient({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const attachmentsRef = useRef<QueuedAttachment[]>([]);
   const [threads, setThreads] = useState(initialThreads);
   const [selectedThread, setSelectedThread] = useState<ChatThreadDetailView | null>(initialSelectedThread ?? null);
   const [threadQuery, setThreadQuery] = useState("");
@@ -86,6 +133,18 @@ export function MessagesClient({
   const [attachments, setAttachments] = useState<QueuedAttachment[]>([]);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((attachment) => {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+      });
+    };
+  }, []);
 
   function mergePendingMessages(
     incomingThread: ChatThreadDetailView,
@@ -203,12 +262,29 @@ export function MessagesClient({
     const next = Array.from(files).map((file) => ({
       id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
       file,
-      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+      previewUrl: isBrowserPreviewImage(file.type) ? URL.createObjectURL(file) : undefined,
       progress: 0,
       status: "queued" as const
     }));
 
     setAttachments((current) => [...current, ...next]);
+  }
+
+  function removeQueuedAttachment(id: string) {
+    setAttachments((current) => {
+      const removed = current.find((item) => item.id === id);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return current.filter((candidate) => candidate.id !== id);
+    });
+  }
+
+  function clearQueuedAttachments() {
+    setAttachments((current) => {
+      current.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      return [];
+    });
   }
 
   function updateAttachment(id: string, patch: Partial<QueuedAttachment>) {
@@ -217,6 +293,7 @@ export function MessagesClient({
 
   async function uploadAttachment(item: QueuedAttachment) {
     updateAttachment(item.id, { status: "uploading", progress: 1, error: undefined });
+    let thumbnailStorageKey: string | undefined;
     const intentResponse = await fetch("/api/chat/upload-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -239,11 +316,42 @@ export function MessagesClient({
       onProgress: (progress) => updateAttachment(item.id, { progress })
     });
 
+    try {
+      const thumbnailFile = await createChatThumbnail(item.file);
+
+      if (thumbnailFile) {
+        updateAttachment(item.id, { progress: 94 });
+        const thumbnailIntentResponse = await fetch("/api/chat/upload-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: thumbnailFile.name,
+            mimeType: thumbnailFile.type,
+            sizeBytes: thumbnailFile.size
+          })
+        });
+        const thumbnailIntent = (await thumbnailIntentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+
+        if (thumbnailIntentResponse.ok && thumbnailIntent.uploadUrl && thumbnailIntent.storageKey) {
+          await uploadWithResilientFallback({
+            uploadUrl: thumbnailIntent.uploadUrl,
+            storageKey: thumbnailIntent.storageKey,
+            file: thumbnailFile,
+            onProgress: () => updateAttachment(item.id, { progress: 98 })
+          });
+          thumbnailStorageKey = thumbnailIntent.storageKey;
+        }
+      }
+    } catch {
+      thumbnailStorageKey = undefined;
+    }
+
     const completeResponse = await fetch("/api/chat/complete-upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         storageKey: intent.storageKey,
+        thumbnailStorageKey,
         fileName: item.file.name,
         mimeType: item.file.type || "application/octet-stream",
         sizeBytes: item.file.size
@@ -342,7 +450,7 @@ export function MessagesClient({
               }
             : current
         );
-        setAttachments([]);
+        clearQueuedAttachments();
         await refreshThreads();
       } catch (caught) {
         setSelectedThread((current) =>
@@ -514,7 +622,7 @@ export function MessagesClient({
             >
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-[var(--gold)]">Reply</p>
-                <button className="btn-secondary px-3 py-2 text-sm" onClick={() => fileInputRef.current?.click()} type="button">
+                <button className="btn-secondary px-3 py-2 text-sm" data-tooltip="Attach files to this message." onClick={() => fileInputRef.current?.click()} type="button">
                   Attach
                 </button>
                 <input
@@ -527,20 +635,31 @@ export function MessagesClient({
                   type="file"
                 />
               </div>
-              <textarea
-                className="form-field mt-3 min-h-24 resize-y"
-                onChange={(event) => setBody(event.target.value)}
-                onKeyDown={sendOnEnter}
-                placeholder="Type a message, or drag files here..."
-                value={body}
-              />
+              <div className="chat-composer-row">
+                <textarea
+                  className="form-field chat-composer-input"
+                  onChange={(event) => setBody(event.target.value)}
+                  onKeyDown={sendOnEnter}
+                  placeholder="Type a message, or drag files here..."
+                  value={body}
+                />
+                <button
+                  className="btn-primary send-logo-button chat-composer-send"
+                  data-tooltip="Send this message."
+                  disabled={isPending || (!body.trim() && attachments.length === 0)}
+                  type="submit"
+                >
+                  <span aria-hidden="true" className="send-logo-icon" />
+                  <span className="sr-only">{isPending ? "Sending..." : "Send"}</span>
+                </button>
+              </div>
               {attachments.length > 0 ? (
                 <div className="mt-3 grid gap-2">
                   {attachments.map((item) => (
-                    <div className="chat-upload-chip" key={item.id}>
+                    <div className={item.previewUrl ? "chat-upload-chip is-image" : "chat-upload-chip"} key={item.id}>
                       {item.previewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img alt="" src={item.previewUrl} />
+                        <img alt={item.file.name} src={item.previewUrl} />
                       ) : (
                         <span className="chat-file-icon">File</span>
                       )}
@@ -548,7 +667,8 @@ export function MessagesClient({
                       <span className="text-xs text-[var(--muted)]">{item.progress}%</span>
                       <button
                         className="btn-secondary px-3 py-1 text-xs"
-                        onClick={() => setAttachments((current) => current.filter((candidate) => candidate.id !== item.id))}
+                        data-tooltip="Remove this attachment."
+                        onClick={() => removeQueuedAttachment(item.id)}
                         type="button"
                       >
                         Remove
@@ -558,12 +678,6 @@ export function MessagesClient({
                 </div>
               ) : null}
               {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-              <div className="mt-4 flex justify-end">
-                <button className="btn-primary send-logo-button" disabled={isPending || (!body.trim() && attachments.length === 0)} type="submit">
-                  <span aria-hidden="true" className="send-logo-icon" />
-                  <span className="sr-only">{isPending ? "Sending..." : "Send"}</span>
-                </button>
-              </div>
             </form>
           </>
         ) : (

@@ -48,6 +48,13 @@ function attachmentKindForMime(mimeType: string) {
   return mimeType.startsWith("image/") ? ChatAttachmentKind.IMAGE : ChatAttachmentKind.FILE;
 }
 
+function readThumbnailUrl(metadata: Prisma.JsonValue | null | undefined) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+
+  const value = (metadata as Record<string, unknown>).thumbnailUrl;
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 function toPersonView(user: {
   id: string;
   username: string;
@@ -72,6 +79,7 @@ function toAttachmentView(
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes.toString(),
     publicUrl: attachment.publicUrl ?? attachment.mediaAsset?.publicUrl,
+    thumbnailUrl: readThumbnailUrl(attachment.mediaAsset?.metadata),
     mediaAssetId: attachment.mediaAssetId
   };
 }
@@ -1053,7 +1061,17 @@ export async function completeChatUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
+  const expectedPrefix = ["users", userId, "chat"].join("/") + "/";
+  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
+    return { ok: false as const, error: "Invalid upload key." };
+  }
+
+  if (parsed.data.thumbnailStorageKey && !parsed.data.thumbnailStorageKey.startsWith(expectedPrefix)) {
+    return { ok: false as const, error: "Invalid thumbnail upload key." };
+  }
+
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);
+  const thumbnailUrl = parsed.data.thumbnailStorageKey ? getR2PublicUrl(parsed.data.thumbnailStorageKey) : null;
   const asset = await prisma.mediaAsset.create({
     data: {
       ownerUserId: userId,
@@ -1065,7 +1083,9 @@ export async function completeChatUpload(userId: string, input: unknown) {
       visibility: MediaVisibility.MEMBERS,
       metadata: {
         module: MODULE_KEY,
-        attachmentKind: attachmentKindForMime(parsed.data.mimeType)
+        attachmentKind: attachmentKindForMime(parsed.data.mimeType),
+        thumbnailStorageKey: parsed.data.thumbnailStorageKey ?? null,
+        thumbnailUrl
       }
     }
   });
@@ -1085,7 +1105,8 @@ export async function completeChatUpload(userId: string, input: unknown) {
       mimeType: asset.mimeType,
       sizeBytes: Number(asset.sizeBytes),
       storageKey: asset.storageKey,
-      publicUrl: asset.publicUrl
+      publicUrl: asset.publicUrl,
+      thumbnailUrl
     }
   };
 }

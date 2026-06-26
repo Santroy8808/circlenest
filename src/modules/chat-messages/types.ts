@@ -39,7 +39,8 @@ export const createChatUploadIntentSchema = z.object({
 });
 
 export const completeChatUploadSchema = createChatUploadIntentSchema.extend({
-  storageKey: z.string().min(1).max(600)
+  storageKey: z.string().min(1).max(600),
+  thumbnailStorageKey: z.string().min(1).max(600).optional()
 });
 
 export type ChatPersonView = {
@@ -57,6 +58,7 @@ export type ChatAttachmentView = {
   mimeType: string;
   sizeBytes: string;
   publicUrl?: string | null;
+  thumbnailUrl?: string | null;
   mediaAssetId?: string | null;
 };
 

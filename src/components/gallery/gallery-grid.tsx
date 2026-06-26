@@ -35,6 +35,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [tagChoice, setTagChoice] = useState(DEFAULT_TAGS[0]);
+  const [tagTarget, setTagTarget] = useState<"selected" | "visible">("selected");
   const [customTag, setCustomTag] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -72,6 +73,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const hiddenSystemCount = galleryAssets.filter(isSystemGalleryAsset).length;
   const visibleIds = visibleAssets.map((asset) => asset.id);
   const selectedVisibleIds = selectedIds.filter((id) => visibleIds.includes(id));
+  const tagTargetIds = tagTarget === "visible" ? visibleIds : selectedVisibleIds;
 
   function clearSearch() {
     setFilenameQuery("");
@@ -165,8 +167,8 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
       <section className="surface rounded-md p-6 text-center">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos yet</h2>
         <p className="mt-2 text-[var(--muted)]">Upload your first photo to start building My Pics.</p>
-        <Link className="btn-primary mt-5 inline-block" href="/profile/gallery/upload">
-          Upload photos
+        <Link className="btn-primary mt-5 inline-block" data-tooltip="Upload photos to My Pics." href="/profile/gallery/upload">
+          Upload
         </Link>
       </section>
     );
@@ -174,25 +176,53 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
 
   return (
     <section className="grid gap-5">
-      <div className="surface rounded-md p-5">
-        <div className="gallery-selection-actions">
-          <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending} onClick={() => setSelectedIds(visibleIds)} type="button">
-            Select all visible
-          </button>
-          <button className="btn-secondary" disabled={selectedIds.length === 0 || isPending} onClick={() => setSelectedIds([])} type="button">
-            Clear selection
-          </button>
-          <button className="btn-secondary" disabled={selectedVisibleIds.length === 0 || isPending} onClick={() => deleteAssets(selectedVisibleIds)} type="button">
-            Delete selected
-          </button>
+      <div className="surface rounded-md p-4 sm:p-5">
+        <div className="gallery-toolbar">
+          <div className="gallery-selection-actions">
+            <button
+              className="btn-secondary"
+              data-tooltip="Select every photo currently shown."
+              disabled={visibleAssets.length === 0 || isPending}
+              onClick={() => setSelectedIds(visibleIds)}
+              title="Select all visible photos"
+              type="button"
+            >
+              Select
+            </button>
+            <button
+              className="btn-secondary"
+              data-tooltip="Clear the selected photos."
+              disabled={selectedIds.length === 0 || isPending}
+              onClick={() => setSelectedIds([])}
+              title="Clear selected photos"
+              type="button"
+            >
+              Clear
+            </button>
+            <button
+              className="btn-secondary"
+              data-tooltip="Delete the selected photos."
+              disabled={selectedVisibleIds.length === 0 || isPending}
+              onClick={() => deleteAssets(selectedVisibleIds)}
+              title="Delete selected photos"
+              type="button"
+            >
+              Delete
+            </button>
+          </div>
+          <Link className="btn-primary gallery-upload-link" data-tooltip="Upload photos to My Pics." href="/profile/gallery/upload">
+            Upload
+          </Link>
         </div>
 
         <div className="gallery-control-layout mt-4">
-          <section className="gallery-search-panel">
+          <section aria-labelledby="gallery-search-heading" className="gallery-search-panel">
             <div className="gallery-panel-heading">
-              <p className="form-label">Search gallery</p>
-              <button className="btn-secondary px-3 py-2 text-sm" disabled={!hasSearch} onClick={clearSearch} type="button">
-                Clear search
+              <p className="form-label" id="gallery-search-heading">
+                Search
+              </p>
+              <button className="btn-secondary gallery-compact-button" data-tooltip="Clear all gallery search fields." disabled={!hasSearch} onClick={clearSearch} type="button">
+                Clear
               </button>
             </div>
             <div className="gallery-search-grid">
@@ -201,7 +231,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 <input
                   className="form-field"
                   onChange={(event) => setFilenameQuery(event.target.value)}
-                  placeholder="Search filenames"
+                  placeholder="Filename"
                   value={filenameQuery}
                 />
               </label>
@@ -225,24 +255,26 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 <input
                   className="form-field"
                   onChange={(event) => setCommentQuery(event.target.value)}
-                  placeholder="Search gallery comments"
+                  placeholder="Comment text"
                   value={commentQuery}
                 />
               </label>
               <label className="grid gap-2">
-                <span className="form-label">Date from</span>
+                <span className="form-label">From</span>
                 <input className="form-field" onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
               </label>
               <label className="grid gap-2">
-                <span className="form-label">Date to</span>
+                <span className="form-label">To</span>
                 <input className="form-field" onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
               </label>
             </div>
           </section>
 
-          <section className="gallery-tag-panel">
-            <p className="form-label">Manage tags</p>
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+          <section aria-labelledby="gallery-tags-heading" className="gallery-tag-panel">
+            <p className="form-label" id="gallery-tags-heading">
+              Tags
+            </p>
+            <div className="gallery-tag-fields">
               <label className="grid gap-2">
                 <span className="form-label">Tag</span>
                 <select className="form-field" onChange={(event) => setTagChoice(event.target.value)} value={tagChoice}>
@@ -255,7 +287,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 </select>
               </label>
               <label className="grid gap-2">
-                <span className="form-label">Custom tag</span>
+                <span className="form-label">Custom</span>
                 <input
                   className="form-field"
                   disabled={tagChoice !== "Custom" || isPending}
@@ -266,19 +298,35 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 />
               </label>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button className="btn-primary" disabled={selectedVisibleIds.length === 0 || isPending || !tagName} onClick={() => updateTag(selectedVisibleIds, "add")} type="button">
-                Tag selected
-              </button>
-              <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending || !tagName} onClick={() => updateTag(visibleIds, "add")} type="button">
-                Tag all visible
-              </button>
-              <button className="btn-secondary" disabled={selectedVisibleIds.length === 0 || isPending || !tagName} onClick={() => updateTag(selectedVisibleIds, "remove")} type="button">
-                Remove from selected
-              </button>
-              <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending || !tagName} onClick={() => updateTag(visibleIds, "remove")} type="button">
-                Remove from visible
-              </button>
+            <div className="gallery-tag-footer">
+              <div aria-label="Tag target" className="gallery-tag-scope" role="group">
+                <button
+                  aria-pressed={tagTarget === "selected"}
+                  className={tagTarget === "selected" ? "is-active" : ""}
+                  data-tooltip="Apply tag actions only to checked photos."
+                  onClick={() => setTagTarget("selected")}
+                  type="button"
+                >
+                  Selected
+                </button>
+                <button
+                  aria-pressed={tagTarget === "visible"}
+                  className={tagTarget === "visible" ? "is-active" : ""}
+                  data-tooltip="Apply tag actions to every photo currently shown."
+                  onClick={() => setTagTarget("visible")}
+                  type="button"
+                >
+                  Visible
+                </button>
+              </div>
+              <div className="gallery-tag-actions">
+                <button className="btn-primary" data-tooltip="Add this tag to the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "add")} type="button">
+                  Apply
+                </button>
+                <button className="btn-secondary" data-tooltip="Remove this tag from the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "remove")} type="button">
+                  Remove
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -296,8 +344,8 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
       {visibleAssets.length === 0 ? (
         <section className="surface rounded-md p-6 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos match your search</h2>
-          <button className="btn-secondary mt-5" onClick={clearSearch} type="button">
-            Clear search
+          <button className="btn-secondary mt-5" data-tooltip="Clear all gallery search fields." onClick={clearSearch} type="button">
+            Clear
           </button>
         </section>
       ) : (
@@ -307,14 +355,14 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
 
             return (
               <article key={asset.id} className={selected ? "gallery-tile is-selected" : "gallery-tile"}>
-                <label className="gallery-select">
+                <label className="gallery-select" data-tooltip="Select this photo.">
                   <input checked={selected} disabled={isPending} onChange={() => toggleSelected(asset.id)} type="checkbox" />
                   <span>Select</span>
                 </label>
-                <button className="gallery-delete-button" disabled={isPending} onClick={() => deleteAssets([asset.id])} type="button">
+                <button className="gallery-delete-button" data-tooltip="Delete this photo." disabled={isPending} onClick={() => deleteAssets([asset.id])} type="button">
                   Delete
                 </button>
-                <Link className="gallery-tile-link" href={`/profile/gallery/${asset.id}`}>
+                <Link className="gallery-tile-link" data-tooltip="Open this photo." href={`/profile/gallery/${asset.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img alt={asset.originalName ?? "Gallery photo"} decoding="async" loading="lazy" src={assetImageUrl(asset)} />
                   <div className="gallery-tile-meta">

@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 import { GlobalFeedbackLink } from "@/components/feedback/global-feedback-link";
 import { BackgroundGalleryUploadProvider } from "@/components/gallery/background-gallery-upload-provider";
+import { GlobalTooltipProvider } from "@/components/platform/global-tooltip-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense fallback={null}>
             <GlobalFeedbackLink />
           </Suspense>
+          <GlobalTooltipProvider />
         </BackgroundGalleryUploadProvider>
       </body>
     </html>
