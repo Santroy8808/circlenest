@@ -73,8 +73,8 @@ export function ProfileRelationshipActions({
 
   return (
     <div className="profile-relationship-actions" aria-label={`Connect with ${targetDisplayName}`}>
-      <button className="btn-secondary" disabled={isPending || isFriend || friendPending} onClick={requestFriend} type="button">
-        {isFriend ? "Friend" : friendPending ? "Friend request pending" : isPending ? "Sending..." : "Request friend"}
+      <button className="profile-friend-link" disabled={isPending || isFriend || friendPending} onClick={requestFriend} type="button">
+        {isFriend ? "Friend" : friendPending ? "Friend request pending" : isPending ? "Sending..." : "Friend me"}
       </button>
       {isFamily ? (
         <span className="profile-relationship-pill">Family</span>

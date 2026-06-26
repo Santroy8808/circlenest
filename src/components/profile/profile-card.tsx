@@ -19,14 +19,21 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
         style={profile.bannerUrl ? { backgroundImage: `url(${profile.bannerUrl})` } : undefined}
       />
       <div className="p-5">
-        <div className="-mt-14 flex flex-wrap items-end justify-between gap-4">
-          <div className="profile-avatar">
-            {profile.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" src={profile.avatarUrl} />
-            ) : (
-              <span>{initials(profile.displayName) || "TS"}</span>
-            )}
+        <div className="profile-header">
+          <div className="profile-identity">
+            <div className="profile-avatar">
+              {profile.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="" src={profile.avatarUrl} />
+              ) : (
+                <span>{initials(profile.displayName) || "TS"}</span>
+              )}
+            </div>
+            <div className="profile-copy">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">@{profile.username}</p>
+              <h1 className="mt-1 text-3xl font-semibold">{profile.displayName}</h1>
+              {profile.tagline ? <p className="mt-2 text-lg text-[var(--muted)]">{profile.tagline}</p> : null}
+            </div>
           </div>
           {ownerControls ? (
             <Link className="btn-secondary" href="/profile/edit">
@@ -41,11 +48,6 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
               targetUserId={profile.id}
             />
           )}
-        </div>
-        <div className="mt-4">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">@{profile.username}</p>
-          <h1 className="mt-1 text-3xl font-semibold">{profile.displayName}</h1>
-          {profile.tagline ? <p className="mt-2 text-lg text-[var(--muted)]">{profile.tagline}</p> : null}
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.tier}</span>

@@ -595,13 +595,33 @@ a {
 }
 
 .profile-banner {
-  min-height: 220px;
+  min-height: 198px;
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.24), transparent 20rem),
     linear-gradient(135deg, rgba(63, 115, 255, 0.28), rgba(8, 11, 16, 0.2)),
     #172133;
   background-position: center;
   background-size: cover;
+}
+
+.profile-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-top: -46px;
+}
+
+.profile-identity {
+  align-items: flex-end;
+  display: flex;
+  gap: 18px;
+  min-width: 0;
+}
+
+.profile-copy {
+  min-width: 0;
+  padding-bottom: 4px;
 }
 
 .profile-avatar {
@@ -630,6 +650,30 @@ a {
   display: grid;
   gap: 8px;
   justify-items: end;
+  padding-top: 10px;
+}
+
+.profile-friend-link {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 800;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.profile-friend-link:hover {
+  color: #ffe794;
+}
+
+.profile-friend-link:disabled {
+  color: var(--muted);
+  cursor: default;
+  text-decoration: none;
 }
 
 .profile-family-request {
@@ -4220,6 +4264,22 @@ a {
 
   .profile-banner {
     min-height: 150px;
+  }
+
+  .profile-header,
+  .profile-identity {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profile-header {
+    margin-top: -38px;
+  }
+
+  .profile-relationship-actions {
+    align-items: start;
+    justify-items: start;
+    padding-top: 0;
   }
 
   .gallery-grid {
