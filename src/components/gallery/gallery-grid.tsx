@@ -6,9 +6,15 @@ import { useRouter } from "next/navigation";
 import type { GalleryAssetView } from "@/modules/gallery-media-storage/types";
 
 const DEFAULT_TAGS = ["Family", "Friends", "Events"];
+const SYSTEM_GALLERY_TAGS = new Set(["stream images", "stream post images", "stream reply images", "ad", "ad images", "ad creative"]);
 
 function assetImageUrl(asset: GalleryAssetView) {
   return asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+}
+
+function isSystemGalleryAsset(asset: GalleryAssetView) {
+  if (asset.source && asset.source !== "GALLERY") return true;
+  return asset.tags.some((tag) => SYSTEM_GALLERY_TAGS.has(tag.trim().toLowerCase()));
 }
 
 export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
@@ -36,9 +42,10 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     return [...byName.values()].sort((left, right) => left.localeCompare(right));
   }, [galleryAssets]);
   const visibleAssets = useMemo(() => {
-    if (!filterTag) return galleryAssets;
+    if (!filterTag) return galleryAssets.filter((asset) => !isSystemGalleryAsset(asset));
     return galleryAssets.filter((asset) => asset.tags.some((tag) => tag.toLowerCase() === filterTag.toLowerCase()));
   }, [filterTag, galleryAssets]);
+  const hiddenSystemCount = galleryAssets.filter(isSystemGalleryAsset).length;
   const visibleIds = visibleAssets.map((asset) => asset.id);
   const selectedVisibleIds = selectedIds.filter((id) => visibleIds.includes(id));
 
@@ -148,7 +155,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
             <label className="grid gap-2">
               <span className="form-label">Filter by tag</span>
               <select className="form-field" onChange={(event) => setFilterTag(event.target.value)} value={filterTag}>
-                <option value="">All photos</option>
+                <option value="">All gallery photos</option>
                 {availableTags.map((tag) => (
                   <option key={tag} value={tag}>
                     {tag}
@@ -196,7 +203,9 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
           <span>{selectedVisibleIds.length} selected</span>
-          <span>{visibleAssets.length} shown</span>
+          <span>
+            {visibleAssets.length} shown{!filterTag && hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
+          </span>
         </div>
         {message ? <p className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
         {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}

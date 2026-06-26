@@ -14,7 +14,7 @@ export default async function MyPicsPage() {
   }
 
   const activeActor = await getActiveAccountActor(session.user.id);
-  const assets = await safeListMyPics(activeActor.actorUserId, 120);
+  const assets = await safeListMyPics(activeActor.actorUserId, 180, { includeSystem: true });
 
   return (
     <AppShell>

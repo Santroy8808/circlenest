@@ -16,6 +16,8 @@ type UploadItem = {
 };
 
 type GalleryAccess = "PRIVATE" | "MEMBERS_NO_COMMENTS" | "MEMBERS_COMMENTS" | "PUBLIC_NO_COMMENTS" | "PUBLIC_COMMENTS";
+const OPTIMIZE_IMAGE_BYTES = 1.5 * 1024 * 1024;
+const OPTIMIZE_IMAGE_MAX_EDGE = 1920;
 
 function accessToSettings(access: GalleryAccess) {
   if (access === "MEMBERS_COMMENTS") return { visibility: MediaVisibility.MEMBERS, commentsEnabled: true };
@@ -33,6 +35,47 @@ async function readJsonResponse<T>(response: Response): Promise<T | null> {
     return JSON.parse(text) as T;
   } catch {
     return null;
+  }
+}
+
+function loadImageElement(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not optimize image before upload."));
+    image.src = url;
+  });
+}
+
+async function optimizeImageForUpload(file: File) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < OPTIMIZE_IMAGE_BYTES) return file;
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const scale = Math.min(1, OPTIMIZE_IMAGE_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+
+    if (!context) return file;
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, outputType, 0.82));
+
+    if (!blob || blob.size >= file.size) return file;
+
+    const extension = outputType === "image/png" ? "png" : "jpg";
+    const fileName = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return new File([blob], `${fileName}.${extension}`, { type: outputType, lastModified: file.lastModified });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
   }
 }
 
@@ -67,13 +110,14 @@ export function GalleryUploadClient() {
     for (const item of items.filter((candidate) => candidate.status !== "done")) {
       try {
         updateItem(item.id, { status: "uploading", progress: 1 });
+        const uploadFile = await optimizeImageForUpload(item.file);
         const intentResponse = await fetch("/api/media/upload-intent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fileName: item.file.name,
-            mimeType: item.file.type,
-            sizeBytes: item.file.size,
+            fileName: uploadFile.name,
+            mimeType: uploadFile.type,
+            sizeBytes: uploadFile.size,
             visibility: selectedSettings.visibility,
             source: "GALLERY"
           })
@@ -87,7 +131,7 @@ export function GalleryUploadClient() {
         await uploadWithResilientFallback({
           uploadUrl: intent.uploadUrl,
           storageKey: intent.storageKey,
-          file: item.file,
+          file: uploadFile,
           onProgress: (progress) => updateItem(item.id, { progress })
         });
 
@@ -96,9 +140,9 @@ export function GalleryUploadClient() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             storageKey: intent.storageKey,
-            fileName: item.file.name,
-            mimeType: item.file.type,
-            sizeBytes: item.file.size,
+            fileName: uploadFile.name,
+            mimeType: uploadFile.type,
+            sizeBytes: uploadFile.size,
             visibility: selectedSettings.visibility,
             commentsEnabled: selectedSettings.commentsEnabled,
             source: "GALLERY",

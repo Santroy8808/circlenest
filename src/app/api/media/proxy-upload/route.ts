@@ -13,6 +13,14 @@ function authorizedUploadTarget(storageKey: string, userId: string) {
     return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true };
   }
 
+  if (storageKey.startsWith(`users/${userId}/stream-images/`)) {
+    return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true };
+  }
+
+  if (storageKey.startsWith(`users/${userId}/ad-creatives/`)) {
+    return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true };
+  }
+
   if (storageKey.startsWith(`users/${userId}/chat/`)) {
     return { ok: true as const, maxBytes: MAX_CHAT_ATTACHMENT_BYTES, imageOnly: false };
   }

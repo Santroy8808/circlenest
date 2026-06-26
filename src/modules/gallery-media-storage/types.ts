@@ -4,7 +4,7 @@ import { z } from "zod";
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const DEFAULT_GALLERY_TAGS = ["Family", "Friends", "Events"] as const;
 
-export const uploadSourceSchema = z.enum(["GALLERY", "STREAM_POST", "STREAM_REPLY"]).default("GALLERY");
+export const uploadSourceSchema = z.enum(["GALLERY", "STREAM_POST", "STREAM_REPLY", "AD_CREATIVE"]).default("GALLERY");
 
 export const createUploadIntentSchema = z.object({
   fileName: z.string().min(1).max(240),
@@ -53,6 +53,7 @@ export type GalleryAssetView = {
   caption?: string | null;
   commentsEnabled: boolean;
   createdAt: string;
+  source?: string | null;
   collections: Array<{
     name: string;
     type: string;

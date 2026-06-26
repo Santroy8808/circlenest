@@ -48,7 +48,8 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
-      visibility: MediaVisibility.PUBLIC
+      visibility: MediaVisibility.PUBLIC,
+      source: "AD_CREATIVE"
     })
   });
   const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
@@ -74,7 +75,8 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
       sizeBytes: image.file.size,
       visibility: MediaVisibility.PUBLIC,
       caption: "Ad creative",
-      tags: ["ad"]
+      source: "AD_CREATIVE",
+      tags: ["Ad Images", "Ad Creative"]
     })
   });
   const complete = (await completeResponse.json()) as { error?: string; asset?: { id: string } };

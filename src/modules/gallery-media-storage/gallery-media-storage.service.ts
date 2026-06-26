@@ -66,15 +66,18 @@ function dateSlug(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-type UploadSource = "GALLERY" | "STREAM_POST" | "STREAM_REPLY";
+type UploadSource = "GALLERY" | "STREAM_POST" | "STREAM_REPLY" | "AD_CREATIVE";
+const SYSTEM_GALLERY_TAGS = new Set(["stream images", "stream post images", "stream reply images", "ad", "ad images", "ad creative"]);
 
 function sourceFolder(source: UploadSource) {
+  if (source === "AD_CREATIVE") return "ad-creatives";
   return source === "GALLERY" ? "my-pics" : "stream-images";
 }
 
 function sourceTags(source: UploadSource) {
   if (source === "STREAM_POST") return ["Stream Images", "Stream Post Images"];
   if (source === "STREAM_REPLY") return ["Stream Images", "Stream Reply Images"];
+  if (source === "AD_CREATIVE") return ["Ad Images", "Ad Creative"];
   return [];
 }
 
@@ -102,9 +105,15 @@ function toGalleryAssetView(asset: Prisma.MediaAssetGetPayload<{ include: { coll
     caption: metadata?.caption,
     commentsEnabled: Boolean(metadata?.commentsEnabled),
     createdAt: asset.createdAt.toISOString(),
+    source: metadata?.source ?? null,
     collections,
     tags: collections.filter((item) => item.type === MediaCollectionType.TAG).map((item) => item.name)
   };
+}
+
+function isSystemGalleryAsset(asset: GalleryAssetView) {
+  if (asset.source && asset.source !== "GALLERY") return true;
+  return asset.tags.some((tag) => SYSTEM_GALLERY_TAGS.has(tag.trim().toLowerCase()));
 }
 
 function toGalleryAssetCommentView(
@@ -233,9 +242,17 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
   }
 
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);
+  const systemSource = parsed.data.source !== "GALLERY";
   const metadata = {
     caption: parsed.data.caption || null,
     commentsEnabled: parsed.data.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled,
+    hiddenFromGalleryByDefault: systemSource,
+    retentionPolicy: systemSource
+      ? {
+          compressAfterDays: 14,
+          purgeUnviewedAfterDays: 14
+        }
+      : null,
     source: parsed.data.source
   };
   const asset = await prisma.mediaAsset.upsert({
@@ -286,7 +303,8 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
   return { ok: true as const, asset: trackedAsset ? toGalleryAssetView(trackedAsset) : null };
 }
 
-export async function listMyPics(userId: string, take = 24): Promise<GalleryAssetView[]> {
+export async function listMyPics(userId: string, take = 24, options: { includeSystem?: boolean } = {}): Promise<GalleryAssetView[]> {
+  const queryTake = options.includeSystem ? take : Math.max(take * 3, take);
   const assets = await withMediaDbTimeout(
     prisma.mediaAsset.findMany({
       where: {
@@ -297,17 +315,18 @@ export async function listMyPics(userId: string, take = 24): Promise<GalleryAsse
       },
       include: galleryAssetInclude(),
       orderBy: { createdAt: "desc" },
-      take
+      take: queryTake
     }),
     "my pics lookup"
   );
 
-  return assets.map(toGalleryAssetView);
+  const views = assets.map(toGalleryAssetView);
+  return options.includeSystem ? views : views.filter((asset) => !isSystemGalleryAsset(asset)).slice(0, take);
 }
 
-export async function safeListMyPics(userId: string, take = 24): Promise<GalleryAssetView[]> {
+export async function safeListMyPics(userId: string, take = 24, options: { includeSystem?: boolean } = {}): Promise<GalleryAssetView[]> {
   try {
-    return await listMyPics(userId, take);
+    return await listMyPics(userId, take, options);
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list My Pics.", {
       userId,
