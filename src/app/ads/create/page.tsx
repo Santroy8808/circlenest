@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import { auth } from "@/auth";
 import { CreateAdCampaignForm, type InitialAdCampaignDraft } from "@/components/ads-credits/create-ad-campaign-form";
+import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
+import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 
 function readText(value: string | string[] | undefined, maxLength: number) {
   const first = Array.isArray(value) ? value[0] : value;
@@ -29,6 +31,23 @@ export default async function CreateAdPage({ searchParams }: { searchParams?: Re
   }
 
   const adsManager = await getAdsManagerView(session.user.id);
+  if (!adsManager.canCreate) {
+    await logUnavailableFeatureClick({
+      actorUserId: session.user.id,
+      featureKey: "ads.createGeneral",
+      label: "Create Ad",
+      requestedPath: "/ads/create",
+      source: "route-gate",
+      reason: adsManager.reason
+    });
+
+    return (
+      <AppShell>
+        <FeatureUnavailableNotice backHref="/ads" backLabel="Back to Ads" featureLabel="Create Ad" />
+      </AppShell>
+    );
+  }
+
   const initialDraft: InitialAdCampaignDraft = {
     title: readText(searchParams?.title, 120),
     body: readText(searchParams?.body, 280),

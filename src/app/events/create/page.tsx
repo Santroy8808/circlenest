@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CreateEventForm } from "@/components/events/create-event-form";
+import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { isAdminRole } from "@/lib/platform/roles";
+import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 
 export default async function CreateEventPage() {
@@ -18,12 +20,18 @@ export default async function CreateEventPage() {
       : await canUserAccessFeature(session.user.id, "events.create");
 
   if (!access.allowed) {
+    await logUnavailableFeatureClick({
+      actorUserId: session.user.id,
+      featureKey: "events.create",
+      label: "Create Event",
+      requestedPath: "/events/create",
+      source: "route-gate",
+      reason: access.reason
+    });
+
     return (
       <AppShell>
-        <section className="surface rounded-md p-8 text-center">
-          <h1 className="text-3xl font-semibold text-[var(--gold)]">Create Event</h1>
-          <p className="mx-auto mt-3 max-w-xl leading-7 text-[var(--muted)]">{access.reason}</p>
-        </section>
+        <FeatureUnavailableNotice backHref="/events" backLabel="Back to Events" featureLabel="Create Event" />
       </AppShell>
     );
   }

@@ -2,6 +2,7 @@ export type ProductionZoneCard = {
   title: string;
   description: string;
   href: string;
+  featureKey?: string;
   badge: "Browse" | "Create" | "Business" | "Org" | "Blueprint";
   available: boolean;
   reason?: string;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unavailableFeatureHref } from "@/modules/feature-availability/feature-availability.service";
 import type { ProductionZoneCard, ProductionZoneView } from "@/modules/production-zone/types";
 
 function CardList({ cards }: { cards: ProductionZoneCard[] }) {
@@ -16,14 +17,27 @@ function CardList({ cards }: { cards: ProductionZoneCard[] }) {
           </>
         );
 
-        return card.available ? (
-          <Link className="module-card rounded-md p-5" href={card.href} key={card.title}>
+        if (card.available) {
+          return (
+            <Link className="module-card rounded-md p-5" href={card.href} key={card.title}>
+              {content}
+            </Link>
+          );
+        }
+
+        return (
+          <Link
+            className="module-card rounded-md p-5 opacity-80"
+            href={unavailableFeatureHref({
+              featureKey: card.featureKey ?? card.href,
+              label: card.title,
+              requestedPath: card.href,
+              from: "/production-zone"
+            })}
+            key={card.title}
+          >
             {content}
           </Link>
-        ) : (
-          <article className="surface rounded-md p-5 opacity-70" key={card.title}>
-            {content}
-          </article>
         );
       })}
     </div>

@@ -51,6 +51,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       title: "Find a Job",
       description: "Browse available job listings and open details/contact instructions.",
       href: "/jobs",
+      featureKey: "jobs.browse",
       badge: "Browse",
       available: features["jobs.browse"]
     }),
@@ -58,6 +59,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       title: "Find an Auditor",
       description: "Browse auditor mini profiles and My Scientology education summaries.",
       href: "/auditors",
+      featureKey: "auditors.browse",
       badge: "Browse",
       available: features["auditors.browse"]
     }),
@@ -72,9 +74,10 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       title: "Writers Corner",
       description: "Open manuscripts, chapters, and reader-friendly writing spaces.",
       href: "/writers-corner",
+      featureKey: "writers.access",
       badge: "Browse",
       available: features["writers.access"],
-      reason: "Contributor or Professional access required."
+      reason: "This feature is in development."
     })
   ];
 
@@ -83,33 +86,37 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       title: "Create Event",
       description: "Create an invite-based event, then manage invites and scoped moderators.",
       href: "/events/create",
+      featureKey: "events.create",
       badge: "Create",
       available: features["events.create"],
-      reason: "Professional access required."
+      reason: "This feature is in development."
     }),
     card({
       title: "Create Market Listing",
       description: "Create a listing with static category, thumbnail photos, title, and price.",
       href: "/market/create",
+      featureKey: "market.createListing",
       badge: "Create",
       available: features["market.createListing"],
-      reason: "Contributor or Professional access required."
+      reason: "This feature is in development."
     }),
     card({
       title: "Create Job Listing",
       description: "Post a job opportunity with full detail and contact instructions.",
       href: "/jobs/create",
+      featureKey: "jobs.createListing",
       badge: "Create",
       available: features["jobs.createListing"],
-      reason: "Professional access required."
+      reason: "This feature is in development."
     }),
     card({
       title: "I'm an Auditor",
       description: "Build your auditor mini business profile.",
       href: "/auditors/im-an-auditor",
+      featureKey: "auditors.createProfile",
       badge: "Create",
       available: features["auditors.createProfile"] || Boolean(user.auditorProfile),
-      reason: "Auditor account required."
+      reason: "This feature is in development."
     })
   ];
 
@@ -120,17 +127,19 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
         ? "Org profile, blogs, events, fundraisers, and parishioner communication tools."
         : "Professional hub for storefront, general ads, jobs, events, and public business tooling.",
       href: "/business-center",
+      featureKey: features["org.profile"] ? "org.profile" : "market.storefront",
       badge: features["org.profile"] ? "Org" : "Business",
       available: features["market.storefront"] || features["org.profile"] || features["ads.createGeneral"] || features["jobs.createListing"],
-      reason: "Professional or Org access required."
+      reason: "This feature is in development."
     }),
     card({
       title: "Ad Campaigns",
       description: "Create labeled reserved-placement ads without inserting ads inside listings, events, or posts.",
       href: "/ads",
+      featureKey: features["ads.createFundraiser"] ? "ads.createFundraiser" : "ads.createGeneral",
       badge: "Business",
       available: features["ads.createGeneral"] || features["ads.createFundraiser"],
-      reason: "Professional, Auditor, Org fundraiser, or Admin access required."
+      reason: "This feature is in development."
     })
   ];
 
