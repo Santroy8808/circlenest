@@ -69,26 +69,17 @@ const settingsSection: NavSection = {
 
 const AD_RAIL_DISABLED_PREFIXES = [
   "/admin",
-  "/alerts",
   "/cutover",
   "/dev",
   "/docs",
   "/feedback",
   "/health",
-  "/mail",
-  "/messages",
-  "/notifications",
   "/onboarding",
-  "/profile/edit",
-  "/profile/gallery",
-  "/profile/interests",
-  "/profile/scientology",
-  "/secure-area",
-  "/settings"
+  "/secure-area"
 ];
 
-function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isAndroidApp: boolean) {
-  if (!isSignedIn || isAndroidApp) return false;
+function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isMobileAdRailRequest: boolean) {
+  if (!isSignedIn || isMobileAdRailRequest) return false;
   return !AD_RAIL_DISABLED_PREFIXES.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`));
 }
 
@@ -189,6 +180,14 @@ function isAndroidAppRequest() {
   ].some((value) => /android|theta-space|thetaspace|webview|wv/i.test(value));
 }
 
+function isMobileBrowserRequest() {
+  const requestHeaders = headers();
+  const userAgent = requestHeaders.get("user-agent") ?? "";
+  const mobileHint = requestHeaders.get("sec-ch-ua-mobile") ?? "";
+
+  return mobileHint === "?1" || /\b(mobile|android|iphone|ipad|ipod|windows phone)\b/i.test(userAgent);
+}
+
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
@@ -214,7 +213,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     session?.user?.tier === MembershipTier.PROFESSIONAL ||
     session?.user?.tier === MembershipTier.ORG;
   const isAndroidApp = isAndroidAppRequest();
-  const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp);
+  const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const [counts, rightStreamAds, shellProfile] = await Promise.all([
     getUnreadCounts(activeActorUserId),
     showAdRail ? getRightStreamAds(isSignedIn, activeActorUserId) : Promise.resolve([]),

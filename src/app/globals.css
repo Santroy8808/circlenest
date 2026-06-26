@@ -588,6 +588,10 @@ a {
   transform: translateY(-2px);
 }
 
+.feedback-fab--above-composer {
+  bottom: 86px;
+}
+
 .profile-card {
   border: 1px solid rgba(214, 178, 74, 0.24);
   background: rgba(17, 24, 36, 0.92);
@@ -2651,8 +2655,10 @@ a {
 .chat-layout {
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  min-height: calc(100vh - 56px);
+  grid-template-columns: minmax(270px, 340px) minmax(420px, 860px);
+  height: calc(100vh - 48px);
+  max-width: 1220px;
+  min-height: 0;
 }
 
 .chat-sidebar,
@@ -2779,7 +2785,7 @@ a {
   flex-direction: column;
   gap: 12px;
   overflow: auto;
-  padding: 18px;
+  padding: 16px;
 }
 
 .chat-message {
@@ -2793,7 +2799,7 @@ a {
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 -16px 28px rgba(0, 0, 0, 0.22),
     0 0 22px rgba(205, 216, 230, 0.08);
-  max-width: min(620px, 86%);
+  max-width: min(520px, 82%);
   padding: 12px 14px;
   position: relative;
   backdrop-filter: blur(14px);
@@ -2872,7 +2878,7 @@ a {
     linear-gradient(180deg, rgba(8, 13, 23, 0.18), rgba(8, 13, 23, 0.74)),
     radial-gradient(circle at 95% 15%, rgba(255, 216, 95, 0.08), transparent 16rem);
   border-top: 1px solid rgba(214, 178, 74, 0.22);
-  padding: 18px;
+  padding: 14px 16px 16px;
 }
 
 .chat-composer .form-field {
@@ -4078,6 +4084,11 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.chat-composer textarea.form-field {
+  max-height: 136px;
+  min-height: 76px;
+}
+
 .admin-action-grid .module-card {
   min-height: 178px;
 }
@@ -4200,6 +4211,17 @@ a {
   gap: 14px;
   grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) auto;
   padding: 14px;
+}
+
+@media (max-width: 1320px) {
+  .chat-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .chat-window {
+    min-height: 68vh;
+  }
 }
 
 @media (max-width: 860px) {

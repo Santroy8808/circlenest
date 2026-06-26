@@ -42,6 +42,7 @@ function postDeliveryEvent(ad: AdPlacementCardView, eventType: typeof IMPRESSION
 export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[] }) {
   const [ads, setAds] = useState(initialAds);
   const [startIndex, setStartIndex] = useState(0);
+  const [isDesktopViewport, setIsDesktopViewport] = useState<boolean | null>(null);
   const lastImpressionKey = useRef("");
   const slotCount = visibleSlotCount(ads.length);
   const visibleAds = useMemo(() => {
@@ -56,7 +57,23 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
   }, [initialAds]);
 
   useEffect(() => {
-    if (ads.length <= 1) return;
+    const mediaQuery = window.matchMedia("(min-width: 861px)");
+    const syncViewport = () => {
+      if (!mediaQuery.matches) {
+        lastImpressionKey.current = "";
+      }
+
+      setIsDesktopViewport(mediaQuery.matches);
+    };
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isDesktopViewport || ads.length <= 1) return;
 
     const holdMs = visibleAds[0]?.rotationHoldMs ?? 12000;
     const timer = window.setTimeout(() => {
@@ -64,9 +81,11 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
     }, holdMs);
 
     return () => window.clearTimeout(timer);
-  }, [ads.length, visibleAds]);
+  }, [ads.length, isDesktopViewport, visibleAds]);
 
   useEffect(() => {
+    if (!isDesktopViewport) return;
+
     const refresh = window.setInterval(async () => {
       const response = await fetch(`/api/ads/placements?placement=${RIGHT_STREAM_PLACEMENT}`, {
         cache: "no-store"
@@ -83,16 +102,22 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
     }, AD_POOL_REFRESH_MS);
 
     return () => window.clearInterval(refresh);
-  }, []);
+  }, [isDesktopViewport]);
 
   useEffect(() => {
+    if (!isDesktopViewport) return;
+
     const impressionKey = visibleAds.map((ad) => ad.id).join(":");
 
     if (!impressionKey || impressionKey === lastImpressionKey.current) return;
 
     lastImpressionKey.current = impressionKey;
     visibleAds.forEach((ad, slot) => postDeliveryEvent(ad, IMPRESSION_EVENT, slot));
-  }, [visibleAds]);
+  }, [isDesktopViewport, visibleAds]);
+
+  if (isDesktopViewport === false) {
+    return null;
+  }
 
   if (visibleAds.length === 0) {
     return (
