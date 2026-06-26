@@ -85,9 +85,18 @@ type GalleryAssetMetadata = {
   caption?: string | null;
   commentsEnabled?: boolean;
   source?: UploadSource;
+  thumbnailStorageKey?: string | null;
+  thumbnailUrl?: string | null;
 };
 
-function toGalleryAssetView(asset: Prisma.MediaAssetGetPayload<{ include: { collections: { include: { collection: true } } } }>): GalleryAssetView {
+function toGalleryAssetView(
+  asset: Prisma.MediaAssetGetPayload<{
+    include: {
+      collections: { include: { collection: true } };
+      galleryComments: { select: { body: true } };
+    };
+  }>
+): GalleryAssetView {
   const metadata = asset.metadata as GalleryAssetMetadata | null;
   const collections = asset.collections.map((item) => ({
     name: item.collection.name,
@@ -106,6 +115,8 @@ function toGalleryAssetView(asset: Prisma.MediaAssetGetPayload<{ include: { coll
     commentsEnabled: Boolean(metadata?.commentsEnabled),
     createdAt: asset.createdAt.toISOString(),
     source: metadata?.source ?? null,
+    thumbnailUrl: metadata?.thumbnailUrl ?? null,
+    commentSearchText: asset.galleryComments.map((comment) => comment.body).join(" "),
     collections,
     tags: collections.filter((item) => item.type === MediaCollectionType.TAG).map((item) => item.name)
   };
@@ -186,6 +197,18 @@ function galleryAssetInclude() {
       include: {
         collection: true
       }
+    },
+    galleryComments: {
+      where: {
+        deletedAt: null
+      },
+      orderBy: {
+        createdAt: "desc" as const
+      },
+      select: {
+        body: true
+      },
+      take: 50
     }
   };
 }
@@ -241,7 +264,12 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     return { ok: false as const, error: "Invalid upload target." };
   }
 
+  if (parsed.data.thumbnailStorageKey && !parsed.data.thumbnailStorageKey.startsWith(expectedPrefix)) {
+    return { ok: false as const, error: "Invalid thumbnail upload target." };
+  }
+
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);
+  const thumbnailUrl = parsed.data.thumbnailStorageKey ? getR2PublicUrl(parsed.data.thumbnailStorageKey) : null;
   const systemSource = parsed.data.source !== "GALLERY";
   const metadata = {
     caption: parsed.data.caption || null,
@@ -253,7 +281,9 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
           purgeUnviewedAfterDays: 14
         }
       : null,
-    source: parsed.data.source
+    source: parsed.data.source,
+    thumbnailStorageKey: parsed.data.thumbnailStorageKey ?? null,
+    thumbnailUrl
   };
   const asset = await prisma.mediaAsset.upsert({
     where: {
@@ -502,10 +532,13 @@ export async function updateGalleryAssetTags(userId: string, input: unknown) {
 
   const assetIds = assets.map((asset) => asset.id);
   const collectionIds: string[] = [];
+  const tagSlugs = tags.map(slugify);
 
-  for (const tagName of tags) {
-    const tag = await upsertCollection(userId, MediaCollectionType.TAG, tagName);
-    collectionIds.push(tag.id);
+  if (parsed.data.mode !== "remove") {
+    for (const tagName of tags) {
+      const tag = await upsertCollection(userId, MediaCollectionType.TAG, tagName);
+      collectionIds.push(tag.id);
+    }
   }
 
   if (parsed.data.mode === "replace") {
@@ -520,11 +553,28 @@ export async function updateGalleryAssetTags(userId: string, input: unknown) {
         }
       }
     });
+  } else if (parsed.data.mode === "remove") {
+    await prisma.mediaCollectionAsset.deleteMany({
+      where: {
+        mediaAssetId: {
+          in: assetIds
+        },
+        collection: {
+          ownerUserId: userId,
+          type: MediaCollectionType.TAG,
+          slug: {
+            in: tagSlugs
+          }
+        }
+      }
+    });
   }
 
-  for (const mediaAssetId of assetIds) {
-    for (const collectionId of collectionIds) {
-      await attachAssetToCollection(mediaAssetId, collectionId);
+  if (parsed.data.mode !== "remove") {
+    for (const mediaAssetId of assetIds) {
+      for (const collectionId of collectionIds) {
+        await attachAssetToCollection(mediaAssetId, collectionId);
+      }
     }
   }
 
@@ -573,7 +623,8 @@ export async function deleteGalleryAssets(userId: string, input: unknown) {
     },
     select: {
       id: true,
-      storageKey: true
+      storageKey: true,
+      metadata: true
     }
   });
 
@@ -592,13 +643,16 @@ export async function deleteGalleryAssets(userId: string, input: unknown) {
 
   await Promise.all(
     assets.map(async (asset) => {
+      const metadata = asset.metadata as GalleryAssetMetadata | null;
+      const storageKeys = [asset.storageKey, metadata?.thumbnailStorageKey].filter((key): key is string => Boolean(key));
+
       try {
-        await deleteR2Object(asset.storageKey);
+        await Promise.all(storageKeys.map((storageKey) => deleteR2Object(storageKey)));
       } catch (error) {
         await diagnostics.error(MODULE_KEY, "Gallery object deletion failed after database delete.", {
           userId,
           mediaAssetId: asset.id,
-          storageKey: asset.storageKey,
+          storageKeys,
           error: error instanceof Error ? error.message : "unknown"
         });
       }

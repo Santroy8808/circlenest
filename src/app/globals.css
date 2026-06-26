@@ -592,6 +592,35 @@ a {
   bottom: 86px;
 }
 
+.background-upload-status,
+.background-upload-toast {
+  border: 1px solid rgba(214, 178, 74, 0.5);
+  background: rgba(17, 24, 36, 0.96);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+  position: fixed;
+  right: 18px;
+  z-index: 60;
+}
+
+.background-upload-status {
+  border-radius: 999px;
+  bottom: 70px;
+  color: var(--gold);
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 10px 14px;
+}
+
+.background-upload-toast {
+  align-items: center;
+  border-radius: 14px;
+  bottom: 70px;
+  display: flex;
+  gap: 10px;
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 12px;
+}
+
 .profile-card {
   border: 1px solid rgba(214, 178, 74, 0.24);
   background: rgba(17, 24, 36, 0.92);
@@ -760,6 +789,41 @@ a {
   margin-top: 2px;
 }
 
+.gallery-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gallery-control-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+}
+
+.gallery-search-panel,
+.gallery-tag-panel {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.28);
+  padding: 14px;
+}
+
+.gallery-panel-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.gallery-search-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-top: 12px;
+}
+
 .gallery-grid {
   display: grid;
   gap: 14px;
@@ -771,6 +835,8 @@ a {
   border: 1px solid rgba(214, 178, 74, 0.2);
   border-radius: 18px;
   background: #111824;
+  contain-intrinsic-size: 220px 220px;
+  content-visibility: auto;
   overflow: hidden;
   position: relative;
 }
@@ -789,6 +855,7 @@ a {
 
 .gallery-tile img,
 .gallery-tile-fallback {
+  display: block;
   height: 100%;
   object-fit: cover;
   width: 100%;
@@ -4284,6 +4351,19 @@ a {
     right: 12px;
   }
 
+  .background-upload-status,
+  .background-upload-toast {
+    bottom: 70px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .background-upload-toast {
+    align-items: stretch;
+    flex-direction: column;
+    max-width: none;
+  }
+
   .profile-banner {
     min-height: 150px;
   }
@@ -4306,6 +4386,15 @@ a {
 
   .gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gallery-control-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .gallery-panel-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .upload-item {

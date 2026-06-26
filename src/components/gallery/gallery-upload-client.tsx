@@ -3,21 +3,9 @@
 import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
-
-type UploadItem = {
-  id: string;
-  file: File;
-  previewUrl: string;
-  assetId?: string;
-  progress: number;
-  status: "queued" | "uploading" | "done" | "error";
-  error?: string;
-};
+import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
 
 type GalleryAccess = "PRIVATE" | "MEMBERS_NO_COMMENTS" | "MEMBERS_COMMENTS" | "PUBLIC_NO_COMMENTS" | "PUBLIC_COMMENTS";
-const OPTIMIZE_IMAGE_BYTES = 1.5 * 1024 * 1024;
-const OPTIMIZE_IMAGE_MAX_EDGE = 1920;
 
 function accessToSettings(access: GalleryAccess) {
   if (access === "MEMBERS_COMMENTS") return { visibility: MediaVisibility.MEMBERS, commentsEnabled: true };
@@ -27,149 +15,11 @@ function accessToSettings(access: GalleryAccess) {
   return { visibility: MediaVisibility.PRIVATE, commentsEnabled: false };
 }
 
-async function readJsonResponse<T>(response: Response): Promise<T | null> {
-  const text = await response.text();
-  if (!text.trim()) return null;
-
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return null;
-  }
-}
-
-function loadImageElement(url: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Could not optimize image before upload."));
-    image.src = url;
-  });
-}
-
-async function optimizeImageForUpload(file: File) {
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < OPTIMIZE_IMAGE_BYTES) return file;
-
-  const objectUrl = URL.createObjectURL(file);
-
-  try {
-    const image = await loadImageElement(objectUrl);
-    const scale = Math.min(1, OPTIMIZE_IMAGE_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-
-    if (!context) return file;
-
-    context.drawImage(image, 0, 0, width, height);
-
-    const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, outputType, 0.82));
-
-    if (!blob || blob.size >= file.size) return file;
-
-    const extension = outputType === "image/png" ? "png" : "jpg";
-    const fileName = file.name.replace(/\.[^.]+$/, "") || "photo";
-    return new File([blob], `${fileName}.${extension}`, { type: outputType, lastModified: file.lastModified });
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
 export function GalleryUploadClient() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [items, setItems] = useState<UploadItem[]>([]);
   const [access, setAccess] = useState<GalleryAccess>("PRIVATE");
-  const [error, setError] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const { addFiles, clearFinished, isUploading, items, uploadAll } = useBackgroundGalleryUploads();
   const selectedSettings = accessToSettings(access);
-
-  function addFiles(files: FileList | File[]) {
-    const next = Array.from(files).map((file) => ({
-      id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-      progress: 0,
-      status: "queued" as const
-    }));
-
-    setItems((current) => [...current, ...next]);
-  }
-
-  function updateItem(id: string, patch: Partial<UploadItem>) {
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
-  }
-
-  async function uploadAll() {
-    setError("");
-    setIsUploading(true);
-
-    for (const item of items.filter((candidate) => candidate.status !== "done")) {
-      try {
-        updateItem(item.id, { status: "uploading", progress: 1 });
-        const uploadFile = await optimizeImageForUpload(item.file);
-        const intentResponse = await fetch("/api/media/upload-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: uploadFile.name,
-            mimeType: uploadFile.type,
-            sizeBytes: uploadFile.size,
-            visibility: selectedSettings.visibility,
-            source: "GALLERY"
-          })
-        });
-        const intent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(intentResponse);
-
-        if (!intentResponse.ok || !intent?.uploadUrl || !intent.storageKey) {
-          throw new Error(intent?.error ?? "Could not prepare upload.");
-        }
-
-        await uploadWithResilientFallback({
-          uploadUrl: intent.uploadUrl,
-          storageKey: intent.storageKey,
-          file: uploadFile,
-          onProgress: (progress) => updateItem(item.id, { progress })
-        });
-
-        const completeResponse = await fetch("/api/media/complete-upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            storageKey: intent.storageKey,
-            fileName: uploadFile.name,
-            mimeType: uploadFile.type,
-            sizeBytes: uploadFile.size,
-            visibility: selectedSettings.visibility,
-            commentsEnabled: selectedSettings.commentsEnabled,
-            source: "GALLERY",
-            tags: []
-          })
-        });
-        const complete = await readJsonResponse<{ error?: string; asset?: { id: string } }>(completeResponse);
-
-        if (!completeResponse.ok) {
-          throw new Error(complete?.error ?? "Could not save photo record.");
-        }
-
-        if (!complete?.asset?.id) {
-          throw new Error("Photo uploaded, but the gallery record was not returned.");
-        }
-
-        updateItem(item.id, { assetId: complete.asset.id, status: "done", progress: 100 });
-      } catch (caught) {
-        updateItem(item.id, {
-          status: "error",
-          error: caught instanceof Error ? caught.message : "Upload failed."
-        });
-      }
-    }
-
-    setIsUploading(false);
-  }
 
   return (
     <section className="surface rounded-md p-6">
@@ -210,16 +60,26 @@ export function GalleryUploadClient() {
           <Link className="btn-secondary" href="/profile/gallery">
             Back
           </Link>
-          <button className="btn-primary" disabled={items.length === 0 || isUploading} onClick={uploadAll} type="button">
+          <button
+            className="btn-primary"
+            disabled={items.length === 0 || isUploading}
+            onClick={() => uploadAll(selectedSettings)}
+            type="button"
+          >
             {isUploading ? "Uploading..." : "Upload photos"}
           </button>
         </div>
       </div>
 
-      {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-
       {items.length > 0 ? (
         <div className="mt-6 grid gap-3">
+          {items.some((item) => item.status === "done") ? (
+            <div className="flex justify-end">
+              <button className="btn-secondary px-3 py-2 text-sm" disabled={isUploading} onClick={clearFinished} type="button">
+                Clear finished
+              </button>
+            </div>
+          ) : null}
           {items.map((item) => (
             <article key={item.id} className="upload-item">
               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -9,7 +9,7 @@ const DEFAULT_TAGS = ["Family", "Friends", "Events"];
 const SYSTEM_GALLERY_TAGS = new Set(["stream images", "stream post images", "stream reply images", "ad", "ad images", "ad creative"]);
 
 function assetImageUrl(asset: GalleryAssetView) {
-  return asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+  return asset.thumbnailUrl ?? asset.publicUrl ?? `/api/media/assets/${asset.id}`;
 }
 
 function isSystemGalleryAsset(asset: GalleryAssetView) {
@@ -17,17 +17,30 @@ function isSystemGalleryAsset(asset: GalleryAssetView) {
   return asset.tags.some((tag) => SYSTEM_GALLERY_TAGS.has(tag.trim().toLowerCase()));
 }
 
+function includesSearch(value: string | null | undefined, query: string) {
+  return !query || (value ?? "").toLowerCase().includes(query.toLowerCase());
+}
+
+function createdDateKey(asset: GalleryAssetView) {
+  return asset.createdAt.slice(0, 10);
+}
+
 export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const router = useRouter();
   const [galleryAssets, setGalleryAssets] = useState(assets);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [filterTag, setFilterTag] = useState("");
+  const [filenameQuery, setFilenameQuery] = useState("");
+  const [tagQuery, setTagQuery] = useState("");
+  const [commentQuery, setCommentQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [tagChoice, setTagChoice] = useState(DEFAULT_TAGS[0]);
   const [customTag, setCustomTag] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const tagName = tagChoice === "Custom" ? customTag.trim() : tagChoice;
+  const hasSearch = Boolean(filenameQuery.trim() || tagQuery.trim() || commentQuery.trim() || dateFrom || dateTo);
   const availableTags = useMemo(() => {
     const byName = new Map<string, string>();
 
@@ -42,12 +55,31 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     return [...byName.values()].sort((left, right) => left.localeCompare(right));
   }, [galleryAssets]);
   const visibleAssets = useMemo(() => {
-    if (!filterTag) return galleryAssets.filter((asset) => !isSystemGalleryAsset(asset));
-    return galleryAssets.filter((asset) => asset.tags.some((tag) => tag.toLowerCase() === filterTag.toLowerCase()));
-  }, [filterTag, galleryAssets]);
+    return galleryAssets.filter((asset) => {
+      const cleanTagQuery = tagQuery.trim();
+      if (isSystemGalleryAsset(asset) && !cleanTagQuery) return false;
+
+      const createdDate = createdDateKey(asset);
+      const matchesFilename = includesSearch(asset.originalName, filenameQuery.trim());
+      const matchesTags = !cleanTagQuery || asset.tags.some((tag) => includesSearch(tag, cleanTagQuery));
+      const matchesComments = includesSearch(asset.commentSearchText, commentQuery.trim());
+      const matchesDateFrom = !dateFrom || createdDate >= dateFrom;
+      const matchesDateTo = !dateTo || createdDate <= dateTo;
+
+      return matchesFilename && matchesTags && matchesComments && matchesDateFrom && matchesDateTo;
+    });
+  }, [commentQuery, dateFrom, dateTo, filenameQuery, galleryAssets, tagQuery]);
   const hiddenSystemCount = galleryAssets.filter(isSystemGalleryAsset).length;
   const visibleIds = visibleAssets.map((asset) => asset.id);
   const selectedVisibleIds = selectedIds.filter((id) => visibleIds.includes(id));
+
+  function clearSearch() {
+    setFilenameQuery("");
+    setTagQuery("");
+    setCommentQuery("");
+    setDateFrom("");
+    setDateTo("");
+  }
 
   function toggleSelected(assetId: string) {
     setSelectedIds((current) => (current.includes(assetId) ? current.filter((id) => id !== assetId) : [...current, assetId]));
@@ -58,7 +90,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     setGalleryAssets((current) => current.map((asset) => byId.get(asset.id) ?? asset));
   }
 
-  function applyTag(targetIds: string[]) {
+  function updateTag(targetIds: string[], mode: "add" | "remove") {
     setError("");
     setMessage("");
 
@@ -76,17 +108,21 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
       const response = await fetch("/api/media/assets/tags", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaAssetIds: targetIds, tags: [tagName], mode: "add" })
+        body: JSON.stringify({ mediaAssetIds: targetIds, tags: [tagName], mode })
       });
       const payload = (await response.json()) as { error?: string; assets?: GalleryAssetView[] };
 
       if (!response.ok || !payload.assets) {
-        setError(payload.error ?? "Could not tag photos.");
+        setError(payload.error ?? "Could not update tags.");
         return;
       }
 
       replaceUpdatedAssets(payload.assets);
-      setMessage(`Tagged ${targetIds.length} photo${targetIds.length === 1 ? "" : "s"} as ${tagName}.`);
+      setMessage(
+        mode === "remove"
+          ? `Removed ${tagName} from ${targetIds.length} photo${targetIds.length === 1 ? "" : "s"}.`
+          : `Tagged ${targetIds.length} photo${targetIds.length === 1 ? "" : "s"} as ${tagName}.`
+      );
       router.refresh();
     });
   }
@@ -139,38 +175,78 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   return (
     <section className="grid gap-5">
       <div className="surface rounded-md p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
-          <div className="grid gap-3">
-            <div className="flex flex-wrap gap-2">
-              <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending} onClick={() => setSelectedIds(visibleIds)} type="button">
-                Select all visible
-              </button>
-              <button className="btn-secondary" disabled={selectedIds.length === 0 || isPending} onClick={() => setSelectedIds([])} type="button">
-                Clear selection
-              </button>
-              <button className="btn-secondary" disabled={selectedVisibleIds.length === 0 || isPending} onClick={() => deleteAssets(selectedVisibleIds)} type="button">
-                Delete selected
+        <div className="gallery-selection-actions">
+          <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending} onClick={() => setSelectedIds(visibleIds)} type="button">
+            Select all visible
+          </button>
+          <button className="btn-secondary" disabled={selectedIds.length === 0 || isPending} onClick={() => setSelectedIds([])} type="button">
+            Clear selection
+          </button>
+          <button className="btn-secondary" disabled={selectedVisibleIds.length === 0 || isPending} onClick={() => deleteAssets(selectedVisibleIds)} type="button">
+            Delete selected
+          </button>
+        </div>
+
+        <div className="gallery-control-layout mt-4">
+          <section className="gallery-search-panel">
+            <div className="gallery-panel-heading">
+              <p className="form-label">Search gallery</p>
+              <button className="btn-secondary px-3 py-2 text-sm" disabled={!hasSearch} onClick={clearSearch} type="button">
+                Clear search
               </button>
             </div>
-            <label className="grid gap-2">
-              <span className="form-label">Filter by tag</span>
-              <select className="form-field" onChange={(event) => setFilterTag(event.target.value)} value={filterTag}>
-                <option value="">All gallery photos</option>
-                {availableTags.map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+            <div className="gallery-search-grid">
+              <label className="grid gap-2">
+                <span className="form-label">Filename</span>
+                <input
+                  className="form-field"
+                  onChange={(event) => setFilenameQuery(event.target.value)}
+                  placeholder="Search filenames"
+                  value={filenameQuery}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Tags</span>
+                <input
+                  className="form-field"
+                  list="gallery-tag-suggestions"
+                  onChange={(event) => setTagQuery(event.target.value)}
+                  placeholder="Family, events, ad..."
+                  value={tagQuery}
+                />
+                <datalist id="gallery-tag-suggestions">
+                  {availableTags.map((tag) => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Comments</span>
+                <input
+                  className="form-field"
+                  onChange={(event) => setCommentQuery(event.target.value)}
+                  placeholder="Search gallery comments"
+                  value={commentQuery}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Date from</span>
+                <input className="form-field" onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Date to</span>
+                <input className="form-field" onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
+              </label>
+            </div>
+          </section>
 
-          <div className="grid gap-3">
+          <section className="gallery-tag-panel">
+            <p className="form-label">Manage tags</p>
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
               <label className="grid gap-2">
                 <span className="form-label">Tag</span>
                 <select className="form-field" onChange={(event) => setTagChoice(event.target.value)} value={tagChoice}>
-                  {DEFAULT_TAGS.map((tag) => (
+                  {availableTags.map((tag) => (
                     <option key={tag} value={tag}>
                       {tag}
                     </option>
@@ -191,20 +267,26 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
               </label>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="btn-primary" disabled={selectedVisibleIds.length === 0 || isPending || !tagName} onClick={() => applyTag(selectedVisibleIds)} type="button">
+              <button className="btn-primary" disabled={selectedVisibleIds.length === 0 || isPending || !tagName} onClick={() => updateTag(selectedVisibleIds, "add")} type="button">
                 Tag selected
               </button>
-              <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending || !tagName} onClick={() => applyTag(visibleIds)} type="button">
+              <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending || !tagName} onClick={() => updateTag(visibleIds, "add")} type="button">
                 Tag all visible
               </button>
+              <button className="btn-secondary" disabled={selectedVisibleIds.length === 0 || isPending || !tagName} onClick={() => updateTag(selectedVisibleIds, "remove")} type="button">
+                Remove from selected
+              </button>
+              <button className="btn-secondary" disabled={visibleAssets.length === 0 || isPending || !tagName} onClick={() => updateTag(visibleIds, "remove")} type="button">
+                Remove from visible
+              </button>
             </div>
-          </div>
+          </section>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
           <span>{selectedVisibleIds.length} selected</span>
           <span>
-            {visibleAssets.length} shown{!filterTag && hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
+            {visibleAssets.length} shown{!tagQuery.trim() && hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
           </span>
         </div>
         {message ? <p className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
@@ -213,9 +295,9 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
 
       {visibleAssets.length === 0 ? (
         <section className="surface rounded-md p-6 text-center">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos match that tag</h2>
-          <button className="btn-secondary mt-5" onClick={() => setFilterTag("")} type="button">
-            Show all photos
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos match your search</h2>
+          <button className="btn-secondary mt-5" onClick={clearSearch} type="button">
+            Clear search
           </button>
         </section>
       ) : (
@@ -234,7 +316,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 </button>
                 <Link className="gallery-tile-link" href={`/profile/gallery/${asset.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={asset.originalName ?? "Gallery photo"} src={assetImageUrl(asset)} />
+                  <img alt={asset.originalName ?? "Gallery photo"} decoding="async" loading="lazy" src={assetImageUrl(asset)} />
                   <div className="gallery-tile-meta">
                     <p className="truncate font-semibold">{asset.originalName ?? "Photo"}</p>
                     <p className="text-xs text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 import { GlobalFeedbackLink } from "@/components/feedback/global-feedback-link";
+import { BackgroundGalleryUploadProvider } from "@/components/gallery/background-gallery-upload-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,10 +33,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html className={appClassName} lang="en">
       <body className={appClassName}>
-        {children}
-        <Suspense fallback={null}>
-          <GlobalFeedbackLink />
-        </Suspense>
+        <BackgroundGalleryUploadProvider>
+          {children}
+          <Suspense fallback={null}>
+            <GlobalFeedbackLink />
+          </Suspense>
+        </BackgroundGalleryUploadProvider>
       </body>
     </html>
   );

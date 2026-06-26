@@ -16,6 +16,7 @@ export const createUploadIntentSchema = z.object({
 
 export const completeUploadSchema = createUploadIntentSchema.extend({
   storageKey: z.string().min(1).max(600),
+  thumbnailStorageKey: z.string().min(1).max(600).optional(),
   caption: z.string().max(500).optional().or(z.literal("")),
   commentsEnabled: z.boolean().default(false),
   tags: z.array(z.string().min(1).max(40)).max(20).default([])
@@ -35,7 +36,7 @@ export const createGalleryAssetCommentSchema = z.object({
 export const updateGalleryAssetTagsSchema = z.object({
   mediaAssetIds: z.array(z.string().min(1)).min(1).max(100),
   tags: z.array(z.string().trim().min(1).max(40)).min(1).max(20),
-  mode: z.enum(["add", "replace"]).default("add")
+  mode: z.enum(["add", "replace", "remove"]).default("add")
 });
 
 export const deleteGalleryAssetsSchema = z.object({
@@ -54,6 +55,8 @@ export type GalleryAssetView = {
   commentsEnabled: boolean;
   createdAt: string;
   source?: string | null;
+  thumbnailUrl?: string | null;
+  commentSearchText?: string | null;
   collections: Array<{
     name: string;
     type: string;
