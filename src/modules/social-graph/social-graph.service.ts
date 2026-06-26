@@ -1,6 +1,7 @@
-import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType, UserRole } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import {
   familyRelationshipRequestSchema,
   familyRelationshipResponseSchema,
@@ -670,7 +671,7 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
           notIn: [userId, ...blockedUserIds]
         },
         AND: [
-          viewer?.role === UserRole.ADMIN
+          isAdminRole(viewer?.role)
             ? {}
             : {
                 profile: {

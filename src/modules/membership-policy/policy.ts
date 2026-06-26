@@ -1,4 +1,5 @@
 import { MembershipTier, UserRole } from "@prisma/client";
+import { isAdminRole } from "@/lib/platform/roles";
 
 export const membershipFeatureKeys = [
   "feed.changeType",
@@ -82,10 +83,12 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "groups.create": true,
       "market.createListing": true,
       "market.storefront": true,
-      "jobs.createListing": true
+      "jobs.createListing": true,
+      "auditors.createProfile": true,
+      "moderation.siteEligible": true
     }),
     limits: {
-      groupMemberCap: 10,
+      groupMemberCap: null,
       marketListingsPer14Days: 6,
       marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
@@ -201,6 +204,6 @@ export function isMembershipFeatureKey(value: string): value is MembershipFeatur
 }
 
 export function canRoleBypassFeature(role: UserRole, featureKey: MembershipFeatureKey) {
-  if (role !== UserRole.ADMIN) return false;
+  if (!isAdminRole(role)) return false;
   return featureKey === "admin.portal";
 }

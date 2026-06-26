@@ -19,7 +19,7 @@ const seedUsers = [
     role: UserRole.MEMBER
   },
   { email: "auditor@theta-space.net", username: "auditor", displayName: "Auditor", tier: MembershipTier.AUDITOR, role: UserRole.MEMBER },
-  { email: "admin@theta-space.net", username: "admin", displayName: "Admin", tier: MembershipTier.FREE, role: UserRole.ADMIN }
+  { email: "admin@theta-space.net", username: "admin", displayName: "Admin", tier: MembershipTier.FREE, role: UserRole.GOD }
 ];
 
 async function main() {

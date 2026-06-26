@@ -114,8 +114,8 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Membership And Launch",
       eyebrow: "Access",
       description: "Global membership configuration, launch grants, founder pricing, and temporary access programs.",
-      badge: "4 tools",
-      keywords: ["membership", "launch", "founder", "pricing", "promo", "promotion", "temporary access"],
+      badge: "5 tools",
+      keywords: ["membership", "launch", "founder", "pricing", "promo", "promotion", "temporary access", "god", "tier permissions"],
       groups: [
         {
           key: "launch-programs",
@@ -153,6 +153,14 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
           title: "Membership Operations",
           description: "Direct tier operations for known accounts.",
           entries: [
+            {
+              href: "/admin/actions/tier-policy",
+              title: "Global Tier Permissions",
+              category: "Membership And Launch",
+              description: "God-only matrix editor for global tier capability assignments.",
+              badge: "God",
+              keywords: ["god", "tier", "membership", "permissions", "global policy", "free tier", "auditor profile"]
+            },
             {
               href: "/admin/actions/status-change",
               title: "Status Change",

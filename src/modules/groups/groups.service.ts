@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createGroupSchema,
@@ -113,7 +114,7 @@ function canViewPrivateGroup(input: {
   group: Prisma.GroupGetPayload<{ include: { members: true } }>;
 }) {
   if (input.group.visibility === GroupVisibility.PUBLIC) return true;
-  if (input.viewerRole === UserRole.ADMIN) return true;
+  if (isAdminRole(input.viewerRole)) return true;
   return input.group.members.some((member) => member.userId === input.viewerUserId);
 }
 
@@ -155,7 +156,7 @@ export async function listGroups(input: {
           }
         }
       : mode === "discover" || cleanQuery
-        ? viewerRole === UserRole.ADMIN
+        ? isAdminRole(viewerRole)
           ? {}
           : { visibility: GroupVisibility.PUBLIC }
         : {
@@ -326,7 +327,7 @@ export async function getGroupProfile(viewerUserId: string, groupIdOrSlug: strin
       membersPreview: group.members.map(toGroupMemberView),
       canJoin: !viewerMember,
       canModerate:
-        viewerRole === UserRole.ADMIN ||
+        isAdminRole(viewerRole) ||
         viewerMember?.role === GroupMemberRole.OWNER ||
         viewerMember?.role === GroupMemberRole.MODERATOR,
       pendingJoinRequest: group.joinRequests.length > 0

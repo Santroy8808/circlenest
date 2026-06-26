@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { MarketListingCategory, MarketListingStatus, MediaVisibility, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
 import { canUserAccessFeature, getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import {
@@ -104,7 +105,7 @@ export async function getMarketCreateState(userId: string) {
     canUserAccessFeature(userId, "market.storefront")
   ]);
 
-  if (role === UserRole.ADMIN) {
+  if (isAdminRole(role)) {
     return {
       viewerCanCreate: true,
       listingsRemaining: null,
@@ -446,7 +447,7 @@ export async function getMarketListingDetail(viewerUserId: string, listingIdOrSl
   }
 
   const role = await getViewerRole(viewerUserId);
-  const canPromote = role === UserRole.ADMIN || listing.sellerUserId === viewerUserId || (await canUserAccessFeature(viewerUserId, "market.createAd")).allowed;
+  const canPromote = isAdminRole(role) || listing.sellerUserId === viewerUserId || (await canUserAccessFeature(viewerUserId, "market.createAd")).allowed;
   const detail: MarketListingDetailView = {
     ...toMarketCardView(listing),
     description: listing.description,
@@ -455,7 +456,7 @@ export async function getMarketListingDetail(viewerUserId: string, listingIdOrSl
       publicUrl: photo.mediaAsset.publicUrl,
       originalName: photo.mediaAsset.originalName
     })),
-    viewerCanManage: role === UserRole.ADMIN || listing.sellerUserId === viewerUserId,
+    viewerCanManage: isAdminRole(role) || listing.sellerUserId === viewerUserId,
     viewerCanPromote: canPromote
   };
 

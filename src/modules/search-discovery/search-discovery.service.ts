@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import type { SearchResultGroup, SearchResultItem, SearchView } from "@/modules/search-discovery/types";
 
 const MODULE_KEY = "search-discovery";
@@ -99,7 +100,7 @@ async function searchPeople(input: { viewerUserId: string; viewerRole: UserRole;
         notIn: [input.viewerUserId, ...input.blockedUserIds]
       },
       AND: [
-        input.viewerRole === UserRole.ADMIN
+        isAdminRole(input.viewerRole)
           ? {}
           : {
               profile: {
@@ -162,7 +163,7 @@ async function searchGroups(input: { viewerUserId: string; viewerRole: UserRole;
             { description: { contains: input.query, mode: "insensitive" } }
           ]
         },
-        input.viewerRole === UserRole.ADMIN
+        isAdminRole(input.viewerRole)
           ? {}
           : {
               OR: [
@@ -335,7 +336,7 @@ async function searchWriters(input: { viewerUserId: string; viewerRole: UserRole
             { summary: { contains: input.query, mode: "insensitive" } }
           ]
         },
-        input.viewerRole === UserRole.ADMIN
+        isAdminRole(input.viewerRole)
           ? {}
           : {
               OR: [{ visibility: ManuscriptVisibility.MEMBERS }, { authorUserId: input.viewerUserId }]
@@ -389,7 +390,7 @@ async function searchPosts(input: {
         mode: "insensitive"
       },
       AND: [
-        input.viewerRole === UserRole.ADMIN
+        isAdminRole(input.viewerRole)
           ? {}
           : {
               OR: [

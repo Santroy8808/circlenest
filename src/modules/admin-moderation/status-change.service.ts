@@ -1,8 +1,9 @@
-import { AuditSeverity, MembershipTier, Prisma, UserRole } from "@prisma/client";
+import { AuditSeverity, MembershipTier, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { getTierPolicy } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "admin-status-change";
@@ -20,7 +21,7 @@ async function isAdminUser(userId?: string) {
     select: { role: true }
   });
 
-  return user?.role === UserRole.ADMIN;
+  return isAdminRole(user?.role);
 }
 
 function normalizeIdentifier(value: string) {

@@ -175,6 +175,7 @@ export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnounc
                   <option value="">Choose a role</option>
                   <option value={UserRole.MEMBER}>Member</option>
                   <option value={UserRole.ADMIN}>Admin</option>
+                  <option value={UserRole.GOD}>God</option>
                 </select>
               </label>
             ) : null}

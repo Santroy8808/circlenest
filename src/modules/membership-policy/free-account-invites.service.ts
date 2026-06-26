@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from "crypto";
-import { AuditSeverity, Prisma, UserRole } from "@prisma/client";
+import { AuditSeverity, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 
@@ -39,7 +40,7 @@ async function isAdminUser(userId?: string) {
     select: { role: true }
   });
 
-  return user?.role === UserRole.ADMIN;
+  return isAdminRole(user?.role);
 }
 
 export function normalizeFreeAccountInviteCode(value: string) {
@@ -175,7 +176,7 @@ async function canGenerateMemberInvite(userId: string) {
   });
 
   if (!user) return false;
-  if (user.role === UserRole.ADMIN) return true;
+  if (isAdminRole(user.role)) return true;
   const override = user.membershipOverrides[0];
   if (override) return override.allowed;
 

@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import {
   createGroupForumPostSchema,
   createGroupForumThreadSchema,
@@ -61,10 +62,10 @@ async function getGroupContext(viewerUserId: string, groupIdOrSlug: string) {
 
   const viewerRole = viewer?.role ?? UserRole.MEMBER;
   const membership = group.members.find((member) => member.userId === viewerUserId);
-  const canView = group.visibility === GroupVisibility.PUBLIC || viewerRole === UserRole.ADMIN || Boolean(membership);
+  const canView = group.visibility === GroupVisibility.PUBLIC || isAdminRole(viewerRole) || Boolean(membership);
   const canPost = Boolean(membership);
   const canModerate =
-    viewerRole === UserRole.ADMIN ||
+    isAdminRole(viewerRole) ||
     membership?.role === GroupMemberRole.OWNER ||
     membership?.role === GroupMemberRole.MODERATOR;
 

@@ -1,6 +1,7 @@
 import { JobCategory, JobListingStatus, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createJobListingSchema,
@@ -59,7 +60,7 @@ async function getViewerRole(userId: string) {
 
 export async function viewerCanCreateJob(userId: string) {
   const role = await getViewerRole(userId);
-  if (role === UserRole.ADMIN) return true;
+  if (isAdminRole(role)) return true;
   return (await canUserAccessFeature(userId, "jobs.createListing")).allowed;
 }
 
@@ -196,13 +197,13 @@ export async function getJobListingDetail(viewerUserId: string, listingIdOrSlug:
   }
 
   const role = await getViewerRole(viewerUserId);
-  const canPromote = role === UserRole.ADMIN || job.employerUserId === viewerUserId || (await canUserAccessFeature(viewerUserId, "ads.createGeneral")).allowed;
+  const canPromote = isAdminRole(role) || job.employerUserId === viewerUserId || (await canUserAccessFeature(viewerUserId, "ads.createGeneral")).allowed;
   const detail: JobListingDetailView = {
     ...toJobCardView(job),
     description: job.description,
     contactEmail: job.contactEmail,
     contactInstructions: job.contactInstructions,
-    viewerCanManage: role === UserRole.ADMIN || job.employerUserId === viewerUserId,
+    viewerCanManage: isAdminRole(role) || job.employerUserId === viewerUserId,
     viewerCanPromote: canPromote
   };
 

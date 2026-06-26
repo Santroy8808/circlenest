@@ -13,7 +13,7 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
   const [phone, setPhone] = useState(data.profile?.phone ?? "");
   const [website, setWebsite] = useState(data.profile?.website ?? "");
   const [active, setActive] = useState(data.profile?.active ?? true);
-  const [error, setError] = useState(data.canCreate ? "" : data.reason ?? "Only Auditor accounts can create auditor profiles.");
+  const [error, setError] = useState(data.canCreate ? "" : data.reason ?? "Auditor profile access required.");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -77,7 +77,7 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">I&apos;m an Auditor</p>
           <h1 className="mt-3 text-3xl font-semibold">Build your auditor profile</h1>
           <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-            This is a mini business profile. My Scientology remains the education source; these fields describe your practice.
+            This creates a separate auditor profile you can switch into. My Scientology remains the education source; these fields describe your practice.
           </p>
         </div>
 

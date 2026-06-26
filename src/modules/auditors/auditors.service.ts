@@ -1,6 +1,8 @@
 import { ScientologyClassification, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
+import { ensureAuditorAccountForOwner, getAuditorAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { updateAuditorProfileSchema, type AuditorProfileView, type AuditorScientologySummary } from "@/modules/auditors/types";
 
@@ -88,7 +90,7 @@ async function getViewerRole(userId: string) {
 
 export async function viewerCanCreateAuditorProfile(userId: string) {
   const role = await getViewerRole(userId);
-  if (role === UserRole.ADMIN) return { allowed: true, reason: "Admin role grants this platform control." };
+  if (isAdminRole(role)) return { allowed: true, reason: "Admin role grants this platform control." };
   return canUserAccessFeature(userId, "auditors.createProfile");
 }
 
@@ -142,7 +144,7 @@ export async function safeListAuditors(input?: { query?: string | null }) {
 }
 
 export async function getMyAuditorProfile(userId: string) {
-  const [access, user] = await Promise.all([
+  const [access, user, linkedAccount] = await Promise.all([
     viewerCanCreateAuditorProfile(userId),
     prisma.user.findUnique({
       where: { id: userId },
@@ -151,17 +153,27 @@ export async function getMyAuditorProfile(userId: string) {
         scientologyProfile: true,
         auditorProfile: true
       }
-    })
+    }),
+    getAuditorAccountForOwner(userId)
   ]);
+  let account = linkedAccount;
+
+  if (access.allowed && !account && user?.auditorProfile) {
+    account = await ensureAuditorAccountForOwner(userId, {
+      practiceName: user.auditorProfile.practiceName,
+      location: user.auditorProfile.location
+    });
+  }
+  const auditorUser = account?.auditorUser;
 
   return {
     canCreate: access.allowed,
     reason: access.allowed ? undefined : access.reason,
     profile:
-      user?.auditorProfile && user
+      auditorUser?.auditorProfile && auditorUser
         ? toAuditorProfileView({
-            ...user.auditorProfile,
-            user
+            ...auditorUser.auditorProfile,
+            user: auditorUser
           })
         : null,
     scientology: scientologySummary(user?.scientologyProfile)
@@ -178,12 +190,17 @@ export async function updateAuditorProfile(userId: string, input: unknown) {
   const access = await viewerCanCreateAuditorProfile(userId);
 
   if (!access.allowed) {
-    return { ok: false as const, error: "Only Auditor accounts can create auditor profiles." };
+    return { ok: false as const, error: "Auditor profile access required." };
   }
 
+  const account = await ensureAuditorAccountForOwner(userId, {
+    practiceName: parsed.data.practiceName,
+    location: parsed.data.location
+  });
+  const auditorUserId = account.auditorUserId;
   const profile = await prisma.auditorProfile.upsert({
     where: {
-      userId
+      userId: auditorUserId
     },
     update: {
       practiceName: parsed.data.practiceName,
@@ -196,7 +213,7 @@ export async function updateAuditorProfile(userId: string, input: unknown) {
       active: parsed.data.active
     },
     create: {
-      userId,
+      userId: auditorUserId,
       practiceName: parsed.data.practiceName,
       location: parsed.data.location || null,
       willingToTravel: parsed.data.willingToTravel,
@@ -207,9 +224,22 @@ export async function updateAuditorProfile(userId: string, input: unknown) {
       active: parsed.data.active
     }
   });
+  await prisma.profile.upsert({
+    where: { userId: auditorUserId },
+    update: {
+      displayName: parsed.data.practiceName,
+      tagline: parsed.data.location || null
+    },
+    create: {
+      userId: auditorUserId,
+      displayName: parsed.data.practiceName,
+      tagline: parsed.data.location || null
+    }
+  });
 
   await diagnostics.info(MODULE_KEY, "Auditor profile updated.", {
-    userId,
+    userId: auditorUserId,
+    privateUserId: userId,
     auditorProfileId: profile.id
   });
 

@@ -43,6 +43,7 @@ enum PromotionAccessScope {
 enum UserRole {
   MEMBER
   ADMIN
+  GOD
 }
 
 enum LogLevel {
@@ -485,6 +486,8 @@ model User {
   marketListings                  MarketListing[]                    @relation("MarketListingSeller")
   jobListings                     JobListing[]                       @relation("JobListingEmployer")
   auditorProfile                  AuditorProfile?
+  privateAuditorAccounts          AuditorAccount[]                   @relation("AuditorAccountPrivateOwner")
+  auditorAccountOwnerLink         AuditorAccount?                    @relation("AuditorAccountActor")
   businessProfile                 BusinessProfile?                   @relation("BusinessProfileOwner")
   privateBusinessAccounts         BusinessAccount[]                   @relation("BusinessAccountPrivateOwner")
   businessAccountOwnerLink        BusinessAccount?                    @relation("BusinessAccountActor")
@@ -511,6 +514,7 @@ model User {
   feedbackTickets                 FeedbackTicket[]                   @relation("FeedbackReporter")
   membershipOverrides             MembershipPolicyOverride[]         @relation("MembershipOverrideSubject")
   createdMembershipOverrides      MembershipPolicyOverride[]         @relation("MembershipOverrideCreator")
+  createdTierFeatureOverrides     MembershipTierFeatureOverride[]    @relation("TierFeatureOverrideCreator")
   promotionGrants                 MembershipPromotionGrant[]         @relation("PromotionGrantUser")
   createdPromotionGrants          MembershipPromotionGrant[]         @relation("PromotionGrantCreator")
   tierUpgradeEligibilities        MembershipTierUpgradeEligibility[] @relation("TierUpgradeEligibilityUser")
@@ -1675,6 +1679,20 @@ model AuditorProfile {
   @@index([active, createdAt])
 }
 
+model AuditorAccount {
+  id             String   @id @default(cuid())
+  privateUserId  String
+  auditorUserId  String   @unique
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  privateUser    User     @relation("AuditorAccountPrivateOwner", fields: [privateUserId], references: [id], onDelete: Cascade)
+  auditorUser    User     @relation("AuditorAccountActor", fields: [auditorUserId], references: [id], onDelete: Cascade)
+
+  @@unique([privateUserId, auditorUserId])
+  @@index([privateUserId, active])
+}
+
 model BusinessProfile {
   id                      String              @id @default(cuid())
   ownerUserId             String              @unique
@@ -2139,4 +2157,20 @@ model MembershipPolicyOverride {
   @@unique([userId, featureKey])
   @@index([featureKey, allowed])
   @@index([userId, expiresAt])
+}
+
+model MembershipTierFeatureOverride {
+  id              String         @id @default(cuid())
+  tier            MembershipTier
+  featureKey      String
+  allowed         Boolean
+  reason          String?
+  createdByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdBy       User?          @relation("TierFeatureOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tier, featureKey])
+  @@index([featureKey, allowed])
+  @@index([createdByUserId, updatedAt])
 }

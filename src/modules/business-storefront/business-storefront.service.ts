@@ -2,6 +2,7 @@ import { BusinessProfileKind, MailDeliveryKind, MailRecipientType, MarketListing
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
@@ -298,7 +299,7 @@ async function canManageBusinessProfile(userId: string) {
   });
 
   if (!user) return { allowed: false, reason: "User was not found." };
-  if (user.role === UserRole.ADMIN) return { allowed: true, reason: "Admin role can manage business profiles." };
+  if (isAdminRole(user.role)) return { allowed: true, reason: "Admin role can manage business profiles." };
 
   const businessAccess = await canUserAccessFeature(userId, "market.storefront");
   if (businessAccess.allowed) return businessAccess;

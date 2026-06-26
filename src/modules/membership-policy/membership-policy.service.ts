@@ -2,6 +2,8 @@ import { MembershipTier, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isGodRole } from "@/lib/platform/roles";
+import { verifyPassword } from "@/modules/auth-security/password";
 import {
   canRoleBypassFeature,
   getTierPolicy,
@@ -14,6 +16,8 @@ import { getActivePromotionalTierForUser } from "@/modules/membership-policy/lau
 
 const MODULE_KEY = "membership-policy";
 
+type FeatureOverrideMap = Partial<Record<MembershipFeatureKey, boolean>>;
+
 export type EffectivePolicy = ReturnType<typeof getTierPolicy> & {
   role: UserRole;
   actualTier: MembershipTier;
@@ -22,8 +26,37 @@ export type EffectivePolicy = ReturnType<typeof getTierPolicy> & {
     label: string;
     expiresAt: string;
   };
-  overrides: Partial<Record<MembershipFeatureKey, boolean>>;
+  overrides: FeatureOverrideMap;
 };
+
+function applyFeatureOverrides(policy: ReturnType<typeof getTierPolicy>, overrides: FeatureOverrideMap) {
+  return {
+    ...policy,
+    features: {
+      ...policy.features,
+      ...overrides
+    }
+  };
+}
+
+function mapOverrides(
+  overrides: Array<{ tier?: MembershipTier; featureKey: string; allowed: boolean }>,
+  tier?: MembershipTier
+) {
+  return overrides.reduce<FeatureOverrideMap>((acc, override) => {
+    if ((tier === undefined || override.tier === tier) && isMembershipFeatureKey(override.featureKey)) {
+      acc[override.featureKey] = override.allowed;
+    }
+
+    return acc;
+  }, {});
+}
+
+async function listGlobalTierFeatureOverrides() {
+  return prisma.membershipTierFeatureOverride.findMany({
+    orderBy: [{ tier: "asc" }, { featureKey: "asc" }]
+  });
+}
 
 export function getPolicyMatrix() {
   return Object.values(tierPolicies);
@@ -33,14 +66,26 @@ export function getPublicPolicyMatrix() {
   return getPolicyMatrix().filter((policy) => policy.publiclyListed !== false);
 }
 
+export async function getEffectivePolicyMatrix() {
+  const globalOverrides = await listGlobalTierFeatureOverrides();
+
+  return getPolicyMatrix().map((policy) => applyFeatureOverrides(policy, mapOverrides(globalOverrides, policy.tier)));
+}
+
+export async function getEffectivePublicPolicyMatrix() {
+  return (await getEffectivePolicyMatrix()).filter((policy) => policy.publiclyListed !== false);
+}
+
 export function resolvePolicy(input: {
   tier?: MembershipTier | null;
   role?: UserRole | null;
-  overrides?: Partial<Record<MembershipFeatureKey, boolean>>;
+  globalOverrides?: FeatureOverrideMap;
+  overrides?: FeatureOverrideMap;
 }): EffectivePolicy {
   const tier = input.tier ?? MembershipTier.FREE;
   const role = input.role ?? UserRole.MEMBER;
   const base = getTierPolicy(tier);
+  const globalOverrides = input.globalOverrides ?? {};
   const overrides = input.overrides ?? {};
 
   return {
@@ -50,15 +95,17 @@ export function resolvePolicy(input: {
     overrides,
     features: {
       ...base.features,
+      ...globalOverrides,
       ...overrides,
-      "admin.portal": role === UserRole.ADMIN
+      "admin.portal": role === UserRole.ADMIN || role === UserRole.GOD
     }
   };
 }
 
 export function evaluateFeatureAccess(
   policy: EffectivePolicy,
-  featureKey: MembershipFeatureKey
+  featureKey: MembershipFeatureKey,
+  upgradeCandidates = getPublicPolicyMatrix()
 ): { allowed: boolean; reason: string; upgradeTo?: MembershipTier } {
   if (canRoleBypassFeature(policy.role, featureKey)) {
     return { allowed: true, reason: "Admin role grants this platform control." };
@@ -68,7 +115,7 @@ export function evaluateFeatureAccess(
     return { allowed: true, reason: `${policy.displayName} includes this feature.` };
   }
 
-  const upgradeTo = getPublicPolicyMatrix().find((candidate) => candidate.features[featureKey])?.tier;
+  const upgradeTo = upgradeCandidates.find((candidate) => candidate.features[featureKey])?.tier;
 
   return {
     allowed: false,
@@ -80,17 +127,20 @@ export function evaluateFeatureAccess(
 }
 
 export async function getEffectivePolicyForUser(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      membership: true,
-      membershipOverrides: {
-        where: {
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+  const [user, globalOverrides] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        membership: true,
+        membershipOverrides: {
+          where: {
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+          }
         }
       }
-    }
-  });
+    }),
+    listGlobalTierFeatureOverrides()
+  ]);
 
   if (!user) return null;
 
@@ -98,7 +148,7 @@ export async function getEffectivePolicyForUser(userId: string) {
   const promotionalAccess = await getActivePromotionalTierForUser(user.id, actualTier);
   const effectiveTier = promotionalAccess?.tier ?? actualTier;
 
-  const overrides = user.membershipOverrides.reduce<Partial<Record<MembershipFeatureKey, boolean>>>((acc, override) => {
+  const overrides = user.membershipOverrides.reduce<FeatureOverrideMap>((acc, override) => {
     if (isMembershipFeatureKey(override.featureKey)) {
       acc[override.featureKey] = override.allowed;
     }
@@ -109,6 +159,7 @@ export async function getEffectivePolicyForUser(userId: string) {
   const policy = resolvePolicy({
     tier: effectiveTier,
     role: user.role,
+    globalOverrides: mapOverrides(globalOverrides, effectiveTier),
     overrides
   });
 
@@ -131,13 +182,117 @@ export async function canUserAccessFeature(userId: string, featureKey: string) {
     return { allowed: false, reason: "Unknown feature key." };
   }
 
-  const policy = await getEffectivePolicyForUser(userId);
+  const [policy, upgradeCandidates] = await Promise.all([
+    getEffectivePolicyForUser(userId),
+    getEffectivePublicPolicyMatrix()
+  ]);
 
   if (!policy) {
     return { allowed: false, reason: "User was not found." };
   }
 
-  return evaluateFeatureAccess(policy, featureKey);
+  return evaluateFeatureAccess(policy, featureKey, upgradeCandidates);
+}
+
+export async function getGodTierPolicyEditorView(actorUserId: string) {
+  const [actor, policies, overrides] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: actorUserId },
+      select: { role: true }
+    }),
+    getEffectivePolicyMatrix(),
+    listGlobalTierFeatureOverrides()
+  ]);
+
+  return {
+    canManage: isGodRole(actor?.role),
+    policies,
+    overrides: overrides.map((override) => ({
+      id: override.id,
+      tier: override.tier,
+      featureKey: override.featureKey,
+      allowed: override.allowed,
+      reason: override.reason,
+      createdByUserId: override.createdByUserId,
+      createdAt: override.createdAt.toISOString(),
+      updatedAt: override.updatedAt.toISOString()
+    }))
+  };
+}
+
+export async function setGlobalTierFeatureOverride(input: {
+  actorUserId: string;
+  tier: MembershipTier;
+  featureKey: string;
+  allowed: boolean;
+  password: string;
+  reason?: string;
+}) {
+  if (!isMembershipFeatureKey(input.featureKey)) {
+    return { ok: false as const, error: "Unknown feature key." };
+  }
+
+  if (input.featureKey === "admin.portal") {
+    return { ok: false as const, error: "Admin Portal is role-based and cannot be tier-assigned." };
+  }
+
+  const actor = await prisma.user.findUnique({
+    where: { id: input.actorUserId },
+    select: {
+      id: true,
+      role: true,
+      passwordHash: true
+    }
+  });
+
+  if (!actor || !isGodRole(actor.role)) {
+    return { ok: false as const, error: "God access required." };
+  }
+
+  if (!actor.passwordHash || !(await verifyPassword(input.password, actor.passwordHash))) {
+    return { ok: false as const, error: "Password confirmation failed." };
+  }
+
+  const previousAllowed = (await getEffectivePolicyMatrix()).find((policy) => policy.tier === input.tier)?.features[input.featureKey] ?? getTierPolicy(input.tier).features[input.featureKey];
+  const reason = input.reason?.trim() || "God tier policy edit.";
+  const override = await prisma.membershipTierFeatureOverride.upsert({
+    where: {
+      tier_featureKey: {
+        tier: input.tier,
+        featureKey: input.featureKey
+      }
+    },
+    update: {
+      allowed: input.allowed,
+      reason,
+      createdByUserId: input.actorUserId
+    },
+    create: {
+      tier: input.tier,
+      featureKey: input.featureKey,
+      allowed: input.allowed,
+      reason,
+      createdByUserId: input.actorUserId
+    }
+  });
+
+  await writeAuditLog({
+    actorUserId: input.actorUserId,
+    module: MODULE_KEY,
+    action: "tier.feature.override.set",
+    targetType: "MembershipTier",
+    targetId: input.tier,
+    severity: "critical",
+    metadata: {
+      tier: input.tier,
+      featureKey: input.featureKey,
+      previousAllowed,
+      allowed: input.allowed,
+      reason
+    } as Prisma.InputJsonObject
+  });
+
+  return { ok: true as const, override };
 }
 
 export async function setMembershipPolicyOverride(input: {

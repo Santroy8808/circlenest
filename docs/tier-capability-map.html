@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Theta-Space Tier Capability Map</title>
+    <style>
+      :root {
+        --bg: #080b10;
+        --panel: #101823;
+        --panel-2: #132033;
+        --line: #3c3420;
+        --gold: #ffd84d;
+        --gold-soft: rgba(255, 216, 77, 0.16);
+        --cyan: #6ee7e7;
+        --text: #edf2ff;
+        --muted: #aeb8ca;
+        --no: #596477;
+        --yes-bg: rgba(255, 216, 77, 0.13);
+        --yes-line: rgba(255, 216, 77, 0.42);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(110, 231, 231, 0.11), transparent 420px),
+          linear-gradient(180deg, #090d13 0%, var(--bg) 100%);
+        color: var(--text);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      .frame {
+        width: 1800px;
+        padding: 54px 62px 64px;
+      }
+
+      header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 36px;
+        margin-bottom: 32px;
+      }
+
+      h1 {
+        margin: 0;
+        color: var(--gold);
+        font-size: 52px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        max-width: 1120px;
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 23px;
+        line-height: 1.45;
+      }
+
+      .badge {
+        flex: 0 0 auto;
+        border: 1px solid var(--yes-line);
+        border-radius: 8px;
+        background: var(--gold-soft);
+        color: var(--gold);
+        padding: 14px 18px;
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+
+      .legend {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+
+      .legend span {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(16, 24, 35, 0.82);
+        color: var(--muted);
+        padding: 10px 14px;
+        font-size: 18px;
+      }
+
+      .legend strong {
+        color: var(--gold);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(16, 24, 35, 0.9);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+      }
+
+      th,
+      td {
+        border-right: 1px solid rgba(60, 52, 32, 0.9);
+        border-bottom: 1px solid rgba(60, 52, 32, 0.9);
+        padding: 18px 16px;
+        vertical-align: middle;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      th:last-child,
+      td:last-child {
+        border-right: 0;
+      }
+
+      thead th {
+        background: #0d141f;
+        color: var(--gold);
+        font-size: 21px;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      thead th:first-child {
+        width: 430px;
+        text-align: left;
+      }
+
+      .tier-note {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+
+      .section td {
+        background: #0b111a;
+        color: var(--cyan);
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .capability {
+        color: var(--text);
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1.32;
+      }
+
+      .hint {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.35;
+      }
+
+      .cell {
+        text-align: center;
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1.25;
+      }
+
+      .yes {
+        color: var(--gold);
+      }
+
+      .no {
+        color: var(--no);
+      }
+
+      .limit {
+        color: var(--text);
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 74px;
+        border: 1px solid var(--yes-line);
+        border-radius: 999px;
+        background: var(--yes-bg);
+        padding: 7px 13px;
+      }
+
+      .no .pill {
+        border-color: rgba(89, 100, 119, 0.36);
+        background: rgba(89, 100, 119, 0.09);
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.5;
+      }
+
+      .footer strong {
+        color: var(--gold);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <header>
+        <div>
+          <h1>Theta-Space Tier Capability Map</h1>
+          <p class="subtitle">Current membership policy view: what a user can use by tier, with Free core functions separated from paid and specialized surfaces.</p>
+        </div>
+        <div class="badge">Current policy</div>
+      </header>
+
+      <div class="legend">
+        <span><strong>YES</strong> means enabled for that tier.</span>
+        <span><strong>LIMIT</strong> means enabled with the shown cap.</span>
+        <span><strong>NO</strong> means unavailable in that tier.</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>Free<span class="tier-note">Core access</span></th>
+            <th>Contributor<span class="tier-note">Community plus</span></th>
+            <th>Professional<span class="tier-note">Business tools</span></th>
+            <th>Auditor<span class="tier-note">Auditor profile</span></th>
+            <th>Org<span class="tier-note">Org assigned</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section"><td colspan="6">Core Functions</td></tr>
+          <tr>
+            <td class="capability">Stream posting, replies, reactions<span class="hint">Main stream participation.</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Messages and group messages<span class="hint">Direct and group chat.</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Gallery<span class="hint">Upload, tag, filter, comment, delete.</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Create groups and post in groups<span class="hint">Posting requires group membership.</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Market listings<span class="hint">Create sale/service listings.</span></td>
+            <td class="cell limit"><span class="pill">6 / 14d</span></td>
+            <td class="cell limit"><span class="pill">6 / 14d</span></td>
+            <td class="cell yes"><span class="pill">UNLIMITED</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Job listings<span class="hint">Create employment listings.</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Business or org profile<span class="hint">Switchable account identity for profile use.</span></td>
+            <td class="cell yes"><span class="pill">BUSINESS</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">BUSINESS</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">ORG</span></td>
+          </tr>
+
+          <tr class="section"><td colspan="6">Expanded and Specialized Functions</td></tr>
+          <tr>
+            <td class="capability">Feed type controls<span class="hint">Change post type beyond the base stream.</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Group moderator tools<span class="hint">Assign moderators and advanced group control.</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Events creation</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Market ads</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+          <tr>
+            <td class="capability">General ad campaigns</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Fundraiser ad campaigns</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Auditor profile</td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Writers Corner</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Fundraisers</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Invites</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Mass mail</td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+            <td class="cell yes"><span class="pill">ORG MAIL</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Site moderation eligible</td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell yes"><span class="pill">YES</span></td>
+            <td class="cell no"><span class="pill">NO</span></td>
+          </tr>
+
+          <tr class="section"><td colspan="6">Tier Limits</td></tr>
+          <tr>
+            <td class="capability">Storage</td>
+            <td class="cell limit"><span class="pill">1 GB</span></td>
+            <td class="cell limit"><span class="pill">2 GB</span></td>
+            <td class="cell limit"><span class="pill">10 GB</span></td>
+            <td class="cell limit"><span class="pill">5 GB</span></td>
+            <td class="cell limit"><span class="pill">5 GB</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Group member cap</td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Market listing photo cap</td>
+            <td class="cell limit"><span class="pill">3</span></td>
+            <td class="cell limit"><span class="pill">3</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+            <td class="cell no"><span class="pill">0</span></td>
+            <td class="cell no"><span class="pill">0</span></td>
+          </tr>
+          <tr>
+            <td class="capability">Fundraisers per month</td>
+            <td class="cell no"><span class="pill">0</span></td>
+            <td class="cell no"><span class="pill">0</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+            <td class="cell no"><span class="pill">0</span></td>
+            <td class="cell limit"><span class="pill">UNLIMITED</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <span><strong>Admin portal</strong> is role-based and sits outside the member tiers.</span>
+        <span>Generated from the current Theta-Space membership policy.</span>
+      </div>
+    </div>
+  </body>
+</html>

@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
@@ -91,7 +92,7 @@ async function getViewerRole(userId: string) {
 
 async function viewerCanCreateEvent(userId: string) {
   const role = await getViewerRole(userId);
-  if (role === UserRole.ADMIN) return true;
+  if (isAdminRole(role)) return true;
 
   const access = await canUserAccessFeature(userId, "events.create");
   return access.allowed;
@@ -121,7 +122,7 @@ function canManageEvent(
   viewerRole: UserRole,
   event: { createdByUserId: string | null; moderators: Array<{ userId: string }> }
 ) {
-  return viewerRole === UserRole.ADMIN || event.createdByUserId === viewerUserId || event.moderators.some((item) => item.userId === viewerUserId);
+  return isAdminRole(viewerRole) || event.createdByUserId === viewerUserId || event.moderators.some((item) => item.userId === viewerUserId);
 }
 
 function canViewEvent(
@@ -135,7 +136,7 @@ function canViewEvent(
   }
 ) {
   return (
-    viewerRole === UserRole.ADMIN ||
+    isAdminRole(viewerRole) ||
     event.createdByUserId === viewerUserId ||
     event.moderators.some((item) => item.userId === viewerUserId) ||
     event.invitations.some((item) => item.inviteeUserId === viewerUserId) ||
@@ -256,7 +257,7 @@ async function getEventContext(viewerUserId: string, eventIdOrSlug: string) {
 export async function listEvents(viewerUserId: string) {
   const [viewerRole, canCreate] = await Promise.all([getViewerRole(viewerUserId), viewerCanCreateEvent(viewerUserId)]);
   const where =
-    viewerRole === UserRole.ADMIN
+    isAdminRole(viewerRole)
       ? {}
       : {
           OR: [

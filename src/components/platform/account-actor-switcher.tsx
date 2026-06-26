@@ -5,8 +5,14 @@ const ACCOUNT_ACTOR_COOKIE_NAME = "theta_active_actor_user_id";
 type AccountActorView = {
   userId: string;
   displayName: string;
-  kind: "PERSONAL" | "BUSINESS";
+  kind: "PERSONAL" | "BUSINESS" | "AUDITOR";
 };
+
+function actorLabel(actor: AccountActorView) {
+  if (actor.kind === "BUSINESS") return `${actor.displayName} business`;
+  if (actor.kind === "AUDITOR") return `${actor.displayName} auditor`;
+  return `${actor.displayName} personal`;
+}
 
 export function AccountActorSwitcher({
   activeActorUserId,
@@ -28,7 +34,7 @@ export function AccountActorSwitcher({
       <select onChange={(event) => switchActor(event.target.value)} value={activeActorUserId}>
         {actors.map((actor) => (
           <option key={actor.userId} value={actor.userId}>
-            {actor.kind === "BUSINESS" ? `${actor.displayName} business` : `${actor.displayName} personal`}
+            {actorLabel(actor)}
           </option>
         ))}
       </select>

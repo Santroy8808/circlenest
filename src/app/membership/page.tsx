@@ -1,12 +1,12 @@
 import { AppShell } from "@/components/platform/app-shell";
 import { MembershipMatrix } from "@/components/policy/membership-matrix";
 import { listSubscriptionPlanRules } from "@/modules/membership-policy/launch-access.service";
-import { getPublicPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
+import { getEffectivePublicPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
 
 export const dynamic = "force-dynamic";
 
 export default async function MembershipPage() {
-  const policies = getPublicPolicyMatrix();
+  const policies = await getEffectivePublicPolicyMatrix();
   const publicTiers = new Set(policies.map((policy) => policy.tier));
   const plans = (await listSubscriptionPlanRules()).filter((plan) => publicTiers.has(plan.tier));
 

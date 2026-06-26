@@ -1,8 +1,9 @@
-import { AuditSeverity, Prisma, UserRole } from "@prisma/client";
+import { AuditSeverity, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 
 const MODULE_KEY = "admin-platform-credits";
 
@@ -19,7 +20,7 @@ async function isAdminUser(userId?: string) {
     select: { role: true }
   });
 
-  return user?.role === UserRole.ADMIN;
+  return isAdminRole(user?.role);
 }
 
 function normalizeIdentifier(value: string) {

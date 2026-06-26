@@ -2,6 +2,7 @@ import { FundContributionStatus, FundraiserCategory, FundraiserStatus, Membershi
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature, getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import {
   createContributionIntentSchema,
@@ -95,7 +96,7 @@ export async function getFundraiserCreateState(userId: string): Promise<Fundrais
     canUserAccessFeature(userId, "fundraisers.create")
   ]);
 
-  if (role === UserRole.ADMIN) {
+  if (isAdminRole(role)) {
     return {
       viewerCanCreate: true,
       fundraiserLimit: null,
@@ -241,7 +242,7 @@ export async function getFundraiserDetail(viewerUserId: string, campaignIdOrSlug
     ...toFundraiserCard(campaign),
     description: campaign.description,
     endsAt: campaign.endsAt?.toISOString() ?? null,
-    viewerCanManage: role === UserRole.ADMIN || campaign.creatorUserId === viewerUserId,
+    viewerCanManage: isAdminRole(role) || campaign.creatorUserId === viewerUserId,
     contributionCount: campaign.contributions.length
   };
 

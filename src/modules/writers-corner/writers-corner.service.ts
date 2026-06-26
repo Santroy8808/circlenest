@@ -2,6 +2,7 @@ import { ManuscriptVisibility, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createChapterSchema,
@@ -112,7 +113,7 @@ async function canPublishToStorefront(userId: string) {
 
 export async function getWriterAccessState(userId: string) {
   const role = await getViewerRole(userId);
-  if (role === UserRole.ADMIN) return { canWrite: true };
+  if (isAdminRole(role)) return { canWrite: true };
   const access = await canUserAccessFeature(userId, "writers.access");
   return { canWrite: access.allowed, reason: access.reason };
 }
@@ -140,7 +141,7 @@ function toManuscriptCard(manuscript: ManuscriptPayload, viewerUserId: string, v
     subscriberCount: manuscript.subscriptions.length,
     viewerSubscribed: manuscript.subscriptions.some((subscription) => subscription.userId === viewerUserId),
     updatedAt: manuscript.updatedAt.toISOString(),
-    viewerCanEdit: viewerRole === UserRole.ADMIN || manuscript.authorUserId === viewerUserId,
+    viewerCanEdit: isAdminRole(viewerRole) || manuscript.authorUserId === viewerUserId,
     author: {
       username: manuscript.author.username,
       displayName: profileName(manuscript.author)
@@ -311,7 +312,7 @@ export async function updateManuscriptStorefrontPublishing(userId: string, manus
   });
 
   if (!manuscript) return { ok: false as const, error: "Manuscript not found." };
-  if (viewerRole !== UserRole.ADMIN && manuscript.authorUserId !== userId) {
+  if (!isAdminRole(viewerRole) && manuscript.authorUserId !== userId) {
     return { ok: false as const, error: "Only the manuscript creator can change storefront publishing." };
   }
 
@@ -380,7 +381,7 @@ export async function createChapter(userId: string, manuscriptIdOrSlug: string, 
   });
 
   if (!manuscript) return { ok: false as const, error: "Manuscript not found." };
-  if (viewerRole !== UserRole.ADMIN && manuscript.authorUserId !== userId) {
+  if (!isAdminRole(viewerRole) && manuscript.authorUserId !== userId) {
     return { ok: false as const, error: "Only the manuscript creator can add chapters." };
   }
 
@@ -520,7 +521,7 @@ export async function getChapterDetail(viewerUserId: string, chapterId: string) 
     ...toChapterCard(chapter),
     bodyText: chapter.bodyText,
     bodyHtml: chapter.bodyHtml,
-    viewerCanEdit: viewerRole === UserRole.ADMIN || chapter.manuscript.authorUserId === viewerUserId,
+    viewerCanEdit: isAdminRole(viewerRole) || chapter.manuscript.authorUserId === viewerUserId,
     manuscript: {
       id: chapter.manuscript.id,
       slug: chapter.manuscript.slug,
@@ -562,7 +563,7 @@ export async function updateChapter(userId: string, chapterId: string, input: un
   const viewerRole = await getViewerRole(userId);
 
   if (!existing) return { ok: false as const, error: "Chapter not found." };
-  if (viewerRole !== UserRole.ADMIN && existing.manuscript.authorUserId !== userId) {
+  if (!isAdminRole(viewerRole) && existing.manuscript.authorUserId !== userId) {
     return { ok: false as const, error: "Only the manuscript creator can edit this chapter." };
   }
 

@@ -7,6 +7,7 @@ import { AccountActorSwitcher } from "@/components/platform/account-actor-switch
 import { AndroidAppControls } from "@/components/platform/android-app-controls";
 import { getAccountActorPicker } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
+import { isAdminRole } from "@/lib/platform/roles";
 import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
@@ -202,13 +203,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const isAdmin = session?.user?.role === UserRole.ADMIN;
+  const isAdmin = isAdminRole(session?.user?.role);
   const actorPicker = isSignedIn && session?.user?.id
     ? await getAccountActorPicker(session.user.id)
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
   const activeActorUserId = actorPicker.activeActorUserId || session?.user?.id;
   const isBusinessAccount =
     actorPicker.activeKind === "BUSINESS" ||
+    actorPicker.activeKind === "AUDITOR" ||
     session?.user?.tier === MembershipTier.PROFESSIONAL ||
     session?.user?.tier === MembershipTier.ORG;
   const isAndroidApp = isAndroidAppRequest();

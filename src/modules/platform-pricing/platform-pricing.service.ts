@@ -1,7 +1,8 @@
-import { AdPlacement, PlatformCostSubject, Prisma, UserRole } from "@prisma/client";
+import { AdPlacement, PlatformCostSubject, Prisma } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { adPlacementLabels } from "@/modules/ads-credits/types";
 import {
   adPlacementCostSubjects,
@@ -238,7 +239,7 @@ async function isAdminUser(userId?: string) {
     select: { role: true }
   });
 
-  return user?.role === UserRole.ADMIN;
+  return isAdminRole(user?.role);
 }
 
 export async function ensureDefaultPlatformCostRules() {

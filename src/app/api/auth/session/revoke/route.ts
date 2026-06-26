@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
 import { auth } from "@/auth";
+import { isAdminRole } from "@/lib/platform/roles";
 import { revokeUserSessions } from "@/modules/auth-security/auth-security.service";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
 
-  if (!session?.user || session.user.revoked || session.user.role !== UserRole.ADMIN) {
+  if (!session?.user || session.user.revoked || !isAdminRole(session.user.role)) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   }
 

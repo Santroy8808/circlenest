@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { GroupAssetKind, GroupMemberRole, GroupVisibility, MediaVisibility, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
 import {
   completeGroupAssetUploadSchema,
@@ -71,13 +72,13 @@ export async function getGroupMediaContext(viewerUserId: string, groupIdOrSlug: 
 
   const viewerRole = viewer?.role ?? UserRole.MEMBER;
   const membership = group.members.find((member) => member.userId === viewerUserId);
-  const canView = group.visibility === GroupVisibility.PUBLIC || viewerRole === UserRole.ADMIN || Boolean(membership);
+  const canView = group.visibility === GroupVisibility.PUBLIC || isAdminRole(viewerRole) || Boolean(membership);
   const canModerate =
-    viewerRole === UserRole.ADMIN ||
+    isAdminRole(viewerRole) ||
     membership?.role === GroupMemberRole.OWNER ||
     membership?.role === GroupMemberRole.MODERATOR;
   const canUpload = canModerate || Boolean(membership?.isProvider);
-  const canComment = viewerRole === UserRole.ADMIN || Boolean(membership);
+  const canComment = isAdminRole(viewerRole) || Boolean(membership);
 
   return {
     group,

@@ -2,12 +2,26 @@ import { FeedbackTicketStatus, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import type { AdminActionCard, AdminFeedbackTicketView, AdminLogView, AdminPortalView } from "@/modules/admin-moderation/types";
 import { getPlatformActivitySummary } from "@/modules/platform-activity/platform-activity.service";
 
 const MODULE_KEY = "admin-moderation";
 
 export const adminActionCards: AdminActionCard[] = [
+  {
+    key: "tier-policy",
+    title: "Global Tier Permissions",
+    description: "God-only editor for global tier capability assignments. Changes affect every account on that membership tier.",
+    risk: "high",
+    keywords: ["god", "tier", "membership", "global permissions", "policy matrix", "free", "auditor", "admin"],
+    steps: [
+      "Review the current tier capability grid.",
+      "Click a Yes or No cell for the exact tier and privilege.",
+      "Confirm the global impact and enter the God account password.",
+      "Save the override and write a critical audit log."
+    ]
+  },
   {
     key: "feature-flags",
     title: "Feature Flags",
@@ -137,7 +151,7 @@ export async function isAdminUser(userId?: string) {
     select: { role: true }
   });
 
-  return user?.role === UserRole.ADMIN;
+  return isAdminRole(user?.role);
 }
 
 function toAuditLogView(log: {

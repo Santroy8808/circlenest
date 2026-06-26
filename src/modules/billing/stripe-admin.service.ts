@@ -1,8 +1,9 @@
-import { MembershipTier, Prisma, StripeIntegrationMode, UserRole } from "@prisma/client";
+import { MembershipTier, Prisma, StripeIntegrationMode } from "@prisma/client";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { readPlatformEnv } from "@/lib/platform/env";
+import { isAdminRole } from "@/lib/platform/roles";
 import { getStripeRuntimeConfig } from "@/lib/platform/stripe";
 import { diagnostics } from "@/lib/platform/logging";
 import { ensureDefaultStripeCreditPackages, listStripeCreditPackages } from "@/modules/billing/stripe-credit-checkout.service";
@@ -46,7 +47,7 @@ async function isAdminUser(userId?: string) {
     select: { role: true }
   });
 
-  return user?.role === UserRole.ADMIN;
+  return isAdminRole(user?.role);
 }
 
 function maskSecret(value?: string | null) {

@@ -16,6 +16,7 @@ import {
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   adPlacementLabels,
@@ -553,7 +554,7 @@ async function requireAdminActor(actorUserId: string) {
     select: { role: true }
   });
 
-  return actor?.role === UserRole.ADMIN;
+  return isAdminRole(actor?.role);
 }
 
 export async function getAdScheduleAdminView(): Promise<AdScheduleAdminView> {

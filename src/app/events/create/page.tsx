@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { UserRole } from "@prisma/client";
 import { auth } from "@/auth";
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { AppShell } from "@/components/platform/app-shell";
+import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 
 export default async function CreateEventPage() {
@@ -13,7 +13,7 @@ export default async function CreateEventPage() {
   }
 
   const access =
-    session.user.role === UserRole.ADMIN
+    isAdminRole(session.user.role)
       ? { allowed: true, reason: "Admin role grants this platform control." }
       : await canUserAccessFeature(session.user.id, "events.create");
 

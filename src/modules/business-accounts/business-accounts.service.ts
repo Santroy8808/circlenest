@@ -1,9 +1,9 @@
-import { BusinessProfileKind, MembershipTier, UserRole } from "@prisma/client";
+import { BusinessProfileKind, MembershipTier, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 
 export const ACCOUNT_ACTOR_COOKIE_NAME = "theta_active_actor_user_id";
 
-export type AccountActorKind = "PERSONAL" | "BUSINESS";
+export type AccountActorKind = "PERSONAL" | "BUSINESS" | "AUDITOR";
 
 export type AccountActorView = {
   userId: string;
@@ -59,6 +59,7 @@ function actorView(input: {
     username: string;
     profile: { displayName: string | null; avatarUrl: string | null } | null;
     businessProfile?: { id: string; slug: string } | null;
+    auditorProfile?: { id: string } | null;
   };
   kind: AccountActorKind;
 }): AccountActorView {
@@ -68,7 +69,7 @@ function actorView(input: {
     displayName: profileName(input.user),
     avatarUrl: input.user.profile?.avatarUrl ?? null,
     kind: input.kind,
-    businessProfileId: input.user.businessProfile?.id,
+    businessProfileId: input.user.businessProfile?.id ?? input.user.auditorProfile?.id,
     businessSlug: input.user.businessProfile?.slug
   };
 }
@@ -78,6 +79,22 @@ export async function listAccountActors(privateUserId: string): Promise<AccountA
     where: { id: privateUserId },
     include: {
       profile: true,
+      privateAuditorAccounts: {
+        where: { active: true },
+        include: {
+          auditorUser: {
+            include: {
+              profile: true,
+              auditorProfile: {
+                select: {
+                  id: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: "asc" }
+      },
       privateBusinessAccounts: {
         where: { active: true },
         include: {
@@ -102,6 +119,7 @@ export async function listAccountActors(privateUserId: string): Promise<AccountA
 
   return [
     actorView({ user, kind: "PERSONAL" }),
+    ...user.privateAuditorAccounts.map((account) => actorView({ user: account.auditorUser, kind: "AUDITOR" })),
     ...user.privateBusinessAccounts.map((account) => actorView({ user: account.businessUser, kind: "BUSINESS" }))
   ];
 }
@@ -109,6 +127,21 @@ export async function listAccountActors(privateUserId: string): Promise<AccountA
 export async function resolveAccountActorUserId(privateUserId: string, requestedActorUserId?: string | null) {
   if (!requestedActorUserId || requestedActorUserId === privateUserId) {
     return { ok: true as const, actorUserId: privateUserId, kind: "PERSONAL" as const };
+  }
+
+  const auditorAccount = await prisma.auditorAccount.findFirst({
+    where: {
+      privateUserId,
+      auditorUserId: requestedActorUserId,
+      active: true
+    },
+    select: {
+      auditorUserId: true
+    }
+  });
+
+  if (auditorAccount) {
+    return { ok: true as const, actorUserId: auditorAccount.auditorUserId, kind: "AUDITOR" as const };
   }
 
   const account = await prisma.businessAccount.findFirst({
@@ -127,6 +160,157 @@ export async function resolveAccountActorUserId(privateUserId: string, requested
   }
 
   return { ok: true as const, actorUserId: account.businessUserId, kind: "BUSINESS" as const };
+}
+
+export async function getAuditorAccountForOwner(privateUserId: string) {
+  return prisma.auditorAccount.findFirst({
+    where: {
+      privateUserId,
+      active: true
+    },
+    include: {
+      auditorUser: {
+        include: {
+          profile: true,
+          scientologyProfile: true,
+          auditorProfile: true
+        }
+      }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+}
+
+async function uniqueAccountEmail(prefix: string, username: string) {
+  let candidate = `${prefix}+${username}@theta-space.local`;
+  let index = 2;
+
+  while (await prisma.user.findUnique({ where: { email: candidate }, select: { id: true } })) {
+    candidate = `${prefix}+${username}-${index}@theta-space.local`;
+    index += 1;
+  }
+
+  return candidate;
+}
+
+export async function ensureAuditorAccountForOwner(
+  privateUserId: string,
+  seed: {
+    practiceName: string;
+    location?: string | null;
+  }
+) {
+  const existing = await getAuditorAccountForOwner(privateUserId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const [privateUser, legacyProfile] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: privateUserId },
+      include: {
+        profile: true,
+        scientologyProfile: true
+      }
+    }),
+    prisma.auditorProfile.findUnique({
+      where: { userId: privateUserId }
+    })
+  ]);
+
+  if (!privateUser) {
+    throw new Error("Private account was not found.");
+  }
+
+  const practiceName = seed.practiceName || legacyProfile?.practiceName || `${privateUser.username} auditor`;
+  const username = await uniqueUsername(practiceName);
+  const email = await uniqueAccountEmail("auditor", username);
+
+  return prisma.$transaction(async (tx) => {
+    const auditorUser = await tx.user.create({
+      data: {
+        email,
+        username,
+        role: UserRole.MEMBER,
+        emailVerified: new Date(),
+        membership: {
+          create: {
+            tier: MembershipTier.FREE
+          }
+        },
+        profile: {
+          create: {
+            displayName: practiceName,
+            tagline: seed.location || legacyProfile?.location || privateUser.profile?.tagline || null,
+            avatarUrl: privateUser.profile?.avatarUrl ?? null,
+            bannerUrl: privateUser.profile?.bannerUrl ?? null
+          }
+        },
+        ...(privateUser.scientologyProfile
+          ? {
+              scientologyProfile: {
+                create: {
+                  classification: privateUser.scientologyProfile.classification,
+                  orgName: privateUser.scientologyProfile.orgName,
+                  lastServiceName: privateUser.scientologyProfile.lastServiceName,
+                  lastServiceAt: privateUser.scientologyProfile.lastServiceAt,
+                  iasMembershipLast6: privateUser.scientologyProfile.iasMembershipLast6,
+                  trainingLevel: privateUser.scientologyProfile.trainingLevel,
+                  processingStatus: privateUser.scientologyProfile.processingStatus,
+                  courseCompletions: privateUser.scientologyProfile.courseCompletions ?? Prisma.JsonNull,
+                  introServices: privateUser.scientologyProfile.introServices ?? Prisma.JsonNull,
+                  technicalCourses: privateUser.scientologyProfile.technicalCourses ?? Prisma.JsonNull,
+                  specialistCourses: privateUser.scientologyProfile.specialistCourses ?? Prisma.JsonNull,
+                  additionalProcessing: privateUser.scientologyProfile.additionalProcessing ?? Prisma.JsonNull,
+                  goodStandingAttested: privateUser.scientologyProfile.goodStandingAttested,
+                  goodStandingUpdatedAt: privateUser.scientologyProfile.goodStandingUpdatedAt,
+                  educationNotes: privateUser.scientologyProfile.educationNotes,
+                  visibility: privateUser.scientologyProfile.visibility
+                }
+              }
+            }
+          : {})
+      }
+    });
+
+    if (legacyProfile) {
+      await tx.auditorProfile.update({
+        where: { id: legacyProfile.id },
+        data: {
+          userId: auditorUser.id,
+          practiceName
+        }
+      });
+    }
+
+    if (!legacyProfile) {
+      await tx.auditorProfile.create({
+        data: {
+          userId: auditorUser.id,
+          practiceName,
+          location: seed.location || null,
+          active: true
+        }
+      });
+    }
+
+    return tx.auditorAccount.create({
+      data: {
+        privateUserId,
+        auditorUserId: auditorUser.id
+      },
+      include: {
+        auditorUser: {
+          include: {
+            profile: true,
+            scientologyProfile: true,
+            auditorProfile: true
+          }
+        }
+      }
+    });
+  });
 }
 
 export async function getBusinessAccountForOwner(privateUserId: string) {

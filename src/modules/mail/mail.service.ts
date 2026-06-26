@@ -12,6 +12,7 @@ import {
 import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { isAdminRole } from "@/lib/platform/roles";
 import {
   completeMailUploadSchema,
   createMailUploadIntentSchema,
@@ -176,7 +177,7 @@ async function getMassRecipientCap(userId: string) {
   ]);
 
   if (!user) return 1;
-  if (user.role === UserRole.ADMIN) return config.adminMassRecipientCap;
+  if (isAdminRole(user.role)) return config.adminMassRecipientCap;
   if (user.membership?.tier === MembershipTier.ORG) return config.professionalMassRecipientCap;
 
   return user.membership?.tier === MembershipTier.PROFESSIONAL ? config.professionalMassRecipientCap : 1;
@@ -195,7 +196,7 @@ async function getSenderTier(userId: string) {
     }
   });
 
-  return user?.role === UserRole.ADMIN ? MembershipTier.PROFESSIONAL : user?.membership?.tier ?? MembershipTier.FREE;
+  return isAdminRole(user?.role) ? MembershipTier.PROFESSIONAL : user?.membership?.tier ?? MembershipTier.FREE;
 }
 
 async function assertThreadAccess(userId: string, threadId: string) {
