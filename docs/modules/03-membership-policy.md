@@ -4,6 +4,8 @@
 
 Define which account tiers can see, create, moderate, invite, advertise, and manage resources.
 
+Free-tier access is anchored by `docs/core-functions.md`. The Free tier must keep Stream posting, group creation/posting, messages and group messages, Market and job listings, business profile/account switching, and Gallery.
+
 ## User-Facing Surfaces
 
 - `/membership` public membership comparison.
@@ -84,7 +86,7 @@ These may be replaced or supplemented by Admin Stripe Setup for saved keys and p
 
 ## Smoke Checklist
 
-- Tier matrix tests cover Free, Contributor, Professional, Auditor, Admin.
+- Tier matrix checks cover Free, Contributor, Professional, Auditor, Admin, and confirm Free keeps the core functions in `docs/core-functions.md`.
 - Locked controls never submit privileged API actions.
 - `/settings/subscription` shows only public paid tiers plus hidden Org when admin-approved.
 - Checkout refuses tiers without Stripe price IDs instead of faking success.

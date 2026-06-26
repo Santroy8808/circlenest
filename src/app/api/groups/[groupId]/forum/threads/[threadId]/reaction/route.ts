@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { reactToGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
 export async function POST(request: NextRequest, { params }: { params: { groupId: string; threadId: string } }) {
@@ -10,7 +11,8 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
   }
 
   const body = await request.json();
-  const result = await reactToGroupForumThread(session.user.id, params.groupId, params.threadId, body);
+  const actor = await getActiveAccountActor(session.user.id);
+  const result = await reactToGroupForumThread(actor.actorUserId, params.groupId, params.threadId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { endGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
 export async function POST(_request: Request, { params }: { params: { groupId: string; threadId: string } }) {
@@ -9,7 +10,8 @@ export async function POST(_request: Request, { params }: { params: { groupId: s
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const result = await endGroupForumThread(session.user.id, params.groupId, params.threadId);
+  const actor = await getActiveAccountActor(session.user.id);
+  const result = await endGroupForumThread(actor.actorUserId, params.groupId, params.threadId);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

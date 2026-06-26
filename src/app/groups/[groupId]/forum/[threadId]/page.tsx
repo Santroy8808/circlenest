@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GroupForumThreadClient } from "@/components/groups/forum/group-forum-thread-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
 export default async function GroupForumThreadPage({ params }: { params: { groupId: string; threadId: string } }) {
@@ -11,7 +12,8 @@ export default async function GroupForumThreadPage({ params }: { params: { group
     redirect(`/login?callbackUrl=/groups/${params.groupId}/forum/${params.threadId}`);
   }
 
-  const result = await getGroupForumThread(session.user.id, params.groupId, params.threadId);
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const result = await getGroupForumThread(activeActor.actorUserId, params.groupId, params.threadId);
 
   if (!result.ok) {
     notFound();

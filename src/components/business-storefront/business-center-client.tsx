@@ -55,7 +55,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
   const [form, setForm] = useState<FormState>(() => initialForm(businessCenter.profile));
   const [heroUpload, setHeroUpload] = useState<HeroUploadState>({ fileName: "", progress: 0, status: "idle" });
   const [message, setMessage] = useState("");
-  const [error, setError] = useState(businessCenter.canManage ? "" : businessCenter.reason ?? "Professional access required.");
+  const [error, setError] = useState(businessCenter.canManage ? "" : businessCenter.reason ?? "Business profile access required.");
   const [isPending, startTransition] = useTransition();
   const isOrgProfile = businessCenter.profileKind === BusinessProfileKind.ORG;
   const centerLabel = isOrgProfile ? "Org Center" : "Business Center";
@@ -173,7 +173,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
     return (
       <section className="surface rounded-md p-8 text-center">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{centerLabel}</p>
-        <h1 className="mt-3 text-3xl font-semibold">{isOrgProfile ? "Org access required" : "Professional access required"}</h1>
+        <h1 className="mt-3 text-3xl font-semibold">{isOrgProfile ? "Org access required" : "Business profile access required"}</h1>
         <p className="mx-auto mt-3 max-w-xl leading-7 text-[var(--muted)]">{error}</p>
         <Link className="btn-secondary mt-5 inline-block" href="/production-zone">
           Back to Production Zone
@@ -192,7 +192,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
               {isOrgProfile
                 ? "Build an org profile with contact routing, blogs, events, fundraisers, and org communication tools."
-                : "Build a Professional public storefront for non-members while keeping control inside Theta-Space."}
+                : "Build a public storefront for non-members while keeping control inside Theta-Space."}
             </p>
           </div>
           {profile?.publicStorefrontEnabled ? (

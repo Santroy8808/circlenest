@@ -3,7 +3,9 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
+import { AccountActorSwitcher } from "@/components/platform/account-actor-switcher";
 import { AndroidAppControls } from "@/components/platform/android-app-controls";
+import { getAccountActorPicker } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
@@ -201,13 +203,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = session?.user?.role === UserRole.ADMIN;
-  const isBusinessAccount = session?.user?.tier === MembershipTier.PROFESSIONAL || session?.user?.tier === MembershipTier.ORG;
+  const actorPicker = isSignedIn && session?.user?.id
+    ? await getAccountActorPicker(session.user.id)
+    : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
+  const activeActorUserId = actorPicker.activeActorUserId || session?.user?.id;
+  const isBusinessAccount =
+    actorPicker.activeKind === "BUSINESS" ||
+    session?.user?.tier === MembershipTier.PROFESSIONAL ||
+    session?.user?.tier === MembershipTier.ORG;
   const isAndroidApp = isAndroidAppRequest();
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp);
   const [counts, rightStreamAds, shellProfile] = await Promise.all([
-    getUnreadCounts(session?.user?.id),
-    showAdRail ? getRightStreamAds(isSignedIn, session?.user?.id) : Promise.resolve([]),
-    getShellProfile(session?.user?.id)
+    getUnreadCounts(activeActorUserId),
+    showAdRail ? getRightStreamAds(isSignedIn, activeActorUserId) : Promise.resolve([]),
+    getShellProfile(activeActorUserId)
   ]);
   const navSections = getNavSections({ isAdmin, isBusinessAccount, isSignedIn });
   const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
@@ -231,6 +240,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{isSignedIn ? "Member control panel" : "Private membership platform"}</p>
           </div>
         </div>
+        {isSignedIn ? <AccountActorSwitcher activeActorUserId={actorPicker.activeActorUserId} actors={actorPicker.actors} /> : null}
         <ControlPanelNav counts={counts} sections={navSections} />
         <div className="mt-8 rounded-md border border-[var(--line)] bg-black/16 p-3 text-xs leading-5 text-[var(--muted)]">
           {isAdmin ? "Production source remains untouched until cutover and rollback archive are ready." : "Theta-Space member controls."}

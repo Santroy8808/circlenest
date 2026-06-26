@@ -486,6 +486,8 @@ model User {
   jobListings                     JobListing[]                       @relation("JobListingEmployer")
   auditorProfile                  AuditorProfile?
   businessProfile                 BusinessProfile?                   @relation("BusinessProfileOwner")
+  privateBusinessAccounts         BusinessAccount[]                   @relation("BusinessAccountPrivateOwner")
+  businessAccountOwnerLink        BusinessAccount?                    @relation("BusinessAccountActor")
   adCampaigns                     AdCampaign[]                       @relation("AdCampaignOwner")
   adCreditLedgerEntries           AdCreditLedgerEntry[]
   adDeliveryLogs                  AdDeliveryLog[]                    @relation("AdDeliveryViewer")
@@ -1701,6 +1703,20 @@ model BusinessProfile {
   articles                BusinessArticle[]
 
   @@index([publicStorefrontEnabled, updatedAt])
+}
+
+model BusinessAccount {
+  id             String   @id @default(cuid())
+  privateUserId  String
+  businessUserId String   @unique
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  privateUser    User     @relation("BusinessAccountPrivateOwner", fields: [privateUserId], references: [id], onDelete: Cascade)
+  businessUser   User     @relation("BusinessAccountActor", fields: [businessUserId], references: [id], onDelete: Cascade)
+
+  @@unique([privateUserId, businessUserId])
+  @@index([privateUserId, active])
 }
 
 model BusinessInquiry {

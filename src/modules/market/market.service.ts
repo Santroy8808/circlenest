@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { MarketListingCategory, MarketListingStatus, MediaVisibility, MembershipTier, Prisma, UserRole } from "@prisma/client";
+import { MarketListingCategory, MarketListingStatus, MediaVisibility, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
@@ -387,7 +387,7 @@ export async function createMarketListing(userId: string, input: unknown) {
   }
 
   const policy = await getEffectivePolicyForUser(userId);
-  const contributorLimited = policy?.tier === MembershipTier.CONTRIBUTOR;
+  const cappedListingWindow = policy?.limits.marketListingsPer14Days !== null;
   const listing = await prisma.marketListing.create({
     data: {
       slug: await uniqueMarketSlug(parsed.data.title),
@@ -397,7 +397,7 @@ export async function createMarketListing(userId: string, input: unknown) {
       category: parsed.data.category,
       location: parsed.data.location || null,
       priceCents: parsed.data.priceCents ?? null,
-      expiresAt: contributorLimited ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
+      expiresAt: cappedListingWindow ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
       photos: {
         create: parsed.data.photoMediaAssetIds.map((mediaAssetId, index) => ({
           mediaAssetId,

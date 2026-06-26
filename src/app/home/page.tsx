@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FeedClient } from "@/components/feed/feed-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
@@ -13,14 +14,21 @@ export default async function AppHomePage() {
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/home");
   }
-  const [posts, profile, latestAlert, scienceProfile] = await Promise.all([
-    safeListFeedPosts(20, session.user.id),
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const [posts, profile, actorUser, latestAlert, scienceProfile, privateProfile] = await Promise.all([
+    safeListFeedPosts(20, activeActor.actorUserId),
     prisma.profile.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: activeActor.actorUserId },
       select: {
         avatarUrl: true,
         bannerUrl: true,
         displayName: true
+      }
+    }),
+    prisma.user.findUnique({
+      where: { id: activeActor.actorUserId },
+      select: {
+        username: true
       }
     }),
     prisma.alert.findFirst({
@@ -40,10 +48,14 @@ export default async function AppHomePage() {
     prisma.scientologyProfile.findUnique({
       where: { userId: session.user.id },
       select: { id: true }
+    }),
+    prisma.profile.findUnique({
+      where: { userId: session.user.id },
+      select: { userId: true }
     })
   ]);
 
-  if (!scienceProfile && profile) {
+  if (!scienceProfile && privateProfile) {
     redirect("/profile/edit?next=/profile/scientology");
   }
 
@@ -53,7 +65,7 @@ export default async function AppHomePage() {
     placement: AdPlacement.RESERVED_STREAM,
     limit: 1
   });
-  const displayName = profile?.displayName ?? session.user.name ?? session.user.username;
+  const displayName = profile?.displayName ?? (activeActor.actorUserId === session.user.id ? session.user.name : null) ?? actorUser?.username ?? session.user.username;
 
   return (
     <AppShell>
@@ -77,10 +89,10 @@ export default async function AppHomePage() {
       <section className="mt-5">
         <FeedClient
           currentAuthor={{
-            id: session.user.id,
+            id: activeActor.actorUserId,
             avatarUrl: profile?.avatarUrl,
             displayName,
-            username: session.user.username
+            username: actorUser?.username ?? session.user.username
           }}
           initialReservedStreamAds={reservedStreamAds}
           initialPosts={posts}

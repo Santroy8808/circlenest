@@ -1,6 +1,7 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getR2Client, readR2Config } from "@/lib/platform/r2";
 import { createGroupAssetUploadIntentSchema, MAX_GROUP_STORAGE_BYTES } from "@/modules/group-media-docs/types";
 import { currentGroupStorageBytes, getGroupMediaContext } from "@/modules/group-media-docs/group-media-docs.service";
@@ -12,7 +13,8 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const context = await getGroupMediaContext(session.user.id, params.groupId);
+  const actor = await getActiveAccountActor(session.user.id);
+  const context = await getGroupMediaContext(actor.actorUserId, params.groupId);
 
   if (!context?.canView) {
     return NextResponse.json({ error: "Group not found." }, { status: 404 });

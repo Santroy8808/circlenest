@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { createGalleryUploadIntent } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export async function POST(request: NextRequest) {
@@ -9,8 +10,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const body = await request.json();
-  const result = await createGalleryUploadIntent(session.user.id, body);
+  const result = await createGalleryUploadIntent(actor.actorUserId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

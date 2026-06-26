@@ -17,7 +17,7 @@ export function CreateJobListingForm({ viewerCanCreate }: { viewerCanCreate: boo
   const [compensation, setCompensation] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactInstructions, setContactInstructions] = useState("");
-  const [error, setError] = useState(viewerCanCreate ? "" : "Only Professional accounts can create job listings.");
+  const [error, setError] = useState(viewerCanCreate ? "" : "This account cannot create job listings.");
   const [isPending, startTransition] = useTransition();
 
   function submitJob(event: React.FormEvent<HTMLFormElement>) {
@@ -71,7 +71,7 @@ export function CreateJobListingForm({ viewerCanCreate }: { viewerCanCreate: boo
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Find a Job</p>
         <h1 className="mt-3 text-3xl font-semibold">Create a job listing</h1>
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          Professional accounts can post opportunities. Members browse and open the detail page for contact info.
+          Members and business accounts can post opportunities. Members browse and open the detail page for contact info.
         </p>
       </div>
 

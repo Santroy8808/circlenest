@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FeedClient } from "@/components/feed/feed-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { prisma } from "@/lib/platform/db";
 import { safeGetFeedPostThread } from "@/modules/feed-stream/feed-stream.service";
 
 export default async function FeedPostThreadPage({
@@ -18,7 +20,14 @@ export default async function FeedPostThreadPage({
     redirect(`/login?callbackUrl=/posts/${params.postId}`);
   }
 
-  const post = await safeGetFeedPostThread(params.postId);
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const [post, actorUser] = await Promise.all([
+    safeGetFeedPostThread(params.postId),
+    prisma.user.findUnique({
+      where: { id: activeActor.actorUserId },
+      include: { profile: true }
+    })
+  ]);
 
   if (!post) {
     notFound();
@@ -33,9 +42,10 @@ export default async function FeedPostThreadPage({
       </div>
       <FeedClient
         currentAuthor={{
-          id: session.user.id,
-          displayName: session.user.name ?? session.user.username,
-          username: session.user.username
+          id: activeActor.actorUserId,
+          avatarUrl: actorUser?.profile?.avatarUrl,
+          displayName: actorUser?.profile?.displayName ?? actorUser?.username ?? session.user.name ?? session.user.username,
+          username: actorUser?.username ?? session.user.username
         }}
         defaultExpanded
         initialPosts={[post]}

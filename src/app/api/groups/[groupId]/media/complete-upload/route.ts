@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { completeGroupAssetUpload } from "@/modules/group-media-docs/group-media-docs.service";
 
 export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
@@ -10,7 +11,8 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
   }
 
   const body = await request.json();
-  const result = await completeGroupAssetUpload(session.user.id, params.groupId, body);
+  const actor = await getActiveAccountActor(session.user.id);
+  const result = await completeGroupAssetUpload(actor.actorUserId, params.groupId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

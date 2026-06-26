@@ -3,6 +3,7 @@ import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { sendSmtpMail } from "@/lib/platform/smtp";
+import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
@@ -368,10 +369,44 @@ async function ensureStorefrontInquirySender(tx: Prisma.TransactionClient) {
 }
 
 export async function getBusinessCenterView(userId: string): Promise<BusinessCenterView> {
-  const [access, profile] = await Promise.all([
-    canManageBusinessProfile(userId),
-    prisma.businessProfile.findUnique({
-      where: { ownerUserId: userId },
+  const access = await canManageBusinessProfile(userId);
+  const linkedAccount = await getBusinessAccountForOwner(userId);
+  const profileOwnerUserId = linkedAccount?.businessUserId ?? userId;
+  let profile = await prisma.businessProfile.findUnique({
+    where: { ownerUserId: profileOwnerUserId },
+    include: {
+      owner: {
+        include: {
+          profile: true
+        }
+      },
+      articles: {
+        include: {
+          coverMediaAsset: true
+        },
+        orderBy: {
+          createdAt: "desc"
+        },
+        take: 12
+      },
+      inquiries: {
+        orderBy: {
+          createdAt: "desc"
+        },
+        take: 20
+      }
+    }
+  });
+
+  if (access.allowed && profile && !linkedAccount && profile.ownerUserId === userId) {
+    const account = await ensureBusinessAccountForOwner(userId, {
+      businessName: profile.businessName,
+      tagline: profile.tagline,
+      logoUrl: profile.logoUrl,
+      bannerUrl: profile.bannerUrl
+    });
+    profile = await prisma.businessProfile.findUnique({
+      where: { ownerUserId: account.businessUserId },
       include: {
         owner: {
           include: {
@@ -394,8 +429,8 @@ export async function getBusinessCenterView(userId: string): Promise<BusinessCen
           take: 20
         }
       }
-    })
-  ]);
+    });
+  }
 
   const [marketListings, storefrontBlogs] = profile
     ? await Promise.all([
@@ -423,11 +458,18 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
   const access = await canManageBusinessProfile(userId);
 
   if (!access.allowed) {
-    return { ok: false as const, error: access.reason ?? "Professional access required." };
+    return { ok: false as const, error: access.reason ?? "Business profile access required." };
   }
 
+  const account = await ensureBusinessAccountForOwner(userId, {
+    businessName: parsed.data.businessName,
+    tagline: parsed.data.tagline,
+    logoUrl: parsed.data.logoUrl,
+    bannerUrl: parsed.data.bannerUrl
+  });
+  const businessUserId = account.businessUserId;
   const existing = await prisma.businessProfile.findUnique({
-    where: { ownerUserId: userId },
+    where: { ownerUserId: businessUserId },
     select: { id: true, slug: true }
   });
   const profileKind = await getBusinessProfileKind(userId);
@@ -473,7 +515,7 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
         data: {
           ...data,
           slug: await uniqueBusinessSlug(parsed.data.businessName),
-          ownerUserId: userId
+          ownerUserId: businessUserId
         },
         include: {
           owner: {
@@ -492,9 +534,26 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
           }
         }
       });
+  await prisma.profile.upsert({
+    where: { userId: businessUserId },
+    update: {
+      displayName: parsed.data.businessName,
+      tagline: parsed.data.tagline || null,
+      avatarUrl: parsed.data.logoUrl || null,
+      bannerUrl: parsed.data.bannerUrl || null
+    },
+    create: {
+      userId: businessUserId,
+      displayName: parsed.data.businessName,
+      tagline: parsed.data.tagline || null,
+      avatarUrl: parsed.data.logoUrl || null,
+      bannerUrl: parsed.data.bannerUrl || null
+    }
+  });
 
   await diagnostics.info(MODULE_KEY, "Business profile saved.", {
     userId,
+    businessUserId,
     businessProfileId: profile.id,
     profileKind: profile.profileKind,
     publicStorefrontEnabled: profile.publicStorefrontEnabled
@@ -577,11 +636,13 @@ export async function createBusinessArticle(userId: string, input: unknown) {
   const access = await canManageBusinessProfile(userId);
 
   if (!access.allowed) {
-    return { ok: false as const, error: access.reason ?? "Professional access required." };
+    return { ok: false as const, error: access.reason ?? "Business profile access required." };
   }
 
+  const account = await getBusinessAccountForOwner(userId);
+  const businessUserId = account?.businessUserId ?? userId;
   const profile = await prisma.businessProfile.findUnique({
-    where: { ownerUserId: userId },
+    where: { ownerUserId: businessUserId },
     select: {
       id: true,
       slug: true
@@ -600,7 +661,7 @@ export async function createBusinessArticle(userId: string, input: unknown) {
 
   const article = await prisma.businessArticle.create({
     data: {
-      ownerUserId: userId,
+      ownerUserId: businessUserId,
       businessProfileId: profile.id,
       coverMediaAssetId: cover.mediaAssetId,
       slug: await uniqueArticleSlug(parsed.data.title),
@@ -616,6 +677,7 @@ export async function createBusinessArticle(userId: string, input: unknown) {
 
   await diagnostics.info(MODULE_KEY, "Business article created.", {
     userId,
+    businessUserId,
     businessProfileId: profile.id,
     businessArticleId: article.id
   });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getChatThread } from "@/modules/chat-messages/chat-messages.service";
 
 export async function GET(_request: Request, { params }: { params: { threadId: string } }) {
@@ -9,7 +10,8 @@ export async function GET(_request: Request, { params }: { params: { threadId: s
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const result = await getChatThread(session.user.id, params.threadId);
+  const actor = await getActiveAccountActor(session.user.id);
+  const result = await getChatThread(actor.actorUserId, params.threadId);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 404 });

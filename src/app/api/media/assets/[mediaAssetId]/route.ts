@@ -2,6 +2,7 @@ import { Readable } from "stream";
 import { MediaVisibility } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { getR2Object } from "@/lib/platform/r2";
 
@@ -20,6 +21,7 @@ export async function GET(_request: NextRequest, { params }: { params: { mediaAs
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const asset = await prisma.mediaAsset.findUnique({
     where: { id: params.mediaAssetId },
     select: {
@@ -35,7 +37,7 @@ export async function GET(_request: NextRequest, { params }: { params: { mediaAs
     return NextResponse.json({ error: "Media not found." }, { status: 404 });
   }
 
-  const isOwner = asset.ownerUserId === session.user.id;
+  const isOwner = asset.ownerUserId === actor.actorUserId;
   const isVisibleToMember = asset.visibility === MediaVisibility.MEMBERS || asset.visibility === MediaVisibility.PUBLIC;
 
   if (!isOwner && !isVisibleToMember) {

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GroupsDirectoryClient } from "@/components/groups/groups-directory-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { safeListGroups } from "@/modules/groups/groups.service";
 import { groupDirectoryModeSchema, type GroupDirectoryMode } from "@/modules/groups/types";
 
@@ -12,9 +13,10 @@ export default async function GroupsPage({ searchParams }: { searchParams: { mod
     redirect("/login?callbackUrl=/groups");
   }
 
+  const activeActor = await getActiveAccountActor(session.user.id);
   const mode = groupDirectoryModeSchema.catch("joined").parse(searchParams.mode ?? "joined") as GroupDirectoryMode;
   const groups = await safeListGroups({
-    viewerUserId: session.user.id,
+    viewerUserId: activeActor.actorUserId,
     mode,
     query: searchParams.q
   });

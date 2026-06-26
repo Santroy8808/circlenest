@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { completeGalleryUpload } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export async function POST(request: NextRequest) {
@@ -10,8 +11,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const actor = await getActiveAccountActor(session.user.id);
     const body = await request.json();
-    const result = await completeGalleryUpload(session.user.id, body);
+    const result = await completeGalleryUpload(actor.actorUserId, body);
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });

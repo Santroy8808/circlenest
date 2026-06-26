@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GalleryGrid } from "@/components/gallery/gallery-grid";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { safeListMyPics } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export default async function MyPicsPage() {
@@ -12,7 +13,8 @@ export default async function MyPicsPage() {
     redirect("/login?callbackUrl=/profile/gallery");
   }
 
-  const assets = await safeListMyPics(session.user.id, 120);
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const assets = await safeListMyPics(activeActor.actorUserId, 120);
 
   return (
     <AppShell>

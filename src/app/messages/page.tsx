@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { MessagesClient } from "@/components/messages/messages-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import {
   getChatThread,
   safeListChatThreads
@@ -14,13 +15,14 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
     redirect("/login?callbackUrl=/messages");
   }
 
-  const threads = await safeListChatThreads(session.user.id);
-  const selected = searchParams.thread ? await getChatThread(session.user.id, searchParams.thread) : null;
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const threads = await safeListChatThreads(activeActor.actorUserId);
+  const selected = searchParams.thread ? await getChatThread(activeActor.actorUserId, searchParams.thread) : null;
 
   return (
     <AppShell>
       <MessagesClient
-        currentUserId={session.user.id}
+        currentUserId={activeActor.actorUserId}
         initialSelectedThread={selected?.ok ? selected.thread : null}
         initialThreads={threads}
       />

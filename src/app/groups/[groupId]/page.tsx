@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GroupProfile } from "@/components/groups/group-profile";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getGroupProfile } from "@/modules/groups/groups.service";
 
 export default async function GroupProfilePage({ params }: { params: { groupId: string } }) {
@@ -11,7 +12,8 @@ export default async function GroupProfilePage({ params }: { params: { groupId: 
     redirect(`/login?callbackUrl=/groups/${params.groupId}`);
   }
 
-  const result = await getGroupProfile(session.user.id, params.groupId);
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const result = await getGroupProfile(activeActor.actorUserId, params.groupId);
 
   if (!result.ok) {
     notFound();

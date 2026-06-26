@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { updateGalleryAssetSettings } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export async function PUT(request: NextRequest, { params }: { params: { mediaAssetId: string } }) {
@@ -9,8 +10,9 @@ export async function PUT(request: NextRequest, { params }: { params: { mediaAss
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const body = await request.json();
-  const result = await updateGalleryAssetSettings(session.user.id, {
+  const result = await updateGalleryAssetSettings(actor.actorUserId, {
     ...body,
     mediaAssetId: params.mediaAssetId
   });

@@ -1,6 +1,7 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getR2Client, readR2Config } from "@/lib/platform/r2";
 import { MAX_CHAT_ATTACHMENT_BYTES } from "@/modules/chat-messages/types";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/modules/gallery-media-storage/types";
@@ -43,7 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Image file required." }, { status: 400 });
     }
 
-    const target = authorizedUploadTarget(storageKey, session.user.id);
+    const actor = await getActiveAccountActor(session.user.id);
+    const target = authorizedUploadTarget(storageKey, actor.actorUserId);
 
     if (!target.ok) {
       return NextResponse.json({ error: "Invalid upload target." }, { status: 400 });

@@ -145,7 +145,7 @@ export async function createJobListing(userId: string, input: unknown) {
   }
 
   if (!(await viewerCanCreateJob(userId))) {
-    return { ok: false as const, error: "Only Professional accounts can create job listings." };
+    return { ok: false as const, error: "This account cannot create job listings." };
   }
 
   const job = await prisma.jobListing.create({

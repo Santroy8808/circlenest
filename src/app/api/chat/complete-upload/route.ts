@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { completeChatUpload } from "@/modules/chat-messages/chat-messages.service";
 
 export async function POST(request: NextRequest) {
@@ -9,8 +10,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const body = await request.json();
-  const result = await completeChatUpload(session.user.id, body);
+  const result = await completeChatUpload(actor.actorUserId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

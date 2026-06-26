@@ -77,16 +77,19 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
   [MembershipTier.FREE]: {
     tier: MembershipTier.FREE,
     displayName: "Free",
-    summary: "Core social access with limited creation and no paid creator tools.",
+    summary: "Core Theta-Space access: stream posting, groups, messages, Market and job listings, business profile, and gallery.",
     features: withFeatures({
-      "groups.create": true
+      "groups.create": true,
+      "market.createListing": true,
+      "market.storefront": true,
+      "jobs.createListing": true
     }),
     limits: {
       groupMemberCap: 10,
-      marketListingsPer14Days: 0,
-      marketListingPhotoCap: 0,
+      marketListingsPer14Days: 6,
+      marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
-      storageLimitBytes: 100 * 1024 * 1024
+      storageLimitBytes: 1024 * 1024 * 1024
     }
   },
   [MembershipTier.CONTRIBUTOR]: {

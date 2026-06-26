@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import {
   createGroupChatThread,
   findOrCreateDirectChatThread,
@@ -13,7 +14,8 @@ export async function GET() {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  return NextResponse.json({ threads: await listChatThreads(session.user.id) });
+  const actor = await getActiveAccountActor(session.user.id);
+  return NextResponse.json({ threads: await listChatThreads(actor.actorUserId) });
 }
 
 export async function POST(request: NextRequest) {
@@ -23,11 +25,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const body = await request.json();
   const result =
     body.type === "GROUP"
-      ? await createGroupChatThread(session.user.id, body)
-      : await findOrCreateDirectChatThread(session.user.id, body);
+      ? await createGroupChatThread(actor.actorUserId, body)
+      : await findOrCreateDirectChatThread(actor.actorUserId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

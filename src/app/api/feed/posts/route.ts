@@ -1,6 +1,7 @@
 import { AdPlacement } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { createFeedPost, safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const posts = await safeListFeedPosts(20, session.user.id);
+  const actor = await getActiveAccountActor(session.user.id);
+  const posts = await safeListFeedPosts(20, actor.actorUserId);
   await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, deviceClassFromRequest(request));
   const reservedStreamAds = await getAdPlacementPool({
     viewerUserId: session.user.id,
@@ -33,8 +35,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const body = await request.json();
-  const result = await createFeedPost(session.user.id, body);
+  const result = await createFeedPost(actor.actorUserId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

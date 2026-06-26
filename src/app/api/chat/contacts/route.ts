@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { searchChatContacts } from "@/modules/chat-messages/chat-messages.service";
 
 export async function GET(request: NextRequest) {
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const actor = await getActiveAccountActor(session.user.id);
   const query = request.nextUrl.searchParams.get("q") ?? "";
-  return NextResponse.json({ people: await searchChatContacts(session.user.id, query) });
+  return NextResponse.json({ people: await searchChatContacts(actor.actorUserId, query) });
 }

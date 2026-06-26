@@ -5,6 +5,7 @@ import { GalleryAssetActions } from "@/components/gallery/gallery-asset-actions"
 import { GalleryAssetEngagement } from "@/components/gallery/gallery-asset-engagement";
 import { GalleryAssetTags } from "@/components/gallery/gallery-asset-tags";
 import { AppShell } from "@/components/platform/app-shell";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getMyPicViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export default async function GalleryAssetPage({ params }: { params: { assetId: string } }) {
@@ -14,7 +15,8 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
     redirect(`/login?callbackUrl=/profile/gallery/${params.assetId}`);
   }
 
-  const viewer = await getMyPicViewer(session.user.id, params.assetId);
+  const activeActor = await getActiveAccountActor(session.user.id);
+  const viewer = await getMyPicViewer(activeActor.actorUserId, params.assetId);
 
   if (!viewer) {
     notFound();
