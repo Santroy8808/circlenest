@@ -91,20 +91,51 @@ function deliveryMark(message: ChatMessageView) {
   return "θ";
 }
 
-function AttachmentPreview({ attachment }: { attachment: ChatAttachmentView }) {
-  const imageUrl = attachment.thumbnailUrl ?? attachment.publicUrl;
+function attachmentImageUrl(attachment: ChatAttachmentView) {
+  return attachment.thumbnailUrl ?? attachment.publicUrl ?? "";
+}
 
-  if (attachment.kind === "IMAGE" && imageUrl) {
-    return (
-      <a className="chat-attachment-image" href={attachment.publicUrl ?? imageUrl} target="_blank" rel="noreferrer">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img alt={attachment.fileName} loading="lazy" src={imageUrl} />
-      </a>
-    );
-  }
+function isImageAttachment(attachment: ChatAttachmentView) {
+  return attachment.kind === "IMAGE" && attachmentImageUrl(attachment).trim().length > 0;
+}
+
+function MessageImageAttachment({
+  attachment,
+  isMine
+}: {
+  attachment: ChatAttachmentView;
+  isMine: boolean;
+}) {
+  const imageUrl = attachmentImageUrl(attachment);
 
   return (
-    <a className="chat-attachment-file" href={attachment.publicUrl ?? "#"} target="_blank" rel="noreferrer">
+    <a
+      className={isMine ? "chat-media-message is-mine" : "chat-media-message"}
+      href={attachment.publicUrl || imageUrl}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt={attachment.fileName} loading="lazy" src={imageUrl} />
+      <span className="chat-media-caption">{attachment.fileName}</span>
+    </a>
+  );
+}
+
+function MessageFileAttachment({
+  attachment,
+  isMine
+}: {
+  attachment: ChatAttachmentView;
+  isMine: boolean;
+}) {
+  return (
+    <a
+      className={isMine ? "chat-file-message is-mine" : "chat-file-message"}
+      href={attachment.publicUrl || "#"}
+      target="_blank"
+      rel="noreferrer"
+    >
       <span>{attachment.fileName}</span>
       <span className="text-xs text-[var(--muted)]">{Number(attachment.sizeBytes).toLocaleString()} bytes</span>
     </a>
@@ -387,6 +418,7 @@ export function MessagesClient({
       mimeType: item.file.type || "application/octet-stream",
       sizeBytes: String(item.file.size),
       publicUrl: item.previewUrl,
+      thumbnailUrl: item.previewUrl,
       mediaAssetId: null
     }));
 
@@ -585,28 +617,45 @@ export function MessagesClient({
               ) : null}
               {selectedThread.messages.map((message) => {
                 const isMine = message.sender.id === currentUserId;
+                const imageAttachments = message.attachments.filter(isImageAttachment);
+                const fileAttachments = message.attachments.filter((attachment) => !isImageAttachment(attachment));
+                const bodyText = message.body ?? "";
+                const hasBody = bodyText.trim().length > 0;
                 return (
-                  <article className={isMine ? "chat-message is-mine" : "chat-message"} key={message.id}>
-                    <div className="chat-message-meta">
-                      <span>{isMine ? "You" : message.sender.displayName}</span>
-                      <span className="chat-message-meta-right">
+                  <div className={isMine ? "chat-message-group is-mine" : "chat-message-group"} key={message.id}>
+                    {hasBody ? (
+                      <article className={isMine ? "chat-message is-mine" : "chat-message"}>
+                        <div className="chat-message-meta">
+                          <span>{isMine ? "You" : message.sender.displayName}</span>
+                          <span className="chat-message-meta-right">
+                            <span>{new Date(message.createdAt).toLocaleString()}</span>
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-wrap">{bodyText}</p>
+                        {isMine ? (
+                          <span className="chat-delivery-mark" title={message.deliveryState?.toLowerCase() ?? "sent"}>
+                            {deliveryMark(message)}
+                          </span>
+                        ) : null}
+                      </article>
+                    ) : (
+                      <div className="chat-media-meta">
+                        <span>{isMine ? "You" : message.sender.displayName}</span>
                         <span>{new Date(message.createdAt).toLocaleString()}</span>
-                      </span>
-                    </div>
-                    {message.body ? <p className="whitespace-pre-wrap">{message.body}</p> : null}
-                    {message.attachments.length > 0 ? (
-                      <div className="mt-3 grid gap-2">
-                        {message.attachments.map((attachment) => (
-                          <AttachmentPreview attachment={attachment} key={attachment.id} />
-                        ))}
                       </div>
-                    ) : null}
-                    {isMine ? (
-                      <span className="chat-delivery-mark" title={message.deliveryState?.toLowerCase() ?? "sent"}>
+                    )}
+                    {imageAttachments.map((attachment) => (
+                      <MessageImageAttachment attachment={attachment} isMine={isMine} key={attachment.id} />
+                    ))}
+                    {fileAttachments.map((attachment) => (
+                      <MessageFileAttachment attachment={attachment} isMine={isMine} key={attachment.id} />
+                    ))}
+                    {isMine && !hasBody ? (
+                      <span className="chat-media-delivery" title={message.deliveryState?.toLowerCase() ?? "sent"}>
                         {deliveryMark(message)}
                       </span>
                     ) : null}
-                  </article>
+                  </div>
                 );
               })}
             </div>
