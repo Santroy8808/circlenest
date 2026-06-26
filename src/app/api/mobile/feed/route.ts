@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       postId: body.postId,
       parentCommentId: body.parentCommentId ?? "",
       body: body.body,
-      mediaAssetId: ""
+      mediaAssetId: body.mediaAssetId ?? ""
     });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
     return NextResponse.json({ comment: result.comment }, { status: 201 });
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   const result = await createFeedPost(session.user.id, {
     body: body.body,
     visibility: FeedVisibility.MEMBERS,
-    mediaAssetId: ""
+    mediaAssetId: body.mediaAssetId ?? ""
   });
 
   if (!result.ok) {
