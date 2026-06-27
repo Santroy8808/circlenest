@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
 import { AccountActorSwitcher } from "@/components/platform/account-actor-switcher";
 import { AndroidAppControls } from "@/components/platform/android-app-controls";
+import { DesktopCommandBar } from "@/components/platform/desktop-command-bar";
 import { getAccountActorPicker } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { isAdminRole } from "@/lib/platform/roles";
@@ -26,7 +27,7 @@ const homeSection: NavSection = {
 };
 
 const communicationsSection: NavSection = {
-  label: "Communications",
+  label: "Comm",
   items: [
     { label: "Messages", href: "/messages", countKey: "messages" },
     { label: "Mail", href: "/mail", countKey: "mail" },
@@ -45,16 +46,16 @@ const peopleSection: NavSection = {
 };
 
 const productionZoneSection: NavSection = {
-  label: "Production Zone",
+  label: "Market",
   items: [
-    { label: "Events", href: "/events" },
     { label: "The Market", href: "/market" },
     { label: "Find a Job", href: "/jobs" },
     { label: "Find an Auditor", href: "/auditors" },
-    { label: "Writers Corner", href: "/writers-corner" },
-    { label: "Fundraisers", href: "/fundraisers" },
     { label: "Business Center", href: "/business-center" },
-    { label: "Ads", href: "/ads" }
+    { label: "Ads", href: "/ads" },
+    { label: "Events", href: "/events" },
+    { label: "Writers Corner", href: "/writers-corner" },
+    { label: "Fundraisers", href: "/fundraisers" }
   ]
 };
 
@@ -225,6 +226,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={["app-shell", isAndroidApp ? "is-android-app" : "", showAdRail ? "" : "no-ad-rail"].filter(Boolean).join(" ")}>
       {isSignedIn ? <ActivityTracker /> : null}
+      <DesktopCommandBar
+        avatarUrl={shellProfile?.avatarUrl}
+        counts={counts}
+        displayName={displayName}
+        isAdmin={isAdmin}
+        isSignedIn={isSignedIn}
+      />
       <aside className="side-nav">
         <div className="side-nav-profile">
           <div className="side-nav-avatar">

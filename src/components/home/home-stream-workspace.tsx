@@ -363,18 +363,31 @@ export function HomeStreamWorkspace({
     return () => window.removeEventListener("theta:open-comm-dock", openCommDock);
   }, []);
 
+  function openComposer() {
+    window.dispatchEvent(new CustomEvent("theta:open-feed-composer"));
+  }
+
   return (
     <div className={commOpen ? "home-comm-workspace is-comm-open" : "home-comm-workspace"}>
       <div className="home-comm-main">
         <section
-          className="home-stream-hero surface rounded-md"
+          className="home-front-strip surface rounded-md"
           style={bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 11, 16, 0.86), rgba(8, 11, 16, 0.42)), url(${bannerUrl})` } : undefined}
         >
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Stream</p>
-            <h1 className="mt-3 text-3xl font-semibold">Welcome, {currentAuthor.displayName}</h1>
-            <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">Share updates, pictures, replies, and reactions with your Theta-Space network.</p>
-          </div>
+          <button className="home-front-compose-trigger" data-tooltip="Open the stream composer." onClick={openComposer} type="button">
+            <span className="home-front-avatar">
+              {currentAuthor.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="" src={currentAuthor.avatarUrl} />
+              ) : (
+                <span>{initials(currentAuthor.displayName)}</span>
+              )}
+            </span>
+            <span className="home-front-compose-copy">
+              <strong>Communicate</strong>
+              <span>Post, photo, link, survey</span>
+            </span>
+          </button>
           {latestAlert ? (
             <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
@@ -384,7 +397,7 @@ export function HomeStreamWorkspace({
           ) : null}
         </section>
         <section className="mt-5">
-          <FeedClient currentAuthor={currentAuthor} initialReservedStreamAds={initialReservedStreamAds} initialPosts={initialPosts} />
+          <FeedClient currentAuthor={currentAuthor} initialReservedStreamAds={initialReservedStreamAds} initialPosts={initialPosts} showComposerTrigger={false} />
         </section>
       </div>
 

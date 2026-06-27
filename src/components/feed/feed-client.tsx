@@ -683,6 +683,7 @@ export function FeedClient({
   initialPosts,
   initialReservedStreamAds = [],
   refreshPath = "/api/feed/posts",
+  showComposerTrigger = true,
   showThreadLinks = true
 }: {
   currentAuthor?: FeedCurrentAuthor;
@@ -691,6 +692,7 @@ export function FeedClient({
   initialPosts: FeedPostView[];
   initialReservedStreamAds?: AdPlacementCardView[];
   refreshPath?: string;
+  showComposerTrigger?: boolean;
   showThreadLinks?: boolean;
 }) {
   const router = useRouter();
@@ -739,6 +741,16 @@ export function FeedClient({
       textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }
+
+  useEffect(() => {
+    function openExternalComposer() {
+      setComposerOpen(true);
+      window.setTimeout(() => postTextareaRef.current?.focus(), 0);
+    }
+
+    window.addEventListener("theta:open-feed-composer", openExternalComposer);
+    return () => window.removeEventListener("theta:open-feed-composer", openExternalComposer);
+  }, []);
 
   useEffect(() => {
     if (initialReplyPostId) {
@@ -1120,11 +1132,14 @@ export function FeedClient({
           {trustMessage}
         </p>
       ) : null}
-      <div className="feed-communicate-wrap">
-        <button className="feed-communicate-trigger" onClick={() => setComposerOpen(true)} type="button">
-          <Avatar className="feed-author-avatar is-current" displayName={composerIdentity.displayName} src={composerIdentity.avatarUrl} />
-          <span>Communicate</span>
-        </button>
+      {showComposerTrigger || composerOpen ? (
+      <div className={showComposerTrigger ? "feed-communicate-wrap" : "feed-communicate-wrap is-external"}>
+        {showComposerTrigger ? (
+          <button className="feed-communicate-trigger" onClick={() => setComposerOpen(true)} type="button">
+            <Avatar className="feed-author-avatar is-current" displayName={composerIdentity.displayName} src={composerIdentity.avatarUrl} />
+            <span>Communicate</span>
+          </button>
+        ) : null}
         {composerOpen ? (
           <form className="feed-composer surface rounded-md" onSubmit={submitPost}>
             <div className="feed-composer-header">
@@ -1168,6 +1183,7 @@ export function FeedClient({
           </form>
         ) : null}
       </div>
+      ) : null}
 
       {visiblePosts.length === 0 ? (
         <section className="surface rounded-md p-6 text-center">

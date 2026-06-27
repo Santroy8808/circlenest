@@ -42,8 +42,11 @@ a {
 
 .app-shell {
   display: grid;
-  grid-template-areas: "nav main ads";
-  grid-template-columns: clamp(300px, 16vw, 340px) minmax(640px, 1fr) clamp(350px, 19vw, 420px);
+  grid-template-areas:
+    "top top top"
+    "nav main ads";
+  grid-template-columns: clamp(304px, 16vw, 360px) minmax(0, 1fr) clamp(360px, 19vw, 430px);
+  grid-template-rows: 72px minmax(0, 1fr);
   height: 100dvh;
   inset: 0;
   overflow: hidden;
@@ -52,15 +55,205 @@ a {
 }
 
 .app-shell.no-ad-rail {
-  grid-template-areas: "nav main";
-  grid-template-columns: clamp(300px, 16vw, 340px) minmax(0, 1fr);
+  grid-template-areas:
+    "top top"
+    "nav main";
+  grid-template-columns: clamp(304px, 16vw, 360px) minmax(0, 1fr);
+}
+
+.desktop-command-bar {
+  align-items: center;
+  background: rgba(8, 11, 16, 0.82);
+  border-bottom: 1px solid rgba(214, 178, 74, 0.22);
+  display: grid;
+  gap: clamp(14px, 1.2vw, 24px);
+  grid-area: top;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(470px, 1.2fr) minmax(250px, 0.8fr);
+  min-width: 0;
+  padding: 10px clamp(18px, 1.4vw, 28px);
+  z-index: 45;
+}
+
+.desktop-command-brand,
+.desktop-command-actions,
+.desktop-command-nav {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+}
+
+.desktop-command-brand {
+  gap: 12px;
+}
+
+.desktop-command-mark,
+.desktop-command-icon,
+.desktop-command-avatar {
+  align-items: center;
+  background: rgba(17, 24, 36, 0.92);
+  border: 1px solid rgba(214, 178, 74, 0.26);
+  border-radius: 16px;
+  color: var(--gold);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 46px;
+  min-width: 46px;
+  position: relative;
+}
+
+.desktop-command-mark {
+  background: linear-gradient(145deg, rgba(255, 216, 95, 0.16), rgba(63, 115, 255, 0.12));
+  font-size: 1.45rem;
+}
+
+.desktop-command-search {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  width: min(100%, 410px);
+}
+
+.desktop-command-search input {
+  background: rgba(23, 33, 51, 0.92);
+  border: 1px solid rgba(214, 178, 74, 0.26);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  height: 42px;
+  outline: none;
+  padding: 0 16px;
+  width: 100%;
+}
+
+.desktop-command-search-button {
+  background: rgba(17, 24, 36, 0.92);
+  border: 1px solid rgba(214, 178, 74, 0.28);
+  border-radius: 999px;
+  color: var(--gold);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  height: 42px;
+  padding: 0 14px;
+}
+
+.desktop-command-search-button:hover {
+  background: rgba(23, 33, 51, 0.96);
+  border-color: rgba(255, 216, 95, 0.58);
+}
+
+.desktop-command-search input:focus {
+  border-color: rgba(255, 216, 95, 0.62);
+  box-shadow: 0 0 0 3px rgba(214, 178, 74, 0.12);
+}
+
+.desktop-command-nav {
+  gap: clamp(8px, 1vw, 18px);
+  justify-content: center;
+}
+
+.desktop-command-link {
+  align-items: center;
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 16px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  gap: 7px;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 78px;
+  padding: 0 13px;
+  position: relative;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.desktop-command-link > span:first-child {
+  color: var(--gold);
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
+.desktop-command-link:hover,
+.desktop-command-link.is-active {
+  background: rgba(23, 33, 51, 0.92);
+  border-color: rgba(255, 216, 95, 0.5);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.desktop-command-link.is-active::after {
+  background: var(--gold);
+  border-radius: 999px;
+  bottom: -12px;
+  content: "";
+  height: 3px;
+  left: 14px;
+  position: absolute;
+  right: 14px;
+}
+
+.desktop-command-link strong,
+.desktop-command-icon strong {
+  align-items: center;
+  background: var(--red);
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 900;
+  height: 18px;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 5px;
+  position: absolute;
+  right: -5px;
+  top: -5px;
+}
+
+.desktop-command-actions {
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.desktop-command-icon:hover,
+.desktop-command-avatar:hover,
+.desktop-command-mark:hover {
+  border-color: rgba(255, 216, 95, 0.58);
+  background: rgba(23, 33, 51, 0.96);
+}
+
+.desktop-command-avatar {
+  overflow: hidden;
+}
+
+.desktop-command-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.desktop-command-login {
+  border: 1px solid rgba(214, 178, 74, 0.3);
+  border-radius: 999px;
+  color: var(--gold);
+  font-weight: 900;
+  padding: 10px 16px;
 }
 
 .side-nav {
   border-right: 1px solid rgba(214, 178, 74, 0.22);
   background: rgba(10, 14, 22, 0.88);
   grid-area: nav;
-  height: 100dvh;
+  height: 100%;
   overscroll-behavior: contain;
   overflow: hidden auto;
   padding: clamp(22px, 1.35vw, 28px);
@@ -292,7 +485,7 @@ a {
 
 .main-surface {
   grid-area: main;
-  height: 100dvh;
+  height: 100%;
   min-width: 0;
   overscroll-behavior: contain;
   overflow: hidden auto;
@@ -309,7 +502,7 @@ a {
   border-left: 1px solid rgba(214, 178, 74, 0.18);
   background: rgba(8, 11, 16, 0.48);
   grid-area: ads;
-  height: 100dvh;
+  height: 100%;
   min-width: 0;
   overflow: hidden auto;
   padding: clamp(22px, 1.35vw, 28px) clamp(16px, 1.15vw, 24px);
@@ -341,6 +534,102 @@ a {
   max-width: 730px;
 }
 
+.home-front-strip {
+  align-items: center;
+  background:
+    radial-gradient(circle at 82% 10%, rgba(255, 216, 95, 0.14), transparent 16rem),
+    linear-gradient(135deg, rgba(23, 33, 51, 0.9), rgba(8, 11, 16, 0.72));
+  background-position: center;
+  background-size: cover;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-inline: auto;
+  max-width: 860px;
+  min-height: 86px;
+  overflow: hidden;
+  padding: 14px 18px;
+  position: relative;
+}
+
+.home-front-compose-trigger {
+  align-items: center;
+  background: rgba(17, 24, 36, 0.86);
+  border: 1px solid rgba(214, 178, 74, 0.32);
+  border-radius: 18px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  min-height: 56px;
+  min-width: 0;
+  padding: 10px 14px;
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.home-front-compose-trigger:hover {
+  background: rgba(23, 33, 51, 0.94);
+  border-color: rgba(255, 216, 95, 0.58);
+  transform: translateY(-1px);
+}
+
+.home-front-avatar {
+  align-items: center;
+  background: rgba(63, 115, 255, 0.18);
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 14px;
+  color: var(--gold);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  font-weight: 900;
+  height: 40px;
+  justify-content: center;
+  overflow: hidden;
+  width: 40px;
+}
+
+.home-front-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.home-front-compose-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-front-compose-copy strong {
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.home-front-compose-copy span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.home-front-strip h1 {
+  font-size: clamp(1.18rem, 1.3vw, 1.55rem);
+  line-height: 1.15;
+  margin: 4px 0;
+}
+
+.home-front-strip p {
+  margin: 0;
+}
+
+.home-front-strip > div > p:last-child {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .home-login-alert {
   align-self: start;
   animation: home-alert-fade 60s ease forwards;
@@ -362,10 +651,10 @@ a {
 .home-comm-workspace {
   display: grid;
   gap: 0;
-  grid-template-columns: minmax(0, min(100%, 730px)) minmax(0, 0);
+  grid-template-columns: minmax(0, min(100%, 860px)) minmax(0, 0);
   justify-content: center;
   margin-inline: auto;
-  max-width: min(100%, 730px);
+  max-width: min(100%, 860px);
   transition:
     gap 240ms ease,
     grid-template-columns 240ms ease,
@@ -375,8 +664,8 @@ a {
 
 .home-comm-workspace.is-comm-open {
   gap: clamp(18px, 1.4vw, 28px);
-  grid-template-columns: minmax(0, 730px) minmax(300px, 348px);
-  max-width: min(100%, 1106px);
+  grid-template-columns: minmax(0, 780px) minmax(300px, 348px);
+  max-width: min(100%, 1156px);
 }
 
 .home-comm-main {
@@ -2206,7 +2495,7 @@ a {
   display: grid;
   gap: 10px;
   margin-inline: auto;
-  max-width: 730px;
+  max-width: 860px;
   position: relative;
 }
 
@@ -2306,6 +2595,13 @@ a {
   right: 0;
   top: 0;
   z-index: 30;
+}
+
+.feed-communicate-wrap.is-external .feed-composer {
+  left: auto;
+  position: relative;
+  right: auto;
+  top: auto;
 }
 
 .feed-composer-header,
@@ -4852,15 +5148,27 @@ a {
 @media (min-width: 861px) and (max-width: 1440px) {
   .app-shell {
     grid-template-areas:
+      "top top"
       "nav main"
       "nav ads";
     grid-template-columns: clamp(290px, 26vw, 320px) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(240px, 34dvh);
+    grid-template-rows: 72px minmax(0, 1fr) minmax(240px, 34dvh);
   }
 
   .app-shell.no-ad-rail {
-    grid-template-areas: "nav main";
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "nav main";
+    grid-template-rows: 72px minmax(0, 1fr);
+  }
+
+  .desktop-command-bar {
+    grid-template-columns: minmax(245px, 0.9fr) minmax(390px, 1.2fr) minmax(220px, 0.8fr);
+  }
+
+  .desktop-command-link {
+    min-width: 62px;
+    padding-inline: 10px;
   }
 
   .main-surface {
@@ -4910,6 +5218,10 @@ a {
     overflow: visible;
     position: static;
     width: auto;
+  }
+
+  .desktop-command-bar {
+    display: none;
   }
 
   .ad-rail {
@@ -5108,6 +5420,11 @@ body.theta-android-app {
   overflow: hidden;
   position: fixed;
   width: 100vw;
+}
+
+.theta-android-app .desktop-command-bar,
+.app-shell.is-android-app .desktop-command-bar {
+  display: none;
 }
 
 .theta-android-app .side-nav,
