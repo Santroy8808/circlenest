@@ -42,13 +42,19 @@ type TextFormatResult = {
   selectionEnd: number;
 };
 
+type QuickReaction = {
+  type: FeedReactionType;
+  icon: string;
+  label: string;
+};
+
 const quickReactions = [
-  { type: FeedReactionType.LIKE, icon: "\u{1F44D}", label: "Like" },
+  { type: FeedReactionType.LIKE, icon: "", label: "Like" },
   { type: FeedReactionType.LOVE, icon: "\u{2764}\u{FE0F}", label: "Love" },
   { type: FeedReactionType.CARE, icon: "\u{1F917}", label: "Care" },
   { type: FeedReactionType.HAHA, icon: "\u{1F602}", label: "Haha" },
   { type: FeedReactionType.WOW, icon: "\u{1F62E}", label: "Wow" }
-];
+] satisfies QuickReaction[];
 
 const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [
   { key: "latest", label: "Latest", helper: "Newest member posts first." },
@@ -64,6 +70,14 @@ const CLICK_EVENT = "CLICK";
 
 function reactionMeta(type: FeedReactionType) {
   return quickReactions.find((reaction) => reaction.type === type) ?? quickReactions[0];
+}
+
+function ReactionIcon({ reaction }: { reaction: QuickReaction }) {
+  if (reaction.type === FeedReactionType.LIKE) {
+    return <span aria-hidden="true" className="feed-like-triangle" />;
+  }
+
+  return <span aria-hidden="true">{reaction.icon}</span>;
 }
 
 function createImageAttachment(file: File): FeedImageAttachment {
@@ -440,7 +454,7 @@ function ReactionButtons({
         onClick={() => setChoicesOpen((open) => !open)}
         type="button"
       >
-        <span aria-hidden="true">{triggerReaction.icon}</span>
+        <ReactionIcon reaction={triggerReaction} />
       </button>
       {total > 0 ? (
         <button
@@ -464,7 +478,7 @@ function ReactionButtons({
               title={reaction.label}
               type="button"
             >
-              <span aria-hidden="true">{reaction.icon}</span>
+              <ReactionIcon reaction={reaction} />
             </button>
             {(counts[reaction.type] ?? 0) > 0 ? (
               <button
@@ -486,7 +500,7 @@ function ReactionButtons({
             <ul>
               {detailReactors.map(({ reaction, reactor }) => (
                 <li key={`${reaction.type}-${reactor.id}`}>
-                  <span aria-hidden="true">{reaction.icon}</span>
+                  <ReactionIcon reaction={reaction} />
                   <span>{reactor.displayName}</span>
                   <small>@{reactor.username}</small>
                 </li>

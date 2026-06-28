@@ -68,7 +68,7 @@ function toFeedMediaView(mediaAsset: {
 
   return {
     id: mediaAsset.id,
-    publicUrl: mediaAsset.publicUrl,
+    publicUrl: `/api/media/assets/${mediaAsset.id}`,
     mimeType: mediaAsset.mimeType,
     originalName: mediaAsset.originalName
   };

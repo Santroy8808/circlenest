@@ -2262,7 +2262,8 @@ a {
 .feed-media-card img {
   display: block;
   max-height: 520px;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   width: 100%;
 }
 
@@ -2890,6 +2891,17 @@ a {
   border-color: rgba(255, 216, 95, 0.52);
   background: rgba(23, 33, 51, 0.92);
   transform: translateY(-1px);
+}
+
+.feed-like-triangle {
+  border-bottom: 0.95em solid var(--gold);
+  border-left: 0.55em solid transparent;
+  border-right: 0.55em solid transparent;
+  display: inline-block;
+  filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.35));
+  height: 0;
+  line-height: 0;
+  width: 0;
 }
 
 .feed-reaction-popover {

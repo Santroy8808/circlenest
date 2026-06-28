@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
+import { requireMobileSession } from "@/lib/platform/mobile-auth";
 import { getR2Object } from "@/lib/platform/r2";
 
 function toWebStream(body: unknown) {
@@ -14,14 +15,25 @@ function toWebStream(body: unknown) {
   return Readable.toWeb(body as Readable);
 }
 
-export async function GET(_request: NextRequest, { params }: { params: { mediaAssetId: string } }) {
+async function getMediaViewerUserId(request: NextRequest) {
   const session = await auth();
 
-  if (!session?.user || session.user.revoked) {
+  if (session?.user && !session.user.revoked) {
+    const actor = await getActiveAccountActor(session.user.id);
+    return actor.actorUserId;
+  }
+
+  const mobileSession = await requireMobileSession(request);
+  return mobileSession?.user.id ?? null;
+}
+
+export async function GET(request: NextRequest, { params }: { params: { mediaAssetId: string } }) {
+  const viewerUserId = await getMediaViewerUserId(request);
+
+  if (!viewerUserId) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const actor = await getActiveAccountActor(session.user.id);
   const asset = await prisma.mediaAsset.findUnique({
     where: { id: params.mediaAssetId },
     select: {
@@ -37,7 +49,7 @@ export async function GET(_request: NextRequest, { params }: { params: { mediaAs
     return NextResponse.json({ error: "Media not found." }, { status: 404 });
   }
 
-  const isOwner = asset.ownerUserId === actor.actorUserId;
+  const isOwner = asset.ownerUserId === viewerUserId;
   const isVisibleToMember = asset.visibility === MediaVisibility.MEMBERS || asset.visibility === MediaVisibility.PUBLIC;
 
   if (!isOwner && !isVisibleToMember) {
