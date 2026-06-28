@@ -5595,12 +5595,8 @@ body.theta-android-app .feedback-fab,
 
 .theta-android-app .feed-entry-list,
 .app-shell.is-android-app .feed-entry-list {
-  --android-feed-gap: 10px;
-  --android-feed-card-height: clamp(
-    300px,
-    calc((100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--android-feed-gap)) / 2),
-    460px
-  );
+  --android-feed-gap: 14px;
+  --android-feed-card-height: calc(100dvh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   gap: var(--android-feed-gap);
 }
 
@@ -5608,12 +5604,14 @@ body.theta-android-app .feedback-fab,
 .app-shell.is-android-app .feed-post {
   display: flex;
   flex-direction: column;
+  height: var(--android-feed-card-height);
   min-height: var(--android-feed-card-height);
-  padding: 12px;
+  overflow: hidden;
+  padding: 16px;
 }
 
-.theta-android-app .feed-entry-list > :nth-child(odd),
-.app-shell.is-android-app .feed-entry-list > :nth-child(odd) {
+.theta-android-app .feed-entry-list > *,
+.app-shell.is-android-app .feed-entry-list > * {
   scroll-snap-align: start;
 }
 
@@ -5624,7 +5622,7 @@ body.theta-android-app .feedback-fab,
 
 .theta-android-app .feed-post > .feed-rich-text,
 .app-shell.is-android-app .feed-post > .feed-rich-text {
-  max-height: 4.4em;
+  max-height: 6.9em;
   overflow: hidden;
 }
 
@@ -5637,9 +5635,10 @@ body.theta-android-app .feedback-fab,
 .theta-android-app .feed-post > .feed-media-card img,
 .app-shell.is-android-app .feed-post > .feed-media-card img {
   aspect-ratio: 16 / 9;
-  height: min(24dvh, calc(var(--android-feed-card-height) * 0.42));
+  height: min(42dvh, calc(var(--android-feed-card-height) * 0.48));
   max-height: none;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   width: 100%;
 }
 
@@ -5655,19 +5654,20 @@ body.theta-android-app .feedback-fab,
 
 .theta-android-app .feed-comment-preview,
 .app-shell.is-android-app .feed-comment-preview {
-  max-height: calc(var(--android-feed-card-height) * 0.24);
+  max-height: calc(var(--android-feed-card-height) * 0.18);
   overflow: hidden;
 }
 
 .theta-android-app .feed-reserved-ad,
 .app-shell.is-android-app .feed-reserved-ad {
+  height: var(--android-feed-card-height);
   min-height: var(--android-feed-card-height);
 }
 
 .theta-android-app .feed-reserved-ad-image,
 .app-shell.is-android-app .feed-reserved-ad-image {
   aspect-ratio: 16 / 9;
-  height: min(24dvh, calc(var(--android-feed-card-height) * 0.46));
+  height: min(42dvh, calc(var(--android-feed-card-height) * 0.48));
   max-height: none;
 }
 
