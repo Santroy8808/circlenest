@@ -51,7 +51,7 @@ export function PeopleGrid({
                 <div className="people-avatar">
                   {person.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="" src={person.avatarUrl} />
+                    <img alt="" decoding="async" fetchPriority="low" loading="lazy" src={person.avatarUrl} />
                   ) : (
                     <span>{initials(person.displayName) || "TS"}</span>
                   )}

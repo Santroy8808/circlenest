@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { GroupCardView, GroupDirectoryMode } from "@/modules/groups/types";
 
 function initials(name: string) {
@@ -25,23 +25,41 @@ export function GroupsDirectoryClient({
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const hasMounted = useRef(false);
 
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       setError("");
       const effectiveMode = query.trim() ? "discover" : mode;
-      const response = await fetch(`/api/groups?mode=${effectiveMode}&q=${encodeURIComponent(query)}`, { cache: "no-store" });
-      const payload = (await response.json()) as { error?: string; groups?: GroupCardView[] };
+      try {
+        const response = await fetch(`/api/groups?mode=${effectiveMode}&q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal
+        });
+        const payload = (await response.json()) as { error?: string; groups?: GroupCardView[] };
 
-      if (!response.ok) {
-        setError(payload.error ?? "Could not load groups.");
-        return;
+        if (!response.ok) {
+          setError(payload.error ?? "Could not load groups.");
+          return;
+        }
+
+        setGroups(payload.groups ?? []);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setError("Could not load groups.");
       }
-
-      setGroups(payload.groups ?? []);
     }, 180);
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
   }, [mode, query]);
 
   function toggleMode(nextMode: GroupDirectoryMode) {
@@ -101,14 +119,14 @@ export function GroupsDirectoryClient({
               <div className="group-card-banner">
                 {group.bannerUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" src={group.bannerUrl} />
+                  <img alt="" decoding="async" fetchPriority="low" loading="lazy" src={group.bannerUrl} />
                 ) : null}
               </div>
               <div className="group-card-body">
                 <span className="group-avatar">
                   {group.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="" src={group.avatarUrl} />
+                    <img alt="" decoding="async" fetchPriority="low" loading="lazy" src={group.avatarUrl} />
                   ) : (
                     initials(group.name)
                   )}

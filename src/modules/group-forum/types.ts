@@ -8,9 +8,17 @@ export const createGroupForumThreadSchema = z.object({
 });
 
 export const createGroupForumPostSchema = z.object({
-  body: z.string().min(1, "Write a reply.").max(5000),
+  body: z.string().max(5000).optional().or(z.literal("")),
   parentPostId: z.string().optional().or(z.literal("")),
   mediaAssetId: z.string().optional().or(z.literal(""))
+}).superRefine((value, context) => {
+  if (!value.body?.trim() && !value.mediaAssetId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Write a reply or attach a photo.",
+      path: ["body"]
+    });
+  }
 });
 
 export const reactToGroupForumThreadSchema = z.object({

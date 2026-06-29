@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
 
@@ -74,7 +75,7 @@ function reactionMeta(type: FeedReactionType) {
 
 function ReactionIcon({ reaction }: { reaction: QuickReaction }) {
   if (reaction.type === FeedReactionType.LIKE) {
-    return <span aria-hidden="true" className="feed-like-triangle" />;
+    return <ThetaLikeTriangle />;
   }
 
   return <span aria-hidden="true">{reaction.icon}</span>;

@@ -46,7 +46,7 @@ a {
     "top top top"
     "nav main ads";
   grid-template-columns: clamp(304px, 16vw, 360px) minmax(0, 1fr) clamp(360px, 19vw, 430px);
-  grid-template-rows: 72px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
   inset: 0;
   overflow: hidden;
@@ -69,8 +69,10 @@ a {
   gap: clamp(14px, 1.2vw, 24px);
   grid-area: top;
   grid-template-columns: minmax(300px, 0.9fr) minmax(470px, 1.2fr) minmax(250px, 0.8fr);
+  min-height: 72px;
   min-width: 0;
   padding: 10px clamp(18px, 1.4vw, 28px);
+  position: relative;
   z-index: 45;
 }
 
@@ -2893,15 +2895,27 @@ a {
   transform: translateY(-1px);
 }
 
-.feed-like-triangle {
-  border-bottom: 0.95em solid var(--gold);
-  border-left: 0.55em solid transparent;
-  border-right: 0.55em solid transparent;
+.theta-like-triangle {
+  color: var(--gold);
   display: inline-block;
+  fill: none;
   filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.35));
-  height: 0;
+  height: 1.05em;
   line-height: 0;
-  width: 0;
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 2.6;
+  width: 1.05em;
+}
+
+.group-reaction-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.group-reaction-button .theta-like-triangle {
+  flex: 0 0 auto;
 }
 
 .feed-reaction-popover {
@@ -4203,6 +4217,30 @@ a {
   padding: 14px;
 }
 
+.forum-reply-photo-preview {
+  align-items: center;
+  background: rgba(8, 11, 16, 0.35);
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 16px;
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+}
+
+.forum-reply-photo-preview img {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  object-fit: cover;
+  width: 84px;
+}
+
+.group-storage-controls {
+  background: rgba(8, 11, 16, 0.28);
+  border: 1px solid rgba(214, 178, 74, 0.16);
+  border-radius: 18px;
+  padding: 16px;
+}
+
 .group-media-grid {
   display: grid;
   gap: 16px;
@@ -5164,14 +5202,14 @@ a {
       "nav main"
       "nav ads";
     grid-template-columns: clamp(290px, 26vw, 320px) minmax(0, 1fr);
-    grid-template-rows: 72px minmax(0, 1fr) minmax(240px, 34dvh);
+    grid-template-rows: auto minmax(0, 1fr) minmax(240px, 34dvh);
   }
 
   .app-shell.no-ad-rail {
     grid-template-areas:
       "top top"
       "nav main";
-    grid-template-rows: 72px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .desktop-command-bar {
@@ -5203,6 +5241,36 @@ a {
 
   .ad-placement-image {
     aspect-ratio: 16 / 9;
+  }
+}
+
+@media (min-width: 861px) and (max-width: 1180px) {
+  .desktop-command-bar {
+    grid-template-areas:
+      "brand actions"
+      "nav nav";
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 8px;
+  }
+
+  .desktop-command-brand {
+    grid-area: brand;
+  }
+
+  .desktop-command-nav {
+    grid-area: nav;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .desktop-command-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .desktop-command-actions {
+    grid-area: actions;
   }
 }
 

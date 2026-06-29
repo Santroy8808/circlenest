@@ -1,8 +1,10 @@
 "use client";
 
-import { GroupForumReactionType } from "@prisma/client";
+import { GroupAssetKind, GroupForumReactionType } from "@prisma/client";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { GroupForumThreadDetailView } from "@/modules/group-forum/types";
 
 const quickReactions = [
@@ -11,6 +13,24 @@ const quickReactions = [
   GroupForumReactionType.CARE,
   GroupForumReactionType.HAHA
 ];
+
+const groupReactionLabels: Record<GroupForumReactionType, string> = {
+  [GroupForumReactionType.LIKE]: "Like",
+  [GroupForumReactionType.LOVE]: "Love",
+  [GroupForumReactionType.CARE]: "Care",
+  [GroupForumReactionType.HAHA]: "Haha",
+  [GroupForumReactionType.WOW]: "Wow",
+  [GroupForumReactionType.SAD]: "Sad",
+  [GroupForumReactionType.ANGRY]: "Angry"
+};
+
+function GroupReactionDisplay({ reaction }: { reaction: GroupForumReactionType }) {
+  if (reaction === GroupForumReactionType.LIKE) {
+    return <ThetaLikeTriangle />;
+  }
+
+  return <span aria-hidden="true">{groupReactionLabels[reaction]}</span>;
+}
 
 export function GroupForumThreadClient({
   group,
@@ -22,7 +42,9 @@ export function GroupForumThreadClient({
   viewerCanPost: boolean;
 }) {
   const [thread, setThread] = useState(initialThread);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
+  const [photo, setPhoto] = useState<{ file: File; previewUrl: string; progress: number } | null>(null);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -34,15 +56,95 @@ export function GroupForumThreadClient({
     }
   }
 
+  function choosePhoto(file: File | null) {
+    setError("");
+
+    if (photo?.previewUrl) URL.revokeObjectURL(photo.previewUrl);
+
+    if (!file) {
+      setPhoto(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setPhoto(null);
+      setError("Choose a JPG, PNG, GIF, or WEBP image.");
+      return;
+    }
+
+    setPhoto({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      progress: 0
+    });
+  }
+
+  async function uploadReplyPhoto() {
+    if (!photo) return "";
+
+    const intentResponse = await fetch(`/api/groups/${group.slug}/media/upload-intent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: photo.file.name,
+        mimeType: photo.file.type,
+        sizeBytes: photo.file.size,
+        kind: GroupAssetKind.PHOTO,
+        forumThreadId: thread.id
+      })
+    });
+    const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+
+    if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+      throw new Error(intent.error ?? "Could not prepare photo upload.");
+    }
+
+    await uploadWithResilientFallback({
+      uploadUrl: intent.uploadUrl,
+      storageKey: intent.storageKey,
+      file: photo.file,
+      onProgress: (progress) => setPhoto((current) => (current ? { ...current, progress } : current)),
+      proxyUrl: `/api/groups/${group.slug}/media/proxy-upload`,
+      fields: {
+        kind: GroupAssetKind.PHOTO,
+        forumThreadId: thread.id
+      }
+    });
+
+    const completeResponse = await fetch(`/api/groups/${group.slug}/media/complete-upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        storageKey: intent.storageKey,
+        fileName: photo.file.name,
+        mimeType: photo.file.type,
+        sizeBytes: photo.file.size,
+        kind: GroupAssetKind.PHOTO,
+        forumThreadId: thread.id,
+        headline: `Forum photo: ${photo.file.name}`,
+        description: thread.title
+      })
+    });
+    const complete = (await completeResponse.json()) as { error?: string; asset?: { mediaAssetId?: string } };
+
+    if (!completeResponse.ok || !complete.asset?.mediaAssetId) {
+      throw new Error(complete.error ?? "Could not save photo.");
+    }
+
+    return complete.asset.mediaAssetId;
+  }
+
   function reply(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
     startTransition(async () => {
+      try {
+        const mediaAssetId = await uploadReplyPhoto();
       const response = await fetch(`/api/groups/${group.slug}/forum/threads/${thread.id}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body })
+          body: JSON.stringify({ body, mediaAssetId })
       });
       const payload = (await response.json()) as { error?: string };
 
@@ -52,7 +154,12 @@ export function GroupForumThreadClient({
       }
 
       setBody("");
+        if (photo?.previewUrl) URL.revokeObjectURL(photo.previewUrl);
+        setPhoto(null);
       await refreshThread();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Could not reply.");
+      }
     });
   }
 
@@ -142,8 +249,15 @@ export function GroupForumThreadClient({
         <p className="whitespace-pre-wrap leading-7">{thread.body}</p>
         <div className="mt-5 flex flex-wrap gap-2">
           {quickReactions.map((reaction) => (
-            <button className="btn-secondary px-3 py-2 text-sm" key={reaction} onClick={() => reactToThread(reaction)} type="button">
-              {reaction} {thread.reactions[reaction] ?? 0}
+            <button
+              aria-label={groupReactionLabels[reaction]}
+              className="btn-secondary group-reaction-button px-3 py-2 text-sm"
+              key={reaction}
+              onClick={() => reactToThread(reaction)}
+              title={groupReactionLabels[reaction]}
+              type="button"
+            >
+              <GroupReactionDisplay reaction={reaction} /> <span>{thread.reactions[reaction] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -169,8 +283,15 @@ export function GroupForumThreadClient({
               ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
                 {quickReactions.map((reaction) => (
-                  <button className="btn-secondary px-3 py-2 text-sm" key={reaction} onClick={() => reactToPost(post.id, reaction)} type="button">
-                    {reaction} {post.reactions[reaction] ?? 0}
+                  <button
+                    aria-label={groupReactionLabels[reaction]}
+                    className="btn-secondary group-reaction-button px-3 py-2 text-sm"
+                    key={reaction}
+                    onClick={() => reactToPost(post.id, reaction)}
+                    title={groupReactionLabels[reaction]}
+                    type="button"
+                  >
+                    <GroupReactionDisplay reaction={reaction} /> <span>{post.reactions[reaction] ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -189,10 +310,41 @@ export function GroupForumThreadClient({
             value={body}
           />
           {thread.allowPhotoReplies ? (
-            <p className="mt-2 text-sm text-[var(--muted)]">Photo reply plumbing is enabled; picker comes with the group media module.</p>
+            <div className="mt-4 grid gap-3">
+              <input
+                ref={fileInputRef}
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={(event) => choosePhoto(event.target.files?.[0] ?? null)}
+                type="file"
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <button className="btn-secondary" disabled={isPending} onClick={() => fileInputRef.current?.click()} type="button">
+                  {photo ? "Change photo" : "Attach photo"}
+                </button>
+                {photo ? (
+                  <button className="btn-secondary" disabled={isPending} onClick={() => choosePhoto(null)} type="button">
+                    Remove
+                  </button>
+                ) : null}
+                <p className="text-sm text-[var(--muted)]">Photo replies count against this group&apos;s assigned storage.</p>
+              </div>
+              {photo ? (
+                <div className="forum-reply-photo-preview">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="" src={photo.previewUrl} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-[var(--gold)]">{photo.file.name}</p>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30">
+                      <span className="block h-full rounded-full bg-[var(--blue)]" style={{ width: `${photo.progress}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : null}
           {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-          <button className="btn-primary send-logo-button mt-4" disabled={isPending || !body.trim()} type="submit">
+          <button className="btn-primary send-logo-button mt-4" disabled={isPending || (!body.trim() && !photo)} type="submit">
             <span aria-hidden="true" className="send-logo-icon" />
             <span className="sr-only">{isPending ? "Replying..." : "Post reply"}</span>
           </button>

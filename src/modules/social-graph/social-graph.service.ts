@@ -2,6 +2,7 @@ import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, Profi
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
+import { resolvePreferredThumbnailUrls } from "@/modules/media/media-thumbnails";
 import {
   familyRelationshipRequestSchema,
   familyRelationshipResponseSchema,
@@ -572,12 +573,13 @@ export async function listApprovedFamilyMembers(userId: string): Promise<FamilyM
     }),
     "family member lookup"
   );
+  const avatarThumbnails = await resolvePreferredThumbnailUrls(family.map((relationship) => relationship.toUser.profile?.avatarUrl));
 
   return family.map((relationship) => ({
     id: relationship.toUser.id,
     username: relationship.toUser.username,
     displayName: relationship.toUser.profile?.displayName ?? relationship.toUser.username,
-    avatarUrl: relationship.toUser.profile?.avatarUrl,
+    avatarUrl: avatarThumbnails.get(relationship.toUser.profile?.avatarUrl ?? "") ?? relationship.toUser.profile?.avatarUrl,
     relationshipLabel: relationship.note ?? "Family"
   }));
 }
@@ -602,6 +604,7 @@ export async function listPeopleCards(userId: string, type?: SocialRelationshipT
   );
 
   const grouped = new Map<string, PeopleCardView>();
+  const avatarThumbnails = await resolvePreferredThumbnailUrls(relationships.map((relationship) => relationship.toUser.profile?.avatarUrl));
 
   for (const relationship of relationships) {
     const existing = grouped.get(relationship.toUserId);
@@ -613,7 +616,7 @@ export async function listPeopleCards(userId: string, type?: SocialRelationshipT
         username: relationship.toUser.username,
         displayName,
         fullName: displayName,
-        avatarUrl: relationship.toUser.profile?.avatarUrl,
+        avatarUrl: avatarThumbnails.get(relationship.toUser.profile?.avatarUrl ?? "") ?? relationship.toUser.profile?.avatarUrl,
         location: relationship.toUser.profile?.location,
         relationships: [],
         familyLabel: relationship.type === SocialRelationshipType.FAMILY ? relationship.note : null
@@ -759,6 +762,7 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
   });
   const relationshipMap = new Map<string, SocialRelationshipType[]>();
   const familyLabelMap = new Map<string, string>();
+  const avatarThumbnails = await resolvePreferredThumbnailUrls(people.map((person) => person.profile?.avatarUrl));
   const pendingFamilyRequestIds = new Set(pendingFamilyRequests.map((request) => request.targetUserId));
   const pendingFriendRequestIds = new Set(pendingFriendRequests.map((request) => request.targetUserId));
 
@@ -779,7 +783,7 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
       username: person.username,
       displayName,
       fullName: displayName,
-      avatarUrl: person.profile?.avatarUrl,
+      avatarUrl: avatarThumbnails.get(person.profile?.avatarUrl ?? "") ?? person.profile?.avatarUrl,
       location: person.profile?.location,
       relationships: relationshipMap.get(person.id) ?? [],
       familyLabel: familyLabelMap.get(person.id) ?? null,

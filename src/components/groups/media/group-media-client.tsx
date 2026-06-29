@@ -25,6 +25,7 @@ type GroupMediaClientProps = {
   initialStorageUsedBytes: string;
   viewerCanUpload: boolean;
   viewerCanComment: boolean;
+  viewerCanManageStorage: boolean;
 };
 
 function bytesLabel(value: string | number) {
@@ -49,12 +50,15 @@ export function GroupMediaClient({
   initialAssets,
   initialStorageUsedBytes,
   viewerCanUpload,
-  viewerCanComment
+  viewerCanComment,
+  viewerCanManageStorage
 }: GroupMediaClientProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [assets, setAssets] = useState(initialAssets);
   const [selectedKind, setSelectedKind] = useState<GroupAssetKind>(GroupAssetKind.PHOTO);
   const [storageUsedBytes, setStorageUsedBytes] = useState(initialStorageUsedBytes);
+  const [storageLimitBytes, setStorageLimitBytes] = useState(group.storageLimitBytes);
+  const [storageLimitInputMb, setStorageLimitInputMb] = useState(() => String(Math.round(Number(group.storageLimitBytes) / 1024 / 1024)));
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [headline, setHeadline] = useState("");
@@ -62,10 +66,12 @@ export function GroupMediaClient({
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [dangerPassword, setDangerPassword] = useState("");
+  const [dangerConfirmText, setDangerConfirmText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   const visibleAssets = assets.filter((asset) => asset.kind === selectedKind);
-  const storageLimit = Number(group.storageLimitBytes);
+  const storageLimit = Number(storageLimitBytes);
   const storageUsed = Number(storageUsedBytes);
   const storagePercent = storageLimit > 0 ? Math.min(100, Math.round((storageUsed / storageLimit) * 100)) : 0;
 
@@ -218,6 +224,54 @@ export function GroupMediaClient({
     await refreshAssets();
   }
 
+  async function updateStorageLimit() {
+    setError("");
+    setMessage("");
+    const storageLimitBytes = Math.max(0, Math.round(Number(storageLimitInputMb) * 1024 * 1024));
+    const response = await fetch(`/api/groups/${group.slug}/media/storage`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storageLimitBytes })
+    });
+    const payload = (await response.json()) as { error?: string; storageLimitBytes?: string; usedBytes?: string };
+
+    if (!response.ok || !payload.storageLimitBytes) {
+      setError(payload.error ?? "Could not update storage assignment.");
+      if (payload.usedBytes) setStorageUsedBytes(payload.usedBytes);
+      return;
+    }
+
+    setStorageLimitBytes(payload.storageLimitBytes);
+    setMessage("Storage assignment updated.");
+  }
+
+  async function purgeStorage(action: "PURGE_OLD_IMAGES_TO_LIMIT" | "PURGE_ALL_IMAGES" | "DELETE_ALL_CONTENT") {
+    setError("");
+    setMessage("");
+    const response = await fetch(`/api/groups/${group.slug}/media/storage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action,
+        targetLimitBytes: Number(storageLimitBytes),
+        password: dangerPassword,
+        confirmationText: dangerConfirmText
+      })
+    });
+    const payload = (await response.json()) as { error?: string; deletedCount?: number; freedBytes?: string; storageUsedBytes?: string };
+
+    if (!response.ok) {
+      setError(payload.error ?? "Could not purge storage.");
+      return;
+    }
+
+    if (payload.storageUsedBytes) setStorageUsedBytes(payload.storageUsedBytes);
+    setMessage(`Purged ${payload.deletedCount ?? 0} item(s), freed ${bytesLabel(payload.freedBytes ?? "0")}.`);
+    setDangerPassword("");
+    setDangerConfirmText("");
+    await refreshAssets();
+  }
+
   function changeKind(kind: GroupAssetKind) {
     setSelectedKind(kind);
     setItems([]);
@@ -245,7 +299,7 @@ export function GroupMediaClient({
         <div className="mt-5">
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
             <span>
-              {bytesLabel(storageUsedBytes)} of {bytesLabel(group.storageLimitBytes)} used
+              {bytesLabel(storageUsedBytes)} of {bytesLabel(storageLimitBytes)} used
             </span>
             <span>{storagePercent}%</span>
           </div>
@@ -253,6 +307,62 @@ export function GroupMediaClient({
             <div className="h-full rounded-full bg-[var(--blue)]" style={{ width: `${storagePercent}%` }} />
           </div>
         </div>
+
+        {viewerCanManageStorage ? (
+          <div className="group-storage-controls mt-5">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,220px)_auto_auto_auto]">
+              <label className="grid gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+                Assigned MB
+                <input
+                  className="form-field"
+                  min={0}
+                  onChange={(event) => setStorageLimitInputMb(event.target.value)}
+                  type="number"
+                  value={storageLimitInputMb}
+                />
+              </label>
+              <button className="btn-primary self-end" onClick={updateStorageLimit} type="button">
+                Save
+              </button>
+              <button className="btn-secondary self-end" onClick={() => purgeStorage("PURGE_OLD_IMAGES_TO_LIMIT")} type="button">
+                Auto purge
+              </button>
+              <a className="btn-secondary self-end" href={`/groups/${group.slug}/media?kind=PHOTO`}>
+                Manual
+              </a>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button className="btn-secondary" onClick={() => purgeStorage("PURGE_ALL_IMAGES")} type="button">
+                Purge images
+              </button>
+            </div>
+            <div className="mt-4 rounded-md border border-red-400/40 bg-red-950/20 p-4">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-red-100">Irrevocable delete all group content</p>
+              <p className="mt-2 text-sm text-red-100">
+                This removes all group media plus all forum threads and replies. Warning 1: cannot undo. Warning 2: images are deleted.
+                Warning 3: threads and replies are deleted.
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <input
+                  className="form-field"
+                  onChange={(event) => setDangerPassword(event.target.value)}
+                  placeholder="Password"
+                  type="password"
+                  value={dangerPassword}
+                />
+                <input
+                  className="form-field"
+                  onChange={(event) => setDangerConfirmText(event.target.value)}
+                  placeholder='Type "DELETE ALL"'
+                  value={dangerConfirmText}
+                />
+                <button className="btn-secondary" onClick={() => purgeStorage("DELETE_ALL_CONTENT")} type="button">
+                  Delete all
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="surface rounded-md p-4">

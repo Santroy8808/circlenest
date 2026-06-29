@@ -6,6 +6,9 @@ import { listApprovedFamilyMembers } from "@/modules/social-graph/social-graph.s
 
 const MODULE_KEY = "profile-identity";
 const PROFILE_DB_TIMEOUT_MS = 2500;
+type ProfileMediaMetadata = {
+  thumbnailUrl?: string | null;
+};
 
 function withProfileDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -204,7 +207,8 @@ export async function setProfileMediaFromGallery(userId: string, input: unknown)
       },
       select: {
         id: true,
-        publicUrl: true
+        publicUrl: true,
+        metadata: true
       }
     })
   ]);
@@ -217,7 +221,9 @@ export async function setProfileMediaFromGallery(userId: string, input: unknown)
     return { ok: false as const, error: "That photo was not found in My Pics." };
   }
 
-  const mediaUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+  const metadata = asset.metadata as ProfileMediaMetadata | null;
+  const originalUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+  const mediaUrl = parsed.data.target === "avatar" ? metadata?.thumbnailUrl ?? originalUrl : originalUrl;
   const profile = await prisma.profile.upsert({
     where: { userId },
     update: parsed.data.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },

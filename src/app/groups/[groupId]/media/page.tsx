@@ -26,6 +26,7 @@ export default async function GroupMediaPage({ params }: { params: { groupId: st
         initialAssets={result.assets}
         initialStorageUsedBytes={result.storageUsedBytes}
         viewerCanComment={result.viewerCanComment}
+        viewerCanManageStorage={result.viewerCanManageStorage}
         viewerCanUpload={result.viewerCanUpload}
       />
     </AppShell>

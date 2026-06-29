@@ -316,7 +316,13 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
     const asset = await prisma.mediaAsset.findFirst({
       where: {
         id: parsed.data.mediaAssetId,
-        ownerUserId: viewerUserId
+        ownerUserId: viewerUserId,
+        groupAssets: {
+          some: {
+            groupId: detail.group.id,
+            deletedAt: null
+          }
+        }
       },
       select: { id: true }
     });
@@ -331,7 +337,7 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
       threadId,
       authorUserId: viewerUserId,
       parentPostId: parsed.data.parentPostId || null,
-      body: parsed.data.body,
+      body: parsed.data.body?.trim() ?? "",
       mediaAssetId: parsed.data.mediaAssetId || null
     }
   });

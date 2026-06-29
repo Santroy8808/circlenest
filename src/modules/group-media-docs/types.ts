@@ -23,7 +23,8 @@ const groupAssetUploadBaseSchema = z.object({
   fileName: z.string().min(1).max(240),
   mimeType: z.string().min(3).max(160),
   sizeBytes: z.number().int().positive(),
-  kind: groupAssetKindSchema
+  kind: groupAssetKindSchema,
+  forumThreadId: z.string().optional().or(z.literal(""))
 });
 
 export const createGroupAssetUploadIntentSchema = groupAssetUploadBaseSchema
@@ -82,6 +83,17 @@ export const createGroupAssetCommentSchema = z.object({
   body: z.string().min(1, "Write a comment.").max(1000)
 });
 
+export const updateGroupStorageLimitSchema = z.object({
+  storageLimitBytes: z.number().int().min(0).max(10 * 1024 * 1024 * 1024)
+});
+
+export const purgeGroupStorageSchema = z.object({
+  action: z.enum(["PURGE_OLD_IMAGES_TO_LIMIT", "PURGE_ALL_IMAGES", "DELETE_ALL_CONTENT"]),
+  targetLimitBytes: z.number().int().min(0).optional(),
+  password: z.string().optional().or(z.literal("")),
+  confirmationText: z.string().optional().or(z.literal(""))
+});
+
 export type GroupAssetCommentView = {
   id: string;
   body: string;
@@ -127,4 +139,5 @@ export type GroupMediaPageView = {
   storageUsedBytes: string;
   viewerCanUpload: boolean;
   viewerCanComment: boolean;
+  viewerCanManageStorage: boolean;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ListingViewMode } from "@/modules/listing-preferences/types";
 import type { PeopleCardView } from "@/modules/social-graph/types";
 import { PeopleGrid } from "@/components/social/people-grid";
@@ -16,15 +16,25 @@ export function PeopleDirectoryClient({
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       const cleanQuery = query.trim();
       setError("");
       setLoading(cleanQuery.length > 0);
 
       try {
-        const response = await fetch(`/api/people?q=${encodeURIComponent(cleanQuery)}`, { cache: "no-store" });
+        const response = await fetch(`/api/people?q=${encodeURIComponent(cleanQuery)}`, {
+          cache: "no-store",
+          signal: controller.signal
+        });
         const payload = (await response.json()) as { error?: string; people?: PeopleCardView[] };
 
         if (!response.ok) {
@@ -33,14 +43,18 @@ export function PeopleDirectoryClient({
         }
 
         setPeople(payload.people ?? []);
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setError("Could not search people.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }, 180);
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
   }, [query]);
 
   return (

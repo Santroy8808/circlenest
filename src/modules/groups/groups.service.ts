@@ -9,6 +9,7 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
+import { resolvePreferredThumbnailUrls } from "@/modules/media/media-thumbnails";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createGroupSchema,
@@ -87,7 +88,8 @@ function toGroupCardView(
       pins: true;
       _count: { select: { members: true } };
     };
-  }>
+  }>,
+  thumbnailUrls: Map<string, string> = new Map()
 ): GroupCardView {
   const membership = viewerMembership(viewerUserId, group);
 
@@ -97,8 +99,8 @@ function toGroupCardView(
     name: group.name,
     tagline: group.tagline,
     description: group.description,
-    avatarUrl: group.avatarUrl,
-    bannerUrl: group.bannerUrl,
+    avatarUrl: thumbnailUrls.get(group.avatarUrl ?? "") ?? group.avatarUrl,
+    bannerUrl: thumbnailUrls.get(group.bannerUrl ?? "") ?? group.bannerUrl,
     visibility: group.visibility,
     joinPolicy: group.joinPolicy,
     memberCount: group._count.members,
@@ -192,10 +194,11 @@ export async function listGroups(input: {
     }),
     "group directory lookup"
   );
+  const thumbnailUrls = await resolvePreferredThumbnailUrls(groups.flatMap((group) => [group.avatarUrl, group.bannerUrl]));
 
   return groups
     .filter((group) => canViewPrivateGroup({ viewerUserId: input.viewerUserId, viewerRole, group }))
-    .map((group) => toGroupCardView(input.viewerUserId, group))
+    .map((group) => toGroupCardView(input.viewerUserId, group, thumbnailUrls))
     .sort((first, second) => Number(second.isPinned) - Number(first.isPinned));
 }
 
