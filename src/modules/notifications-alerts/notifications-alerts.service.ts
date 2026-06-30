@@ -6,6 +6,7 @@ import { countUnreadMail } from "@/modules/mail/mail.service";
 
 const MODULE_KEY = "notifications-alerts";
 const NOTIFICATION_DB_TIMEOUT_MS = 1800;
+const UNREAD_NOTIFICATION_RETENTION_DAYS = 14;
 
 function withNotificationTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -47,12 +48,26 @@ export type AlertListItem = {
   } | null;
 };
 
+async function purgeExpiredUnreadNotifications(userId: string) {
+  const cutoff = new Date(Date.now() - UNREAD_NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  await prisma.notification.deleteMany({
+    where: {
+      userId,
+      readAt: null,
+      createdAt: {
+        lt: cutoff
+      }
+    }
+  });
+}
+
 export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
   if (!userId) {
     return { notifications: 0, alerts: 0, mail: 0, messages: 0 };
   }
 
   try {
+    await purgeExpiredUnreadNotifications(userId);
     const [notifications, alerts, messages, mail] = await withNotificationTimeout(
       Promise.all([
         prisma.notification.count({ where: { userId, readAt: null } }),
@@ -75,6 +90,7 @@ export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
 
 export async function listNotifications(userId: string) {
   try {
+    await purgeExpiredUnreadNotifications(userId);
     return await withNotificationTimeout(
       prisma.notification.findMany({
         where: { userId },
@@ -187,6 +203,22 @@ export async function markAllNotificationsRead(userId: string) {
   });
 
   return { ok: true as const };
+}
+
+export async function hideNotifications(userId: string, notificationIds: string[]) {
+  const ids = Array.from(new Set(notificationIds.filter((id) => typeof id === "string" && id.trim().length > 0)));
+  if (ids.length === 0) return { ok: true as const, hidden: 0 };
+
+  const result = await prisma.notification.deleteMany({
+    where: {
+      userId,
+      id: {
+        in: ids
+      }
+    }
+  });
+
+  return { ok: true as const, hidden: result.count };
 }
 
 export async function markAlertRead(userId: string, alertId: string) {

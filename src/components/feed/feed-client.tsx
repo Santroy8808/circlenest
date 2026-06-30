@@ -381,10 +381,6 @@ function ReservedStreamAdCard({ ad }: { ad: AdPlacementCardView }) {
   );
 }
 
-function reactionTotal(counts: Partial<Record<FeedReactionType, number>>) {
-  return Object.values(counts).reduce((total, count) => total + (count ?? 0), 0);
-}
-
 function ReactionButtons({
   counts,
   compact = false,
@@ -398,7 +394,7 @@ function ReactionButtons({
   onReact: (type: FeedReactionType) => void;
   reactors?: FeedReactionReactorsView;
 }) {
-  const total = reactionTotal(counts);
+  const visibleReactionCounts = quickReactions.filter((reaction) => (counts[reaction.type] ?? 0) > 0);
   const closeTimerRef = useRef<number | undefined>(undefined);
   const [choicesOpen, setChoicesOpen] = useState(false);
   const [detailsType, setDetailsType] = useState<FeedReactionType | "ALL" | null>(null);
@@ -457,41 +453,33 @@ function ReactionButtons({
       >
         <ReactionIcon reaction={triggerReaction} />
       </button>
-      {total > 0 ? (
+      {visibleReactionCounts.map((reaction) => (
         <button
-          aria-expanded={detailsType === "ALL"}
-          className="feed-reaction-count-trigger"
-          onClick={() => setDetailsType((current) => (current === "ALL" ? null : "ALL"))}
-          title="See who reacted"
+          aria-expanded={detailsType === reaction.type}
+          aria-label={`See ${reaction.label} reactions`}
+          className="feed-reaction-count-chip"
+          key={reaction.type}
+          onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
+          title={`See ${reaction.label} reactions`}
           type="button"
         >
-          {total}
+          <ReactionIcon reaction={reaction} />
+          <span>{counts[reaction.type]}</span>
         </button>
-      ) : null}
+      ))}
       <div className="feed-reaction-popover" role="menu" aria-label="Reaction options">
         {quickReactions.map((reaction) => (
-          <span className="feed-reaction-choice-group" key={reaction.type}>
-            <button
-              aria-label={reaction.label}
-              className={myReactionType === reaction.type ? "feed-reaction-choice is-selected" : "feed-reaction-choice"}
-              onClick={() => chooseReaction(reaction.type)}
-              role="menuitem"
-              title={reaction.label}
-              type="button"
-            >
-              <ReactionIcon reaction={reaction} />
-            </button>
-            {(counts[reaction.type] ?? 0) > 0 ? (
-              <button
-                aria-label={`See ${reaction.label} reactions`}
-                className="feed-reaction-choice-count"
-                onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
-                type="button"
-              >
-                {counts[reaction.type]}
-              </button>
-            ) : null}
-          </span>
+          <button
+            aria-label={reaction.label}
+            className={myReactionType === reaction.type ? "feed-reaction-choice is-selected" : "feed-reaction-choice"}
+            key={reaction.type}
+            onClick={() => chooseReaction(reaction.type)}
+            role="menuitem"
+            title={reaction.label}
+            type="button"
+          >
+            <ReactionIcon reaction={reaction} />
+          </button>
         ))}
       </div>
       {detailsType ? (
@@ -565,8 +553,9 @@ function ComposerToolbar({
         <button disabled={disabled} onClick={() => onFormat("link")} type="button">
           Link
         </button>
-        <label className="feed-picture-button">
-          Picture
+        <label aria-label="Attach image" className="feed-picture-button" title="Attach image">
+          <span aria-hidden="true" className="feed-picture-glyph">▧</span>
+          <span className="sr-only">Attach image</span>
           <input
             accept="image/*"
             className="hidden"
@@ -612,6 +601,69 @@ function ImagePreview({
         Remove
       </button>
     </div>
+  );
+}
+
+function CommentComposer({
+  commentBody,
+  commentError,
+  commentImage,
+  disabled,
+  label,
+  onCancel,
+  onEmoji,
+  onFile,
+  onFormat,
+  onImageRemove,
+  onSubmit,
+  setTextareaRef,
+  updateBody
+}: {
+  commentBody: string;
+  commentError?: string;
+  commentImage?: FeedImageAttachment;
+  disabled: boolean;
+  label: string;
+  onCancel: () => void;
+  onEmoji: (emoji: string) => void;
+  onFile: (file: File) => void;
+  onFormat: (format: TextFormat) => void;
+  onImageRemove: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  setTextareaRef: (node: HTMLTextAreaElement | null) => void;
+  updateBody: (value: string) => void;
+}) {
+  return (
+    <form className="feed-comment-composer is-quick-reply" onSubmit={onSubmit}>
+      <div className="feed-quick-reply-topline">
+        <span>{label}</span>
+        <button onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+      <textarea
+        className="form-field min-h-16 resize-y"
+        onChange={(event) => updateBody(event.target.value)}
+        placeholder="Quick reply..."
+        ref={setTextareaRef}
+        value={commentBody}
+      />
+      {commentImage ? <ImagePreview image={commentImage} onRemove={onImageRemove} /> : null}
+      <ComposerToolbar
+        compact
+        disabled={disabled}
+        onEmoji={onEmoji}
+        onFile={onFile}
+        onFormat={onFormat}
+        trailingAction={
+          <button className="btn-secondary send-logo-button is-compact feed-comment-send" disabled={disabled || (!commentBody.trim() && !commentImage)} type="submit">
+            <span aria-hidden="true" className="send-logo-icon" />
+            <span className="sr-only">Reply</span>
+          </button>
+        }
+      />
+      {commentError ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{commentError}</p> : null}
+    </form>
   );
 }
 
@@ -773,11 +825,8 @@ export function FeedClient({
 
   useEffect(() => {
     if (initialReplyPostId) {
-      window.requestAnimationFrame(() => {
-        const textarea = commentTextareaRefs.current[initialReplyPostId];
-        textarea?.focus();
-        textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
-      });
+      const focusTimer = window.setTimeout(() => focusCommentComposer(initialReplyPostId), 80);
+      return () => window.clearTimeout(focusTimer);
     }
   }, [initialReplyPostId]);
 
@@ -1230,6 +1279,26 @@ export function FeedClient({
           const replyCount = post.comments.reduce((total, comment) => total + comment.replyCount, 0);
           const commentSummary = post.comments.length + replyCount;
           const reservedStreamAd = showThreadLinks && feedMode === "latest" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
+          const postLevelReplyInThread = Boolean(replyTarget && !replyTarget.parentCommentId && !showThreadLinks);
+          const replyComposer = replyTarget ? (
+            <CommentComposer
+              commentBody={commentBodies[activeCommentKey] ?? ""}
+              commentError={commentErrors[activeCommentKey]}
+              commentImage={commentImage}
+              disabled={isPending}
+              label={replyTarget.label}
+              onCancel={() => setReplyTargets((current) => ({ ...current, [post.id]: undefined }))}
+              onEmoji={(emoji) => appendToComment(post.id, emoji, replyTarget.parentCommentId)}
+              onFile={(file) => setCommentImages((current) => ({ ...current, [activeCommentKey]: createImageAttachment(file) }))}
+              onFormat={(format) => formatCommentText(activeCommentKey, format)}
+              onImageRemove={() => setCommentImages((current) => ({ ...current, [activeCommentKey]: undefined }))}
+              onSubmit={(event) => submitComment(post.id, event, replyTarget.parentCommentId)}
+              setTextareaRef={(node) => {
+                commentTextareaRefs.current[activeCommentKey] = node;
+              }}
+              updateBody={(value) => setCommentBodies((current) => ({ ...current, [activeCommentKey]: value }))}
+            />
+          ) : null;
 
           return (
             <Fragment key={post.id}>
@@ -1330,6 +1399,7 @@ export function FeedClient({
                   ) : null}
                 </div>
               </div>
+              {postLevelReplyInThread ? replyComposer : null}
               <div className="feed-comment-preview">
                 {previewComments.map((comment) => (
                   <FeedCommentRow
@@ -1351,50 +1421,7 @@ export function FeedClient({
                     View {hiddenPreviewCount} more in full discussion
                   </button>
                 ) : null}
-                {replyTarget ? (
-                  <form className="feed-comment-composer is-quick-reply" onSubmit={(event) => submitComment(post.id, event, replyTarget.parentCommentId)}>
-                    <div className="feed-quick-reply-topline">
-                      <span>{replyTarget.label}</span>
-                      <button
-                        onClick={() => setReplyTargets((current) => ({ ...current, [post.id]: undefined }))}
-                        type="button"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    <textarea
-                      className="form-field min-h-16 resize-y"
-                      onChange={(event) => setCommentBodies((current) => ({ ...current, [activeCommentKey]: event.target.value }))}
-                      placeholder="Quick reply..."
-                      ref={(node) => {
-                        commentTextareaRefs.current[activeCommentKey] = node;
-                      }}
-                      value={commentBodies[activeCommentKey] ?? ""}
-                    />
-                    {commentImage ? (
-                      <ImagePreview
-                        image={commentImage}
-                        onRemove={() => setCommentImages((current) => ({ ...current, [activeCommentKey]: undefined }))}
-                      />
-                    ) : null}
-                    <ComposerToolbar
-                      compact
-                      disabled={isPending}
-                      onEmoji={(emoji) => appendToComment(post.id, emoji, replyTarget.parentCommentId)}
-                      onFile={(file) => setCommentImages((current) => ({ ...current, [activeCommentKey]: createImageAttachment(file) }))}
-                      onFormat={(format) => formatCommentText(activeCommentKey, format)}
-                      trailingAction={
-                        <button className="btn-secondary send-logo-button is-compact feed-comment-send" disabled={isPending || (!commentBodies[activeCommentKey]?.trim() && !commentImage)} type="submit">
-                          <span aria-hidden="true" className="send-logo-icon" />
-                          <span className="sr-only">Reply</span>
-                        </button>
-                      }
-                    />
-                    {commentErrors[activeCommentKey] ? (
-                      <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{commentErrors[activeCommentKey]}</p>
-                    ) : null}
-                  </form>
-                ) : null}
+                {replyTarget && !postLevelReplyInThread ? replyComposer : null}
               </div>
             </article>
             {reservedStreamAd ? <ReservedStreamAdCard ad={reservedStreamAd} /> : null}

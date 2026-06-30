@@ -371,14 +371,14 @@ export function MailClient({
               role="button"
               tabIndex={0}
             >
-              <div className="flex items-start justify-between gap-3">
-                <p className="truncate font-semibold">{thread.subject}</p>
+              <div className="mail-thread-card-heading flex items-start justify-between gap-3">
+                <p className="mail-thread-subject truncate font-semibold">{thread.subject}</p>
                 {thread.unread ? <span className="mt-2 h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
               </div>
-              <p className="mt-1 truncate text-sm text-[var(--muted)]">
+              <p className="mail-thread-preview mt-1 truncate text-sm text-[var(--muted)]">
                 <MailProfileLink person={thread.sender}>{thread.sender.displayName}</MailProfileLink>: {thread.preview}
               </p>
-              <p className="mt-2 text-xs text-[var(--muted)]">
+              <p className="mail-thread-meta mt-2 text-xs text-[var(--muted)]">
                 {mailDeliveryListLabel(thread.deliveryKind)} ·{" "}
                 {thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : "No date"}
               </p>
@@ -513,11 +513,11 @@ export function MailClient({
               ) : null}
             </section>
             {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-            <div className="flex justify-end gap-3">
+            <div className="mail-compose-actions">
               <button className="btn-secondary" onClick={() => setIsComposing(false)} type="button">
                 Cancel
               </button>
-              <button className="btn-primary send-logo-button" disabled={isPending || recipients.length === 0 || !subject.trim() || !bodyText.trim()} type="submit">
+              <button className="btn-primary send-logo-button is-compact" disabled={isPending || recipients.length === 0 || !subject.trim() || !bodyText.trim()} type="submit">
                 <span aria-hidden="true" className="send-logo-icon" />
                 <span className="sr-only">{isPending ? "Sending..." : "Send mail"}</span>
               </button>

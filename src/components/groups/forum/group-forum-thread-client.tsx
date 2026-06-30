@@ -24,12 +24,21 @@ const groupReactionLabels: Record<GroupForumReactionType, string> = {
   [GroupForumReactionType.ANGRY]: "Angry"
 };
 
+const groupReactionGlyphs: Partial<Record<GroupForumReactionType, string>> = {
+  [GroupForumReactionType.LOVE]: "\u2764\uFE0F",
+  [GroupForumReactionType.CARE]: "\u{1F917}",
+  [GroupForumReactionType.HAHA]: "\u{1F602}",
+  [GroupForumReactionType.WOW]: "\u{1F62E}",
+  [GroupForumReactionType.SAD]: "\u{1F622}",
+  [GroupForumReactionType.ANGRY]: "\u{1F621}"
+};
+
 function GroupReactionDisplay({ reaction }: { reaction: GroupForumReactionType }) {
   if (reaction === GroupForumReactionType.LIKE) {
     return <ThetaLikeTriangle />;
   }
 
-  return <span aria-hidden="true">{groupReactionLabels[reaction]}</span>;
+  return <span aria-hidden="true">{groupReactionGlyphs[reaction] ?? groupReactionLabels[reaction]}</span>;
 }
 
 export function GroupForumThreadClient({
@@ -325,8 +334,15 @@ export function GroupForumThreadClient({
                 type="file"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <button className="btn-secondary" disabled={isPending} onClick={() => fileInputRef.current?.click()} type="button">
-                  {photo ? "Change photo" : "Attach photo"}
+                <button
+                  aria-label={photo ? "Change image" : "Attach image"}
+                  className="btn-secondary icon-glyph-button"
+                  disabled={isPending}
+                  onClick={() => fileInputRef.current?.click()}
+                  title={photo ? "Change image" : "Attach image"}
+                  type="button"
+                >
+                  <span aria-hidden="true">▧</span>
                 </button>
                 {photo ? (
                   <button className="btn-secondary" disabled={isPending} onClick={() => choosePhoto(null)} type="button">
