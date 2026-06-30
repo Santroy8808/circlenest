@@ -54,7 +54,9 @@ const quickReactions = [
   { type: FeedReactionType.LOVE, icon: "\u{2764}\u{FE0F}", label: "Love" },
   { type: FeedReactionType.CARE, icon: "\u{1F917}", label: "Care" },
   { type: FeedReactionType.HAHA, icon: "\u{1F602}", label: "Haha" },
-  { type: FeedReactionType.WOW, icon: "\u{1F62E}", label: "Wow" }
+  { type: FeedReactionType.WOW, icon: "\u{1F62E}", label: "Wow" },
+  { type: FeedReactionType.SAD, icon: "\u{1F622}", label: "Sad" },
+  { type: FeedReactionType.ANGRY, icon: "\u{1F621}", label: "Angry" }
 ] satisfies QuickReaction[];
 
 const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [

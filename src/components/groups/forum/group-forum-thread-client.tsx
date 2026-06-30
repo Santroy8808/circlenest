@@ -11,7 +11,10 @@ const quickReactions = [
   GroupForumReactionType.LIKE,
   GroupForumReactionType.LOVE,
   GroupForumReactionType.CARE,
-  GroupForumReactionType.HAHA
+  GroupForumReactionType.HAHA,
+  GroupForumReactionType.WOW,
+  GroupForumReactionType.SAD,
+  GroupForumReactionType.ANGRY
 ];
 
 const groupReactionLabels: Record<GroupForumReactionType, string> = {
