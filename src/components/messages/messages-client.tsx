@@ -1,7 +1,9 @@
 "use client";
 
 import { ChatAttachmentKind, ChatThreadType } from "@prisma/client";
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type {
   ChatAttachmentView,
@@ -89,6 +91,20 @@ function deliveryMark(message: ChatMessageView) {
   if (message.deliveryState === "SENDING") return "θ...";
   if (message.deliveryState === "SEEN") return "θθ";
   return "θ";
+}
+
+function activateKeyboard(event: KeyboardEvent<HTMLElement>, action: () => void) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  action();
+}
+
+function ProfileNameLink({ person, children }: { person: ChatPersonView; children: ReactNode }) {
+  return (
+    <Link className="profile-inline-link" href={`/profile/${person.username}`} onClick={(event) => event.stopPropagation()}>
+      {children}
+    </Link>
+  );
 }
 
 function attachmentImageUrl(attachment: ChatAttachmentView) {
@@ -522,6 +538,11 @@ export function MessagesClient({
     return matchesType && matchesQuery;
   });
 
+  function directThreadProfile(thread: ChatThreadView | ChatThreadDetailView) {
+    if (thread.type !== ChatThreadType.DIRECT) return null;
+    return thread.participants.find((participant) => participant.id !== currentUserId) ?? null;
+  }
+
   return (
     <div className={selectedThread ? "chat-layout has-selected-thread" : "chat-layout"}>
       <aside className="chat-sidebar surface rounded-md">
@@ -553,21 +574,43 @@ export function MessagesClient({
           {filteredThreads.length === 0 ? (
             <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No chats yet.</p>
           ) : null}
-          {filteredThreads.map((thread) => (
-            <button
-              className={selectedThread?.id === thread.id ? "chat-thread-card is-active" : "chat-thread-card"}
-              key={thread.id}
-              onClick={() => loadThread(thread.id)}
-              type="button"
-            >
-              <span className="chat-avatar">{initials(thread.title)}</span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block truncate font-semibold">{thread.title}</span>
-                <span className="block truncate text-sm text-[var(--muted)]">{shortMessagePreview(thread.lastMessage)}</span>
-              </span>
-              {thread.unread ? <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
-            </button>
-          ))}
+          {filteredThreads.map((thread) => {
+            const profile = directThreadProfile(thread);
+            return (
+              <div
+                className={selectedThread?.id === thread.id ? "chat-thread-card is-active" : "chat-thread-card"}
+                key={thread.id}
+                onClick={() => loadThread(thread.id)}
+                onKeyDown={(event) => activateKeyboard(event, () => loadThread(thread.id))}
+                role="button"
+                tabIndex={0}
+              >
+                {profile ? (
+                  <Link
+                    aria-label={`View ${profile.displayName}'s profile`}
+                    className="chat-avatar"
+                    href={`/profile/${profile.username}`}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {initials(profile.displayName)}
+                  </Link>
+                ) : (
+                  <span className="chat-avatar">{initials(thread.title)}</span>
+                )}
+                <span className="min-w-0 flex-1 text-left">
+                  {profile ? (
+                    <ProfileNameLink person={profile}>
+                      <span className="block truncate font-semibold">{thread.title}</span>
+                    </ProfileNameLink>
+                  ) : (
+                    <span className="block truncate font-semibold">{thread.title}</span>
+                  )}
+                  <span className="block truncate text-sm text-[var(--muted)]">{shortMessagePreview(thread.lastMessage)}</span>
+                </span>
+                {thread.unread ? <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
+              </div>
+            );
+          })}
         </section>
 
         <section className="chat-panel-section border-t border-[var(--line)]">
@@ -580,13 +623,31 @@ export function MessagesClient({
           />
           <div className="mt-3 grid gap-2">
             {contacts.map((person) => (
-              <button className="chat-person-card" key={person.id} onClick={() => startDirectChat(person)} type="button">
-                <span className="chat-avatar">{initials(person.displayName)}</span>
+              <div
+                className="chat-person-card"
+                key={person.id}
+                onClick={() => startDirectChat(person)}
+                onKeyDown={(event) => activateKeyboard(event, () => startDirectChat(person))}
+                role="button"
+                tabIndex={0}
+              >
+                <Link
+                  aria-label={`View ${person.displayName}'s profile`}
+                  className="chat-avatar"
+                  href={`/profile/${person.username}`}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {initials(person.displayName)}
+                </Link>
                 <span className="min-w-0 text-left">
-                  <span className="block truncate font-semibold">{person.displayName}</span>
-                  <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
+                  <ProfileNameLink person={person}>
+                    <span className="block truncate font-semibold">{person.displayName}</span>
+                  </ProfileNameLink>
+                  <ProfileNameLink person={person}>
+                    <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
+                  </ProfileNameLink>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </section>
@@ -603,7 +664,13 @@ export function MessagesClient({
                 <p className="text-sm uppercase tracking-[0.18em] text-[var(--gold)]">
                   {selectedThread.type === ChatThreadType.DIRECT ? "Direct chat" : "Group chat"}
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold">{selectedThread.title}</h2>
+                {directThreadProfile(selectedThread) ? (
+                  <Link className="profile-inline-link mt-1 block text-2xl font-semibold" href={`/profile/${directThreadProfile(selectedThread)!.username}`}>
+                    {selectedThread.title}
+                  </Link>
+                ) : (
+                  <h2 className="mt-1 text-2xl font-semibold">{selectedThread.title}</h2>
+                )}
                 <p className="mt-1 text-sm text-[var(--muted)]">{selectedThread.participants.length} participants</p>
               </div>
             </header>
@@ -626,7 +693,7 @@ export function MessagesClient({
                     {hasBody ? (
                       <article className={isMine ? "chat-message is-mine" : "chat-message"}>
                         <div className="chat-message-meta">
-                          <span>{isMine ? "You" : message.sender.displayName}</span>
+                          <ProfileNameLink person={message.sender}>{isMine ? "You" : message.sender.displayName}</ProfileNameLink>
                           <span className="chat-message-meta-right">
                             <span>{new Date(message.createdAt).toLocaleString()}</span>
                           </span>
@@ -640,7 +707,7 @@ export function MessagesClient({
                       </article>
                     ) : (
                       <div className="chat-media-meta">
-                        <span>{isMine ? "You" : message.sender.displayName}</span>
+                        <ProfileNameLink person={message.sender}>{isMine ? "You" : message.sender.displayName}</ProfileNameLink>
                         <span>{new Date(message.createdAt).toLocaleString()}</span>
                       </div>
                     )}

@@ -82,7 +82,7 @@ export function MarketDirectoryClient({
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>
           {listings.map((listing) => (
-            <Link className={`listing-square-card listing-card--${view} market-card`} href={`/market/${listing.slug}`} key={listing.id}>
+            <article className={`listing-square-card listing-card--${view} market-card`} key={listing.id}>
               <div className="listing-square-visual">
                 {listing.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -94,14 +94,25 @@ export function MarketDirectoryClient({
               <span className="listing-square-top-badge">{priceLabel(listing)}</span>
               <div className="listing-square-meta">
                 <p className="listing-square-kicker">{listing.categoryLabel}</p>
-                <h2>{listing.title}</h2>
-                <p className="listing-square-subtitle">By {listing.seller.displayName}</p>
+                <Link href={`/market/${listing.slug}`}>
+                  <h2>{listing.title}</h2>
+                </Link>
+                <p className="listing-square-subtitle">
+                  By{" "}
+                  <Link
+                    className="profile-inline-link"
+                    href={`/profile/${listing.seller.username}`}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {listing.seller.displayName}
+                  </Link>
+                </p>
                 <div className="listing-square-facts">
                   <span>{listing.location || "Location TBD"}</span>
                   <strong>{priceLabel(listing)}</strong>
                 </div>
               </div>
-            </Link>
+            </article>
           ))}
         </section>
       )}

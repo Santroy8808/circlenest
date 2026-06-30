@@ -61,8 +61,12 @@ export function MarketListingDetail({ listing }: { listing: MarketListingDetailV
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Seller</h2>
-          <p className="mt-2 text-[var(--muted)]">{listing.seller.displayName}</p>
-          <p className="mt-1 text-sm text-[var(--muted)]">@{listing.seller.username}</p>
+          <Link className="profile-inline-link mt-2 block" href={`/profile/${listing.seller.username}`}>
+            {listing.seller.displayName}
+          </Link>
+          <Link className="profile-inline-link mt-1 block text-sm" href={`/profile/${listing.seller.username}`}>
+            @{listing.seller.username}
+          </Link>
           <Link className="btn-secondary mt-4 inline-block" href="/mail">
             Open Mail
           </Link>

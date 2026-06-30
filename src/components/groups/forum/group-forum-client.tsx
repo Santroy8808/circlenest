@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -107,12 +107,18 @@ export function GroupForumClient({
           </article>
         ) : null}
         {threads.map((thread) => (
-          <Link className="forum-thread-card" href={`/groups/${group.slug}/forum/${thread.id}`} key={thread.id}>
+          <article className="forum-thread-card" key={thread.id}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="truncate text-2xl font-semibold text-[var(--gold)]">{thread.title}</h2>
+                <Link href={`/groups/${group.slug}/forum/${thread.id}`}>
+                  <h2 className="truncate text-2xl font-semibold text-[var(--gold)]">{thread.title}</h2>
+                </Link>
                 <p className="mt-2 text-sm text-[var(--muted)]">
-                  by {thread.author.displayName} · {new Date(thread.createdAt).toLocaleString()}
+                  by{" "}
+                  <Link className="profile-inline-link" href={`/profile/${thread.author.username}`}>
+                    {thread.author.displayName}
+                  </Link>{" "}
+                  · {new Date(thread.createdAt).toLocaleString()}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -120,11 +126,13 @@ export function GroupForumClient({
                 {thread.endedAt ? <span className="pill rounded-full px-3 py-1 text-xs">Ended</span> : null}
               </div>
             </div>
-            <p className="mt-4 line-clamp-2 leading-7 text-[var(--muted)]">{thread.body}</p>
+            <Link className="block" href={`/groups/${group.slug}/forum/${thread.id}`}>
+              <p className="mt-4 line-clamp-2 leading-7 text-[var(--muted)]">{thread.body}</p>
+            </Link>
             <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[var(--gold)]">
-              {thread.replyCount} replies · {thread.allowPhotoReplies ? "Photo replies allowed" : "Text replies"}
+              {thread.replyCount} replies Â· {thread.allowPhotoReplies ? "Photo replies allowed" : "Text replies"}
             </p>
-          </Link>
+          </article>
         ))}
       </section>
     </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { GroupAssetKind, GroupForumReactionType } from "@prisma/client";
 import Link from "next/link";
@@ -226,7 +226,11 @@ export function GroupForumThreadClient({
             <p className="text-sm uppercase tracking-[0.18em] text-[var(--gold)]">{group.name}</p>
             <h1 className="mt-2 text-4xl font-semibold">{thread.title}</h1>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              by {thread.author.displayName} · {new Date(thread.createdAt).toLocaleString()}
+              by{" "}
+              <Link className="profile-inline-link" href={`/profile/${thread.author.username}`}>
+                {thread.author.displayName}
+              </Link>{" "}
+              · {new Date(thread.createdAt).toLocaleString()}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -271,7 +275,9 @@ export function GroupForumThreadClient({
             <article className="forum-reply-bubble" key={post.id}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-[var(--gold)]">{post.author.displayName}</p>
+                  <Link className="profile-inline-link font-semibold" href={`/profile/${post.author.username}`}>
+                    {post.author.displayName}
+                  </Link>
                   <p className="text-xs text-[var(--muted)]">{new Date(post.createdAt).toLocaleString()}</p>
                 </div>
                 <span className="text-xs text-[var(--muted)]">{post.replyCount} nested replies</span>

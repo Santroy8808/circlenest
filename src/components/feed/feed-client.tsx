@@ -502,8 +502,12 @@ function ReactionButtons({
               {detailReactors.map(({ reaction, reactor }) => (
                 <li key={`${reaction.type}-${reactor.id}`}>
                   <ReactionIcon reaction={reaction} />
-                  <span>{reactor.displayName}</span>
-                  <small>@{reactor.username}</small>
+                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
+                    {reactor.displayName}
+                  </Link>
+                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
+                    <small>@{reactor.username}</small>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -1159,10 +1163,16 @@ export function FeedClient({
           <form className="feed-composer surface rounded-md" onSubmit={submitPost}>
             <div className="feed-composer-header">
               <div className="feed-author-line">
-                <Avatar className="feed-author-avatar" displayName={composerIdentity.displayName} src={composerIdentity.avatarUrl} />
+                <Link className="feed-profile-link" href={`/profile/${composerIdentity.username}`}>
+                  <Avatar className="feed-author-avatar" displayName={composerIdentity.displayName} src={composerIdentity.avatarUrl} />
+                </Link>
                 <div>
-                  <strong>{composerIdentity.displayName}</strong>
-                  <span>@{composerIdentity.username}</span>
+                  <Link className="feed-author-name-link" href={`/profile/${composerIdentity.username}`}>
+                    {composerIdentity.displayName}
+                  </Link>
+                  <Link className="feed-author-handle-link" href={`/profile/${composerIdentity.username}`}>
+                    @{composerIdentity.username}
+                  </Link>
                 </div>
               </div>
               <button className="feed-composer-close" onClick={() => setComposerOpen(false)} type="button">

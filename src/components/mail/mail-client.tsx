@@ -1,7 +1,9 @@
 "use client";
 
 import { MailDeliveryKind } from "@prisma/client";
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type {
   MailAttachmentView,
@@ -29,6 +31,20 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function activateKeyboard(event: KeyboardEvent<HTMLElement>, action: () => void) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  action();
+}
+
+function MailProfileLink({ person, children }: { person: MailPersonView; children: ReactNode }) {
+  return (
+    <Link className="profile-inline-link" href={`/profile/${person.username}`} onClick={(event) => event.stopPropagation()}>
+      {children}
+    </Link>
+  );
 }
 
 function MailAttachmentPreview({ attachment }: { attachment: MailAttachmentView }) {
@@ -300,13 +316,29 @@ export function MailClient({
           />
           <div className="mt-3 grid gap-2">
             {contacts.map((person) => (
-              <button className="mail-contact-card" key={person.id} onClick={() => addRecipient(person)} type="button">
-                <span className="mail-avatar">{initials(person.displayName)}</span>
+              <div
+                className="mail-contact-card"
+                key={person.id}
+                onClick={() => addRecipient(person)}
+                onKeyDown={(event) => activateKeyboard(event, () => addRecipient(person))}
+                role="button"
+                tabIndex={0}
+              >
+                <Link
+                  aria-label={`View ${person.displayName}'s profile`}
+                  className="mail-avatar"
+                  href={`/profile/${person.username}`}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {initials(person.displayName)}
+                </Link>
                 <span className="min-w-0 text-left">
-                  <span className="block truncate font-semibold">{person.displayName}</span>
+                  <MailProfileLink person={person}>
+                    <span className="block truncate font-semibold">{person.displayName}</span>
+                  </MailProfileLink>
                   <span className="block truncate text-xs text-[var(--muted)]">{person.email}</span>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </section>
@@ -331,24 +363,26 @@ export function MailClient({
             <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No mail in this folder.</p>
           ) : null}
           {threads.map((thread) => (
-            <button
+            <div
               className={selectedThread?.id === thread.id ? "mail-thread-card is-active" : "mail-thread-card"}
               key={thread.id}
               onClick={() => loadThread(thread.id)}
-              type="button"
+              onKeyDown={(event) => activateKeyboard(event, () => loadThread(thread.id))}
+              role="button"
+              tabIndex={0}
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="truncate font-semibold">{thread.subject}</p>
                 {thread.unread ? <span className="mt-2 h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
               </div>
               <p className="mt-1 truncate text-sm text-[var(--muted)]">
-                {thread.sender.displayName}: {thread.preview}
+                <MailProfileLink person={thread.sender}>{thread.sender.displayName}</MailProfileLink>: {thread.preview}
               </p>
               <p className="mt-2 text-xs text-[var(--muted)]">
                 {mailDeliveryListLabel(thread.deliveryKind)} ·{" "}
                 {thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : "No date"}
               </p>
-            </button>
+            </div>
           ))}
         </div>
       </section>
@@ -393,13 +427,29 @@ export function MailClient({
                   {contacts.length > 0 ? (
                     <div className="mail-recipient-search-results">
                       {contacts.map((person) => (
-                        <button className="mail-contact-card" key={person.id} onClick={() => addRecipient(person)} type="button">
-                          <span className="mail-avatar">{initials(person.displayName)}</span>
+                        <div
+                          className="mail-contact-card"
+                          key={person.id}
+                          onClick={() => addRecipient(person)}
+                          onKeyDown={(event) => activateKeyboard(event, () => addRecipient(person))}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <Link
+                            aria-label={`View ${person.displayName}'s profile`}
+                            className="mail-avatar"
+                            href={`/profile/${person.username}`}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            {initials(person.displayName)}
+                          </Link>
                           <span className="min-w-0 text-left">
-                            <span className="block truncate font-semibold">{person.displayName}</span>
+                            <MailProfileLink person={person}>
+                              <span className="block truncate font-semibold">{person.displayName}</span>
+                            </MailProfileLink>
                             <span className="block truncate text-xs text-[var(--muted)]">{person.email}</span>
                           </span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   ) : null}
@@ -481,7 +531,13 @@ export function MailClient({
               </p>
               <h2 className="mt-2 text-3xl font-semibold">{selectedThread.subject}</h2>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                To {selectedThread.recipients.map((recipient) => recipient.user.displayName).join(", ")}
+                To{" "}
+                {selectedThread.recipients.map((recipient, index) => (
+                  <span key={recipient.id}>
+                    {index > 0 ? ", " : ""}
+                    <MailProfileLink person={recipient.user}>{recipient.user.displayName}</MailProfileLink>
+                  </span>
+                ))}
               </p>
             </header>
             <div className="grid gap-4 p-5">
@@ -489,9 +545,13 @@ export function MailClient({
                 <section className="mail-message-card" key={message.id}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="mail-avatar">{initials(message.sender.displayName)}</span>
+                      <Link className="mail-avatar" href={`/profile/${message.sender.username}`}>
+                        {initials(message.sender.displayName)}
+                      </Link>
                       <div className="min-w-0">
-                        <p className="font-semibold text-[var(--gold)]">{message.sender.displayName}</p>
+                        <MailProfileLink person={message.sender}>
+                          <p className="font-semibold text-[var(--gold)]">{message.sender.displayName}</p>
+                        </MailProfileLink>
                         <p className="truncate text-sm text-[var(--muted)]">{message.sender.email}</p>
                       </div>
                     </div>

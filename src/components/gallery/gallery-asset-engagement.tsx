@@ -1,6 +1,7 @@
 "use client";
 
 import { MediaVisibility } from "@prisma/client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { FormEvent } from "react";
@@ -108,8 +109,15 @@ export function GalleryAssetEngagement({
           {comments.length ? (
             comments.map((comment) => (
               <article className="gallery-comment" key={comment.id}>
-                <strong>{comment.author.displayName}</strong>
-                <span>@{comment.author.username} | {new Date(comment.createdAt).toLocaleDateString()}</span>
+                <Link className="profile-inline-link" href={`/profile/${comment.author.username}`}>
+                  <strong>{comment.author.displayName}</strong>
+                </Link>
+                <span>
+                  <Link className="profile-inline-link" href={`/profile/${comment.author.username}`}>
+                    @{comment.author.username}
+                  </Link>{" "}
+                  | {new Date(comment.createdAt).toLocaleDateString()}
+                </span>
                 <p>{comment.body}</p>
               </article>
             ))

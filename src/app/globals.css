@@ -99,10 +99,12 @@ a {
   display: inline-flex;
   flex: 0 0 auto;
   font-weight: 900;
+  height: 46px;
   justify-content: center;
   min-height: 46px;
   min-width: 46px;
   position: relative;
+  width: 46px;
 }
 
 .desktop-command-mark {
@@ -238,6 +240,7 @@ a {
 }
 
 .desktop-command-avatar img {
+  display: block;
   height: 100%;
   object-fit: cover;
   width: 100%;
@@ -1351,6 +1354,16 @@ a {
 
 .profile-friend-link:hover {
   color: #ffe794;
+}
+
+.profile-inline-link {
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.profile-inline-link:hover {
+  color: #ffe794;
+  text-decoration: underline;
 }
 
 .profile-friend-link:disabled {
