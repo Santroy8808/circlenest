@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import type { GroupForumThreadCardView } from "@/modules/group-forum/types";
 
 export function GroupForumClient({
   group,
   initialThreads,
+  isAdmin = false,
   viewerCanPost
 }: {
   group: { id: string; slug: string; name: string };
   initialThreads: GroupForumThreadCardView[];
+  isAdmin?: boolean;
   viewerCanPost: boolean;
 }) {
   const [threads, setThreads] = useState(initialThreads);
@@ -113,6 +116,9 @@ export function GroupForumClient({
                 <Link href={`/groups/${group.slug}/forum/${thread.id}`}>
                   <h2 className="truncate text-2xl font-semibold text-[var(--gold)]">{thread.title}</h2>
                 </Link>
+                <div className="mt-2">
+                  <AdminObjectId id={thread.id} kind="Group thread" visible={isAdmin} />
+                </div>
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   by{" "}
                   <Link className="profile-inline-link" href={`/profile/${thread.author.username}`}>

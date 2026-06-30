@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { MessagesClient } from "@/components/messages/messages-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { isAdminRole } from "@/lib/platform/roles";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import {
   getChatThread,
@@ -26,6 +27,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
         currentUserId={activeActor.actorUserId}
         initialSelectedThread={selected?.ok ? selected.thread : null}
         initialThreads={threads}
+        isAdmin={isAdminRole(session.user.role)}
       />
     </AppShell>
   );

@@ -262,8 +262,8 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Communications And Safety",
       eyebrow: "Trust",
       description: "Admin announcements, support queues, bug reports, abuse reports, and content reports.",
-      badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "2 tools",
-      keywords: ["announcements", "reports", "support", "safety", "abuse", "content", "tickets"],
+      badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "3 tools",
+      keywords: ["announcements", "reports", "support", "safety", "abuse", "content", "tickets", "object id"],
       groups: [
         {
           key: "broadcasts-queues",
@@ -285,6 +285,14 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               description: "Review bug reports, abuse reports, content reports, and support tickets.",
               badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "queue",
               keywords: ["report issue", "tickets", "support", "bug", "abuse", "feedback", "content report"]
+            },
+            {
+              href: "/admin/actions/object-lookup",
+              title: "Object ID Lookup",
+              category: "Communications And Safety",
+              description: "Search exact database IDs shown to admins across posts, listings, ads, chat, mail, media, group threads, and reports.",
+              badge: "lookup",
+              keywords: ["id", "object id", "database id", "post id", "listing id", "chat id", "mail id", "report id", "media id"]
             }
           ]
         }

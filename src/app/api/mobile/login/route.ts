@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user) {
-    return NextResponse.json({ error: "Invalid email/username or password." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid email/handle or password." }, { status: 401 });
   }
 
   return NextResponse.json({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 
 const AD_POOL_REFRESH_MS = 45000;
@@ -39,7 +40,7 @@ function postDeliveryEvent(ad: AdPlacementCardView, eventType: typeof IMPRESSION
   });
 }
 
-export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[] }) {
+export function AdRailRotator({ initialAds, isAdmin = false }: { initialAds: AdPlacementCardView[]; isAdmin?: boolean }) {
   const [ads, setAds] = useState(initialAds);
   const [startIndex, setStartIndex] = useState(0);
   const [isDesktopViewport, setIsDesktopViewport] = useState<boolean | null>(null);
@@ -143,6 +144,9 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
             ) : null}
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
             <strong className="mt-2 block">{ad.title}</strong>
+            <div className="mt-2">
+              <AdminObjectId id={ad.id} kind="Ad" visible={isAdmin} />
+            </div>
             <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{ad.body}</span>
             <span className="ad-rotation-meta">{Math.ceil(ad.rotationHoldMs / 1000)}s paid hold | {ad.remainingCredits} credits left</span>
           </a>
@@ -154,6 +158,9 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
             ) : null}
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
             <strong className="mt-2 block">{ad.title}</strong>
+            <div className="mt-2">
+              <AdminObjectId id={ad.id} kind="Ad" visible={isAdmin} />
+            </div>
             <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{ad.body}</span>
             <span className="ad-rotation-meta">{Math.ceil(ad.rotationHoldMs / 1000)}s paid hold | {ad.remainingCredits} credits left</span>
           </article>

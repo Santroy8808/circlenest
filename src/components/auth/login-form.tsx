@@ -25,7 +25,7 @@ export function LoginForm({ callbackUrl = "/home" }: { callbackUrl?: string }) {
       });
 
       if (result?.error) {
-        setError("Invalid email/username or password.");
+        setError("Invalid email/handle or password.");
         return;
       }
 
@@ -37,7 +37,7 @@ export function LoginForm({ callbackUrl = "/home" }: { callbackUrl?: string }) {
   return (
     <form className="grid gap-4" onSubmit={handleSubmit}>
       <label className="grid gap-2">
-        <span className="form-label">Email or username</span>
+        <span className="form-label">Email or handle</span>
         <input
           className="form-field"
           value={identifier}

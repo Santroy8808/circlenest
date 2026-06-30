@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import type {
   ChatAttachmentView,
   ChatMessageView,
@@ -161,11 +162,13 @@ function MessageFileAttachment({
 export function MessagesClient({
   currentUserId,
   initialSelectedThread,
-  initialThreads
+  initialThreads,
+  isAdmin = false
 }: {
   currentUserId: string;
   initialSelectedThread?: ChatThreadDetailView | null;
   initialThreads: ChatThreadView[];
+  isAdmin?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -606,6 +609,7 @@ export function MessagesClient({
                     <span className="block truncate font-semibold">{thread.title}</span>
                   )}
                   <span className="block truncate text-sm text-[var(--muted)]">{shortMessagePreview(thread.lastMessage)}</span>
+                  <AdminObjectId id={thread.id} kind="Chat thread" visible={isAdmin} />
                 </span>
                 {thread.unread ? <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
               </div>
@@ -672,6 +676,7 @@ export function MessagesClient({
                   <h2 className="mt-1 text-2xl font-semibold">{selectedThread.title}</h2>
                 )}
                 <p className="mt-1 text-sm text-[var(--muted)]">{selectedThread.participants.length} participants</p>
+                <AdminObjectId id={selectedThread.id} kind="Chat thread" visible={isAdmin} />
               </div>
             </header>
 
@@ -695,6 +700,7 @@ export function MessagesClient({
                         <div className="chat-message-meta">
                           <ProfileNameLink person={message.sender}>{isMine ? "You" : message.sender.displayName}</ProfileNameLink>
                           <span className="chat-message-meta-right">
+                            <AdminObjectId id={message.id} kind="Chat message" visible={isAdmin && !message.id.startsWith("local-")} />
                             <span>{new Date(message.createdAt).toLocaleString()}</span>
                           </span>
                         </div>
@@ -708,6 +714,7 @@ export function MessagesClient({
                     ) : (
                       <div className="chat-media-meta">
                         <ProfileNameLink person={message.sender}>{isMine ? "You" : message.sender.displayName}</ProfileNameLink>
+                        <AdminObjectId id={message.id} kind="Chat message" visible={isAdmin && !message.id.startsWith("local-")} />
                         <span>{new Date(message.createdAt).toLocaleString()}</span>
                       </div>
                     )}

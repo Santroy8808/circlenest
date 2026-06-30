@@ -1,5 +1,6 @@
 import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import type { MarketListingDetailView } from "@/modules/market/types";
 
 function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "currency">) {
@@ -10,7 +11,7 @@ function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "curre
   }).format(listing.priceCents / 100);
 }
 
-export function MarketListingDetail({ listing }: { listing: MarketListingDetailView }) {
+export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: boolean; listing: MarketListingDetailView }) {
   const hero = listing.photos[0];
 
   return (
@@ -29,6 +30,9 @@ export function MarketListingDetail({ listing }: { listing: MarketListingDetailV
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{listing.categoryLabel}</p>
               <h1 className="mt-3 text-4xl font-semibold">{listing.title}</h1>
+              <div className="mt-3">
+                <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
+              </div>
               <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
               <p className="mt-3 text-[var(--muted)]">{listing.location || "Location TBD"}</p>
             </div>

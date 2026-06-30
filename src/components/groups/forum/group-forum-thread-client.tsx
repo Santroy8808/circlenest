@@ -4,6 +4,7 @@ import { GroupAssetKind, GroupForumReactionType } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { GroupForumThreadDetailView } from "@/modules/group-forum/types";
 
@@ -47,10 +48,12 @@ function GroupReactionDisplay({ reaction }: { reaction: GroupForumReactionType }
 export function GroupForumThreadClient({
   group,
   initialThread,
+  isAdmin = false,
   viewerCanPost
 }: {
   group: { id: string; slug: string; name: string };
   initialThread: GroupForumThreadDetailView;
+  isAdmin?: boolean;
   viewerCanPost: boolean;
 }) {
   const [thread, setThread] = useState(initialThread);
@@ -237,6 +240,9 @@ export function GroupForumThreadClient({
           <div>
             <p className="text-sm uppercase tracking-[0.18em] text-[var(--gold)]">{group.name}</p>
             <h1 className="mt-2 text-4xl font-semibold">{thread.title}</h1>
+            <div className="mt-2">
+              <AdminObjectId id={thread.id} kind="Group thread" visible={isAdmin} />
+            </div>
             <p className="mt-2 text-sm text-[var(--muted)]">
               by{" "}
               <Link className="profile-inline-link" href={`/profile/${thread.author.username}`}>
@@ -291,6 +297,9 @@ export function GroupForumThreadClient({
                     {post.author.displayName}
                   </Link>
                   <p className="text-xs text-[var(--muted)]">{new Date(post.createdAt).toLocaleString()}</p>
+                  <div className="mt-2">
+                    <AdminObjectId id={post.id} kind="Group reply" visible={isAdmin} />
+                  </div>
                 </div>
                 <span className="text-xs text-[var(--muted)]">{post.replyCount} nested replies</span>
               </div>

@@ -130,6 +130,19 @@ export const adminActionCards: AdminActionCard[] = [
     steps: ["Open the shared admin queue.", "Review the exact issue and source page.", "Move the ticket into review or resolve it.", "Leave admin notes when deeper action is needed."]
   },
   {
+    key: "object-lookup",
+    title: "Object ID Lookup",
+    description: "Search exact database IDs shown to admins across posts, listings, ads, chat, mail, media, group threads, and reports.",
+    risk: "medium",
+    keywords: ["id", "object id", "database id", "post id", "listing id", "chat id", "mail id", "report id", "media id"],
+    steps: [
+      "Copy the database ID shown on an admin-visible object.",
+      "Paste the exact ID into the lookup field.",
+      "Review matching object type, creation date, and destination.",
+      "Open the object or use the ID in reports and audit work."
+    ]
+  },
+  {
     key: "announcements",
     title: "Public Announcements",
     description: "Send global, tier-specific, or targeted platform notices.",

@@ -1,3 +1,4 @@
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import type { AdminFeedbackTicketView } from "@/modules/admin-moderation/types";
 
 function formatDate(value: string) {
@@ -35,6 +36,9 @@ export function AdminReportsQueue({ tickets }: { tickets: AdminFeedbackTicketVie
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold)]">{ticket.publicId}</p>
                   <h2 className="mt-2 text-2xl font-semibold">{ticket.title}</h2>
+                  <div className="mt-2">
+                    <AdminObjectId id={ticket.id} kind="Report" visible />
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <span className="pill rounded-full px-3 py-1 text-xs">{statusLabel(ticket.status)}</span>

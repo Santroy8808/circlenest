@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { MarketListingDetail } from "@/components/market/market-listing-detail";
 import { AppShell } from "@/components/platform/app-shell";
+import { isAdminRole } from "@/lib/platform/roles";
 import { safeGetMarketListingDetail } from "@/modules/market/market.service";
 
 export default async function MarketListingPage({ params }: { params: { listingId: string } }) {
@@ -19,7 +20,7 @@ export default async function MarketListingPage({ params }: { params: { listingI
 
   return (
     <AppShell>
-      <MarketListingDetail listing={result.listing} />
+      <MarketListingDetail isAdmin={isAdminRole(session.user.role)} listing={result.listing} />
     </AppShell>
   );
 }

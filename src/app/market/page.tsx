@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { MarketDirectoryClient } from "@/components/market/market-directory-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { isAdminRole } from "@/lib/platform/roles";
 import { getListingViewPreference } from "@/modules/listing-preferences/listing-preferences.service";
 import { getMarketCreateState, safeListMarketListings } from "@/modules/market/market.service";
 
@@ -22,7 +23,7 @@ export default async function MarketPage() {
 
   return (
     <AppShell>
-      <MarketDirectoryClient createState={createState} initialListings={listings} initialView={initialView} />
+      <MarketDirectoryClient createState={createState} initialListings={listings} initialView={initialView} isAdmin={isAdminRole(session.user.role)} />
     </AppShell>
   );
 }

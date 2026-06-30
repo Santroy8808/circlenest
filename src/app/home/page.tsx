@@ -5,6 +5,7 @@ import { HomeStreamWorkspace } from "@/components/home/home-stream-workspace";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
+import { isAdminRole } from "@/lib/platform/roles";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { safeListChatThreads } from "@/modules/chat-messages/chat-messages.service";
@@ -83,6 +84,7 @@ export default async function AppHomePage() {
         initialChatThreads={chatThreads}
         initialReservedStreamAds={reservedStreamAds}
         initialPosts={posts}
+        isAdmin={isAdminRole(session.user.role)}
         latestAlert={latestAlert}
       />
     </AppShell>

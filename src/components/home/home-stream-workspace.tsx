@@ -27,6 +27,7 @@ type HomeStreamWorkspaceProps = {
   initialChatThreads: ChatThreadView[];
   initialPosts: FeedPostView[];
   initialReservedStreamAds: AdPlacementCardView[];
+  isAdmin?: boolean;
   latestAlert?: LatestAlert | null;
 };
 
@@ -51,9 +52,11 @@ function isImageAttachment(message: ChatMessageView) {
 
 function CompactMessage({
   currentUserId,
+  isAdmin,
   message
 }: {
   currentUserId: string;
+  isAdmin?: boolean;
   message: ChatMessageView;
 }) {
   const isMine = message.sender.id === currentUserId;
@@ -69,6 +72,7 @@ function CompactMessage({
         </a>
       ) : null}
       {message.body?.trim() ? <p>{message.body}</p> : isImageAttachment(message) ? null : <p>{messagePreview(message)}</p>}
+      {isAdmin && !message.id.startsWith("local-") ? <code className="admin-object-id">Chat message ID: {message.id}</code> : null}
     </article>
   );
 }
@@ -76,11 +80,13 @@ function CompactMessage({
 function HomeCommDock({
   currentUserId,
   initialThreads,
+  isAdmin,
   onClose,
   open
 }: {
   currentUserId: string;
   initialThreads: ChatThreadView[];
+  isAdmin?: boolean;
   onClose: () => void;
   open: boolean;
 }) {
@@ -246,6 +252,7 @@ function HomeCommDock({
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Comm</p>
               <h2>{selectedThread?.title ?? "Messages"}</h2>
               {selectedThread ? <span>{selectedThread.participants.length} participants</span> : <span>Chat while browsing the stream.</span>}
+              {isAdmin && selectedThread ? <code className="admin-object-id">Chat thread ID: {selectedThread.id}</code> : null}
             </div>
             <button className="home-comm-close" data-tooltip="Close Comm and return the stream to center." onClick={onClose} type="button">
               Close
@@ -259,7 +266,7 @@ function HomeCommDock({
                   <p className="home-comm-empty">No messages yet. Send the first note.</p>
                 ) : null}
                 {selectedThread.messages.map((message) => (
-                  <CompactMessage currentUserId={currentUserId} key={message.id} message={message} />
+                  <CompactMessage currentUserId={currentUserId} isAdmin={isAdmin} key={message.id} message={message} />
                 ))}
               </div>
               <form className="home-comm-compose" onSubmit={sendMessage}>
@@ -350,6 +357,7 @@ export function HomeStreamWorkspace({
   initialChatThreads,
   initialPosts,
   initialReservedStreamAds,
+  isAdmin = false,
   latestAlert
 }: HomeStreamWorkspaceProps) {
   const [commOpen, setCommOpen] = useState(false);
@@ -397,11 +405,11 @@ export function HomeStreamWorkspace({
           ) : null}
         </section>
         <section className="mt-5">
-          <FeedClient currentAuthor={currentAuthor} initialReservedStreamAds={initialReservedStreamAds} initialPosts={initialPosts} showComposerTrigger={false} />
+          <FeedClient currentAuthor={currentAuthor} initialReservedStreamAds={initialReservedStreamAds} initialPosts={initialPosts} isAdmin={isAdmin} showComposerTrigger={false} />
         </section>
       </div>
 
-      <HomeCommDock currentUserId={currentAuthor.id ?? ""} initialThreads={initialChatThreads} onClose={() => setCommOpen(false)} open={commOpen} />
+      <HomeCommDock currentUserId={currentAuthor.id ?? ""} initialThreads={initialChatThreads} isAdmin={isAdmin} onClose={() => setCommOpen(false)} open={commOpen} />
     </div>
   );
 }

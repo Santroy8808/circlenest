@@ -252,7 +252,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
             <div className="mt-5 grid gap-3">
-              <AdRailRotator initialAds={[]} />
+              <AdRailRotator initialAds={[]} isAdmin={isAdmin} />
             </div>
           </section>
         </aside>

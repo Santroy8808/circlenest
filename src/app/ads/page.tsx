@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { AdsManager } from "@/components/ads-credits/ads-manager";
 import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
+import { isAdminRole } from "@/lib/platform/roles";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 
@@ -34,7 +35,7 @@ export default async function AdsPage() {
 
   return (
     <AppShell>
-      <AdsManager adsManager={adsManager} />
+      <AdsManager adsManager={adsManager} isAdmin={isAdminRole(session.user.role)} />
     </AppShell>
   );
 }

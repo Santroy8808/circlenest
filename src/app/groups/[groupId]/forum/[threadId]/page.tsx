@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { GroupForumThreadClient } from "@/components/groups/forum/group-forum-thread-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { isAdminRole } from "@/lib/platform/roles";
 import { getGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
 export default async function GroupForumThreadPage({ params }: { params: { groupId: string; threadId: string } }) {
@@ -21,7 +22,7 @@ export default async function GroupForumThreadPage({ params }: { params: { group
 
   return (
     <AppShell>
-      <GroupForumThreadClient group={result.group} initialThread={result.thread} viewerCanPost={result.viewerCanPost} />
+      <GroupForumThreadClient group={result.group} initialThread={result.thread} isAdmin={isAdminRole(session.user.role)} viewerCanPost={result.viewerCanPost} />
     </AppShell>
   );
 }

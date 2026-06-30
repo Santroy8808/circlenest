@@ -5,6 +5,7 @@ import { FeedClient } from "@/components/feed/feed-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
+import { isAdminRole } from "@/lib/platform/roles";
 import { safeGetFeedPostThread } from "@/modules/feed-stream/feed-stream.service";
 
 export default async function FeedPostThreadPage({
@@ -50,6 +51,7 @@ export default async function FeedPostThreadPage({
         defaultExpanded
         initialPosts={[post]}
         initialReplyPostId={searchParams?.reply === "op" ? post.id : undefined}
+        isAdmin={isAdminRole(session.user.role)}
         refreshPath={`/api/feed/posts/${post.id}`}
         showThreadLinks={false}
       />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import type {
   MailAttachmentView,
   MailFolder,
@@ -81,12 +82,14 @@ export function MailClient({
   initialFolder,
   initialPreference,
   initialSelectedThread,
-  initialThreads
+  initialThreads,
+  isAdmin = false
 }: {
   initialFolder: MailFolder;
   initialPreference: MailPreferenceView;
   initialSelectedThread?: MailThreadDetailView | null;
   initialThreads: MailThreadSummaryView[];
+  isAdmin?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [folder, setFolder] = useState<MailFolder>(initialFolder);
@@ -382,6 +385,9 @@ export function MailClient({
                 {mailDeliveryListLabel(thread.deliveryKind)} ·{" "}
                 {thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : "No date"}
               </p>
+              <div className="mt-2">
+                <AdminObjectId id={thread.id} kind="Mail thread" visible={isAdmin} />
+              </div>
             </div>
           ))}
         </div>
@@ -530,6 +536,9 @@ export function MailClient({
                 {mailDeliveryReaderLabel(selectedThread.deliveryKind)}
               </p>
               <h2 className="mt-2 text-3xl font-semibold">{selectedThread.subject}</h2>
+              <div className="mt-2">
+                <AdminObjectId id={selectedThread.id} kind="Mail thread" visible={isAdmin} />
+              </div>
               <p className="mt-2 text-sm text-[var(--muted)]">
                 To{" "}
                 {selectedThread.recipients.map((recipient, index) => (
@@ -555,7 +564,10 @@ export function MailClient({
                         <p className="truncate text-sm text-[var(--muted)]">{message.sender.email}</p>
                       </div>
                     </div>
-                    <p className="text-xs text-[var(--muted)]">{new Date(message.createdAt).toLocaleString()}</p>
+                    <div className="flex flex-col items-end gap-2">
+                      <AdminObjectId id={message.id} kind="Mail message" visible={isAdmin} />
+                      <p className="text-xs text-[var(--muted)]">{new Date(message.createdAt).toLocaleString()}</p>
+                    </div>
                   </div>
                   <p className="mt-5 whitespace-pre-wrap leading-7">{message.bodyText}</p>
                   {message.attachments.length > 0 ? (

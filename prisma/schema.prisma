@@ -92,6 +92,21 @@ enum FeedReactionType {
   WOW
   SAD
   ANGRY
+  DISLIKE
+}
+
+enum HashtagSignalKind {
+  CREATED_TAG
+  REACTION_LIKE
+  REACTION_LOVE
+  REACTION_CARE
+  REACTION_HAHA
+  REACTION_WOW
+  REACTION_SAD
+  REACTION_ANGRY
+  REACTION_DISLIKE
+  COMMENT
+  SHARE
 }
 
 enum SocialRelationshipType {
@@ -436,9 +451,14 @@ model User {
   scientologyProfile              ScientologyProfile?
   membership                      Membership?
   mediaAssets                     MediaAsset[]
+  mediaAssetHashtags              MediaAssetHashtag[]
   mediaCollections                MediaCollection[]
   feedPosts                       FeedPost[]                         @relation("FeedPostAuthor")
   feedComments                    FeedComment[]                      @relation("FeedCommentAuthor")
+  createdHashtags                 Hashtag[]                          @relation("HashtagCreator")
+  feedPostHashtags                FeedPostHashtag[]
+  feedCommentHashtags             FeedCommentHashtag[]
+  hashtagSignals                  UserHashtagSignal[]
   feedPostReactions               FeedPostReaction[]
   feedCommentReactions            FeedCommentReaction[]
   feedPostDismissals              FeedPostDismissal[]
@@ -908,6 +928,7 @@ model MediaAsset {
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   owner                   User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  hashtags                MediaAssetHashtag[]
   collections             MediaCollectionAsset[]
   feedPosts               FeedPost[]
   feedComments            FeedComment[]
@@ -922,6 +943,90 @@ model MediaAsset {
   scientologyCommendation ScientologyCommendation?
 
   @@index([ownerUserId, createdAt])
+}
+
+model Hashtag {
+  id              String               @id @default(cuid())
+  normalized      String               @unique
+  displayName     String
+  createdByUserId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdBy       User?                @relation("HashtagCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  feedPosts       FeedPostHashtag[]
+  feedComments    FeedCommentHashtag[]
+  mediaAssets     MediaAssetHashtag[]
+  signals         UserHashtagSignal[]
+
+  @@index([createdByUserId, createdAt])
+}
+
+model FeedPostHashtag {
+  id             String   @id @default(cuid())
+  postId         String
+  hashtagId      String
+  taggedByUserId String
+  createdAt      DateTime @default(now())
+  post           FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag        Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  taggedBy       User     @relation(fields: [taggedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, hashtagId])
+  @@index([hashtagId, createdAt])
+  @@index([taggedByUserId, createdAt])
+}
+
+model FeedCommentHashtag {
+  id             String      @id @default(cuid())
+  commentId      String
+  hashtagId      String
+  taggedByUserId String
+  createdAt      DateTime    @default(now())
+  comment        FeedComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  hashtag        Hashtag     @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  taggedBy       User        @relation(fields: [taggedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, hashtagId])
+  @@index([hashtagId, createdAt])
+  @@index([taggedByUserId, createdAt])
+}
+
+model MediaAssetHashtag {
+  id             String     @id @default(cuid())
+  mediaAssetId   String
+  hashtagId      String
+  taggedByUserId String
+  sourceType     String
+  sourceId       String
+  createdAt      DateTime   @default(now())
+  mediaAsset     MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  hashtag        Hashtag    @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  taggedBy       User       @relation(fields: [taggedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaAssetId, hashtagId, sourceType, sourceId])
+  @@index([hashtagId, createdAt])
+  @@index([taggedByUserId, createdAt])
+  @@index([sourceType, sourceId])
+}
+
+model UserHashtagSignal {
+  id         String            @id @default(cuid())
+  userId     String
+  hashtagId  String
+  sourceType String
+  sourceId   String
+  signal     HashtagSignalKind
+  weight     Int
+  isNegative Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hashtag    Hashtag           @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hashtagId, sourceType, sourceId, signal])
+  @@index([userId, isNegative, updatedAt])
+  @@index([hashtagId, signal, updatedAt])
+  @@index([sourceType, sourceId])
 }
 
 model GalleryAssetComment {
@@ -978,6 +1083,7 @@ model FeedPost {
   updatedAt           DateTime            @updatedAt
   author              User                @relation("FeedPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
   mediaAsset          MediaAsset?         @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  hashtags            FeedPostHashtag[]
   comments            FeedComment[]
   reactions           FeedPostReaction[]
   dismissals          FeedPostDismissal[]
@@ -1014,6 +1120,7 @@ model FeedComment {
   parent          FeedComment?          @relation("FeedCommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
   replies         FeedComment[]         @relation("FeedCommentReplies")
   mediaAsset      MediaAsset?           @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  hashtags        FeedCommentHashtag[]
   reactions       FeedCommentReaction[]
 
   @@index([postId, createdAt])

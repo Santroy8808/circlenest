@@ -2,6 +2,13 @@ import { FeedReactionType, FeedVisibility, MembershipTier, Prisma } from "@prism
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
+  attachFeedCommentHashtags,
+  attachFeedPostHashtags,
+  recordCommentReactionSignals,
+  recordPostCommentSignal,
+  recordPostReactionSignals
+} from "@/modules/feed-stream/hashtag-signals.service";
+import {
   createFeedCommentSchema,
   createFeedPostSchema,
   type FeedCommentView,
@@ -26,6 +33,7 @@ function withFeedDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T
 
 function countReactions<T extends { type: FeedReactionType }>(reactions: T[]) {
   return reactions.reduce<Partial<Record<FeedReactionType, number>>>((acc, reaction) => {
+    if (reaction.type === FeedReactionType.DISLIKE) return acc;
     acc[reaction.type] = (acc[reaction.type] ?? 0) + 1;
     return acc;
   }, {});
@@ -33,6 +41,7 @@ function countReactions<T extends { type: FeedReactionType }>(reactions: T[]) {
 
 function reactionReactors<T extends { type: FeedReactionType; user?: FeedReactionUser | null }>(reactions: T[]) {
   return reactions.reduce<FeedReactionReactorsView>((acc, reaction) => {
+    if (reaction.type === FeedReactionType.DISLIKE) return acc;
     if (!reaction.user) return acc;
     acc[reaction.type] = [...(acc[reaction.type] ?? []), toFeedAuthorView(reaction.user)];
     return acc;
@@ -435,13 +444,24 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     return mediaCheck;
   }
 
-  const post = await prisma.feedPost.create({
-    data: {
-      authorUserId,
-      body: parsed.data.body.trim(),
-      visibility: parsed.data.visibility,
-      mediaAssetId: parsed.data.mediaAssetId || undefined
-    }
+  const post = await prisma.$transaction(async (tx) => {
+    const createdPost = await tx.feedPost.create({
+      data: {
+        authorUserId,
+        body: parsed.data.body.trim(),
+        visibility: parsed.data.visibility,
+        mediaAssetId: parsed.data.mediaAssetId || undefined
+      }
+    });
+
+    await attachFeedPostHashtags(tx, {
+      actorUserId: authorUserId,
+      body: createdPost.body,
+      mediaAssetId: createdPost.mediaAssetId,
+      postId: createdPost.id
+    });
+
+    return createdPost;
   });
 
   await diagnostics.info(MODULE_KEY, "Feed post created.", { authorUserId, postId: post.id });
@@ -461,15 +481,27 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
     return mediaCheck;
   }
 
-  const comment = await prisma.feedComment.create({
-    data: {
-      authorUserId,
-      postId: parsed.data.postId,
-      parentCommentId: parsed.data.parentCommentId || undefined,
-      body: parsed.data.body.trim(),
-      mediaAssetId: parsed.data.mediaAssetId || undefined
-    }
+  const comment = await prisma.$transaction(async (tx) => {
+    const createdComment = await tx.feedComment.create({
+      data: {
+        authorUserId,
+        postId: parsed.data.postId,
+        parentCommentId: parsed.data.parentCommentId || undefined,
+        body: parsed.data.body.trim(),
+        mediaAssetId: parsed.data.mediaAssetId || undefined
+      }
+    });
+
+    await attachFeedCommentHashtags(tx, {
+      actorUserId: authorUserId,
+      body: createdComment.body,
+      commentId: createdComment.id,
+      mediaAssetId: createdComment.mediaAssetId
+    });
+
+    return createdComment;
   });
+  await recordPostCommentSignal(authorUserId, comment.postId);
   const [commentAuthor, post, parentComment] = await Promise.all([
     prisma.user.findUnique({
       where: { id: authorUserId },
@@ -548,7 +580,9 @@ export async function reactToFeedPost(userId: string, input: unknown) {
     prisma.feedPost.findUnique({ where: { id: parsed.data.postId }, select: { authorUserId: true } })
   ]);
 
-  if (reactor && post?.authorUserId && post.authorUserId !== userId) {
+  await recordPostReactionSignals(userId, parsed.data.postId, parsed.data.type);
+
+  if (parsed.data.type !== FeedReactionType.DISLIKE && reactor && post?.authorUserId && post.authorUserId !== userId) {
     await prisma.notification.create({
       data: {
         userId: post.authorUserId,
@@ -588,7 +622,9 @@ export async function reactToFeedComment(userId: string, input: unknown) {
     prisma.feedComment.findUnique({ where: { id: parsed.data.commentId }, select: { authorUserId: true, postId: true } })
   ]);
 
-  if (reactor && comment?.authorUserId && comment.authorUserId !== userId) {
+  await recordCommentReactionSignals(userId, parsed.data.commentId, parsed.data.type);
+
+  if (parsed.data.type !== FeedReactionType.DISLIKE && reactor && comment?.authorUserId && comment.authorUserId !== userId) {
     await prisma.notification.create({
       data: {
         userId: comment.authorUserId,

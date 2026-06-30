@@ -1,10 +1,24 @@
 import { MembershipTier, UserRole } from "@prisma/client";
 import { z } from "zod";
 
-export const loginSchema = z.object({
-  identifier: z.string().min(1, "Enter an email or username."),
-  password: z.string().min(1, "Enter your password.")
-});
+export const loginSchema = z
+  .object({
+    identifier: z.string().optional(),
+    email: z.string().optional(),
+    username: z.string().optional(),
+    handle: z.string().optional(),
+    password: z.string().min(1, "Enter your password.")
+  })
+  .transform((input) => ({
+    identifier: input.identifier ?? input.email ?? input.username ?? input.handle ?? "",
+    password: input.password
+  }))
+  .pipe(
+    z.object({
+      identifier: z.string().trim().min(1, "Enter an email or username."),
+      password: z.string().min(1, "Enter your password.")
+    })
+  );
 
 export const signupSchema = z.object({
   email: z.string().email("Enter a valid email address."),

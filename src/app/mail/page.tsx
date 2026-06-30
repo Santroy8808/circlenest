@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { MailClient } from "@/components/mail/mail-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { isAdminRole } from "@/lib/platform/roles";
 import {
   getMailPreference,
   getMailThread,
@@ -30,6 +31,7 @@ export default async function MailPage({ searchParams }: { searchParams: { folde
         initialPreference={preference}
         initialSelectedThread={selected?.ok ? selected.thread : null}
         initialThreads={threads}
+        isAdmin={isAdminRole(session.user.role)}
       />
     </AppShell>
   );

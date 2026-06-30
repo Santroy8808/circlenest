@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { ListingViewSwitcher } from "@/components/listings/listing-view-switcher";
 import type { ListingViewMode } from "@/modules/listing-preferences/types";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingCardView } from "@/modules/market/types";
@@ -17,11 +18,13 @@ function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currenc
 export function MarketDirectoryClient({
   initialListings,
   createState,
-  initialView
+  initialView,
+  isAdmin = false
 }: {
   initialListings: MarketListingCardView[];
   createState: MarketCreateState;
   initialView: ListingViewMode;
+  isAdmin?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
@@ -111,6 +114,7 @@ export function MarketDirectoryClient({
                   <span>{listing.location || "Location TBD"}</span>
                   <strong>{priceLabel(listing)}</strong>
                 </div>
+                <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
               </div>
             </article>
           ))}

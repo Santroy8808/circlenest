@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { AdCreditCheckoutButton } from "@/components/ads-credits/ad-credit-checkout-button";
 import { EndAdCampaignButton } from "@/components/ads-credits/end-ad-campaign-button";
 import type { AdsManagerView } from "@/modules/ads-credits/types";
@@ -7,7 +8,7 @@ function isExternalUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
-export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
+export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsManagerView; isAdmin?: boolean }) {
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
@@ -81,6 +82,9 @@ export function AdsManager({ adsManager }: { adsManager: AdsManagerView }) {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <h3 className="text-xl font-semibold">{campaign.title}</h3>
+                        <div className="mt-2">
+                          <AdminObjectId id={campaign.id} kind="Ad" visible={isAdmin} />
+                        </div>
                         <p className="mt-2 leading-6 text-[var(--muted)]">{campaign.body}</p>
                       </div>
                       <span className="pill rounded-full px-3 py-1 text-xs">{campaign.status}</span>
