@@ -1,6 +1,7 @@
 import { AdPlacement } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { timeServerStep } from "@/lib/platform/server-timing";
 import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
 
 function parsePlacement(value: string | null) {
@@ -12,17 +13,18 @@ function parsePlacement(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
+  const session = await timeServerStep("api.ads.placements.auth", auth());
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const ads = await getAdPlacementPool({
+  const placement = parsePlacement(request.nextUrl.searchParams.get("placement"));
+  const ads = await timeServerStep("api.ads.placements.pool", getAdPlacementPool({
     viewerUserId: session.user.id,
-    placement: parsePlacement(request.nextUrl.searchParams.get("placement")),
+    placement,
     limit: 16
-  });
+  }), { placement });
 
   return NextResponse.json({ ads });
 }

@@ -1,4 +1,4 @@
-import { AdPlacement, MembershipTier, UserRole } from "@prisma/client";
+import { MembershipTier, UserRole } from "@prisma/client";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -6,11 +6,11 @@ import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
 import { AccountActorSwitcher } from "@/components/platform/account-actor-switcher";
 import { AndroidAppControls } from "@/components/platform/android-app-controls";
 import { DesktopCommandBar } from "@/components/platform/desktop-command-bar";
+import { ShellCountsProvider } from "@/components/platform/shell-counts-provider";
 import { getAccountActorPicker } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { isAdminRole } from "@/lib/platform/roles";
-import { getAdPlacementPool } from "@/modules/ads-credits/ads-credits.service";
-import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
+import { timeServerStep } from "@/lib/platform/server-timing";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
@@ -79,6 +79,8 @@ const AD_RAIL_DISABLED_PREFIXES = [
   "/secure-area"
 ];
 
+const zeroCounts = { alerts: 0, mail: 0, messages: 0, notifications: 0 };
+
 function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isMobileAdRailRequest: boolean) {
   if (!isSignedIn || isMobileAdRailRequest) return false;
   return !AD_RAIL_DISABLED_PREFIXES.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`));
@@ -133,16 +135,6 @@ function getNavSections(input: {
   return sections.filter((section) => section.items.length > 0);
 }
 
-async function getRightStreamAds(isSignedIn: boolean, viewerUserId?: string) {
-  if (!isSignedIn) return [];
-
-  return getAdPlacementPool({
-    viewerUserId,
-    placement: AdPlacement.RIGHT_STREAM,
-    limit: 16
-  });
-}
-
 async function getShellProfile(userId?: string) {
   if (!userId) return null;
 
@@ -190,13 +182,13 @@ function isMobileBrowserRequest() {
 }
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  const session = await auth();
+  const session = await timeServerStep("shell.auth", auth());
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
   const currentPath = headers().get("x-current-path") ?? "";
   const isOnboardingPath = currentPath.startsWith("/onboarding");
 
   if (isSignedIn && session?.user?.id && !isOnboardingPath) {
-    const onboarding = await getOnboardingState(session.user.id);
+    const onboarding = await timeServerStep("shell.onboarding", getOnboardingState(session.user.id), { path: currentPath });
 
     if (onboarding?.nextPath) {
       redirect(onboarding.nextPath);
@@ -205,7 +197,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAdmin = isAdminRole(session?.user?.role);
   const actorPicker = isSignedIn && session?.user?.id
-    ? await getAccountActorPicker(session.user.id)
+    ? await timeServerStep("shell.actor-picker", getAccountActorPicker(session.user.id), { path: currentPath })
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
   const activeActorUserId = actorPicker.activeActorUserId || session?.user?.id;
   const isBusinessAccount =
@@ -215,16 +207,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     session?.user?.tier === MembershipTier.ORG;
   const isAndroidApp = isAndroidAppRequest();
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
-  const [counts, rightStreamAds, shellProfile] = await Promise.all([
-    getUnreadCounts(activeActorUserId),
-    showAdRail ? getRightStreamAds(isSignedIn, activeActorUserId) : Promise.resolve([]),
-    getShellProfile(activeActorUserId)
-  ]);
+  const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
+  const counts = zeroCounts;
   const navSections = getNavSections({ isAdmin, isBusinessAccount, isSignedIn });
   const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
 
   return (
     <div className={["app-shell", isAndroidApp ? "is-android-app" : "", showAdRail ? "" : "no-ad-rail"].filter(Boolean).join(" ")}>
+      <ShellCountsProvider enabled={isSignedIn} initialCounts={counts}>
       {isSignedIn ? <ActivityTracker /> : null}
       <DesktopCommandBar
         avatarUrl={shellProfile?.avatarUrl}
@@ -262,12 +252,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
             <div className="mt-5 grid gap-3">
-              <AdRailRotator initialAds={rightStreamAds} />
+              <AdRailRotator initialAds={[]} />
             </div>
           </section>
         </aside>
       ) : null}
       {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} sections={navSections} /> : null}
+      </ShellCountsProvider>
     </div>
   );
 }

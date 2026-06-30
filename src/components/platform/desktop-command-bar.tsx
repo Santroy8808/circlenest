@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { FormEvent, MouseEvent } from "react";
 import { useState } from "react";
+import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
 type Counts = {
   alerts: number;
@@ -36,7 +37,8 @@ function totalCommCount(counts: Counts) {
 export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
-  const commCount = totalCommCount(counts);
+  const liveCounts = useShellCounts(counts);
+  const commCount = totalCommCount(liveCounts);
 
   function runSearch() {
     const trimmed = query.trim();
@@ -117,12 +119,12 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
             </Link>
             <Link className="desktop-command-icon" href="/notifications" data-tooltip="Notifications.">
               <span aria-hidden="true">N</span>
-              {counts.notifications > 0 ? <strong>{counts.notifications}</strong> : null}
+              {liveCounts.notifications > 0 ? <strong>{liveCounts.notifications}</strong> : null}
               <span className="sr-only">Notifications</span>
             </Link>
             <Link className="desktop-command-icon" href="/alerts" data-tooltip="Alerts.">
               <span aria-hidden="true">!</span>
-              {counts.alerts > 0 ? <strong>{counts.alerts}</strong> : null}
+              {liveCounts.alerts > 0 ? <strong>{liveCounts.alerts}</strong> : null}
               <span className="sr-only">Alerts</span>
             </Link>
             {isAdmin ? (

@@ -5,6 +5,7 @@ import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
+import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
 type NavCountKey = "messages" | "mail" | "notifications" | "alerts";
 
@@ -39,6 +40,7 @@ function itemMatchesPath(pathname: string, item: NavItem) {
 
 export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const pathname = usePathname();
+  const liveCounts = useShellCounts(counts);
   const activeSection = useMemo(
     () => sections.find((section) => section.items.some((item) => itemMatchesPath(pathname, item)))?.label ?? sections[0]?.label ?? "",
     [pathname, sections]
@@ -62,7 +64,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
     <nav aria-label="Control panel" className="mt-8 control-panel-nav">
       {sections.map((section) => {
         const isOpen = openSection === section.label;
-        const totalCount = sectionCount(section, counts);
+        const totalCount = sectionCount(section, liveCounts);
 
         return (
           <section className={isOpen ? "control-panel-section is-open" : "control-panel-section"} key={section.label}>
@@ -89,7 +91,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
               <div className="control-panel-items-inner">
                 {section.items.map((item) => {
                   const isActive = itemMatchesPath(pathname, item);
-                  const count = item.countKey ? counts[item.countKey] : 0;
+                  const count = item.countKey ? liveCounts[item.countKey] : 0;
 
                   if (item.action === "logout") {
                     return (

@@ -6,6 +6,7 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { requireMobileSession } from "@/lib/platform/mobile-auth";
 import { getR2Object } from "@/lib/platform/r2";
+import { timeServerStep } from "@/lib/platform/server-timing";
 
 function toWebStream(body: unknown) {
   if (body && typeof (body as { transformToWebStream?: unknown }).transformToWebStream === "function") {
@@ -16,14 +17,14 @@ function toWebStream(body: unknown) {
 }
 
 async function getMediaViewerUserId(request: NextRequest) {
-  const session = await auth();
+  const session = await timeServerStep("api.media.asset.auth", auth());
 
   if (session?.user && !session.user.revoked) {
-    const actor = await getActiveAccountActor(session.user.id);
+    const actor = await timeServerStep("api.media.asset.actor", getActiveAccountActor(session.user.id));
     return actor.actorUserId;
   }
 
-  const mobileSession = await requireMobileSession(request);
+  const mobileSession = await timeServerStep("api.media.asset.mobile-auth", requireMobileSession(request));
   return mobileSession?.user.id ?? null;
 }
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: { mediaAss
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const asset = await prisma.mediaAsset.findUnique({
+  const asset = await timeServerStep("api.media.asset.lookup", prisma.mediaAsset.findUnique({
     where: { id: params.mediaAssetId },
     select: {
       ownerUserId: true,
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest, { params }: { params: { mediaAss
       originalName: true,
       visibility: true
     }
-  });
+  }));
 
   if (!asset) {
     return NextResponse.json({ error: "Media not found." }, { status: 404 });
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: { mediaAss
   }
 
   try {
-    const object = await getR2Object(asset.storageKey);
+    const object = await timeServerStep("api.media.asset.r2", getR2Object(asset.storageKey), { mimeType: asset.mimeType });
     const headers = new Headers({
       "Cache-Control": "private, max-age=300",
       "Content-Type": asset.mimeType,

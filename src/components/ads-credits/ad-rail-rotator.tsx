@@ -86,7 +86,7 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
   useEffect(() => {
     if (!isDesktopViewport) return;
 
-    const refresh = window.setInterval(async () => {
+    async function refreshAds() {
       const response = await fetch(`/api/ads/placements?placement=${RIGHT_STREAM_PLACEMENT}`, {
         cache: "no-store"
       }).catch(() => null);
@@ -99,7 +99,10 @@ export function AdRailRotator({ initialAds }: { initialAds: AdPlacementCardView[
 
       setAds(payload.ads);
       setStartIndex((current) => (payload.ads && payload.ads.length > 0 ? current % payload.ads.length : 0));
-    }, AD_POOL_REFRESH_MS);
+    }
+
+    void refreshAds();
+    const refresh = window.setInterval(refreshAds, AD_POOL_REFRESH_MS);
 
     return () => window.clearInterval(refresh);
   }, [isDesktopViewport]);

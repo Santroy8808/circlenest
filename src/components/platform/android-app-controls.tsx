@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NavSection } from "@/components/platform/control-panel-nav";
+import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
 type CountKey = "messages" | "mail" | "notifications" | "alerts";
 
@@ -167,6 +168,7 @@ function Icon({ name }: { name: IconName }) {
 
 export function AndroidAppControls({ counts, sections }: AndroidAppControlsProps) {
   const pathname = usePathname();
+  const liveCounts = useShellCounts(counts);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const touchStartY = useRef<number | null>(null);
@@ -199,7 +201,7 @@ export function AndroidAppControls({ counts, sections }: AndroidAppControlsProps
         <div className="android-shortcut-grid">
           {primarySections.map((section) => {
             const href = sectionHref(section);
-            const totalCount = sectionCount(section, counts);
+            const totalCount = sectionCount(section, liveCounts);
             return (
               <Link
                 aria-label={section.label}
@@ -231,7 +233,7 @@ export function AndroidAppControls({ counts, sections }: AndroidAppControlsProps
           <Icon name="up" />
         </button>
         {bottomActions.map((action) => {
-          const count = countForAction(counts, action.countKey);
+          const count = countForAction(liveCounts, action.countKey);
           return (
             <Link
               aria-label={action.label}

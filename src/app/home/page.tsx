@@ -5,34 +5,35 @@ import { HomeStreamWorkspace } from "@/components/home/home-stream-workspace";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
+import { timeServerStep } from "@/lib/platform/server-timing";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { safeListChatThreads } from "@/modules/chat-messages/chat-messages.service";
 import { safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 
 export default async function AppHomePage() {
-  const session = await auth();
+  const session = await timeServerStep("home.auth", auth());
 
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/home");
   }
-  const activeActor = await getActiveAccountActor(session.user.id);
+  const activeActor = await timeServerStep("home.actor", getActiveAccountActor(session.user.id));
   const [posts, profile, actorUser, latestAlert, scienceProfile, privateProfile, chatThreads] = await Promise.all([
-    safeListFeedPosts(20, activeActor.actorUserId),
-    prisma.profile.findUnique({
+    timeServerStep("home.feed-posts", safeListFeedPosts(20, activeActor.actorUserId)),
+    timeServerStep("home.profile", prisma.profile.findUnique({
       where: { userId: activeActor.actorUserId },
       select: {
         avatarUrl: true,
         bannerUrl: true,
         displayName: true
       }
-    }),
-    prisma.user.findUnique({
+    })),
+    timeServerStep("home.actor-user", prisma.user.findUnique({
       where: { id: activeActor.actorUserId },
       select: {
         username: true
       }
-    }),
-    prisma.alert.findFirst({
+    })),
+    timeServerStep("home.latest-alert", prisma.alert.findFirst({
       where: {
         userId: session.user.id,
         readAt: null
@@ -45,28 +46,28 @@ export default async function AppHomePage() {
         body: true,
         href: true
       }
-    }),
-    prisma.scientologyProfile.findUnique({
+    })),
+    timeServerStep("home.scientology-profile", prisma.scientologyProfile.findUnique({
       where: { userId: session.user.id },
       select: { id: true }
-    }),
-    prisma.profile.findUnique({
+    })),
+    timeServerStep("home.private-profile", prisma.profile.findUnique({
       where: { userId: session.user.id },
       select: { userId: true }
-    }),
-    safeListChatThreads(activeActor.actorUserId)
+    })),
+    timeServerStep("home.chat-threads", safeListChatThreads(activeActor.actorUserId))
   ]);
 
   if (!scienceProfile && privateProfile) {
     redirect("/profile/edit?next=/profile/scientology");
   }
 
-  await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, "DESKTOP");
-  const reservedStreamAds = await getAdPlacementPool({
+  await timeServerStep("home.record-feed-units", recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, "DESKTOP"));
+  const reservedStreamAds = await timeServerStep("home.reserved-stream-ads", getAdPlacementPool({
     viewerUserId: session.user.id,
     placement: AdPlacement.RESERVED_STREAM,
     limit: 1
-  });
+  }), { placement: "RESERVED_STREAM" });
   const displayName = profile?.displayName ?? (activeActor.actorUserId === session.user.id ? session.user.name : null) ?? actorUser?.username ?? session.user.username;
 
   return (

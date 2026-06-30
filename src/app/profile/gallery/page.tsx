@@ -3,17 +3,18 @@ import { auth } from "@/auth";
 import { GalleryGrid } from "@/components/gallery/gallery-grid";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { timeServerStep } from "@/lib/platform/server-timing";
 import { safeListMyPics } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export default async function MyPicsPage() {
-  const session = await auth();
+  const session = await timeServerStep("gallery.auth", auth());
 
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/profile/gallery");
   }
 
-  const activeActor = await getActiveAccountActor(session.user.id);
-  const assets = await safeListMyPics(activeActor.actorUserId, 180, { includeSystem: true });
+  const activeActor = await timeServerStep("gallery.actor", getActiveAccountActor(session.user.id));
+  const assets = await timeServerStep("gallery.media-list", safeListMyPics(activeActor.actorUserId, 180, { includeSystem: true }));
 
   return (
     <AppShell>

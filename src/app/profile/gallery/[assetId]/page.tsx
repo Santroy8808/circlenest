@@ -6,17 +6,18 @@ import { GalleryAssetEngagement } from "@/components/gallery/gallery-asset-engag
 import { GalleryAssetTags } from "@/components/gallery/gallery-asset-tags";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { timeServerStep } from "@/lib/platform/server-timing";
 import { getMyPicViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export default async function GalleryAssetPage({ params }: { params: { assetId: string } }) {
-  const session = await auth();
+  const session = await timeServerStep("gallery-detail.auth", auth());
 
   if (!session?.user || session.user.revoked) {
     redirect(`/login?callbackUrl=/profile/gallery/${params.assetId}`);
   }
 
-  const activeActor = await getActiveAccountActor(session.user.id);
-  const viewer = await getMyPicViewer(activeActor.actorUserId, params.assetId);
+  const activeActor = await timeServerStep("gallery-detail.actor", getActiveAccountActor(session.user.id));
+  const viewer = await timeServerStep("gallery-detail.media-viewer", getMyPicViewer(activeActor.actorUserId, params.assetId));
 
   if (!viewer) {
     notFound();
