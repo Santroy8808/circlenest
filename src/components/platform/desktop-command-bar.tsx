@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { FormEvent, MouseEvent } from "react";
@@ -33,6 +34,14 @@ function initials(value: string) {
 function totalCommCount(counts: Counts) {
   return counts.messages + counts.mail + counts.notifications + counts.alerts;
 }
+
+const primaryNavItems = [
+  { href: "/home", icon: "/assets/nav/nav-home.png", key: "home", label: "Home", tooltip: "Home stream." },
+  { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
+  { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
+  { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm", tooltip: "Open Comm without leaving the stream." }
+];
 
 export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
   const pathname = usePathname();
@@ -87,27 +96,23 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
       </div>
 
       <nav className="desktop-command-nav" aria-label="Primary">
-        <Link className={pathname === "/home" ? "desktop-command-link is-active" : "desktop-command-link"} href="/home" data-tooltip="Home stream.">
-          <span aria-hidden="true">H</span>
-          <span>Home</span>
-        </Link>
-        <Link className={pathname.startsWith("/people") ? "desktop-command-link is-active" : "desktop-command-link"} href="/people" data-tooltip="Find people, friends, and groups.">
-          <span aria-hidden="true">P</span>
-          <span>People</span>
-        </Link>
-        <Link className={pathname.startsWith("/market") ? "desktop-command-link is-active" : "desktop-command-link"} href="/market" data-tooltip="Browse market listings.">
-          <span aria-hidden="true">M</span>
-          <span>Market</span>
-        </Link>
-        <Link className={pathname.startsWith("/search") ? "desktop-command-link is-active" : "desktop-command-link"} href="/search" data-tooltip="Search the platform.">
-          <span aria-hidden="true">S</span>
-          <span>Search</span>
-        </Link>
-        <Link className={pathname.startsWith("/messages") ? "desktop-command-link is-active" : "desktop-command-link"} href="/messages" onClick={openComm} data-tooltip="Open Comm without leaving the stream.">
-          <span aria-hidden="true">C</span>
-          <span>Comm</span>
-          {commCount > 0 ? <strong>{commCount}</strong> : null}
-        </Link>
+        {primaryNavItems.map((item) => {
+          const active = item.key === "home" ? pathname === item.href : pathname.startsWith(item.href);
+          return (
+            <Link
+              aria-label={item.label}
+              className={active ? "desktop-command-link is-active" : "desktop-command-link"}
+              data-tooltip={item.tooltip}
+              href={item.href}
+              key={item.key}
+              onClick={item.key === "messages" ? openComm : undefined}
+            >
+              <Image alt="" aria-hidden="true" className="desktop-command-nav-image" height={50} src={item.icon} width={50} />
+              <span className="sr-only">{item.label}</span>
+              {item.key === "messages" && commCount > 0 ? <strong>{commCount}</strong> : null}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="desktop-command-actions">

@@ -155,42 +155,41 @@ a {
 }
 
 .desktop-command-nav {
-  gap: clamp(8px, 1vw, 18px);
+  gap: clamp(8px, 0.8vw, 14px);
   justify-content: center;
 }
 
 .desktop-command-link {
   align-items: center;
-  border: 1px solid rgba(214, 178, 74, 0.18);
-  border-radius: 16px;
+  border: 0;
+  border-radius: 14px;
   color: var(--muted);
   display: inline-flex;
   font-size: 0.78rem;
   font-weight: 900;
-  gap: 7px;
   justify-content: center;
-  min-height: 48px;
-  min-width: 78px;
-  padding: 0 13px;
+  min-height: 50px;
+  min-width: 50px;
+  overflow: visible;
+  padding: 0;
   position: relative;
   transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
+    filter 160ms ease,
     transform 160ms ease;
 }
 
-.desktop-command-link > span:first-child {
-  color: var(--gold);
-  font-size: 1.12rem;
-  line-height: 1;
+.desktop-command-nav-image {
+  border-radius: 13px;
+  display: block;
+  height: 50px;
+  object-fit: cover;
+  width: 50px;
 }
 
 .desktop-command-link:hover,
 .desktop-command-link.is-active {
-  background: rgba(23, 33, 51, 0.92);
-  border-color: rgba(255, 216, 95, 0.5);
   color: var(--text);
+  filter: brightness(1.12);
   transform: translateY(-1px);
 }
 
