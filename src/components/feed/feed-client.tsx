@@ -3,7 +3,7 @@
 import { AdPlacement, FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
@@ -37,6 +37,11 @@ type ReplyTarget = {
 };
 
 type TextFormat = "bold" | "italic" | "bulletList" | "numberedList" | "link";
+
+type FeedCachePayload = {
+  posts?: FeedPostView[];
+  reservedStreamAds?: AdPlacementCardView[];
+};
 
 type TextFormatResult = {
   value: string;
@@ -784,8 +789,25 @@ export function FeedClient({
   showThreadLinks?: boolean;
 }) {
   const router = useRouter();
-  const [posts, setPosts] = useState(initialPosts);
-  const [reservedStreamAds, setReservedStreamAds] = useState(initialReservedStreamAds);
+  const feedCacheKey = `theta-space.feed-cache:${refreshPath}`;
+  const [posts, setPosts] = useState<FeedPostView[]>(() => {
+    if (typeof window === "undefined") return initialPosts;
+    try {
+      const cached = JSON.parse(window.sessionStorage.getItem(feedCacheKey) ?? "{}") as FeedCachePayload;
+      return cached.posts?.length ? cached.posts : initialPosts;
+    } catch {
+      return initialPosts;
+    }
+  });
+  const [reservedStreamAds, setReservedStreamAds] = useState<AdPlacementCardView[]>(() => {
+    if (typeof window === "undefined") return initialReservedStreamAds;
+    try {
+      const cached = JSON.parse(window.sessionStorage.getItem(feedCacheKey) ?? "{}") as FeedCachePayload;
+      return cached.reservedStreamAds ?? initialReservedStreamAds;
+    } catch {
+      return initialReservedStreamAds;
+    }
+  });
   const [feedMode, setFeedMode] = useState<FeedMode>("latest");
   const [body, setBody] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
@@ -808,6 +830,7 @@ export function FeedClient({
   const postTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const reservedStreamImpressionRef = useRef("");
+  const pullStartYRef = useRef<number | null>(null);
   const composerIdentity = currentAuthor ?? { displayName: "You", username: "member", avatarUrl: null };
   const visiblePosts = posts.filter((post) => {
     if (hiddenPostIds[post.id] || quietAuthorIds[post.author.id]) return false;
@@ -830,6 +853,24 @@ export function FeedClient({
     });
   }
 
+  const refreshFeed = useCallback(async () => {
+    const response = await fetch(refreshPath, { cache: "no-store" });
+    const payload = (await response.json()) as FeedCachePayload;
+    setPosts(payload.posts ?? []);
+    setReservedStreamAds(payload.reservedStreamAds ?? []);
+  }, [refreshPath]);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(feedCacheKey, JSON.stringify({ posts, reservedStreamAds }));
+    } catch {
+    }
+  }, [feedCacheKey, posts, reservedStreamAds]);
+
+  useEffect(() => {
+    void refreshFeed().catch(() => undefined);
+  }, [refreshFeed]);
+
   useEffect(() => {
     function openExternalComposer() {
       setComposerOpen(true);
@@ -846,6 +887,27 @@ export function FeedClient({
       return () => window.clearTimeout(focusTimer);
     }
   }, [initialReplyPostId]);
+
+  useEffect(() => {
+    function startPull(event: TouchEvent) {
+      if (window.scrollY <= 0) pullStartYRef.current = event.touches[0]?.clientY ?? null;
+    }
+
+    function finishPull(event: TouchEvent) {
+      const startY = pullStartYRef.current;
+      pullStartYRef.current = null;
+      if (startY == null || window.scrollY > 0) return;
+      const endY = event.changedTouches[0]?.clientY ?? startY;
+      if (endY - startY > 86) void refreshFeed().catch(() => undefined);
+    }
+
+    window.addEventListener("touchstart", startPull, { passive: true });
+    window.addEventListener("touchend", finishPull, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", startPull);
+      window.removeEventListener("touchend", finishPull);
+    };
+  }, [refreshFeed]);
 
   useEffect(() => {
     const firstReservedAd = reservedStreamAds[0];
@@ -878,13 +940,6 @@ export function FeedClient({
     const result = applyTextFormat(value, format, textarea?.selectionStart ?? value.length, textarea?.selectionEnd ?? value.length);
     setCommentBodies((current) => ({ ...current, [key]: result.value }));
     restoreTextSelection(textarea, result);
-  }
-
-  async function refreshFeed() {
-    const response = await fetch(refreshPath, { cache: "no-store" });
-    const payload = (await response.json()) as { posts?: FeedPostView[]; reservedStreamAds?: AdPlacementCardView[] };
-    setPosts(payload.posts ?? []);
-    setReservedStreamAds(payload.reservedStreamAds ?? []);
   }
 
   function currentReactionAuthor(): FeedAuthorView | null {
