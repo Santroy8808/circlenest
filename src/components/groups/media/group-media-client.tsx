@@ -537,8 +537,9 @@ export function GroupMediaClient({
                     placeholder="Add a comment..."
                     value={commentInputs[asset.id] ?? ""}
                   />
-                  <button className="btn-secondary" type="submit">
-                    Send
+                  <button className="btn-secondary send-logo-button is-compact" data-tooltip="Send this comment." type="submit">
+                    <span aria-hidden="true" className="send-logo-icon" />
+                    <span className="sr-only">Send comment</span>
                   </button>
                 </form>
               ) : null}

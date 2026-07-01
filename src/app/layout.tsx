@@ -33,6 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html className={appClassName} lang="en">
+      <head>
+        <link as="image" href="/assets/theta-send-logo.png" rel="preload" />
+      </head>
       <body className={appClassName}>
         <BackgroundGalleryUploadProvider>
           {children}

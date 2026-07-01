@@ -135,8 +135,14 @@ export function GalleryAssetEngagement({
               placeholder="Write a comment..."
               value={body}
             />
-            <button className="btn-secondary justify-self-end" disabled={isPending || !body.trim()} type="submit">
-              Comment
+            <button
+              className="btn-secondary send-logo-button is-compact justify-self-end"
+              data-tooltip="Send this comment."
+              disabled={isPending || !body.trim()}
+              type="submit"
+            >
+              <span aria-hidden="true" className="send-logo-icon" />
+              <span className="sr-only">{isPending ? "Sending..." : "Send comment"}</span>
             </button>
           </form>
         ) : (

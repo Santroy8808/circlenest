@@ -54,6 +54,10 @@ Do not implement current Theta-Space work in that archive or in any Compass OneD
 
 Use [docs/feature-completion-standard.md](docs/feature-completion-standard.md) as the required definition of done for desktop web, mobile web/APK wrapper, and ThetaComm work.
 
+## Visual Standards
+
+- Send actions must use the standard Theta-Space send glyph: `public/assets/theta-send-logo.png`, rendered through `.send-logo-button` with a `.send-logo-icon` child. Do not draw substitute theta/arrow glyphs in CSS, text, emoji, or alternate icons.
+
 Before coding any feature:
 
 1. Inspect the existing codebase and related active repos.

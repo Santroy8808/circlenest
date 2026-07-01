@@ -947,8 +947,8 @@ a {
 
 .home-comm-send {
   height: 42px;
-  min-width: 60px;
-  width: 60px;
+  min-width: 68px;
+  width: 68px;
 }
 
 .home-comm-empty,
@@ -1246,6 +1246,42 @@ a {
 .send-logo-button.is-compact .send-logo-icon {
   height: 24px;
   width: 48px;
+}
+
+/* Standard Theta-Space send glyph: gold theta, spark trail, arrow. */
+.send-logo-button {
+  height: 48px;
+  min-height: 48px;
+  min-width: 78px;
+  width: 78px;
+}
+
+.send-logo-icon {
+  background-image: url("/assets/theta-send-logo.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  display: inline-block;
+  height: 25px;
+  width: 70px;
+}
+
+.send-logo-icon::before,
+.send-logo-icon::after {
+  content: none;
+  display: none;
+}
+
+.send-logo-button.is-compact {
+  height: 42px;
+  min-height: 42px;
+  min-width: 68px;
+  width: 68px;
+}
+
+.send-logo-button.is-compact .send-logo-icon {
+  height: 21px;
+  width: 60px;
 }
 
 .icon-glyph-button {
@@ -4014,10 +4050,10 @@ a {
 
 .chat-composer-send {
   align-self: end;
-  height: 46px;
-  min-height: 46px;
-  min-width: 66px;
-  width: 66px;
+  height: 48px;
+  min-height: 48px;
+  min-width: 78px;
+  width: 78px;
 }
 
 .chat-empty-state {
@@ -4249,8 +4285,8 @@ a {
 
 .mail-compose-actions .btn-secondary,
 .mail-compose-actions .send-logo-button {
-  height: 46px;
-  min-height: 46px;
+  height: 48px;
+  min-height: 48px;
 }
 
 .mail-compose-actions .btn-secondary {
@@ -4262,9 +4298,10 @@ a {
 }
 
 .mail-compose-actions .send-logo-button {
-  border-radius: 999px;
-  min-width: 74px;
-  padding: 0 10px;
+  border-radius: 14px;
+  min-width: 78px;
+  padding: 0;
+  width: 78px;
 }
 
 .mail-upload-chip,
