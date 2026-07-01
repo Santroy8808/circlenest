@@ -767,6 +767,7 @@ export function FeedClient({
   initialPosts,
   initialReservedStreamAds = [],
   isAdmin = false,
+  postTargetProfileUserId,
   refreshPath = "/api/feed/posts",
   showComposerTrigger = true,
   showThreadLinks = true
@@ -777,6 +778,7 @@ export function FeedClient({
   initialPosts: FeedPostView[];
   initialReservedStreamAds?: AdPlacementCardView[];
   isAdmin?: boolean;
+  postTargetProfileUserId?: string;
   refreshPath?: string;
   showComposerTrigger?: boolean;
   showThreadLinks?: boolean;
@@ -975,7 +977,7 @@ export function FeedClient({
         const response = await fetch("/api/feed/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body, visibility: FeedVisibility.MEMBERS, mediaAssetId })
+          body: JSON.stringify({ body, visibility: FeedVisibility.MEMBERS, mediaAssetId, targetProfileUserId: postTargetProfileUserId })
         });
         const payload = (await response.json()) as { error?: string };
 

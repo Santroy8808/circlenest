@@ -156,7 +156,8 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           location: formData.get("location"),
           avatarUrl,
           bannerUrl,
-          visibility: formData.get("visibility")
+          visibility: formData.get("visibility"),
+          allowProfilePosts: formData.get("allowProfilePosts") === "on"
         })
       });
       const payload = (await response.json()) as { error?: string };
@@ -205,6 +206,21 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
       <label className="grid gap-2">
         <span className="form-label">Location</span>
         <input className="form-field" name="location" defaultValue={profile.location ?? ""} />
+      </label>
+
+      <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+        <input
+          className="mt-1"
+          defaultChecked={profile.allowProfilePosts}
+          name="allowProfilePosts"
+          type="checkbox"
+        />
+        <span>
+          <span className="form-label block">Allow profile posts</span>
+          <span className="text-sm text-[var(--muted)]">
+            Friends and family can post directly onto your profile stream when this is enabled.
+          </span>
+        </span>
       </label>
 
       <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-2">

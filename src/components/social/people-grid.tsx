@@ -17,6 +17,45 @@ function initials(name: string) {
     .join("");
 }
 
+function relationshipLabel(relationship: SocialRelationshipType) {
+  if (relationship === SocialRelationshipType.ACQUAINTANCE) return "Acquaintance";
+  return relationship.charAt(0) + relationship.slice(1).toLowerCase();
+}
+
+function AcquaintanceButton({ person }: { person: PeopleCardView }) {
+  const [relationships, setRelationships] = useState(person.relationships);
+  const [isSaving, setIsSaving] = useState(false);
+  const isAcquaintance = relationships.includes(SocialRelationshipType.ACQUAINTANCE);
+
+  async function markAcquaintance() {
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/social-graph/relationships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toUserId: person.id,
+          type: SocialRelationshipType.ACQUAINTANCE
+        })
+      });
+
+      if (response.ok) {
+        setRelationships((current) =>
+          current.includes(SocialRelationshipType.ACQUAINTANCE) ? current : [...current, SocialRelationshipType.ACQUAINTANCE]
+        );
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <button className="btn-secondary family-action-button" disabled={isSaving || isAcquaintance} onClick={markAcquaintance} type="button">
+      {isAcquaintance ? "Acquaintance" : isSaving ? "Saving..." : "Acquaintance"}
+    </button>
+  );
+}
+
 export function PeopleGrid({
   initialView,
   people,
@@ -65,7 +104,7 @@ export function PeopleGrid({
                 <div className="people-relationship-pills mt-3 flex flex-wrap justify-center gap-2">
                   {person.relationships.map((relationship) => (
                     <span className="pill rounded-full px-2 py-1 text-[11px] font-semibold" key={relationship}>
-                      {relationship}
+                      {relationshipLabel(relationship)}
                     </span>
                   ))}
                 </div>
@@ -77,6 +116,7 @@ export function PeopleGrid({
                 existingLabel={person.relationships.includes(SocialRelationshipType.FAMILY) ? person.familyLabel ?? "Family" : null}
                 targetUserId={person.id}
               />
+              <AcquaintanceButton person={person} />
             </div>
           </article>
         ))}

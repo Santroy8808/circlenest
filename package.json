@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "worker": "tsx scripts/platform-worker.ts",
+    "worker:once": "tsx scripts/platform-worker.ts --once",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
@@ -24,7 +26,8 @@
     "browser:smoke": "tsx scripts/browser-smoke-checklist.ts",
     "promote:dry-run": "tsx scripts/promotion-dry-run.ts",
     "services:readiness": "tsx scripts/external-services-readiness.ts",
-    "workspace:verify": "tsx scripts/verify-workspace.ts"
+    "workspace:verify": "tsx scripts/verify-workspace.ts",
+    "smoke:health": "tsx scripts/health-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

@@ -2896,11 +2896,11 @@ a {
   border-top: 1px solid rgba(214, 178, 74, 0.1);
   align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(88px, 1fr) repeat(3, auto) minmax(88px, 1fr);
+  gap: 20px;
+  grid-template-columns: minmax(120px, 1fr) repeat(3, auto) minmax(120px, 1fr);
   justify-content: stretch;
-  margin-top: 8px;
-  padding-top: 7px;
+  margin-top: 10px;
+  padding-top: 12px;
   position: relative;
 }
 
@@ -2944,7 +2944,7 @@ a {
 .feed-reaction-menu {
   align-items: center;
   display: inline-flex;
-  gap: 6px;
+  gap: 10px;
   position: relative;
 }
 
@@ -2984,13 +2984,13 @@ a {
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.88rem;
+  font-size: 1.34rem;
   font-weight: 900;
-  gap: 4px;
+  gap: 8px;
   justify-content: center;
-  min-height: 28px;
-  min-width: 32px;
-  padding: 4px 8px;
+  min-height: 56px;
+  min-width: 56px;
+  padding: 10px 14px;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
@@ -3010,15 +3010,15 @@ a {
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
-  font-size: 1.04rem;
+  font-size: 1.82rem;
   font-weight: 900;
-  height: 34px;
+  height: 64px;
   justify-content: center;
-  min-height: 34px;
-  min-width: 34px;
+  min-height: 64px;
+  min-width: 64px;
   padding: 0;
   transition: background 160ms ease, transform 160ms ease;
-  width: 34px;
+  width: 64px;
 }
 
 .feed-reaction-choice:hover {
@@ -3056,13 +3056,13 @@ a {
   background: rgba(8, 11, 16, 0.96);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
   display: flex;
-  gap: 2px;
+  gap: 8px;
   left: 0;
   opacity: 0;
-  padding: 6px 8px;
+  padding: 10px 12px;
   pointer-events: none;
   position: absolute;
-  top: calc(100% + 7px);
+  top: calc(100% + 10px);
   transform: translateY(-4px) scale(0.98);
   transition: opacity 160ms ease, transform 160ms ease;
   z-index: 24;
@@ -3245,7 +3245,7 @@ a {
 .feed-reply-button span:last-child,
 .feed-share-button span:last-child {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.95rem;
 }
 
 .feed-trust-menu {

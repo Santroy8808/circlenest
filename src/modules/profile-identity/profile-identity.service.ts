@@ -31,6 +31,7 @@ function toProfileCard(user: {
     bannerUrl: string | null;
     location: string | null;
     visibility: ProfileVisibility;
+    allowProfilePosts: boolean;
   } | null;
   membership: { tier: string } | null;
 }, familyMembers: ProfileCardView["familyMembers"] = []): ProfileCardView {
@@ -44,6 +45,7 @@ function toProfileCard(user: {
     bannerUrl: user.profile?.bannerUrl,
     location: user.profile?.location,
     visibility: user.profile?.visibility ?? ProfileVisibility.MEMBERS,
+    allowProfilePosts: user.profile?.allowProfilePosts ?? true,
     tier: user.membership?.tier ?? "FREE",
     role: user.role,
     familyMembers,
@@ -64,7 +66,7 @@ async function getViewerRelationshipState(viewerUserId: string | undefined, targ
         fromUserId: viewerUserId,
         toUserId: targetUserId,
         type: {
-          in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.CONTACT]
+          in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.ACQUAINTANCE, SocialRelationshipType.CONTACT]
         }
       },
       select: { type: true }
@@ -165,7 +167,8 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       location: parsed.data.location || null,
       avatarUrl: parsed.data.avatarUrl || null,
       bannerUrl: parsed.data.bannerUrl || null,
-      visibility: parsed.data.visibility
+      visibility: parsed.data.visibility,
+      allowProfilePosts: parsed.data.allowProfilePosts
     },
     create: {
       userId,
@@ -175,7 +178,8 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       location: parsed.data.location || null,
       avatarUrl: parsed.data.avatarUrl || null,
       bannerUrl: parsed.data.bannerUrl || null,
-      visibility: parsed.data.visibility
+      visibility: parsed.data.visibility,
+      allowProfilePosts: parsed.data.allowProfilePosts
     }
   });
 

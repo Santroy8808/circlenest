@@ -13,7 +13,8 @@ export const updateProfileSchema = z.object({
   location: z.string().max(120).optional().or(z.literal("")),
   avatarUrl: profileMediaUrlSchema.optional().or(z.literal("")),
   bannerUrl: profileMediaUrlSchema.optional().or(z.literal("")),
-  visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS)
+  visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS),
+  allowProfilePosts: z.boolean().default(true)
 });
 
 export const setProfileMediaSchema = z.object({
@@ -31,6 +32,7 @@ export type ProfileCardView = {
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   visibility: ProfileVisibility;
+  allowProfilePosts: boolean;
   tier: string;
   role: string;
   familyMembers: FamilyMemberView[];

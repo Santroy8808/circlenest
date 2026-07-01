@@ -16,6 +16,12 @@ import {
 
 const MODULE_KEY = "social-graph";
 const SOCIAL_DB_TIMEOUT_MS = 2500;
+const PEOPLE_RELATIONSHIP_TYPES: SocialRelationshipType[] = [
+  SocialRelationshipType.FRIEND,
+  SocialRelationshipType.FAMILY,
+  SocialRelationshipType.ACQUAINTANCE,
+  SocialRelationshipType.CONTACT
+];
 
 function withSocialDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -589,7 +595,7 @@ export async function listPeopleCards(userId: string, type?: SocialRelationshipT
     prisma.socialRelationship.findMany({
       where: {
         fromUserId: userId,
-        type: type ? type : { in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.CONTACT] }
+        type: type ? type : { in: PEOPLE_RELATIONSHIP_TYPES }
       },
       include: {
         toUser: {
@@ -727,7 +733,7 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
         in: people.map((person) => person.id)
       },
       type: {
-        in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.CONTACT]
+        in: PEOPLE_RELATIONSHIP_TYPES
       }
     },
     select: {

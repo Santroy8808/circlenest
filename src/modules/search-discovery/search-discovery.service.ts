@@ -78,7 +78,7 @@ async function getBlockedUserIds(viewerUserId: string) {
 async function getTrustedFeedAuthorIds(viewerUserId: string) {
   const relationships = await prisma.socialRelationship.findMany({
     where: {
-      type: { in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY] },
+      type: { in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.ACQUAINTANCE] },
       OR: [{ fromUserId: viewerUserId }, { toUserId: viewerUserId }]
     },
     select: {

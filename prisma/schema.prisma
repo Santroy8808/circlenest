@@ -66,6 +66,14 @@ enum ModuleHealthStatus {
   unknown
 }
 
+enum PlatformJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
 enum MediaVisibility {
   PRIVATE
   MEMBERS
@@ -76,6 +84,13 @@ enum MediaCollectionType {
   ALBUM
   TAG
   SYSTEM_DATE
+}
+
+enum MediaAssetStatus {
+  CREATED
+  UPLOADING
+  READY
+  FAILED
 }
 
 enum FeedVisibility {
@@ -112,6 +127,7 @@ enum HashtagSignalKind {
 enum SocialRelationshipType {
   FRIEND
   FAMILY
+  ACQUAINTANCE
   CONTACT
   FOLLOW
   BLOCK
@@ -454,6 +470,7 @@ model User {
   mediaAssetHashtags              MediaAssetHashtag[]
   mediaCollections                MediaCollection[]
   feedPosts                       FeedPost[]                         @relation("FeedPostAuthor")
+  targetedFeedPosts               FeedPost[]                         @relation("FeedPostProfileTarget")
   feedComments                    FeedComment[]                      @relation("FeedCommentAuthor")
   createdHashtags                 Hashtag[]                          @relation("HashtagCreator")
   feedPostHashtags                FeedPostHashtag[]
@@ -509,8 +526,8 @@ model User {
   privateAuditorAccounts          AuditorAccount[]                   @relation("AuditorAccountPrivateOwner")
   auditorAccountOwnerLink         AuditorAccount?                    @relation("AuditorAccountActor")
   businessProfile                 BusinessProfile?                   @relation("BusinessProfileOwner")
-  privateBusinessAccounts         BusinessAccount[]                   @relation("BusinessAccountPrivateOwner")
-  businessAccountOwnerLink        BusinessAccount?                    @relation("BusinessAccountActor")
+  privateBusinessAccounts         BusinessAccount[]                  @relation("BusinessAccountPrivateOwner")
+  businessAccountOwnerLink        BusinessAccount?                   @relation("BusinessAccountActor")
   adCampaigns                     AdCampaign[]                       @relation("AdCampaignOwner")
   adCreditLedgerEntries           AdCreditLedgerEntry[]
   adDeliveryLogs                  AdDeliveryLog[]                    @relation("AdDeliveryViewer")
@@ -565,19 +582,20 @@ model UserDevice {
 }
 
 model Profile {
-  id          String            @id @default(cuid())
-  userId      String            @unique
-  displayName String?
-  tagline     String?
-  bio         String?
-  avatarUrl   String?
-  bannerUrl   String?
-  location    String?
-  visibility  ProfileVisibility @default(MEMBERS)
-  theme       Json?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String            @id @default(cuid())
+  userId            String            @unique
+  displayName       String?
+  tagline           String?
+  bio               String?
+  avatarUrl         String?
+  bannerUrl         String?
+  location          String?
+  visibility        ProfileVisibility @default(MEMBERS)
+  allowProfilePosts Boolean           @default(true)
+  theme             Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ScientologyProfile {
@@ -826,21 +844,43 @@ model PlatformActivityEvent {
   @@index([module, action, createdAt])
 }
 
+model PlatformJob {
+  id          String            @id @default(cuid())
+  kind        String
+  status      PlatformJobStatus @default(PENDING)
+  payload     Json?
+  result      Json?
+  error       String?
+  attempts    Int               @default(0)
+  maxAttempts Int               @default(5)
+  runAfter    DateTime          @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([status, runAfter, createdAt])
+  @@index([kind, status, runAfter])
+  @@index([lockedAt])
+}
+
 model UserApplicationUsageMetric {
-  id                                  String   @id @default(cuid())
-  userId                              String   @unique
-  mobileActivityScore                 Float    @default(0)
-  desktopActivityScore                Float    @default(0)
-  reservedStreamOrganicUnits          Int      @default(0)
-  reservedStreamAdImpressions         Int      @default(0)
-  reservedStreamOrganicUnitsAtLastAd  Int      @default(0)
-  lastSeenAt                          DateTime?
-  lastMobileSeenAt                    DateTime?
-  lastDesktopSeenAt                   DateTime?
-  lastReservedStreamAdAt              DateTime?
-  createdAt                           DateTime @default(now())
-  updatedAt                           DateTime @updatedAt
-  user                                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                                 String    @id @default(cuid())
+  userId                             String    @unique
+  mobileActivityScore                Float     @default(0)
+  desktopActivityScore               Float     @default(0)
+  reservedStreamOrganicUnits         Int       @default(0)
+  reservedStreamAdImpressions        Int       @default(0)
+  reservedStreamOrganicUnitsAtLastAd Int       @default(0)
+  lastSeenAt                         DateTime?
+  lastMobileSeenAt                   DateTime?
+  lastDesktopSeenAt                  DateTime?
+  lastReservedStreamAdAt             DateTime?
+  createdAt                          DateTime  @default(now())
+  updatedAt                          DateTime  @updatedAt
+  user                               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([lastSeenAt])
   @@index([lastMobileSeenAt])
@@ -923,6 +963,7 @@ model MediaAsset {
   mimeType                String
   sizeBytes               BigInt
   originalName            String?
+  status                  MediaAssetStatus         @default(READY)
   visibility              MediaVisibility          @default(PRIVATE)
   metadata                Json?
   createdAt               DateTime                 @default(now())
@@ -943,6 +984,7 @@ model MediaAsset {
   scientologyCommendation ScientologyCommendation?
 
   @@index([ownerUserId, createdAt])
+  @@index([status, updatedAt])
 }
 
 model Hashtag {
@@ -1077,11 +1119,13 @@ model FeedPost {
   body                String
   visibility          FeedVisibility      @default(MEMBERS)
   mediaAssetId        String?
+  targetProfileUserId String?
   isAdminAnnouncement Boolean             @default(false)
   pinnedUntil         DateTime?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   author              User                @relation("FeedPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  targetProfileUser   User?               @relation("FeedPostProfileTarget", fields: [targetProfileUserId], references: [id], onDelete: SetNull)
   mediaAsset          MediaAsset?         @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
   hashtags            FeedPostHashtag[]
   comments            FeedComment[]
@@ -1091,6 +1135,7 @@ model FeedPost {
   @@index([visibility, createdAt])
   @@index([isAdminAnnouncement, pinnedUntil, createdAt])
   @@index([authorUserId, createdAt])
+  @@index([targetProfileUserId, createdAt])
 }
 
 model FeedPostDismissal {
@@ -1787,14 +1832,14 @@ model AuditorProfile {
 }
 
 model AuditorAccount {
-  id             String   @id @default(cuid())
-  privateUserId  String
-  auditorUserId  String   @unique
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  privateUser    User     @relation("AuditorAccountPrivateOwner", fields: [privateUserId], references: [id], onDelete: Cascade)
-  auditorUser    User     @relation("AuditorAccountActor", fields: [auditorUserId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  privateUserId String
+  auditorUserId String   @unique
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  privateUser   User     @relation("AuditorAccountPrivateOwner", fields: [privateUserId], references: [id], onDelete: Cascade)
+  auditorUser   User     @relation("AuditorAccountActor", fields: [auditorUserId], references: [id], onDelete: Cascade)
 
   @@unique([privateUserId, auditorUserId])
   @@index([privateUserId, active])
@@ -1903,37 +1948,37 @@ model PlatformCostRule {
 }
 
 model AdCampaign {
-  id                 String                     @id @default(cuid())
-  ownerUserId        String
-  businessProfileId  String?
-  marketListingId    String?
-  businessArticleId  String?
+  id                           String                     @id @default(cuid())
+  ownerUserId                  String
+  businessProfileId            String?
+  marketListingId              String?
+  businessArticleId            String?
   subscriberTargetManuscriptId String?
-  imageMediaAssetId  String?
-  externalImageUrl   String?
-  title              String
-  body               String
-  destinationUrl     String?
-  destinationKind    AdDestinationKind          @default(STOREFRONT)
-  placement          AdPlacement                @default(RIGHT_STREAM)
-  status             AdCampaignStatus           @default(ACTIVE)
-  targetLocation     String?
-  totalBudgetCredits Int
-  dailyBudgetCredits Int?
-  spentCredits       Int                        @default(0)
-  startsAt           DateTime?
-  endsAt             DateTime?
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
-  owner              User                       @relation("AdCampaignOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  businessProfile    BusinessProfile?           @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
-  marketListing      MarketListing?             @relation(fields: [marketListingId], references: [id], onDelete: SetNull)
-  businessArticle    BusinessArticle?           @relation(fields: [businessArticleId], references: [id], onDelete: SetNull)
-  subscriberTargetManuscript WriterManuscript?   @relation("AdSubscriberTargetManuscript", fields: [subscriberTargetManuscriptId], references: [id], onDelete: SetNull)
-  imageMediaAsset    MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
-  deliveryLogs       AdDeliveryLog[]
-  targetInterests    AdCampaignInterestTarget[]
-  displayScheduleSlots AdDisplayScheduleSlot[]
+  imageMediaAssetId            String?
+  externalImageUrl             String?
+  title                        String
+  body                         String
+  destinationUrl               String?
+  destinationKind              AdDestinationKind          @default(STOREFRONT)
+  placement                    AdPlacement                @default(RIGHT_STREAM)
+  status                       AdCampaignStatus           @default(ACTIVE)
+  targetLocation               String?
+  totalBudgetCredits           Int
+  dailyBudgetCredits           Int?
+  spentCredits                 Int                        @default(0)
+  startsAt                     DateTime?
+  endsAt                       DateTime?
+  createdAt                    DateTime                   @default(now())
+  updatedAt                    DateTime                   @updatedAt
+  owner                        User                       @relation("AdCampaignOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  businessProfile              BusinessProfile?           @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  marketListing                MarketListing?             @relation(fields: [marketListingId], references: [id], onDelete: SetNull)
+  businessArticle              BusinessArticle?           @relation(fields: [businessArticleId], references: [id], onDelete: SetNull)
+  subscriberTargetManuscript   WriterManuscript?          @relation("AdSubscriberTargetManuscript", fields: [subscriberTargetManuscriptId], references: [id], onDelete: SetNull)
+  imageMediaAsset              MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
+  deliveryLogs                 AdDeliveryLog[]
+  targetInterests              AdCampaignInterestTarget[]
+  displayScheduleSlots         AdDisplayScheduleSlot[]
 
   @@index([status, placement, createdAt])
   @@index([ownerUserId, createdAt])
@@ -2081,20 +2126,20 @@ model FundLedgerEntry {
 }
 
 model WriterManuscript {
-  id                  String               @id @default(cuid())
-  slug                String               @unique
-  authorUserId        String
-  title               String
-  genre               String?
-  summary             String?
-  visibility          ManuscriptVisibility @default(MEMBERS)
-  publishToStorefront Boolean              @default(false)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  author              User                 @relation("WriterManuscriptAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  chapters            WriterChapter[]
-  subscriptions       WriterManuscriptSubscription[]
-  subscriberTargetedAds AdCampaign[]       @relation("AdSubscriberTargetManuscript")
+  id                    String                         @id @default(cuid())
+  slug                  String                         @unique
+  authorUserId          String
+  title                 String
+  genre                 String?
+  summary               String?
+  visibility            ManuscriptVisibility           @default(MEMBERS)
+  publishToStorefront   Boolean                        @default(false)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  author                User                           @relation("WriterManuscriptAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  chapters              WriterChapter[]
+  subscriptions         WriterManuscriptSubscription[]
+  subscriberTargetedAds AdCampaign[]                   @relation("AdSubscriberTargetManuscript")
 
   @@index([authorUserId, updatedAt])
   @@index([authorUserId, publishToStorefront, updatedAt])

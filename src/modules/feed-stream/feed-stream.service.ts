@@ -1,4 +1,4 @@
-import { FeedReactionType, FeedVisibility, MembershipTier, Prisma } from "@prisma/client";
+import { FeedReactionType, FeedVisibility, MembershipTier, Prisma, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
@@ -274,6 +274,7 @@ async function fetchFeedPosts(take: number, viewerUserId?: string) {
           visibility: {
             in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
           },
+          targetProfileUserId: null,
           isAdminAnnouncement: true,
           dismissals: {
             none: {
@@ -292,6 +293,7 @@ async function fetchFeedPosts(take: number, viewerUserId?: string) {
       visibility: {
         in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
       },
+      targetProfileUserId: null,
       isAdminAnnouncement: false
     },
     include: feedPostInclude(),
@@ -300,6 +302,28 @@ async function fetchFeedPosts(take: number, viewerUserId?: string) {
   });
 
   return [...pinned, ...normal];
+}
+
+async function fetchProfileFeedPosts(profileUserId: string, take: number) {
+  return prisma.feedPost.findMany({
+    where: {
+      visibility: {
+        in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
+      },
+      OR: [
+        {
+          authorUserId: profileUserId,
+          targetProfileUserId: null
+        },
+        {
+          targetProfileUserId: profileUserId
+        }
+      ]
+    },
+    include: feedPostInclude(),
+    orderBy: { createdAt: "desc" },
+    take
+  });
 }
 
 function fetchFeedPostThread(postId: string) {
@@ -363,6 +387,42 @@ async function verifyOwnedMediaAsset(userId: string, mediaAssetId?: string) {
   return { ok: true as const };
 }
 
+async function canCreateProfileTargetedPost(authorUserId: string, targetProfileUserId?: string | null) {
+  if (!targetProfileUserId) return { ok: true as const };
+  if (authorUserId === targetProfileUserId) return { ok: true as const };
+
+  const [targetProfile, relationship] = await Promise.all([
+    prisma.profile.findUnique({
+      where: { userId: targetProfileUserId },
+      select: { allowProfilePosts: true }
+    }),
+    prisma.socialRelationship.findFirst({
+      where: {
+        fromUserId: authorUserId,
+        toUserId: targetProfileUserId,
+        type: {
+          in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY]
+        }
+      },
+      select: { id: true }
+    })
+  ]);
+
+  if (!targetProfile) {
+    return { ok: false as const, error: "That profile was not found." };
+  }
+
+  if (!targetProfile.allowProfilePosts) {
+    return { ok: false as const, error: "This profile is not accepting profile posts." };
+  }
+
+  if (!relationship) {
+    return { ok: false as const, error: "Only friends and family can post directly to this profile." };
+  }
+
+  return { ok: true as const };
+}
+
 export async function listFeedPosts(take = 20, viewerUserId?: string) {
   const posts = await withFeedDbTimeout(fetchFeedPosts(take, viewerUserId), "feed lookup");
   return posts.map(toFeedPostView);
@@ -373,6 +433,23 @@ export async function safeListFeedPosts(take = 20, viewerUserId?: string) {
     return await listFeedPosts(take, viewerUserId);
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list feed posts.", {
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return [];
+  }
+}
+
+export async function listProfileFeedPosts(profileUserId: string, take = 20) {
+  const posts = await withFeedDbTimeout(fetchProfileFeedPosts(profileUserId, take), "profile feed lookup");
+  return posts.map(toFeedPostView);
+}
+
+export async function safeListProfileFeedPosts(profileUserId: string, take = 20) {
+  try {
+    return await listProfileFeedPosts(profileUserId, take);
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not list profile feed posts.", {
+      profileUserId,
       error: error instanceof Error ? error.message : "unknown"
     });
     return [];
@@ -444,13 +521,20 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     return mediaCheck;
   }
 
+  const profileTargetCheck = await canCreateProfileTargetedPost(authorUserId, parsed.data.targetProfileUserId || undefined);
+
+  if (!profileTargetCheck.ok) {
+    return profileTargetCheck;
+  }
+
   const post = await prisma.$transaction(async (tx) => {
     const createdPost = await tx.feedPost.create({
       data: {
         authorUserId,
         body: parsed.data.body.trim(),
         visibility: parsed.data.visibility,
-        mediaAssetId: parsed.data.mediaAssetId || undefined
+        mediaAssetId: parsed.data.mediaAssetId || undefined,
+        targetProfileUserId: parsed.data.targetProfileUserId || undefined
       }
     });
 

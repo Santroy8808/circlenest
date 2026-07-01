@@ -25,6 +25,7 @@ export function ProfileRelationshipActions({
   const [isPending, startTransition] = useTransition();
   const isFriend = currentRelationships.includes(SocialRelationshipType.FRIEND);
   const isFamily = currentRelationships.includes(SocialRelationshipType.FAMILY);
+  const isAcquaintance = currentRelationships.includes(SocialRelationshipType.ACQUAINTANCE);
 
   function requestFriend() {
     setMessage("");
@@ -71,10 +72,38 @@ export function ProfileRelationshipActions({
     });
   }
 
+  function markAcquaintance() {
+    setMessage("");
+    startTransition(async () => {
+      const response = await fetch("/api/social-graph/relationships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toUserId: targetUserId,
+          type: SocialRelationshipType.ACQUAINTANCE
+        })
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setMessage(payload.error ?? "Could not mark acquaintance.");
+        return;
+      }
+
+      setCurrentRelationships((current) =>
+        current.includes(SocialRelationshipType.ACQUAINTANCE) ? current : [...current, SocialRelationshipType.ACQUAINTANCE]
+      );
+      setMessage(`${targetDisplayName} marked as an acquaintance.`);
+    });
+  }
+
   return (
     <div className="profile-relationship-actions" aria-label={`Connect with ${targetDisplayName}`}>
       <button className="profile-friend-link" disabled={isPending || isFriend || friendPending} onClick={requestFriend} type="button">
         {isFriend ? "Friend" : friendPending ? "Friend request pending" : isPending ? "Sending..." : "Friend me"}
+      </button>
+      <button className="profile-friend-link" disabled={isPending || isAcquaintance} onClick={markAcquaintance} type="button">
+        {isAcquaintance ? "Acquaintance" : isPending ? "Saving..." : "Acquaintance"}
       </button>
       {isFamily ? (
         <span className="profile-relationship-pill">Family</span>

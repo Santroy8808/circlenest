@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { MediaCollectionType, MediaVisibility, Prisma } from "@prisma/client";
+import { MediaAssetStatus, MediaCollectionType, MediaVisibility, Prisma } from "@prisma/client";
 import { deleteR2Object, getR2PublicUrl, createPresignedR2PutUrl } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
@@ -294,6 +294,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
       mimeType: parsed.data.mimeType,
       sizeBytes: BigInt(parsed.data.sizeBytes),
       originalName: parsed.data.fileName,
+      status: MediaAssetStatus.READY,
       visibility: parsed.data.visibility,
       metadata
     },
@@ -304,6 +305,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
       mimeType: parsed.data.mimeType,
       sizeBytes: BigInt(parsed.data.sizeBytes),
       originalName: parsed.data.fileName,
+      status: MediaAssetStatus.READY,
       visibility: parsed.data.visibility,
       metadata
     }

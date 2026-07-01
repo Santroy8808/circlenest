@@ -964,7 +964,7 @@ export async function searchChatContacts(userId: string, query: string): Promise
     const relationships = await prisma.socialRelationship.findMany({
       where: {
         fromUserId: userId,
-        type: { in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.CONTACT] }
+        type: { in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.ACQUAINTANCE, SocialRelationshipType.CONTACT] }
       },
       include: {
         toUser: {
