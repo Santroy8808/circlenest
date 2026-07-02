@@ -19,7 +19,8 @@ export default async function NotificationsPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Communications</p>
         <h1 className="mt-3 text-3xl font-semibold">Notifications</h1>
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          Mentions, replies, and ordinary social updates live here. Alerts stay separate for admin and account-critical notices.
+          Mentions, replies, friend and family requests, and ordinary social updates live here. Alerts stay separate for system and
+          account-critical notices.
         </p>
       </section>
       <div className="mt-5">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { familyRelationshipLabels } from "@/modules/social-graph/types";
+import { quickFamilyRelationshipLabels } from "@/modules/social-graph/types";
 
 export function FamilyTagButton({
   targetUserId,
@@ -12,11 +12,12 @@ export function FamilyTagButton({
   disabled?: boolean;
   existingLabel?: string | null;
 }) {
-  const [label, setLabel] = useState<(typeof familyRelationshipLabels)[number]>("Sibling");
+  const [isOpen, setIsOpen] = useState(false);
+  const [sent, setSent] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function requestTag() {
+  function requestTag(relationshipLabel: (typeof quickFamilyRelationshipLabels)[number]) {
     setMessage("");
     startTransition(async () => {
       const response = await fetch("/api/social-graph/family-requests", {
@@ -24,7 +25,7 @@ export function FamilyTagButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetUserId,
-          relationshipLabel: label
+          relationshipLabel
         })
       });
       const payload = (await response.json()) as { error?: string };
@@ -34,6 +35,8 @@ export function FamilyTagButton({
         return;
       }
 
+      setSent(true);
+      setIsOpen(false);
       setMessage("Family request sent for approval.");
     });
   }
@@ -43,26 +46,19 @@ export function FamilyTagButton({
   }
 
   return (
-    <div className="mt-4 grid gap-2">
-      <label className="sr-only" htmlFor={`family-label-${targetUserId}`}>
-        Family relationship
-      </label>
-      <select
-        className="form-field family-select"
-        disabled={disabled || isPending}
-        id={`family-label-${targetUserId}`}
-        onChange={(event) => setLabel(event.target.value as (typeof familyRelationshipLabels)[number])}
-        value={label}
-      >
-        {familyRelationshipLabels.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      <button className="btn-secondary family-action-button" disabled={disabled || isPending} onClick={requestTag} type="button">
-        {disabled ? "Family request pending" : isPending ? "Sending..." : "Tag as family"}
+    <div className="family-tag-control">
+      <button className="btn-secondary family-action-button" disabled={disabled || isPending || sent} onClick={() => setIsOpen((current) => !current)} type="button">
+        {disabled || sent ? "Pending" : isPending ? "Sending..." : "Family"}
       </button>
+      {isOpen && !disabled && !sent ? (
+        <div className="family-choice-popover" role="menu">
+          {quickFamilyRelationshipLabels.map((option) => (
+            <button disabled={isPending} key={option} onClick={() => requestTag(option)} type="button">
+              {option}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {message ? <p className="text-xs text-[var(--muted)]">{message}</p> : null}
     </div>
   );

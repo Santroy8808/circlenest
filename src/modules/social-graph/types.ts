@@ -4,8 +4,10 @@ import { z } from "zod";
 export const familyRelationshipLabels = [
   "Spouse",
   "Parent",
+  "Progeny",
   "Child",
   "Sibling",
+  "Family",
   "Grandparent",
   "Grandchild",
   "Aunt/Uncle",
@@ -14,6 +16,8 @@ export const familyRelationshipLabels = [
   "In-law",
   "Other family"
 ] as const;
+
+export const quickFamilyRelationshipLabels = ["Spouse", "Sibling", "Cousin", "Family", "Parent", "Progeny"] as const;
 
 export const familyRelationshipRequestSchema = z.object({
   targetUserId: z.string().min(1),

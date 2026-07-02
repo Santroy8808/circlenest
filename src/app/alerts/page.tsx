@@ -19,7 +19,8 @@ export default async function AlertsPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Special Inbox</p>
         <h1 className="mt-3 text-3xl font-semibold">Alerts</h1>
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          Account-critical notices, reports, admin replies, invoices, and platform announcements belong here.
+          System and platform announcements, admin replies, membership notices, and account-critical warnings belong here. Alerts can
+          be dismissed and automatically expire after two weeks.
         </p>
       </section>
       <div className="mt-5">

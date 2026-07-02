@@ -2,7 +2,7 @@
 
 import { SocialRelationshipType } from "@prisma/client";
 import { useState, useTransition } from "react";
-import { familyRelationshipLabels } from "@/modules/social-graph/types";
+import { quickFamilyRelationshipLabels } from "@/modules/social-graph/types";
 
 export function ProfileRelationshipActions({
   pendingFamilyRequest,
@@ -20,7 +20,7 @@ export function ProfileRelationshipActions({
   const [currentRelationships, setCurrentRelationships] = useState(relationships);
   const [friendPending, setFriendPending] = useState(pendingFriendRequest);
   const [familyPending, setFamilyPending] = useState(pendingFamilyRequest);
-  const [familyLabel, setFamilyLabel] = useState<(typeof familyRelationshipLabels)[number]>("Sibling");
+  const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const isFriend = currentRelationships.includes(SocialRelationshipType.FRIEND);
@@ -49,7 +49,7 @@ export function ProfileRelationshipActions({
     });
   }
 
-  function requestFamily() {
+  function requestFamily(relationshipLabel: (typeof quickFamilyRelationshipLabels)[number]) {
     setMessage("");
     startTransition(async () => {
       const response = await fetch("/api/social-graph/family-requests", {
@@ -57,7 +57,7 @@ export function ProfileRelationshipActions({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetUserId,
-          relationshipLabel: familyLabel
+          relationshipLabel
         })
       });
       const payload = (await response.json()) as { error?: string };
@@ -68,6 +68,7 @@ export function ProfileRelationshipActions({
       }
 
       setFamilyPending(true);
+      setFamilyPickerOpen(false);
       setMessage(`Family request sent to ${targetDisplayName}.`);
     });
   }
@@ -99,37 +100,32 @@ export function ProfileRelationshipActions({
 
   return (
     <div className="profile-relationship-actions" aria-label={`Connect with ${targetDisplayName}`}>
-      <button className="profile-friend-link" disabled={isPending || isFriend || friendPending} onClick={requestFriend} type="button">
-        {isFriend ? "Friend" : friendPending ? "Friend request pending" : isPending ? "Sending..." : "Friend me"}
-      </button>
-      <button className="profile-friend-link" disabled={isPending || isAcquaintance} onClick={markAcquaintance} type="button">
-        {isAcquaintance ? "Acquaintance" : isPending ? "Saving..." : "Acquaintance"}
-      </button>
       {isFamily ? (
         <span className="profile-relationship-pill">Family</span>
       ) : (
         <div className="profile-family-request">
-          <label className="sr-only" htmlFor={`profile-family-label-${targetUserId}`}>
-            Family relationship
-          </label>
-          <select
-            className="form-field family-select"
-            disabled={isPending || familyPending}
-            id={`profile-family-label-${targetUserId}`}
-            onChange={(event) => setFamilyLabel(event.target.value as (typeof familyRelationshipLabels)[number])}
-            value={familyLabel}
-          >
-            {familyRelationshipLabels.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <button className="btn-secondary" disabled={isPending || familyPending} onClick={requestFamily} type="button">
+          <button className="btn-secondary" disabled={isPending || familyPending} onClick={() => setFamilyPickerOpen((current) => !current)} type="button">
             {familyPending ? "Family request pending" : "Request family"}
           </button>
+          {familyPickerOpen && !familyPending ? (
+            <div className="profile-family-options" role="menu">
+              {quickFamilyRelationshipLabels.map((option) => (
+                <button disabled={isPending} key={option} onClick={() => requestFamily(option)} type="button">
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
+      <div className="profile-secondary-actions">
+        <button className="profile-relationship-link" disabled={isPending || isFriend || friendPending} onClick={requestFriend} type="button">
+          {isFriend ? "Friend" : friendPending ? "Friend pending" : isPending ? "Sending..." : "Friend me"}
+        </button>
+        <button className="profile-relationship-link" disabled={isPending || isAcquaintance} onClick={markAcquaintance} type="button">
+          {isAcquaintance ? "Acquaintance" : isPending ? "Saving..." : "Acquaintance"}
+        </button>
+      </div>
       {message ? <p className="profile-relationship-message">{message}</p> : null}
     </div>
   );

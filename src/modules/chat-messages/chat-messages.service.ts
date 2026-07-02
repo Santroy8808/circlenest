@@ -3,6 +3,7 @@ import {
   ChatAttachmentKind,
   ChatThreadType,
   MediaVisibility,
+  ProfileVisibility,
   Prisma,
   SocialRelationshipType
 } from "@prisma/client";
@@ -44,8 +45,10 @@ function dateSlug(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-function attachmentKindForMime(mimeType: string) {
-  return mimeType.startsWith("image/") ? ChatAttachmentKind.IMAGE : ChatAttachmentKind.FILE;
+function attachmentKindForFile(fileName: string, mimeType: string) {
+  return mimeType.toLowerCase().startsWith("image/") || /\.(avif|gif|jpe?g|png|webp|bmp|svg)$/i.test(fileName)
+    ? ChatAttachmentKind.IMAGE
+    : ChatAttachmentKind.FILE;
 }
 
 function readThumbnailUrl(metadata: Prisma.JsonValue | null | undefined) {
@@ -69,12 +72,52 @@ function toPersonView(user: {
   };
 }
 
+function uniquePeopleById(people: ChatPersonView[]) {
+  const seen = new Set<string>();
+  return people.filter((person) => {
+    if (seen.has(person.id)) return false;
+    seen.add(person.id);
+    return true;
+  });
+}
+
+type ChatContactFilter = "ALL" | "FRIENDS" | "FAMILY" | "ACQUAINTANCE" | "MEMBERS";
+
+const relationshipContactFilters: Record<Exclude<ChatContactFilter, "ALL" | "MEMBERS">, SocialRelationshipType> = {
+  FRIENDS: SocialRelationshipType.FRIEND,
+  FAMILY: SocialRelationshipType.FAMILY,
+  ACQUAINTANCE: SocialRelationshipType.ACQUAINTANCE
+};
+
+function normalizedContactFilter(filter?: string | null): ChatContactFilter {
+  if (filter === "FRIENDS" || filter === "FAMILY" || filter === "ACQUAINTANCE" || filter === "MEMBERS") return filter;
+  return "ALL";
+}
+
+async function contactRelationshipUserIds(userId: string, types: SocialRelationshipType[]) {
+  if (types.length === 0) return [];
+
+  const relationships = await prisma.socialRelationship.findMany({
+    where: {
+      fromUserId: userId,
+      type: { in: types }
+    },
+    select: {
+      toUserId: true
+    },
+    orderBy: { createdAt: "desc" },
+    take: 80
+  });
+
+  return Array.from(new Set(relationships.map((relationship) => relationship.toUserId)));
+}
+
 function toAttachmentView(
   attachment: Prisma.ChatAttachmentGetPayload<{ include: { mediaAsset: true } }>
 ): ChatAttachmentView {
   return {
     id: attachment.id,
-    kind: attachment.kind,
+    kind: attachment.kind === ChatAttachmentKind.IMAGE ? attachment.kind : attachmentKindForFile(attachment.fileName, attachment.mimeType),
     fileName: attachment.fileName,
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes.toString(),
@@ -831,7 +874,8 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
         select: {
           id: true,
           storageKey: true,
-          publicUrl: true
+          publicUrl: true,
+          mimeType: true
         }
       })
     : [];
@@ -852,9 +896,9 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
             const mediaAsset = attachment.mediaAssetId ? mediaAssetMap.get(attachment.mediaAssetId) : undefined;
             return {
               mediaAssetId: attachment.mediaAssetId || undefined,
-              kind: attachment.kind,
+              kind: attachmentKindForFile(attachment.fileName, mediaAsset?.mimeType ?? attachment.mimeType),
               fileName: attachment.fileName,
-              mimeType: attachment.mimeType,
+              mimeType: mediaAsset?.mimeType ?? attachment.mimeType,
               sizeBytes: BigInt(attachment.sizeBytes),
               storageKey: mediaAsset?.storageKey ?? (attachment.storageKey || null),
               publicUrl: mediaAsset?.publicUrl ?? (attachment.publicUrl || null)
@@ -957,27 +1001,38 @@ export async function markChatThreadRead(userId: string, threadId: string) {
   return { ok: true as const };
 }
 
-export async function searchChatContacts(userId: string, query: string): Promise<ChatPersonView[]> {
+export async function searchChatContacts(userId: string, query: string, filter?: string | null): Promise<ChatPersonView[]> {
   const cleanQuery = query.trim();
+  const contactFilter = normalizedContactFilter(filter);
+  const relationshipTypes =
+    contactFilter === "ALL"
+      ? [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.ACQUAINTANCE, SocialRelationshipType.CONTACT]
+      : contactFilter === "MEMBERS"
+        ? []
+        : [relationshipContactFilters[contactFilter]];
+  const relationshipUserIds = await contactRelationshipUserIds(userId, relationshipTypes);
+  const visibleMemberScope = {
+    profile: {
+      is: {
+        visibility: {
+          in: [ProfileVisibility.MEMBERS, ProfileVisibility.PUBLIC]
+        }
+      }
+    }
+  };
 
   if (!cleanQuery) {
-    const relationships = await prisma.socialRelationship.findMany({
-      where: {
-        fromUserId: userId,
-        type: { in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.ACQUAINTANCE, SocialRelationshipType.CONTACT] }
-      },
-      include: {
-        toUser: {
-          include: {
-            profile: true
-          }
-        }
-      },
-      orderBy: { createdAt: "desc" },
+    const users = await prisma.user.findMany({
+      where:
+        contactFilter === "MEMBERS"
+          ? { id: { not: userId }, deactivatedAt: null, ...visibleMemberScope }
+          : { id: { in: relationshipUserIds }, deactivatedAt: null },
+      include: { profile: true },
+      orderBy: { updatedAt: "desc" },
       take: 12
     });
 
-    return relationships.map((relationship) => toPersonView(relationship.toUser));
+    return uniquePeopleById(users.map(toPersonView));
   }
 
   const users = await withChatDbTimeout(
@@ -985,22 +1040,29 @@ export async function searchChatContacts(userId: string, query: string): Promise
       where: {
         id: { not: userId },
         deactivatedAt: null,
-        OR: [
-          { username: { contains: cleanQuery, mode: "insensitive" } },
-          { email: { contains: cleanQuery, mode: "insensitive" } },
+        AND: [
+          contactFilter === "MEMBERS"
+            ? visibleMemberScope
+            : contactFilter === "ALL"
+              ? { OR: [{ id: { in: relationshipUserIds } }, visibleMemberScope] }
+              : { id: { in: relationshipUserIds } },
           {
-            profile: {
-              is: {
-                displayName: { contains: cleanQuery, mode: "insensitive" }
+            OR: [
+              { username: { contains: cleanQuery, mode: "insensitive" } },
+              { email: { contains: cleanQuery, mode: "insensitive" } },
+              {
+                profile: {
+                  is: {
+                    OR: [
+                      { displayName: { contains: cleanQuery, mode: "insensitive" } },
+                      { tagline: { contains: cleanQuery, mode: "insensitive" } },
+                      { bio: { contains: cleanQuery, mode: "insensitive" } },
+                      { location: { contains: cleanQuery, mode: "insensitive" } }
+                    ]
+                  }
+                }
               }
-            }
-          },
-          {
-            profile: {
-              is: {
-                location: { contains: cleanQuery, mode: "insensitive" }
-              }
-            }
+            ]
           }
         ]
       },
@@ -1013,7 +1075,7 @@ export async function searchChatContacts(userId: string, query: string): Promise
     "chat contact search"
   );
 
-  return users.map(toPersonView);
+  return uniquePeopleById(users.map(toPersonView));
 }
 
 export async function createChatUploadIntent(userId: string, input: unknown) {
@@ -1083,7 +1145,7 @@ export async function completeChatUpload(userId: string, input: unknown) {
       visibility: MediaVisibility.MEMBERS,
       metadata: {
         module: MODULE_KEY,
-        attachmentKind: attachmentKindForMime(parsed.data.mimeType),
+        attachmentKind: attachmentKindForFile(parsed.data.fileName, parsed.data.mimeType),
         thumbnailStorageKey: parsed.data.thumbnailStorageKey ?? null,
         thumbnailUrl
       }
@@ -1100,7 +1162,7 @@ export async function completeChatUpload(userId: string, input: unknown) {
     ok: true as const,
     attachment: {
       mediaAssetId: asset.id,
-      kind: attachmentKindForMime(asset.mimeType),
+      kind: attachmentKindForFile(asset.originalName ?? parsed.data.fileName, asset.mimeType),
       fileName: asset.originalName ?? parsed.data.fileName,
       mimeType: asset.mimeType,
       sizeBytes: Number(asset.sizeBytes),

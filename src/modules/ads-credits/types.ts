@@ -1,4 +1,4 @@
-import { AdDestinationKind, AdPlacement, InterestCategory } from "@prisma/client";
+import { AdDeliveryEventType, AdDestinationKind, AdPlacement, InterestCategory } from "@prisma/client";
 import { z } from "zod";
 import type { StripeCreditPackageView } from "@/modules/billing/stripe-credit-checkout.service";
 import type { AdPricingPackageView } from "@/modules/platform-pricing/types";
@@ -75,6 +75,14 @@ export type AdCampaignCardView = {
   createdAt: string;
 };
 
+export type AdMetricEventView = {
+  campaignId: string;
+  eventType: AdDeliveryEventType;
+  placement: AdPlacement;
+  viewerLocation: string | null;
+  createdAt: string;
+};
+
 export type AdPlacementCardView = {
   id: string;
   title: string;
@@ -126,4 +134,8 @@ export type AdsManagerView = {
   };
   pricingPackages: AdPricingPackageView[];
   creditPackages: StripeCreditPackageView[];
+  metrics: {
+    generatedAt: string;
+    events: AdMetricEventView[];
+  };
 };

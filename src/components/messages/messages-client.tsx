@@ -25,6 +25,15 @@ type QueuedAttachment = {
 };
 
 const CHAT_THUMBNAIL_MAX_EDGE = 420;
+const contactFilters = [
+  { key: "ALL", label: "All" },
+  { key: "FRIENDS", label: "Friends" },
+  { key: "FAMILY", label: "Family" },
+  { key: "ACQUAINTANCE", label: "Acquaintance" },
+  { key: "MEMBERS", label: "Members" }
+] as const;
+
+type ChatContactFilter = (typeof contactFilters)[number]["key"];
 
 function initials(name: string) {
   return name
@@ -126,8 +135,24 @@ function attachmentImageUrl(attachment: ChatAttachmentView) {
   return attachment.thumbnailUrl ?? attachment.publicUrl ?? "";
 }
 
+function hasImageFileSignature(attachment: ChatAttachmentView) {
+  return (
+    attachment.mimeType.toLowerCase().startsWith("image/") ||
+    /\.(avif|gif|jpe?g|png|webp|bmp|svg)$/i.test(attachment.fileName)
+  );
+}
+
 function isImageAttachment(attachment: ChatAttachmentView) {
-  return attachment.kind === "IMAGE" && attachmentImageUrl(attachment).trim().length > 0;
+  return (attachment.kind === "IMAGE" || hasImageFileSignature(attachment)) && attachmentImageUrl(attachment).trim().length > 0;
+}
+
+function uniquePeopleById(people: ChatPersonView[]) {
+  const seen = new Set<string>();
+  return people.filter((person) => {
+    if (seen.has(person.id)) return false;
+    seen.add(person.id);
+    return true;
+  });
 }
 
 function messagesLikelyMatch(serverMessage: ChatMessageView, localMessage: ChatMessageView) {
@@ -199,9 +224,9 @@ export function MessagesClient({
   const attachmentsRef = useRef<QueuedAttachment[]>([]);
   const [threads, setThreads] = useState(initialThreads);
   const [selectedThread, setSelectedThread] = useState<ChatThreadDetailView | null>(initialSelectedThread ?? null);
-  const [threadQuery, setThreadQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [threadFilter, setThreadFilter] = useState<"ALL" | ChatThreadType>("ALL");
-  const [contactQuery, setContactQuery] = useState("");
+  const [contactFilter, setContactFilter] = useState<ChatContactFilter>("ALL");
   const [contacts, setContacts] = useState<ChatPersonView[]>([]);
   const [chatStartMode, setChatStartMode] = useState<"DIRECT" | "GROUP">("DIRECT");
   const [groupTitle, setGroupTitle] = useState("");
@@ -243,15 +268,21 @@ export function MessagesClient({
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
-      const response = await fetch(`/api/chat/contacts?q=${encodeURIComponent(contactQuery)}`, { cache: "no-store" });
+      if (!searchQuery.trim()) {
+        setContacts([]);
+        return;
+      }
+
+      const params = new URLSearchParams({ q: searchQuery, filter: contactFilter });
+      const response = await fetch(`/api/chat/contacts?${params.toString()}`, { cache: "no-store" });
       if (response.ok) {
         const payload = (await response.json()) as { people: ChatPersonView[] };
-        setContacts(payload.people ?? []);
+        setContacts(uniquePeopleById(payload.people ?? []));
       }
     }, 200);
 
     return () => window.clearTimeout(timeout);
-  }, [contactQuery]);
+  }, [contactFilter, searchQuery]);
 
   async function refreshThreads() {
     const response = await fetch("/api/chat/threads", { cache: "no-store" });
@@ -323,7 +354,7 @@ export function MessagesClient({
       }
 
       setSelectedThread(payload.thread);
-      setContactQuery("");
+      setSearchQuery("");
       await refreshThreads();
     });
   }
@@ -365,7 +396,7 @@ export function MessagesClient({
       setChatStartMode("DIRECT");
       setGroupTitle("");
       setGroupParticipants([]);
-      setContactQuery("");
+      setSearchQuery("");
       await refreshThreads();
     });
   }
@@ -599,15 +630,93 @@ export function MessagesClient({
     event.currentTarget.form?.requestSubmit();
   }
 
+  const cleanSearchQuery = searchQuery.trim().toLowerCase();
+  const isSearching = cleanSearchQuery.length > 0;
+
+  function threadMatchesSearch(thread: ChatThreadView) {
+    if (!cleanSearchQuery) return true;
+    const searchable = [
+      thread.title,
+      messagePreview(thread.lastMessage),
+      ...thread.participants.flatMap((participant) => [participant.displayName, participant.username, participant.tagline ?? ""])
+    ];
+
+    return searchable.some((value) => value.toLowerCase().includes(cleanSearchQuery));
+  }
+
   const filteredThreads = threads.filter((thread) => {
     const matchesType = threadFilter === "ALL" || thread.type === threadFilter;
-    const matchesQuery = thread.title.toLowerCase().includes(threadQuery.toLowerCase());
+    const matchesQuery = threadMatchesSearch(thread);
     return matchesType && matchesQuery;
   });
+  const directThreadUserIdsInResults = new Set(
+    filteredThreads
+      .filter((thread) => thread.type === ChatThreadType.DIRECT)
+      .flatMap((thread) => thread.participants.filter((participant) => participant.id !== currentUserId).map((participant) => participant.id))
+  );
+  const visibleContacts =
+    chatStartMode === "DIRECT"
+      ? contacts.filter((person) => !directThreadUserIdsInResults.has(person.id))
+      : contacts.filter((person) => !groupParticipants.some((participant) => participant.id === person.id));
 
   function directThreadProfile(thread: ChatThreadView | ChatThreadDetailView) {
     if (thread.type !== ChatThreadType.DIRECT) return null;
     return thread.participants.find((participant) => participant.id !== currentUserId) ?? null;
+  }
+
+  function renderThreadCard(thread: ChatThreadView) {
+    const profile = directThreadProfile(thread);
+    return (
+      <div
+        className={selectedThread?.id === thread.id ? "chat-thread-card is-active" : "chat-thread-card"}
+        key={thread.id}
+        onClick={() => loadThread(thread.id)}
+        onKeyDown={(event) => activateKeyboard(event, () => loadThread(thread.id))}
+        role="button"
+        tabIndex={0}
+      >
+        {profile ? (
+          <ProfileNameLink person={profile}>
+            <ChatAvatar person={profile} />
+          </ProfileNameLink>
+        ) : (
+          <span className="chat-avatar">{initials(thread.title)}</span>
+        )}
+        <span className="min-w-0 flex-1 text-left">
+          {profile ? (
+            <ProfileNameLink person={profile}>
+              <span className="block truncate font-semibold">{thread.title}</span>
+            </ProfileNameLink>
+          ) : (
+            <span className="block truncate font-semibold">{thread.title}</span>
+          )}
+          <span className="block truncate text-sm text-[var(--muted)]">{shortMessagePreview(thread.lastMessage)}</span>
+          <AdminObjectId id={thread.id} kind="Chat thread" visible={isAdmin} />
+        </span>
+        {thread.unread ? <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
+      </div>
+    );
+  }
+
+  function renderContactCard(person: ChatPersonView) {
+    return (
+      <div
+        className={groupParticipants.some((participant) => participant.id === person.id) ? "chat-person-card is-selected" : "chat-person-card"}
+        key={person.id}
+        onClick={() => (chatStartMode === "GROUP" ? toggleGroupParticipant(person) : startDirectChat(person))}
+        onKeyDown={(event) =>
+          activateKeyboard(event, () => (chatStartMode === "GROUP" ? toggleGroupParticipant(person) : startDirectChat(person)))
+        }
+        role="button"
+        tabIndex={0}
+      >
+        <ChatAvatar person={person} />
+        <span className="min-w-0 text-left">
+          <span className="block truncate font-semibold">{person.displayName}</span>
+          <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
+        </span>
+      </div>
+    );
   }
 
   return (
@@ -619,9 +728,9 @@ export function MessagesClient({
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Fast direct and group chat. Formal mail is separate.</p>
           <input
             className="form-field mt-4"
-            onChange={(event) => setThreadQuery(event.target.value)}
-            placeholder="Search chats..."
-            value={threadQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search chats or members..."
+            value={searchQuery}
           />
           <div className="mt-3 flex flex-wrap gap-2">
             {(["ALL", ChatThreadType.DIRECT, ChatThreadType.GROUP] as const).map((filter) => (
@@ -635,45 +744,52 @@ export function MessagesClient({
               </button>
             ))}
           </div>
+          <div className="mt-2 flex flex-wrap gap-2" aria-label="Member search filters">
+            {contactFilters.map((filter) => (
+              <button
+                className={contactFilter === filter.key ? "btn-primary px-3 py-2 text-xs" : "btn-secondary px-3 py-2 text-xs"}
+                key={filter.key}
+                onClick={() => setContactFilter(filter.key)}
+                type="button"
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="chat-thread-list">
-          {filteredThreads.length === 0 ? (
-            <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No chats yet.</p>
-          ) : null}
-          {filteredThreads.map((thread) => {
-            const profile = directThreadProfile(thread);
-            return (
-              <div
-                className={selectedThread?.id === thread.id ? "chat-thread-card is-active" : "chat-thread-card"}
-                key={thread.id}
-                onClick={() => loadThread(thread.id)}
-                onKeyDown={(event) => activateKeyboard(event, () => loadThread(thread.id))}
-                role="button"
-                tabIndex={0}
-              >
-                {profile ? (
-                  <ProfileNameLink person={profile}>
-                    <ChatAvatar person={profile} />
-                  </ProfileNameLink>
-                ) : (
-                  <span className="chat-avatar">{initials(thread.title)}</span>
-                )}
-                <span className="min-w-0 flex-1 text-left">
-                  {profile ? (
-                    <ProfileNameLink person={profile}>
-                      <span className="block truncate font-semibold">{thread.title}</span>
-                    </ProfileNameLink>
+          {!isSearching ? (
+            <>
+              {filteredThreads.length === 0 ? (
+                <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No chats yet.</p>
+              ) : null}
+              {filteredThreads.map(renderThreadCard)}
+            </>
+          ) : (
+            <>
+              {chatStartMode !== "GROUP" ? (
+                <div className="grid gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Existing chats</p>
+                  {filteredThreads.length > 0 ? (
+                    filteredThreads.map(renderThreadCard)
                   ) : (
-                    <span className="block truncate font-semibold">{thread.title}</span>
+                    <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No existing chats match.</p>
                   )}
-                  <span className="block truncate text-sm text-[var(--muted)]">{shortMessagePreview(thread.lastMessage)}</span>
-                  <AdminObjectId id={thread.id} kind="Chat thread" visible={isAdmin} />
-                </span>
-                {thread.unread ? <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> : null}
+                </div>
+              ) : null}
+              <div className={chatStartMode !== "GROUP" ? "mt-4 grid gap-2" : "grid gap-2"}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+                  {chatStartMode === "GROUP" ? "Members to add" : "People"}
+                </p>
+                {visibleContacts.length > 0 ? (
+                  visibleContacts.map(renderContactCard)
+                ) : (
+                  <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No people match.</p>
+                )}
               </div>
-            );
-          })}
+            </>
+          )}
         </section>
 
         <section className="chat-panel-section border-t border-[var(--line)]">
@@ -715,36 +831,9 @@ export function MessagesClient({
               ) : null}
             </>
           ) : null}
-          <input
-            className="form-field mt-3"
-            onChange={(event) => setContactQuery(event.target.value)}
-            placeholder={chatStartMode === "GROUP" ? "Search members to add..." : "Search by name, username, email, or location..."}
-            value={contactQuery}
-          />
-          <div className="mt-3 grid gap-2">
-            {contacts.map((person) => (
-              <div
-                className={
-                  groupParticipants.some((participant) => participant.id === person.id)
-                    ? "chat-person-card is-selected"
-                    : "chat-person-card"
-                }
-                key={person.id}
-                onClick={() => (chatStartMode === "GROUP" ? toggleGroupParticipant(person) : startDirectChat(person))}
-                onKeyDown={(event) =>
-                  activateKeyboard(event, () => (chatStartMode === "GROUP" ? toggleGroupParticipant(person) : startDirectChat(person)))
-                }
-                role="button"
-                tabIndex={0}
-              >
-                <ChatAvatar person={person} />
-                <span className="min-w-0 text-left">
-                  <span className="block truncate font-semibold">{person.displayName}</span>
-                  <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+            Use the search above to find members. Empty search keeps your recent chats visible.
+          </p>
           {chatStartMode === "GROUP" ? (
             <button
               className="btn-primary mt-3 w-full"

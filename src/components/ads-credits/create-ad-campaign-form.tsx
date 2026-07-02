@@ -113,7 +113,21 @@ function packageDurationDays(pricingPackage: { durationDays: number | null } | u
   return pricingPackage?.durationDays && pricingPackage.durationDays > 0 ? pricingPackage.durationDays : 7;
 }
 
-export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager: AdsManagerView; initialDraft?: InitialAdCampaignDraft }) {
+function variantCampaignTitle(label: "A" | "B", value: string) {
+  return `[${label}] ${value.trim()}`.slice(0, 120).trim();
+}
+
+export function CreateAdCampaignForm({
+  adsManager,
+  cancelHref = "/ads",
+  initialDraft,
+  successHref = "/ads"
+}: {
+  adsManager: AdsManagerView;
+  cancelHref?: string;
+  initialDraft?: InitialAdCampaignDraft;
+  successHref?: string;
+}) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(initialDraft?.title ?? "");
   const [body, setBody] = useState(initialDraft?.body ?? "");
@@ -131,6 +145,10 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
   const [targetInterestCategories, setTargetInterestCategories] = useState<InterestCategory[]>(initialDraft?.targetInterestCategories ?? []);
   const [image, setImage] = useState<AdImageAttachment | null>(null);
   const [externalImageUrl, setExternalImageUrl] = useState("");
+  const [abTestingEnabled, setAbTestingEnabled] = useState(false);
+  const [variantBTitle, setVariantBTitle] = useState("");
+  const [variantBBody, setVariantBBody] = useState("");
+  const [variantBExternalImageUrl, setVariantBExternalImageUrl] = useState("");
   const [error, setError] = useState(adsManager.canCreate ? "" : adsManager.reason ?? "This account cannot create ads.");
   const [isPending, startTransition] = useTransition();
   const placementPackages = useMemo(
@@ -197,6 +215,13 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
     setCampaignDurationDays(packageDurationDays(pricingPackage));
   }
 
+  function enableAbTesting() {
+    setAbTestingEnabled(true);
+    setVariantBTitle((current) => current || title);
+    setVariantBBody((current) => current || body);
+    setVariantBExternalImageUrl((current) => current || externalImageUrl);
+  }
+
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -223,20 +248,23 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
           setError("Choose a campaign length between 1 and 365 days.");
           return;
         }
+        if (abTestingEnabled && campaignCredits < 2) {
+          setError("A/B testing needs at least 2 credits so each variant can run.");
+          return;
+        }
+        if (abTestingEnabled && (variantBTitle.trim().length < 2 || variantBBody.trim().length < 8)) {
+          setError("Complete the Variant B headline and ad text before creating the A/B test.");
+          return;
+        }
         if (!canAffordBudget) {
           setError("Not enough platform credits for this campaign budget.");
           return;
         }
 
         const imageMediaAssetId = image ? await uploadAdImage(image, patchImage) : "";
-        const response = await fetch("/api/ads/campaigns", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            body,
-            imageMediaAssetId,
-            externalImageUrl: imageMediaAssetId ? "" : externalImageUrl,
+        const primaryBudgetCredits = abTestingEnabled ? Math.ceil(campaignCredits / 2) : campaignCredits;
+        const secondaryBudgetCredits = campaignCredits - primaryBudgetCredits;
+        const sharedPayload = {
             destinationKind,
             marketListingId: destinationKind === AdDestinationKind.MARKET_LISTING ? marketListingId : "",
             businessArticleId: destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? businessArticleId : "",
@@ -246,18 +274,45 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
             pricingRuleKey: selectedPricingPackage.key,
             targetLocation,
             targetInterestCategories,
-            totalBudgetCredits: campaignCredits,
             campaignDurationDays
-          })
-        });
-        const payload = (await response.json()) as { error?: string; campaign?: AdCampaignCardView };
+          };
 
-        if (!response.ok || !payload.campaign) {
-          setError(payload.error ?? "Could not create ad campaign.");
-          return;
+        async function createCampaign(payload: Record<string, unknown>) {
+          const response = await fetch("/api/ads/campaigns", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const created = (await response.json()) as { error?: string; campaign?: AdCampaignCardView };
+
+          if (!response.ok || !created.campaign) {
+            throw new Error(created.error ?? "Could not create ad campaign.");
+          }
+
+          return created.campaign;
         }
 
-        window.location.href = "/ads";
+        await createCampaign({
+          ...sharedPayload,
+          title: abTestingEnabled ? variantCampaignTitle("A", title) : title,
+          body,
+          imageMediaAssetId,
+          externalImageUrl: imageMediaAssetId ? "" : externalImageUrl,
+          totalBudgetCredits: primaryBudgetCredits
+        });
+
+        if (abTestingEnabled) {
+          await createCampaign({
+            ...sharedPayload,
+            title: variantCampaignTitle("B", variantBTitle),
+            body: variantBBody,
+            imageMediaAssetId: variantBExternalImageUrl.trim() ? "" : imageMediaAssetId,
+            externalImageUrl: variantBExternalImageUrl.trim() || (imageMediaAssetId ? "" : externalImageUrl),
+            totalBudgetCredits: secondaryBudgetCredits
+          });
+        }
+
+        window.location.href = successHref;
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Could not create ad campaign.";
         patchImage({ status: "error", error: message });
@@ -295,6 +350,53 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
           <span>{adsManager.platformCredits.toLocaleString()} credits available</span>
         </div>
       </div>
+
+      <section className="ab-testing-panel">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Testing</p>
+          <h2 className="mt-2 text-xl font-semibold">Creative comparison</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            A/B testing creates two campaign variants with the same targeting and destination, splitting the credit budget between them.
+          </p>
+        </div>
+        <button className="btn-secondary" onClick={enableAbTesting} type="button">
+          A B Testing
+        </button>
+        {abTestingEnabled ? (
+          <div className="ab-testing-variant-panel">
+            <div className="ab-testing-tabs" aria-label="Ad variants">
+              <span>Variant A</span>
+              <strong>Variant B</strong>
+            </div>
+            <p className="rounded-md border border-[var(--gold)]/30 bg-[var(--gold)]/10 p-3 text-sm leading-6 text-[var(--gold)]">
+              Recommendation: change only one major thing on Variant B, such as the image, headline, or offer. This keeps the comparison useful.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="form-label">Variant B headline</span>
+                <input className="form-field" onChange={(event) => setVariantBTitle(event.target.value)} value={variantBTitle} />
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Variant B ad text</span>
+                <input className="form-field" onChange={(event) => setVariantBBody(event.target.value)} value={variantBBody} />
+              </label>
+            </div>
+            <label className="grid gap-2">
+              <span className="form-label">Variant B image URL override</span>
+              <input
+                className="form-field"
+                onChange={(event) => setVariantBExternalImageUrl(event.target.value)}
+                placeholder="Leave blank to reuse Variant A image"
+                value={variantBExternalImageUrl}
+              />
+            </label>
+            <p className="text-xs leading-5 text-[var(--muted)]">
+              Current split: Variant A receives {Math.ceil(campaignCredits / 2).toLocaleString()} credits and Variant B receives{" "}
+              {Math.max(0, campaignCredits - Math.ceil(campaignCredits / 2)).toLocaleString()} credits.
+            </p>
+          </div>
+        ) : null}
+      </section>
 
       <section className="ad-creative-picker">
         <input
@@ -655,7 +757,7 @@ export function CreateAdCampaignForm({ adsManager, initialDraft }: { adsManager:
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
 
       <div className="flex justify-end gap-3">
-        <Link className="btn-secondary" href="/ads">
+        <Link className="btn-secondary" href={cancelHref}>
           Cancel
         </Link>
         <button

@@ -770,7 +770,8 @@ export async function recordReservedStreamOrganicFeedUnits(userId: string | unde
 export async function getAdsManagerView(userId: string): Promise<AdsManagerView> {
   await reconcileEndedAdCampaigns();
 
-  const [access, membership, campaigns, storefront, marketListings, businessArticles, writerManuscripts, pricingPackages, creditPackages] = await Promise.all([
+  const metricWindowStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const [access, membership, campaigns, metricEvents, storefront, marketListings, businessArticles, writerManuscripts, pricingPackages, creditPackages] = await Promise.all([
     getAdCreateAccess(userId),
     prisma.membership.findUnique({
       where: { userId },
@@ -789,6 +790,33 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
       },
       orderBy: { createdAt: "desc" },
       take: 40
+    }),
+    prisma.adDeliveryLog.findMany({
+      where: {
+        campaign: {
+          ownerUserId: userId
+        },
+        createdAt: {
+          gte: metricWindowStart
+        }
+      },
+      select: {
+        campaignId: true,
+        eventType: true,
+        placement: true,
+        createdAt: true,
+        viewer: {
+          select: {
+            profile: {
+              select: {
+                location: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5000
     }),
     prisma.businessProfile.findUnique({
       where: { ownerUserId: userId },
@@ -879,7 +907,17 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
       }))
     },
     pricingPackages,
-    creditPackages
+    creditPackages,
+    metrics: {
+      generatedAt: new Date().toISOString(),
+      events: metricEvents.map((event) => ({
+        campaignId: event.campaignId,
+        eventType: event.eventType,
+        placement: event.placement,
+        viewerLocation: event.viewer?.profile?.location ?? null,
+        createdAt: event.createdAt.toISOString()
+      }))
+    }
   };
 }
 

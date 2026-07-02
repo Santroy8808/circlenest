@@ -1,41 +1,40 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { BusinessCenterHub } from "@/components/business-storefront/business-center-hub";
+import { BusinessCenterClient } from "@/components/business-storefront/business-center-client";
 import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
-import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
-import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 import { getBusinessCenterView } from "@/modules/business-storefront/business-storefront.service";
+import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 
-export default async function BusinessCenterPage() {
+export default async function BusinessCenterStorefrontPage() {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
-    redirect("/login?callbackUrl=/business-center");
+    redirect("/login?callbackUrl=/business-center/storefront");
   }
 
-  const [businessCenter, adsManager] = await Promise.all([getBusinessCenterView(session.user.id), getAdsManagerView(session.user.id)]);
+  const businessCenter = await getBusinessCenterView(session.user.id);
 
   if (!businessCenter.canManage) {
     await logUnavailableFeatureClick({
       actorUserId: session.user.id,
       featureKey: "market.storefront",
-      label: "Business Center",
-      requestedPath: "/business-center",
+      label: "Business Storefront",
+      requestedPath: "/business-center/storefront",
       source: "route-gate",
       reason: businessCenter.reason
     });
 
     return (
       <AppShell>
-        <FeatureUnavailableNotice featureLabel="Business Center" />
+        <FeatureUnavailableNotice backHref="/business-center" backLabel="Back to Business Center" featureLabel="Business Storefront" />
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <BusinessCenterHub adsManager={adsManager} businessCenter={businessCenter} />
+      <BusinessCenterClient businessCenter={businessCenter} />
     </AppShell>
   );
 }

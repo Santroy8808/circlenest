@@ -159,7 +159,7 @@ export async function requestFriendRelationship(requesterUserId: string, input: 
   }
 
   if (pendingReceived) {
-    return { ok: false as const, error: "That member already sent you a friend request. Open Alerts to approve it." };
+    return { ok: false as const, error: "That member already sent you a friend request. Open Notifications to approve it." };
   }
 
   const requesterName = requester.profile?.displayName ?? requester.username;
@@ -172,18 +172,18 @@ export async function requestFriendRelationship(requesterUserId: string, input: 
     }
   });
 
-  const alert = await prisma.alert.create({
+  const notification = await prisma.notification.create({
     data: {
       userId: target.id,
       title: "Friend request approval needed",
       body: `${requesterName} wants to add you as a friend on Theta-Space.`,
-      href: `/alerts?friendRequestId=${request.id}`
+      href: `/notifications?friendRequestId=${request.id}`
     }
   });
 
   await prisma.friendRelationshipRequest.update({
     where: { id: request.id },
-    data: { alertId: alert.id }
+    data: { notificationId: notification.id }
   });
 
   await diagnostics.info(MODULE_KEY, "Friend relationship request created.", {
@@ -234,10 +234,10 @@ export async function respondToFriendRelationshipRequest(targetUserId: string, r
           respondedAt: now
         }
       }),
-      ...(request.alertId
+      ...(request.notificationId
         ? [
-            prisma.alert.updateMany({
-              where: { id: request.alertId, userId: targetUserId },
+            prisma.notification.updateMany({
+              where: { id: request.notificationId, userId: targetUserId },
               data: {
                 readAt: now,
                 body: `Denied friend request from ${request.requester.profile?.displayName ?? request.requester.username}.`
@@ -245,7 +245,15 @@ export async function respondToFriendRelationshipRequest(targetUserId: string, r
             })
           ]
         : []),
-      prisma.alert.create({
+      ...(request.alertId
+        ? [
+            prisma.alert.updateMany({
+              where: { id: request.alertId, userId: targetUserId },
+              data: { readAt: now }
+            })
+          ]
+        : []),
+      prisma.notification.create({
         data: {
           userId: request.requesterUserId,
           title: "Friend request denied",
@@ -296,10 +304,10 @@ export async function respondToFriendRelationshipRequest(targetUserId: string, r
         respondedAt: now
       }
     }),
-    ...(request.alertId
+    ...(request.notificationId
       ? [
-          prisma.alert.updateMany({
-            where: { id: request.alertId, userId: targetUserId },
+          prisma.notification.updateMany({
+            where: { id: request.notificationId, userId: targetUserId },
             data: {
               readAt: now,
               body: `Approved friend request from ${request.requester.profile?.displayName ?? request.requester.username}.`
@@ -307,7 +315,15 @@ export async function respondToFriendRelationshipRequest(targetUserId: string, r
           })
         ]
       : []),
-    prisma.alert.create({
+    ...(request.alertId
+      ? [
+          prisma.alert.updateMany({
+            where: { id: request.alertId, userId: targetUserId },
+            data: { readAt: now }
+          })
+        ]
+      : []),
+    prisma.notification.create({
       data: {
         userId: request.requesterUserId,
         title: "Friend request approved",
@@ -385,18 +401,18 @@ export async function requestFamilyRelationship(requesterUserId: string, input: 
     }
   });
 
-  const alert = await prisma.alert.create({
+  const notification = await prisma.notification.create({
     data: {
       userId: target.id,
       title: "Family tag approval needed",
       body: `${requesterName} wants to list you as ${parsed.data.relationshipLabel} on their profile. Approve only if this is correct.`,
-      href: `/alerts?familyRequestId=${request.id}`
+      href: `/notifications?familyRequestId=${request.id}`
     }
   });
 
   await prisma.familyRelationshipRequest.update({
     where: { id: request.id },
-    data: { alertId: alert.id }
+    data: { notificationId: notification.id }
   });
 
   await diagnostics.info(MODULE_KEY, "Family relationship request created.", {
@@ -449,10 +465,10 @@ export async function respondToFamilyRelationshipRequest(targetUserId: string, r
           respondedAt: now
         }
       }),
-      ...(request.alertId
+      ...(request.notificationId
         ? [
-            prisma.alert.updateMany({
-              where: { id: request.alertId, userId: targetUserId },
+            prisma.notification.updateMany({
+              where: { id: request.notificationId, userId: targetUserId },
               data: {
                 readAt: now,
                 body: `Denied family tag request from ${request.requester.profile?.displayName ?? request.requester.username}.`
@@ -460,7 +476,15 @@ export async function respondToFamilyRelationshipRequest(targetUserId: string, r
             })
           ]
         : []),
-      prisma.alert.create({
+      ...(request.alertId
+        ? [
+            prisma.alert.updateMany({
+              where: { id: request.alertId, userId: targetUserId },
+              data: { readAt: now }
+            })
+          ]
+        : []),
+      prisma.notification.create({
         data: {
           userId: request.requesterUserId,
           title: "Family tag request denied",
@@ -513,10 +537,10 @@ export async function respondToFamilyRelationshipRequest(targetUserId: string, r
         respondedAt: now
       }
     }),
-    ...(request.alertId
+    ...(request.notificationId
       ? [
-          prisma.alert.updateMany({
-            where: { id: request.alertId, userId: targetUserId },
+          prisma.notification.updateMany({
+            where: { id: request.notificationId, userId: targetUserId },
             data: {
               readAt: now,
               body: `Approved family tag request from ${request.requester.profile?.displayName ?? request.requester.username}.`
@@ -524,7 +548,15 @@ export async function respondToFamilyRelationshipRequest(targetUserId: string, r
           })
         ]
       : []),
-    prisma.alert.create({
+    ...(request.alertId
+      ? [
+          prisma.alert.updateMany({
+            where: { id: request.alertId, userId: targetUserId },
+            data: { readAt: now }
+          })
+        ]
+      : []),
+    prisma.notification.create({
       data: {
         userId: request.requesterUserId,
         title: "Family tag approved",

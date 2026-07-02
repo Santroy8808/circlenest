@@ -1,7 +1,10 @@
 "use client";
 
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { FamilyRequestActions } from "@/components/notifications/family-request-actions";
+import { FriendRequestActions } from "@/components/notifications/friend-request-actions";
 
 type NotificationItem = {
   id: string;
@@ -10,6 +13,21 @@ type NotificationItem = {
   href: string | null;
   readAt: Date | string | null;
   createdAt: Date | string;
+  familyRequest?: {
+    id: string;
+    requesterName: string;
+    requesterUsername: string;
+    relationshipLabel: string;
+    message: string | null;
+    status: FamilyRelationshipRequestStatus;
+  } | null;
+  friendRequest?: {
+    id: string;
+    requesterName: string;
+    requesterUsername: string;
+    message: string | null;
+    status: FriendRelationshipRequestStatus;
+  } | null;
 };
 
 function formatDate(value: Date | string) {
@@ -25,6 +43,11 @@ export function NotificationsClient({ initialItems }: { initialItems: Notificati
   const unreadCount = useMemo(() => items.filter((item) => !item.readAt).length, [items]);
   const selectedCount = selectedIds.length;
   const allVisibleSelected = items.length > 0 && selectedIds.length === items.length;
+
+  useEffect(() => {
+    setItems(initialItems);
+    setSelectedIds([]);
+  }, [initialItems]);
 
   function markRead(id: string) {
     setError("");
@@ -169,6 +192,34 @@ export function NotificationsClient({ initialItems }: { initialItems: Notificati
                 <p className="shrink-0 text-xs text-[var(--muted)]">{formatDate(item.createdAt)}</p>
               </div>
               {item.body ? <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--muted)]">{item.body}</p> : null}
+              {item.familyRequest ? (
+                <div className="family-alert-panel mt-4" onClick={(event) => event.stopPropagation()}>
+                  <p className="text-sm font-semibold text-[var(--gold)]">
+                    {item.familyRequest.requesterName} wants to list you as {item.familyRequest.relationshipLabel}.
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">@{item.familyRequest.requesterUsername}</p>
+                  {item.familyRequest.message ? <p className="mt-2 text-sm">{item.familyRequest.message}</p> : null}
+                  {item.familyRequest.status === FamilyRelationshipRequestStatus.PENDING ? (
+                    <FamilyRequestActions requestId={item.familyRequest.id} />
+                  ) : (
+                    <p className="mt-3 text-sm text-[var(--muted)]">Status: {item.familyRequest.status}</p>
+                  )}
+                </div>
+              ) : null}
+              {item.friendRequest ? (
+                <div className="family-alert-panel mt-4" onClick={(event) => event.stopPropagation()}>
+                  <p className="text-sm font-semibold text-[var(--gold)]">
+                    {item.friendRequest.requesterName} wants to add you as a friend.
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">@{item.friendRequest.requesterUsername}</p>
+                  {item.friendRequest.message ? <p className="mt-2 text-sm">{item.friendRequest.message}</p> : null}
+                  {item.friendRequest.status === FriendRelationshipRequestStatus.PENDING ? (
+                    <FriendRequestActions requestId={item.friendRequest.id} />
+                  ) : (
+                    <p className="mt-3 text-sm text-[var(--muted)]">Status: {item.friendRequest.status}</p>
+                  )}
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {!item.readAt ? <span className="pill rounded-full px-2 py-1 text-xs">Unread</span> : null}

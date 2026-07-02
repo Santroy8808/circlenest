@@ -7,6 +7,7 @@ import { countUnreadMail } from "@/modules/mail/mail.service";
 const MODULE_KEY = "notifications-alerts";
 const NOTIFICATION_DB_TIMEOUT_MS = 1800;
 const UNREAD_NOTIFICATION_RETENTION_DAYS = 14;
+const ALERT_RETENTION_DAYS = 14;
 
 function withNotificationTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -24,7 +25,7 @@ export type UnreadCounts = {
   messages: number;
 };
 
-export type AlertListItem = {
+export type NoticeListItem = {
   id: string;
   title: string;
   body: string | null;
@@ -48,6 +49,8 @@ export type AlertListItem = {
   } | null;
 };
 
+export type AlertListItem = NoticeListItem;
+
 export type ShellNoticeSummaryItem = {
   id: string;
   title: string;
@@ -69,6 +72,89 @@ async function purgeExpiredUnreadNotifications(userId: string) {
   });
 }
 
+async function purgeExpiredAlerts(userId: string) {
+  const cutoff = new Date(Date.now() - ALERT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  await prisma.alert.deleteMany({
+    where: {
+      userId,
+      createdAt: {
+        lt: cutoff
+      }
+    }
+  });
+}
+
+async function migratePendingRelationshipRequestAlertsToNotifications(userId: string) {
+  const [familyRequests, friendRequests] = await Promise.all([
+    prisma.familyRelationshipRequest.findMany({
+      where: {
+        targetUserId: userId,
+        status: FamilyRelationshipRequestStatus.PENDING,
+        notificationId: null,
+        alertId: { not: null }
+      },
+      include: {
+        requester: { include: { profile: true } }
+      }
+    }),
+    prisma.friendRelationshipRequest.findMany({
+      where: {
+        targetUserId: userId,
+        status: FriendRelationshipRequestStatus.PENDING,
+        notificationId: null,
+        alertId: { not: null }
+      },
+      include: {
+        requester: { include: { profile: true } }
+      }
+    })
+  ]);
+
+  for (const request of familyRequests) {
+    const requesterName = request.requester.profile?.displayName ?? request.requester.username;
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        title: "Family tag approval needed",
+        body: `${requesterName} wants to list you as ${request.relationshipLabel} on their profile. Approve only if this is correct.`,
+        href: `/notifications?familyRequestId=${request.id}`
+      }
+    });
+    await prisma.familyRelationshipRequest.update({
+      where: { id: request.id },
+      data: { notificationId: notification.id }
+    });
+    if (request.alertId) {
+      await prisma.alert.updateMany({
+        where: { id: request.alertId, userId },
+        data: { readAt: new Date() }
+      });
+    }
+  }
+
+  for (const request of friendRequests) {
+    const requesterName = request.requester.profile?.displayName ?? request.requester.username;
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        title: "Friend request approval needed",
+        body: `${requesterName} wants to add you as a friend on Theta-Space.`,
+        href: `/notifications?friendRequestId=${request.id}`
+      }
+    });
+    await prisma.friendRelationshipRequest.update({
+      where: { id: request.id },
+      data: { notificationId: notification.id }
+    });
+    if (request.alertId) {
+      await prisma.alert.updateMany({
+        where: { id: request.alertId, userId },
+        data: { readAt: new Date() }
+      });
+    }
+  }
+}
+
 export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
   if (!userId) {
     return { notifications: 0, alerts: 0, mail: 0, messages: 0 };
@@ -76,6 +162,8 @@ export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
 
   try {
     await purgeExpiredUnreadNotifications(userId);
+    await migratePendingRelationshipRequestAlertsToNotifications(userId);
+    await purgeExpiredAlerts(userId);
     const [notifications, alerts, messages, mail] = await withNotificationTimeout(
       Promise.all([
         prisma.notification.count({ where: { userId, readAt: null } }),
@@ -99,7 +187,8 @@ export async function getUnreadCounts(userId?: string): Promise<UnreadCounts> {
 export async function listNotifications(userId: string) {
   try {
     await purgeExpiredUnreadNotifications(userId);
-    return await withNotificationTimeout(
+    await migratePendingRelationshipRequestAlertsToNotifications(userId);
+    const notifications = await withNotificationTimeout(
       prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
@@ -107,30 +196,11 @@ export async function listNotifications(userId: string) {
       }),
       "notification list lookup"
     );
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not list notifications.", {
-      userId,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return [];
-  }
-}
-
-export async function listAlerts(userId: string) {
-  try {
-    const alerts = await withNotificationTimeout(
-      prisma.alert.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: 50
-      }),
-      "alert list lookup"
-    );
     const familyRequests = await prisma.familyRelationshipRequest.findMany({
       where: {
         targetUserId: userId,
-        alertId: {
-          in: alerts.map((alert) => alert.id)
+        notificationId: {
+          in: notifications.map((notification) => notification.id)
         }
       },
       include: {
@@ -144,8 +214,8 @@ export async function listAlerts(userId: string) {
     const friendRequests = await prisma.friendRelationshipRequest.findMany({
       where: {
         targetUserId: userId,
-        alertId: {
-          in: alerts.map((alert) => alert.id)
+        notificationId: {
+          in: notifications.map((notification) => notification.id)
         }
       },
       include: {
@@ -156,15 +226,15 @@ export async function listAlerts(userId: string) {
         }
       }
     });
-    const familyRequestMap = new Map(familyRequests.map((request) => [request.alertId, request]));
-    const friendRequestMap = new Map(friendRequests.map((request) => [request.alertId, request]));
+    const familyRequestMap = new Map(familyRequests.map((request) => [request.notificationId, request]));
+    const friendRequestMap = new Map(friendRequests.map((request) => [request.notificationId, request]));
 
-    return alerts.map<AlertListItem>((alert) => {
-      const familyRequest = familyRequestMap.get(alert.id);
-      const friendRequest = friendRequestMap.get(alert.id);
+    return notifications.map<NoticeListItem>((notification) => {
+      const familyRequest = familyRequestMap.get(notification.id);
+      const friendRequest = friendRequestMap.get(notification.id);
 
       return {
-        ...alert,
+        ...notification,
         familyRequest: familyRequest
           ? {
               id: familyRequest.id,
@@ -185,11 +255,36 @@ export async function listAlerts(userId: string) {
             }
           : null
       };
-    }).filter((alert) => {
-      if (alert.familyRequest) return alert.familyRequest.status === FamilyRelationshipRequestStatus.PENDING;
-      if (alert.friendRequest) return alert.friendRequest.status === FriendRelationshipRequestStatus.PENDING;
+    }).filter((notification) => {
+      if (notification.familyRequest) return notification.familyRequest.status === FamilyRelationshipRequestStatus.PENDING;
+      if (notification.friendRequest) return notification.friendRequest.status === FriendRelationshipRequestStatus.PENDING;
       return true;
     });
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not list notifications.", {
+      userId,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return [];
+  }
+}
+
+export async function listAlerts(userId: string) {
+  try {
+    await purgeExpiredAlerts(userId);
+    const alerts = await withNotificationTimeout(
+      prisma.alert.findMany({
+        where: { userId, readAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 50
+      }),
+      "alert list lookup"
+    );
+    return alerts.map<AlertListItem>((alert) => ({
+      ...alert,
+      familyRequest: null,
+      friendRequest: null
+    }));
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list alerts.", {
       userId,

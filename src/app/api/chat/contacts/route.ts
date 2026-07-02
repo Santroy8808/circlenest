@@ -12,5 +12,6 @@ export async function GET(request: NextRequest) {
 
   const actor = await getActiveAccountActor(session.user.id);
   const query = request.nextUrl.searchParams.get("q") ?? "";
-  return NextResponse.json({ people: await searchChatContacts(actor.actorUserId, query) });
+  const filter = request.nextUrl.searchParams.get("filter") ?? "ALL";
+  return NextResponse.json({ people: await searchChatContacts(actor.actorUserId, query, filter) });
 }

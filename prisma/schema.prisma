@@ -1251,6 +1251,7 @@ model FamilyRelationshipRequest {
   status            FamilyRelationshipRequestStatus @default(PENDING)
   message           String?
   alertId           String?
+  notificationId    String?
   respondedAt       DateTime?
   createdAt         DateTime                        @default(now())
   updatedAt         DateTime                        @updatedAt
@@ -1260,6 +1261,7 @@ model FamilyRelationshipRequest {
   @@index([requesterUserId, status, createdAt])
   @@index([targetUserId, status, createdAt])
   @@index([alertId])
+  @@index([notificationId])
 }
 
 model FriendRelationshipRequest {
@@ -1269,6 +1271,7 @@ model FriendRelationshipRequest {
   status          FriendRelationshipRequestStatus @default(PENDING)
   message         String?
   alertId         String?
+  notificationId  String?
   respondedAt     DateTime?
   createdAt       DateTime                        @default(now())
   updatedAt       DateTime                        @updatedAt
@@ -1278,6 +1281,7 @@ model FriendRelationshipRequest {
   @@index([requesterUserId, status, createdAt])
   @@index([targetUserId, status, createdAt])
   @@index([alertId])
+  @@index([notificationId])
 }
 
 model ChatThread {
