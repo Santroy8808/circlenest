@@ -8,6 +8,7 @@ const profileCards = [
   { title: "My Interests", description: "Choose optional interest categories for discovery and relevant internal ads.", href: "/profile/interests" },
   { title: "My Pics", description: "Open your photo gallery without the secure settings wall.", href: "/profile/gallery" },
   { title: "My Scientology", description: "Manage Scientology-specific profile details and privacy.", href: "/profile/scientology" },
+  { title: "My Resume", description: "Build a printable executive resume and optional My Scientology summary page.", href: "/settings/profile/resume" },
   { title: "Public Profile", description: "View your member-facing profile page.", href: "/profile" }
 ];
 

@@ -7,6 +7,7 @@ import { MAX_CHAT_ATTACHMENT_BYTES } from "@/modules/chat-messages/types";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/modules/gallery-media-storage/types";
 import { MAX_MAIL_ATTACHMENT_BYTES } from "@/modules/mail/types";
 import { MAX_MARKET_PHOTO_BYTES } from "@/modules/market/types";
+import { MAX_RESUME_UPLOAD_BYTES } from "@/modules/profile-resume/types";
 
 function authorizedUploadTarget(storageKey: string, userId: string) {
   if (storageKey.startsWith(`users/${userId}/my-pics/`)) {
@@ -27,6 +28,10 @@ function authorizedUploadTarget(storageKey: string, userId: string) {
 
   if (storageKey.startsWith(`users/${userId}/mail/`)) {
     return { ok: true as const, maxBytes: MAX_MAIL_ATTACHMENT_BYTES, imageOnly: false };
+  }
+
+  if (storageKey.startsWith(`users/${userId}/resume/`)) {
+    return { ok: true as const, maxBytes: MAX_RESUME_UPLOAD_BYTES, imageOnly: false };
   }
 
   if (storageKey.startsWith(`market/${userId}/`)) {

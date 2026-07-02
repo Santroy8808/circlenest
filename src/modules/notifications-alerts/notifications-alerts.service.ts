@@ -48,6 +48,14 @@ export type AlertListItem = {
   } | null;
 };
 
+export type ShellNoticeSummaryItem = {
+  id: string;
+  title: string;
+  body: string | null;
+  href: string | null;
+  createdAt: Date;
+};
+
 async function purgeExpiredUnreadNotifications(userId: string) {
   const cutoff = new Date(Date.now() - UNREAD_NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await prisma.notification.deleteMany({
@@ -177,6 +185,10 @@ export async function listAlerts(userId: string) {
             }
           : null
       };
+    }).filter((alert) => {
+      if (alert.familyRequest) return alert.familyRequest.status === FamilyRelationshipRequestStatus.PENDING;
+      if (alert.friendRequest) return alert.friendRequest.status === FriendRelationshipRequestStatus.PENDING;
+      return true;
     });
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list alerts.", {
@@ -185,6 +197,18 @@ export async function listAlerts(userId: string) {
     });
     return [];
   }
+}
+
+export async function listShellNoticeSummary(userId: string, type: "alerts" | "notifications"): Promise<ShellNoticeSummaryItem[]> {
+  const items = type === "alerts" ? await listAlerts(userId) : await listNotifications(userId);
+
+  return items.slice(0, 3).map((item) => ({
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    href: item.href,
+    createdAt: item.createdAt
+  }));
 }
 
 export async function markNotificationRead(userId: string, notificationId: string) {

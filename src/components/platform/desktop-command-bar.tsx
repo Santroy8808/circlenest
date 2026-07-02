@@ -14,6 +14,20 @@ type Counts = {
   notifications: number;
 };
 
+type SummaryKind = "alerts" | "notifications";
+
+type ShellSummaryItem = {
+  body: string | null;
+  createdAt: string;
+  id: string;
+  title: string;
+};
+
+type SummaryState = {
+  items: ShellSummaryItem[];
+  status: "idle" | "loading" | "ready" | "error";
+};
+
 type DesktopCommandBarProps = {
   avatarUrl?: string | null;
   counts: Counts;
@@ -43,9 +57,44 @@ const primaryNavItems = [
   { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm", tooltip: "Open Comm without leaving the stream." }
 ];
 
+const initialSummaryState: Record<SummaryKind, SummaryState> = {
+  alerts: { items: [], status: "idle" },
+  notifications: { items: [], status: "idle" }
+};
+
+function summaryTooltip(kind: SummaryKind, summary: SummaryState) {
+  const label = kind === "alerts" ? "Alerts" : "Notifications";
+  if (summary.status === "loading") return `Loading latest ${label.toLowerCase()}.`;
+  if (summary.status === "error") return `Could not load latest ${label.toLowerCase()}.`;
+  if (summary.items.length === 0) return `${label}: no recent items.`;
+  return `${label}: ${summary.items.map((item) => item.title).join("; ")}`;
+}
+
+function ShellSummaryPanel({ count, kind, summary }: { count: number; kind: SummaryKind; summary: SummaryState }) {
+  const label = kind === "alerts" ? "Alerts" : "Notifications";
+
+  return (
+    <span className="desktop-command-summary" aria-hidden="true">
+      <strong>{label}</strong>
+      {summary.status === "loading" ? <small>Loading latest...</small> : null}
+      {summary.status === "error" ? <small>Could not load the latest items.</small> : null}
+      {summary.status !== "loading" && summary.status !== "error" && summary.items.length === 0 ? (
+        <small>{count > 0 ? "Open to review current items." : "No recent items."}</small>
+      ) : null}
+      {summary.items.map((item) => (
+        <span key={item.id}>
+          {item.title}
+          {item.body ? <small>{item.body}</small> : null}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
+  const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
   const liveCounts = useShellCounts(counts);
   const commCount = totalCommCount(liveCounts);
 
@@ -64,6 +113,22 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
 
     event.preventDefault();
     window.dispatchEvent(new CustomEvent("theta:open-comm-dock"));
+  }
+
+  function loadSummary(kind: SummaryKind) {
+    setSummaries((current) => ({ ...current, [kind]: { ...current[kind], status: "loading" } }));
+
+    fetch(`/api/shell/summaries?type=${kind}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load summary.");
+        return (await response.json()) as { items?: ShellSummaryItem[] };
+      })
+      .then((payload) => {
+        setSummaries((current) => ({ ...current, [kind]: { items: payload.items ?? [], status: "ready" } }));
+      })
+      .catch(() => {
+        setSummaries((current) => ({ ...current, [kind]: { ...current[kind], status: "error" } }));
+      });
   }
 
   return (
@@ -122,15 +187,29 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               <span aria-hidden="true">+</span>
               <span className="sr-only">Create ad</span>
             </Link>
-            <Link className="desktop-command-icon" href="/notifications" data-tooltip="Notifications.">
+            <Link
+              className="desktop-command-icon"
+              href="/notifications"
+              data-tooltip={summaryTooltip("notifications", summaries.notifications)}
+              onFocus={() => loadSummary("notifications")}
+              onPointerEnter={() => loadSummary("notifications")}
+            >
               <span aria-hidden="true">N</span>
               {liveCounts.notifications > 0 ? <strong>{liveCounts.notifications}</strong> : null}
               <span className="sr-only">Notifications</span>
+              <ShellSummaryPanel count={liveCounts.notifications} kind="notifications" summary={summaries.notifications} />
             </Link>
-            <Link className="desktop-command-icon" href="/alerts" data-tooltip="Alerts.">
+            <Link
+              className="desktop-command-icon"
+              href="/alerts"
+              data-tooltip={summaryTooltip("alerts", summaries.alerts)}
+              onFocus={() => loadSummary("alerts")}
+              onPointerEnter={() => loadSummary("alerts")}
+            >
               <span aria-hidden="true">!</span>
               {liveCounts.alerts > 0 ? <strong>{liveCounts.alerts}</strong> : null}
               <span className="sr-only">Alerts</span>
+              <ShellSummaryPanel count={liveCounts.alerts} kind="alerts" summary={summaries.alerts} />
             </Link>
             {isAdmin ? (
               <Link className="desktop-command-icon" href="/admin" data-tooltip="Admin portal.">

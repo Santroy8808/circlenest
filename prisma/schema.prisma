@@ -464,6 +464,7 @@ model User {
   createdAt                       DateTime                           @default(now())
   updatedAt                       DateTime                           @updatedAt
   profile                         Profile?
+  resume                          UserResume?
   scientologyProfile              ScientologyProfile?
   membership                      Membership?
   mediaAssets                     MediaAsset[]
@@ -596,6 +597,30 @@ model Profile {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserResume {
+  id                    String            @id @default(cuid())
+  userId                String            @unique
+  headline              String?
+  executiveSummary      String?
+  email                 String?
+  phone                 String?
+  location              String?
+  website               String?
+  coreSkills            Json?
+  experience            Json?
+  education             Json?
+  credentials           Json?
+  achievements          Json?
+  additionalNotes       String?
+  includeScientology    Boolean           @default(false)
+  visibility            ProfileVisibility @default(MEMBERS)
+  uploadedResumeUrl     String?
+  uploadedResumeName    String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ScientologyProfile {

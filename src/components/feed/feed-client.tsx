@@ -735,7 +735,7 @@ function FeedCommentRow({
               <span aria-hidden="true">{"\u21A9"}</span>
             </button>
             <button aria-label="Share comment" className="comment-share-link" onClick={() => onShare(comment.id)} title="Share" type="button">
-              <span aria-hidden="true">{"\u2192"}</span>
+              <span aria-hidden="true">{"\u21AA"}</span>
             </button>
           </div>
         </div>
@@ -1466,7 +1466,7 @@ export function FeedClient({
                     title="Share"
                     type="button"
                   >
-                    <span aria-hidden="true">{"\u2192"}</span>
+                    <span aria-hidden="true">{"\u21AA"}</span>
                   </button>
                   {shareMenus[post.id] ? (
                     <div className="feed-share-popover" role="menu">

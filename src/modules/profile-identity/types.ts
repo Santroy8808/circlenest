@@ -39,4 +39,6 @@ export type ProfileCardView = {
   viewerRelationships: SocialRelationshipType[];
   pendingFriendRequest: boolean;
   pendingFamilyRequest: boolean;
+  scientologyVisible: boolean;
+  resumeVisible: boolean;
 };

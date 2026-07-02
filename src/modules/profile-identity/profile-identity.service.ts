@@ -1,4 +1,4 @@
-import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, ScientologyVisibility, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { setProfileMediaSchema, updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
@@ -34,6 +34,8 @@ function toProfileCard(user: {
     allowProfilePosts: boolean;
   } | null;
   membership: { tier: string } | null;
+  resume?: { visibility: ProfileVisibility } | null;
+  scientologyProfile?: { visibility: ScientologyVisibility } | null;
 }, familyMembers: ProfileCardView["familyMembers"] = []): ProfileCardView {
   return {
     id: user.id,
@@ -51,7 +53,9 @@ function toProfileCard(user: {
     familyMembers,
     viewerRelationships: [],
     pendingFriendRequest: false,
-    pendingFamilyRequest: false
+    pendingFamilyRequest: false,
+    scientologyVisible: user.scientologyProfile?.visibility === ScientologyVisibility.MEMBERS,
+    resumeVisible: Boolean(user.resume && user.resume.visibility !== ProfileVisibility.PRIVATE)
   };
 }
 
@@ -103,7 +107,17 @@ export async function getPublicProfileByUsername(username: string, viewerUserId?
         where: { username: username.trim().replace(/^@/, "").toLowerCase() },
         include: {
           profile: true,
-          membership: true
+          membership: true,
+          resume: {
+            select: {
+              visibility: true
+            }
+          },
+          scientologyProfile: {
+            select: {
+              visibility: true
+            }
+          }
         }
       }),
       "public profile lookup"
@@ -115,9 +129,12 @@ export async function getPublicProfileByUsername(username: string, viewerUserId?
       listApprovedFamilyMembers(user.id),
       getViewerRelationshipState(viewerUserId, user.id)
     ]);
+    const isOwner = viewerUserId === user.id;
     return {
       ...toProfileCard(user, familyMembers),
-      ...relationshipState
+      ...relationshipState,
+      scientologyVisible: isOwner || user.scientologyProfile?.visibility === ScientologyVisibility.MEMBERS,
+      resumeVisible: Boolean(user.resume && (isOwner || user.resume.visibility !== ProfileVisibility.PRIVATE))
     };
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not load public profile.", {
@@ -134,7 +151,17 @@ export async function getProfileForOwner(userId: string) {
       where: { id: userId },
       include: {
         profile: true,
-        membership: true
+        membership: true,
+        resume: {
+          select: {
+            visibility: true
+          }
+        },
+        scientologyProfile: {
+          select: {
+            visibility: true
+          }
+        }
       }
     }),
     "owner profile lookup"
@@ -142,7 +169,12 @@ export async function getProfileForOwner(userId: string) {
 
   if (!user) return null;
   const familyMembers = await listApprovedFamilyMembers(user.id);
-  return toProfileCard(user, familyMembers);
+  const profile = toProfileCard(user, familyMembers);
+  return {
+    ...profile,
+    scientologyVisible: Boolean(user.scientologyProfile),
+    resumeVisible: Boolean(user.resume)
+  };
 }
 
 export async function updateProfileIdentity(userId: string, input: unknown) {

@@ -49,10 +49,24 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
             />
           )}
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.tier}</span>
-          <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.visibility}</span>
-          {profile.location ? <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.location}</span> : null}
+        <div className="profile-meta-row mt-5">
+          <div className="flex flex-wrap gap-2">
+            <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.tier}</span>
+            <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.visibility}</span>
+            {profile.location ? <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.location}</span> : null}
+          </div>
+          <div className="profile-header-links">
+            {profile.scientologyVisible ? (
+              <Link className="profile-header-link" href={`/profile/${profile.username}/scientology`}>
+                My Scientology
+              </Link>
+            ) : null}
+            {profile.resumeVisible ? (
+              <Link className="profile-header-link" href={`/profile/${profile.username}/resume`}>
+                My Resume
+              </Link>
+            ) : null}
+          </div>
         </div>
         {profile.bio ? <p className="mt-5 whitespace-pre-wrap leading-7 text-[var(--text)]">{profile.bio}</p> : null}
         {profile.familyMembers.length > 0 ? (
@@ -63,7 +77,7 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
                 Approved
               </span>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="profile-family-grid mt-3">
               {profile.familyMembers.map((member) => (
                 <Link className="profile-family-card" href={`/profile/${member.username}`} key={member.id}>
                   <span className="profile-family-avatar">

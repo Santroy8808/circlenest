@@ -2,6 +2,7 @@
 
 import { ChatAttachmentKind, ChatThreadType } from "@prisma/client";
 import Link from "next/link";
+import { flushSync } from "react-dom";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
@@ -108,12 +109,40 @@ function ProfileNameLink({ person, children }: { person: ChatPersonView; childre
   );
 }
 
+function ChatAvatar({ className = "chat-avatar", person }: { className?: string; person: ChatPersonView }) {
+  return (
+    <span className={className}>
+      {person.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" src={person.avatarUrl} />
+      ) : (
+        initials(person.displayName)
+      )}
+    </span>
+  );
+}
+
 function attachmentImageUrl(attachment: ChatAttachmentView) {
   return attachment.thumbnailUrl ?? attachment.publicUrl ?? "";
 }
 
 function isImageAttachment(attachment: ChatAttachmentView) {
   return attachment.kind === "IMAGE" && attachmentImageUrl(attachment).trim().length > 0;
+}
+
+function messagesLikelyMatch(serverMessage: ChatMessageView, localMessage: ChatMessageView) {
+  const sameBody = (serverMessage.body ?? "").trim() === (localMessage.body ?? "").trim();
+  const sameSender =
+    serverMessage.sender.id === localMessage.sender.id ||
+    serverMessage.sender.username === localMessage.sender.username ||
+    serverMessage.sender.displayName === localMessage.sender.displayName;
+  const sameAttachmentCount = serverMessage.attachments.length === localMessage.attachments.length;
+  const serverTime = Date.parse(serverMessage.createdAt);
+  const localTime = Date.parse(localMessage.createdAt);
+  const closeInTime =
+    Number.isFinite(serverTime) && Number.isFinite(localTime) ? Math.abs(serverTime - localTime) < 5 * 60 * 1000 : true;
+
+  return sameBody && sameSender && sameAttachmentCount && closeInTime;
 }
 
 function MessageImageAttachment({
@@ -126,16 +155,11 @@ function MessageImageAttachment({
   const imageUrl = attachmentImageUrl(attachment);
 
   return (
-    <a
-      className={isMine ? "chat-media-message is-mine" : "chat-media-message"}
-      href={attachment.publicUrl || imageUrl}
-      target="_blank"
-      rel="noreferrer"
-    >
+    <figure className={isMine ? "chat-media-message is-mine" : "chat-media-message"}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img alt={attachment.fileName} loading="lazy" src={imageUrl} />
-      <span className="chat-media-caption">{attachment.fileName}</span>
-    </a>
+      <figcaption className="chat-media-caption">{attachment.fileName}</figcaption>
+    </figure>
   );
 }
 
@@ -179,6 +203,9 @@ export function MessagesClient({
   const [threadFilter, setThreadFilter] = useState<"ALL" | ChatThreadType>("ALL");
   const [contactQuery, setContactQuery] = useState("");
   const [contacts, setContacts] = useState<ChatPersonView[]>([]);
+  const [chatStartMode, setChatStartMode] = useState<"DIRECT" | "GROUP">("DIRECT");
+  const [groupTitle, setGroupTitle] = useState("");
+  const [groupParticipants, setGroupParticipants] = useState<ChatPersonView[]>([]);
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<QueuedAttachment[]>([]);
   const [error, setError] = useState("");
@@ -209,14 +236,7 @@ export function MessagesClient({
       ...incomingThread,
       messages: [
         ...incomingThread.messages,
-        ...pending.filter((pendingMessage) => {
-          return !incomingThread.messages.some((message) => {
-            const sameBody = (message.body ?? "") === (pendingMessage.body ?? "");
-            const sameSender = message.sender.id === pendingMessage.sender.id;
-            const sameAttachmentCount = message.attachments.length === pendingMessage.attachments.length;
-            return sameBody && sameSender && sameAttachmentCount;
-          });
-        })
+        ...pending.filter((pendingMessage) => !incomingThread.messages.some((message) => messagesLikelyMatch(message, pendingMessage)))
       ]
     };
   }
@@ -303,6 +323,48 @@ export function MessagesClient({
       }
 
       setSelectedThread(payload.thread);
+      setContactQuery("");
+      await refreshThreads();
+    });
+  }
+
+  function toggleGroupParticipant(person: ChatPersonView) {
+    setGroupParticipants((current) =>
+      current.some((participant) => participant.id === person.id)
+        ? current.filter((participant) => participant.id !== person.id)
+        : [...current, person]
+    );
+  }
+
+  function createGroupChat() {
+    const title = groupTitle.trim();
+    if (!title || groupParticipants.length === 0) {
+      setError("Name the group chat and add at least one member.");
+      return;
+    }
+
+    setError("");
+    startTransition(async () => {
+      const response = await fetch("/api/chat/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: ChatThreadType.GROUP,
+          title,
+          participantUserIds: groupParticipants.map((participant) => participant.id)
+        })
+      });
+      const payload = (await response.json()) as { error?: string; thread?: ChatThreadDetailView };
+
+      if (!response.ok || !payload.thread) {
+        setError(payload.error ?? "Could not start group chat.");
+        return;
+      }
+
+      setSelectedThread(payload.thread);
+      setChatStartMode("DIRECT");
+      setGroupTitle("");
+      setGroupParticipants([]);
       setContactQuery("");
       await refreshThreads();
     });
@@ -442,25 +504,27 @@ export function MessagesClient({
     }));
 
     if (bodyToSend || optimisticAttachments.length > 0) {
-      setSelectedThread((current) =>
-        current
-          ? {
-              ...current,
-              messages: [
-                ...current.messages,
-                {
-                  id: optimisticId,
-                  body: bodyToSend,
-                  createdAt: new Date().toISOString(),
-                  sender: optimisticSender,
-                  attachments: optimisticAttachments,
-                  deliveryState: "SENDING"
-                }
-              ]
-            }
-          : current
-      );
-      setBody("");
+      flushSync(() => {
+        setSelectedThread((current) =>
+          current
+            ? {
+                ...current,
+                messages: [
+                  ...current.messages,
+                  {
+                    id: optimisticId,
+                    body: bodyToSend,
+                    createdAt: new Date().toISOString(),
+                    sender: optimisticSender,
+                    attachments: optimisticAttachments,
+                    deliveryState: "SENDING"
+                  }
+                ]
+              }
+            : current
+        );
+        setBody("");
+      });
     }
 
     startTransition(async () => {
@@ -501,8 +565,8 @@ export function MessagesClient({
               }
             : current
         );
-        clearQueuedAttachments();
         await refreshThreads();
+        clearQueuedAttachments();
       } catch (caught) {
         setSelectedThread((current) =>
           current
@@ -589,14 +653,9 @@ export function MessagesClient({
                 tabIndex={0}
               >
                 {profile ? (
-                  <Link
-                    aria-label={`View ${profile.displayName}'s profile`}
-                    className="chat-avatar"
-                    href={`/profile/${profile.username}`}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {initials(profile.displayName)}
-                  </Link>
+                  <ProfileNameLink person={profile}>
+                    <ChatAvatar person={profile} />
+                  </ProfileNameLink>
                 ) : (
                   <span className="chat-avatar">{initials(thread.title)}</span>
                 )}
@@ -618,42 +677,84 @@ export function MessagesClient({
         </section>
 
         <section className="chat-panel-section border-t border-[var(--line)]">
-          <p className="text-sm font-semibold text-[var(--gold)]">Start a direct chat</p>
+          <div className="chat-start-header">
+            <p className="text-sm font-semibold text-[var(--gold)]">Start a chat</p>
+            <div className="chat-start-toggle" aria-label="Chat type">
+              <button
+                className={chatStartMode === "DIRECT" ? "is-active" : ""}
+                onClick={() => setChatStartMode("DIRECT")}
+                type="button"
+              >
+                Direct
+              </button>
+              <button
+                className={chatStartMode === "GROUP" ? "is-active" : ""}
+                onClick={() => setChatStartMode("GROUP")}
+                type="button"
+              >
+                Group
+              </button>
+            </div>
+          </div>
+          {chatStartMode === "GROUP" ? (
+            <>
+              <input
+                className="form-field mt-3"
+                onChange={(event) => setGroupTitle(event.target.value)}
+                placeholder="Group chat name"
+                value={groupTitle}
+              />
+              {groupParticipants.length > 0 ? (
+                <div className="chat-group-selected">
+                  {groupParticipants.map((participant) => (
+                    <button key={participant.id} onClick={() => toggleGroupParticipant(participant)} type="button">
+                      {participant.displayName}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
           <input
             className="form-field mt-3"
             onChange={(event) => setContactQuery(event.target.value)}
-            placeholder="Search by name, username, email, or location..."
+            placeholder={chatStartMode === "GROUP" ? "Search members to add..." : "Search by name, username, email, or location..."}
             value={contactQuery}
           />
           <div className="mt-3 grid gap-2">
             {contacts.map((person) => (
               <div
-                className="chat-person-card"
+                className={
+                  groupParticipants.some((participant) => participant.id === person.id)
+                    ? "chat-person-card is-selected"
+                    : "chat-person-card"
+                }
                 key={person.id}
-                onClick={() => startDirectChat(person)}
-                onKeyDown={(event) => activateKeyboard(event, () => startDirectChat(person))}
+                onClick={() => (chatStartMode === "GROUP" ? toggleGroupParticipant(person) : startDirectChat(person))}
+                onKeyDown={(event) =>
+                  activateKeyboard(event, () => (chatStartMode === "GROUP" ? toggleGroupParticipant(person) : startDirectChat(person)))
+                }
                 role="button"
                 tabIndex={0}
               >
-                <Link
-                  aria-label={`View ${person.displayName}'s profile`}
-                  className="chat-avatar"
-                  href={`/profile/${person.username}`}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {initials(person.displayName)}
-                </Link>
+                <ChatAvatar person={person} />
                 <span className="min-w-0 text-left">
-                  <ProfileNameLink person={person}>
-                    <span className="block truncate font-semibold">{person.displayName}</span>
-                  </ProfileNameLink>
-                  <ProfileNameLink person={person}>
-                    <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
-                  </ProfileNameLink>
+                  <span className="block truncate font-semibold">{person.displayName}</span>
+                  <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
                 </span>
               </div>
             ))}
           </div>
+          {chatStartMode === "GROUP" ? (
+            <button
+              className="btn-primary mt-3 w-full"
+              disabled={isPending || groupParticipants.length === 0 || !groupTitle.trim()}
+              onClick={createGroupChat}
+              type="button"
+            >
+              Create group chat
+            </button>
+          ) : null}
         </section>
       </aside>
 
@@ -664,7 +765,15 @@ export function MessagesClient({
               <button className="chat-window-back" onClick={() => setSelectedThread(null)} type="button">
                 Chats
               </button>
-              <div>
+              <div className="chat-window-title-row">
+                {directThreadProfile(selectedThread) ? (
+                  <ProfileNameLink person={directThreadProfile(selectedThread)!}>
+                    <ChatAvatar className="chat-window-avatar" person={directThreadProfile(selectedThread)!} />
+                  </ProfileNameLink>
+                ) : (
+                  <span className="chat-window-avatar">{initials(selectedThread.title)}</span>
+                )}
+                <div className="min-w-0">
                 <p className="text-sm uppercase tracking-[0.18em] text-[var(--gold)]">
                   {selectedThread.type === ChatThreadType.DIRECT ? "Direct chat" : "Group chat"}
                 </p>
@@ -677,6 +786,7 @@ export function MessagesClient({
                 )}
                 <p className="mt-1 text-sm text-[var(--muted)]">{selectedThread.participants.length} participants</p>
                 <AdminObjectId id={selectedThread.id} kind="Chat thread" visible={isAdmin} />
+                </div>
               </div>
             </header>
 

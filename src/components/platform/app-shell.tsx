@@ -64,6 +64,7 @@ const settingsSection: NavSection = {
   items: [
     { label: "Profile", href: "/profile" },
     { label: "My Scientology", href: "/profile/scientology" },
+    { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Settings", href: "/settings" }
   ]
 };

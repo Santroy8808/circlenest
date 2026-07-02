@@ -581,13 +581,19 @@ export async function listApprovedFamilyMembers(userId: string): Promise<FamilyM
   );
   const avatarThumbnails = await resolvePreferredThumbnailUrls(family.map((relationship) => relationship.toUser.profile?.avatarUrl));
 
-  return family.map((relationship) => ({
-    id: relationship.toUser.id,
-    username: relationship.toUser.username,
-    displayName: relationship.toUser.profile?.displayName ?? relationship.toUser.username,
-    avatarUrl: avatarThumbnails.get(relationship.toUser.profile?.avatarUrl ?? "") ?? relationship.toUser.profile?.avatarUrl,
-    relationshipLabel: relationship.note ?? "Family"
-  }));
+  return family
+    .map((relationship) => ({
+      id: relationship.toUser.id,
+      username: relationship.toUser.username,
+      displayName: relationship.toUser.profile?.displayName ?? relationship.toUser.username,
+      avatarUrl: avatarThumbnails.get(relationship.toUser.profile?.avatarUrl ?? "") ?? relationship.toUser.profile?.avatarUrl,
+      relationshipLabel: relationship.note ?? "Family"
+    }))
+    .sort((a, b) => {
+      if (a.relationshipLabel === "Spouse" && b.relationshipLabel !== "Spouse") return -1;
+      if (b.relationshipLabel === "Spouse" && a.relationshipLabel !== "Spouse") return 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
 }
 
 export async function listPeopleCards(userId: string, type?: SocialRelationshipType): Promise<PeopleCardView[]> {

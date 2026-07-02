@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 export function FriendRequestActions({ requestId }: { requestId: string }) {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [resolved, setResolved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -24,6 +26,7 @@ export function FriendRequestActions({ requestId }: { requestId: string }) {
 
       setResolved(true);
       setMessage(payload.status === "APPROVED" ? "Friend request approved." : "Friend request denied.");
+      router.refresh();
     });
   }
 

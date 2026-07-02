@@ -39,6 +39,14 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["scientology", "public", "staff", "sea org", "auditor", "training", "processing", "org"]
   },
   {
+    title: "Profile > My Resume",
+    description: "Build a printable professional resume with optional My Scientology summary.",
+    href: "/settings/profile/resume",
+    badge: "Profile",
+    sensitive: false,
+    keywords: ["resume", "cv", "career", "work history", "experience", "skills", "print"]
+  },
+  {
     title: "Security > Blocked Users",
     description: "Manage blocked users and account protection rules.",
     href: "/secure-area?next=/settings/security",
