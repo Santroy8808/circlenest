@@ -156,6 +156,8 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "groups.create": true,
       "groups.assignModerators": true,
       "groups.unlimitedSize": true,
+      "market.createListing": true,
+      "market.storefront": true,
       "auditors.createProfile": true,
       "ads.createGeneral": true,
       "invites.send": true,
@@ -163,8 +165,8 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     }),
     limits: {
       groupMemberCap: null,
-      marketListingsPer14Days: 0,
-      marketListingPhotoCap: 0,
+      marketListingsPer14Days: 6,
+      marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
       storageLimitBytes: 5 * 1024 * 1024 * 1024
     }

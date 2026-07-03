@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/platform/db";
 import { safeReadPlatformEnv } from "@/lib/platform/env";
-import { readR2Config } from "@/lib/platform/r2";
+import { isR2Configured, readR2Config } from "@/lib/platform/r2";
 import { getPlatformReleaseInfo, type PlatformReleaseInfo } from "@/lib/platform/release";
 
 export type HealthCheckResult = {
@@ -89,8 +89,8 @@ export async function getPlatformHealthChecks(): Promise<HealthCheckResult[]> {
   checks.push({
     name: "cloudflare-r2",
     critical: false,
-    status: r2?.endpoint && r2.bucket ? "healthy" : "unknown",
-    message: r2?.endpoint && r2.bucket ? "R2 configuration is present." : "R2 configuration is not complete yet."
+    status: r2 && isR2Configured(r2) ? "healthy" : "unknown",
+    message: r2 && isR2Configured(r2) ? "R2 configuration is present." : "R2 endpoint, bucket, or credentials are not complete yet."
   });
 
   checks.push(await timedCheck("redis", false, checkRedis));

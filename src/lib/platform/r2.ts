@@ -1,6 +1,10 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readPlatformEnv } from "@/lib/platform/env";
+
+type R2Config = ReturnType<typeof readR2Config>;
+
+let cachedClient: { key: string; client: S3Client } | null = null;
 
 export function readR2Config() {
   const env = readPlatformEnv();
@@ -19,6 +23,14 @@ export function readR2Config() {
   };
 }
 
+function r2ConfigCacheKey(r2: R2Config) {
+  return [r2.endpoint, r2.accessKeyId, r2.secretAccessKey].join("|");
+}
+
+export function isR2Configured(r2 = readR2Config()) {
+  return Boolean(r2.endpoint && r2.accessKeyId && r2.secretAccessKey && r2.bucket);
+}
+
 export function getR2Client() {
   const r2 = readR2Config();
 
@@ -26,15 +38,25 @@ export function getR2Client() {
     throw new Error("Cloudflare R2 credentials are not configured.");
   }
 
-  return new S3Client({
-    region: "auto",
-    endpoint: r2.endpoint,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: r2.accessKeyId,
-      secretAccessKey: r2.secretAccessKey
-    }
-  });
+  const key = r2ConfigCacheKey(r2);
+  if (cachedClient?.key === key) {
+    return cachedClient.client;
+  }
+
+  cachedClient = {
+    key,
+    client: new S3Client({
+      region: "auto",
+      endpoint: r2.endpoint,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: r2.accessKeyId,
+        secretAccessKey: r2.secretAccessKey
+      }
+    })
+  };
+
+  return cachedClient.client;
 }
 
 export function getR2PublicUrl(storageKey: string) {
@@ -58,8 +80,7 @@ export async function createPresignedR2PutUrl(input: {
   const command = new PutObjectCommand({
     Bucket: r2.bucket,
     Key: input.storageKey,
-    ContentType: input.mimeType,
-    ContentLength: input.sizeBytes
+    ContentType: input.mimeType
   });
 
   return getSignedUrl(getR2Client(), command, {
@@ -80,6 +101,67 @@ export async function getR2Object(storageKey: string) {
       Key: storageKey
     })
   );
+}
+
+export async function headR2Object(storageKey: string) {
+  const r2 = readR2Config();
+
+  if (!r2.bucket) {
+    throw new Error("Cloudflare R2 bucket is not configured.");
+  }
+
+  return getR2Client().send(
+    new HeadObjectCommand({
+      Bucket: r2.bucket,
+      Key: storageKey
+    })
+  );
+}
+
+function normalizeContentType(value?: string | null) {
+  return value?.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
+export async function verifyR2Object(input: {
+  storageKey: string;
+  expectedSizeBytes?: number;
+  expectedMimeType?: string;
+  label?: string;
+}) {
+  const label = input.label ?? "upload";
+
+  try {
+    const object = await headR2Object(input.storageKey);
+    const actualSize = object.ContentLength;
+    const actualMimeType = normalizeContentType(object.ContentType);
+    const expectedMimeType = normalizeContentType(input.expectedMimeType);
+
+    if (typeof input.expectedSizeBytes === "number" && typeof actualSize === "number" && actualSize !== input.expectedSizeBytes) {
+      return {
+        ok: false as const,
+        error: `${label} did not finish correctly. Expected ${input.expectedSizeBytes} bytes, found ${actualSize}.`
+      };
+    }
+
+    if (expectedMimeType && actualMimeType && actualMimeType !== expectedMimeType) {
+      return {
+        ok: false as const,
+        error: `${label} content type changed during upload.`
+      };
+    }
+
+    return {
+      ok: true as const,
+      sizeBytes: typeof actualSize === "number" ? actualSize : null,
+      mimeType: actualMimeType || null,
+      eTag: object.ETag ?? null
+    };
+  } catch {
+    return {
+      ok: false as const,
+      error: `${label} was not found in media storage. Try uploading it again.`
+    };
+  }
 }
 
 export async function deleteR2Object(storageKey: string) {

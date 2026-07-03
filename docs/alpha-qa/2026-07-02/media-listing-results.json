@@ -1,0 +1,46 @@
+{
+  "actions": [
+    {
+      "label": "console-error",
+      "url": "https://theta-space.net/login",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "label": "console-error",
+      "url": "https://theta-space.net/market/create",
+      "text": "Access to XMLHttpRequest at 'https://9a25bd72b553d234fb67a1cd49663cf9.r2.cloudflarestorage.com/theta-space/market/cmql5yzf60000ee5s0ptdg7m7/2026-07-02/5ede4fa8791365f6-ts-alpha-upload.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=f6a8ed1cbe77caff8e942de267bf7475%2F20260702%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260702T163610Z&X-Amz-Expires=300&X-Amz-Signature=b683038431cd2136cb2a59ee94ca21711b730f7dff5496fee89e2ccdce9c8864&X-Amz-SignedHeaders=content-length%3Bhost&x-amz-checksum-crc32=AAAAAA%3D%3D&x-amz-sdk-checksum-algorithm=CRC32&x-id=PutObject' from origin 'https://theta-space.net' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource."
+    },
+    {
+      "label": "console-error",
+      "url": "https://theta-space.net/market/create",
+      "text": "Failed to load resource: net::ERR_FAILED"
+    },
+    {
+      "label": "submit-media-listing",
+      "url": "https://theta-space.net/market/ts-alpha-20260702-media-listing-thumbnail-render-check",
+      "text": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\nServices\n\nSERVICES\n\nTS-ALPHA-20260702 Media Listing: Thumbnail Render Check\n\n$1.00\n\nRemote / Online\n\nBack to Market\n\nA fictional alpha-test listing for Alpha Test Run - 2026-07-02. This listing includes a valid PNG to verify upload, thumbnail rendering, listing-detail media, and cross-tier visibility. Marker: TS-ALPHA-20260702.\n\nSeller\nMike\n@mike\nOpen Mail\nPromotion\n\nPromoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.\n\nCreate listing ad\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue"
+    }
+  ],
+  "created": [
+    {
+      "type": "Listing",
+      "title": "TS-ALPHA-20260702 Media Listing: Thumbnail Render Check",
+      "createdBy": "Contributor/mike",
+      "url": "https://theta-space.net/market/ts-alpha-20260702-media-listing-thumbnail-render-check",
+      "status": "Published with uploaded PNG if detail renders",
+      "cleanupNeeded": "Yes"
+    }
+  ],
+  "screenshots": [
+    {
+      "label": "01-media-listing-filled",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-media-listing\\01-media-listing-filled.png",
+      "url": "https://theta-space.net/market/create"
+    },
+    {
+      "label": "02-media-listing-result",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-media-listing\\02-media-listing-result.png",
+      "url": "https://theta-space.net/market/ts-alpha-20260702-media-listing-thumbnail-render-check"
+    }
+  ]
+}

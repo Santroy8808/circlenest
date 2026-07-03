@@ -4,7 +4,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { verifyPassword } from "@/modules/auth-security/password";
-import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import {
   completeGroupAssetUploadSchema,
   createGroupAssetCommentSchema,
@@ -52,6 +52,10 @@ function safeFileName(value: string) {
 
 function dateSlug(date = new Date()) {
   return date.toISOString().slice(0, 10);
+}
+
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
 export async function getGroupMediaContext(viewerUserId: string, groupIdOrSlug: string) {
@@ -203,7 +207,7 @@ function toAssetView(
     kind: asset.kind,
     headline: asset.headline,
     description: asset.description,
-    publicUrl: asset.mediaAsset.publicUrl,
+    publicUrl: mediaAssetUrl(asset.mediaAsset),
     originalName: asset.mediaAsset.originalName,
     mimeType: asset.mediaAsset.mimeType,
     sizeBytes: asset.mediaAsset.sizeBytes.toString(),
@@ -393,6 +397,21 @@ export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSl
 
   if (nextBytes > context.group.storageLimitBytes) {
     return { ok: false as const, error: "This group is at its assigned storage limit. Purge group files or raise the limit before uploading." };
+  }
+
+  if (!parsed.data.storageKey.startsWith(`groups/${context.group.id}/`)) {
+    return { ok: false as const, error: "Invalid group upload target." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Group media upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
   }
 
   const mediaAsset = await prisma.mediaAsset.create({

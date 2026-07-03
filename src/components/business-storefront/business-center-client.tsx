@@ -116,13 +116,13 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           tags: ["storefront", "hero"]
         })
       });
-      const complete = (await completeResponse.json()) as { error?: string; asset?: { publicUrl?: string | null } };
+      const complete = (await completeResponse.json()) as { error?: string; asset?: { id?: string; publicUrl?: string | null } };
 
-      if (!completeResponse.ok || !complete.asset?.publicUrl) {
+      if (!completeResponse.ok || !complete.asset?.id) {
         throw new Error(complete.error ?? "Could not save hero image.");
       }
 
-      update("heroImageUrl", complete.asset.publicUrl);
+      update("heroImageUrl", complete.asset.publicUrl ?? `/api/media/assets/${complete.asset.id}`);
       setHeroUpload({ fileName: file.name, progress: 100, status: "done" });
       setMessage(`Hero image uploaded. Save the ${entityLabel.toLowerCase()} profile to publish it.`);
     } catch (caught) {

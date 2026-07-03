@@ -9,7 +9,7 @@ import {
   SocialRelationshipType,
   UserRole
 } from "@prisma/client";
-import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
@@ -54,6 +54,10 @@ function attachmentKindForMime(mimeType: string) {
   return mimeType.startsWith("image/") ? MailAttachmentKind.IMAGE : MailAttachmentKind.FILE;
 }
 
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+}
+
 function toPersonView(user: {
   id: string;
   email: string;
@@ -79,7 +83,7 @@ function toAttachmentView(
     fileName: attachment.fileName,
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes.toString(),
-    publicUrl: attachment.publicUrl ?? attachment.mediaAsset?.publicUrl,
+    publicUrl: attachment.publicUrl ?? mediaAssetUrl(attachment.mediaAsset),
     mediaAssetId: attachment.mediaAssetId
   };
 }
@@ -827,6 +831,22 @@ export async function completeMailUpload(userId: string, input: unknown) {
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
+  }
+
+  const expectedPrefix = ["users", userId, "mail"].join("/") + "/";
+  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
+    return { ok: false as const, error: "Invalid mail upload key." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Mail attachment upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
   }
 
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);

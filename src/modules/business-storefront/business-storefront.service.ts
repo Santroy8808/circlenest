@@ -66,6 +66,10 @@ function publicUrl(slug: string) {
   return `/storefront/${slug}`;
 }
 
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -116,7 +120,7 @@ function toBusinessArticleView(article: BusinessArticlePayload, profileSlug: str
     title: article.title,
     summary: article.summary,
     body: includeBody ? article.body : undefined,
-    coverImageUrl: article.coverMediaAsset?.publicUrl ?? null,
+    coverImageUrl: mediaAssetUrl(article.coverMediaAsset),
     publicUrl: articlePublicUrl(profileSlug, article.slug),
     published: article.published,
     createdAt: article.createdAt.toISOString(),
@@ -167,7 +171,7 @@ function toStorefrontMarketListingView(listing: StorefrontMarketListingPayload):
     status: listing.status,
     expiresAt: listing.expiresAt?.toISOString(),
     createdAt: listing.createdAt.toISOString(),
-    thumbnailUrl: thumbnail?.mediaAsset.publicUrl,
+    thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
     seller: {
       id: listing.seller.id,
       username: listing.seller.username,

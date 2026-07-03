@@ -98,7 +98,7 @@ export function PeopleGrid({
               ) : null}
               <div className="people-card-copy">
                 <h2 className="mt-3 text-lg font-semibold">{person.displayName}</h2>
-                <p className="people-full-name mt-1 text-sm text-[var(--muted)]">Full name: {person.fullName}</p>
+                <p className="people-full-name mt-1 text-sm text-[var(--muted)]">{person.fullName}</p>
                 <p className="people-username text-sm text-[var(--muted)]">@{person.username}</p>
                 {person.location ? <p className="people-location mt-1 text-sm text-[var(--muted)]">{person.location}</p> : null}
                 <div className="people-relationship-pills mt-3 flex flex-wrap justify-center gap-2">

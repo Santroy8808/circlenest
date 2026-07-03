@@ -1,8 +1,10 @@
 "use client";
 
+import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
 import type { GalleryAssetView } from "@/modules/gallery-media-storage/types";
 
 const DEFAULT_TAGS = ["Family", "Friends", "Events"];
@@ -10,6 +12,14 @@ const SYSTEM_GALLERY_TAGS = new Set(["stream images", "stream post images", "str
 
 function assetImageUrl(asset: GalleryAssetView) {
   return asset.thumbnailUrl ?? asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+}
+
+function handleGalleryImageError(event: React.SyntheticEvent<HTMLImageElement>, assetId: string) {
+  const image = event.currentTarget;
+  if (image.dataset.mediaFallbackApplied === "true") return;
+
+  image.dataset.mediaFallbackApplied = "true";
+  image.src = `/api/media/assets/${assetId}`;
 }
 
 function isSystemGalleryAsset(asset: GalleryAssetView) {
@@ -27,6 +37,8 @@ function createdDateKey(asset: GalleryAssetView) {
 
 export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const router = useRouter();
+  const quickUploadInputRef = useRef<HTMLInputElement>(null);
+  const { addFilesAndUpload, isUploading } = useBackgroundGalleryUploads();
   const [galleryAssets, setGalleryAssets] = useState(assets);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filenameQuery, setFilenameQuery] = useState("");
@@ -162,14 +174,45 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     });
   }
 
+  function queuePrivateUploads(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    addFilesAndUpload(files, {
+      visibility: MediaVisibility.PRIVATE,
+      commentsEnabled: false
+    });
+    setMessage(`${files.length} photo${files.length === 1 ? "" : "s"} queued for background upload.`);
+  }
+
+  const quickUploadInput = (
+    <input
+      ref={quickUploadInputRef}
+      accept="image/jpeg,image/png,image/gif,image/webp"
+      className="hidden"
+      multiple
+      onChange={(event) => {
+        queuePrivateUploads(event.target.files);
+        event.currentTarget.value = "";
+      }}
+      type="file"
+    />
+  );
+
   if (galleryAssets.length === 0) {
     return (
       <section className="surface rounded-md p-6 text-center">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos yet</h2>
         <p className="mt-2 text-[var(--muted)]">Upload your first photo to start building My Pics.</p>
-        <Link className="btn-primary mt-5 inline-block" data-tooltip="Upload photos to My Pics." href="/profile/gallery/upload">
+        {quickUploadInput}
+        <button
+          className="btn-primary mt-5 inline-block"
+          data-tooltip="Choose photos and upload them in the background."
+          disabled={isUploading}
+          onClick={() => quickUploadInputRef.current?.click()}
+          type="button"
+        >
           Upload
-        </Link>
+        </button>
       </section>
     );
   }
@@ -210,9 +253,16 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
               Delete
             </button>
           </div>
-          <Link className="btn-primary gallery-upload-link" data-tooltip="Upload photos to My Pics." href="/profile/gallery/upload">
+          {quickUploadInput}
+          <button
+            className="btn-primary gallery-upload-link"
+            data-tooltip="Choose photos and upload them in the background."
+            disabled={isUploading}
+            onClick={() => quickUploadInputRef.current?.click()}
+            type="button"
+          >
             Upload
-          </Link>
+          </button>
         </div>
 
         <div className="gallery-control-layout mt-4">
@@ -364,7 +414,13 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 </button>
                 <Link className="gallery-tile-link" data-tooltip="Open this photo." href={`/profile/gallery/${asset.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img alt={asset.originalName ?? "Gallery photo"} decoding="async" loading="lazy" src={assetImageUrl(asset)} />
+                  <img
+                    alt={asset.originalName ?? "Gallery photo"}
+                    decoding="async"
+                    loading="lazy"
+                    onError={(event) => handleGalleryImageError(event, asset.id)}
+                    src={assetImageUrl(asset)}
+                  />
                   <div className="gallery-tile-meta">
                     <p className="truncate font-semibold">{asset.originalName ?? "Photo"}</p>
                     <p className="text-xs text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>

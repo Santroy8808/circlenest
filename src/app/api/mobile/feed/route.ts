@@ -53,8 +53,7 @@ export async function POST(request: NextRequest) {
       mediaAssetId: body.mediaAssetId ?? ""
     });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
-    const post = await safeGetFeedPostThread(body.postId);
-    return NextResponse.json({ comment: result.comment, post }, { status: 201 });
+    return NextResponse.json({ comment: result.comment, post: result.post }, { status: 201 });
   }
 
   if (body.action === "reactPost") {
@@ -85,6 +84,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  const post = await safeGetFeedPostThread(result.post.id);
-  return NextResponse.json({ post: post ?? result.post }, { status: 201 });
+  if (!result.post) {
+    return NextResponse.json({ error: "Could not load created post." }, { status: 500 });
+  }
+
+  return NextResponse.json({ post: result.post }, { status: 201 });
 }

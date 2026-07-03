@@ -36,11 +36,12 @@ function toPlatformMediaStatus(status?: MediaAssetStatus): PlatformMediaStatus {
 
 export function toPlatformMediaDto(asset: MediaAssetForDto): PlatformMediaDto {
   const metadata = readMetadata(asset.metadata);
+  const assetUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
 
   return {
     id: asset.id,
-    url: asset.publicUrl,
-    thumbnailUrl: metadata.thumbnailUrl ?? asset.publicUrl,
+    url: assetUrl,
+    thumbnailUrl: metadata.thumbnailUrl ?? assetUrl,
     width: typeof metadata.width === "number" ? metadata.width : null,
     height: typeof metadata.height === "number" ? metadata.height : null,
     status: toPlatformMediaStatus(asset.status),

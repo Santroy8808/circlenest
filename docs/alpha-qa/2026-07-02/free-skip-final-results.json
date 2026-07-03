@@ -1,0 +1,46 @@
+{
+  "actions": [
+    {
+      "label": "after-login",
+      "url": "https://theta-space.net/onboarding/scientology",
+      "text": "STEP 2 OF 4\n\nFill in My Scientology\n\nTheta-Space is private membership. These fields are recommended and stay private unless you later choose otherwise. You can skip this page and finish it later.\n\nCLASSIFICATION\nLAST 6 OF IAS MEMBERSHIP NUMBER, OPTIONAL\nCURRENT ORG RECEIVING SERVICES\nLAST SERVICE\nTRAINING LEVEL\nPROCESSING / RUNDOWN\nNOTES, OPTIONAL\nContinue\nSkip for now\nReport issue"
+    },
+    {
+      "label": "after-skip-0",
+      "url": "https://theta-space.net/onboarding/good-standing",
+      "text": "STEP 3 OF 4\n\nGood-standing attestation\n\nThis confirmation is required before Terms of Service. If you cannot attest this, the application ends here.\n\nI attest that I am currently active as a Scientologist and in good standing with the Church of Scientology.\n\nYes, I attest\nNo, I cannot attest this\nReport issue"
+    },
+    {
+      "label": "home-after-skips",
+      "url": "https://theta-space.net/onboarding/good-standing",
+      "text": "STEP 3 OF 4\n\nGood-standing attestation\n\nThis confirmation is required before Terms of Service. If you cannot attest this, the application ends here.\n\nI attest that I am currently active as a Scientologist and in good standing with the Church of Scientology.\n\nYes, I attest\nNo, I cannot attest this\nReport issue"
+    },
+    {
+      "label": "listing-after-skips",
+      "url": "https://theta-space.net/onboarding/good-standing",
+      "text": "STEP 3 OF 4\n\nGood-standing attestation\n\nThis confirmation is required before Terms of Service. If you cannot attest this, the application ends here.\n\nI attest that I am currently active as a Scientologist and in good standing with the Church of Scientology.\n\nYes, I attest\nNo, I cannot attest this\nReport issue"
+    }
+  ],
+  "screenshots": [
+    {
+      "label": "after-login",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-skip-final\\after-login.png",
+      "url": "https://theta-space.net/onboarding/scientology"
+    },
+    {
+      "label": "after-skip-0",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-skip-final\\after-skip-0.png",
+      "url": "https://theta-space.net/onboarding/good-standing"
+    },
+    {
+      "label": "home-after-skips",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-skip-final\\home-after-skips.png",
+      "url": "https://theta-space.net/onboarding/good-standing"
+    },
+    {
+      "label": "listing-after-skips",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-skip-final\\listing-after-skips.png",
+      "url": "https://theta-space.net/onboarding/good-standing"
+    }
+  ]
+}

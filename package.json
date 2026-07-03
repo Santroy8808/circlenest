@@ -27,7 +27,8 @@
     "promote:dry-run": "tsx scripts/promotion-dry-run.ts",
     "services:readiness": "tsx scripts/external-services-readiness.ts",
     "workspace:verify": "tsx scripts/verify-workspace.ts",
-    "smoke:health": "tsx scripts/health-smoke.ts"
+    "smoke:health": "tsx scripts/health-smoke.ts",
+    "smoke:r2": "tsx scripts/r2-media-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

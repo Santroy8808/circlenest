@@ -45,6 +45,10 @@ function displayName(user: { username: string; profile: { displayName: string | 
   return user.profile?.displayName ?? user.username;
 }
 
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+}
+
 function groupWithItems(kind: SearchResultGroup["kind"], title: string, items: SearchResultItem[]): SearchResultGroup | null {
   return items.length ? { kind, title, items } : null;
 }
@@ -247,7 +251,7 @@ async function searchMarket(input: { blockedUserIds: string[]; query: string }) 
       listing.priceCents === null
         ? "Contact seller"
         : new Intl.NumberFormat("en-US", { style: "currency", currency: listing.currency }).format(listing.priceCents / 100),
-    imageUrl: listing.photos[0]?.mediaAsset.publicUrl
+    imageUrl: mediaAssetUrl(listing.photos[0]?.mediaAsset)
   }));
 }
 
@@ -434,7 +438,7 @@ async function searchPosts(input: {
     href: `/home?post=${post.id}`,
     badge: "Post",
     meta: `${post._count.comments} comments - ${post._count.reactions} reactions`,
-    imageUrl: post.mediaAsset?.publicUrl
+    imageUrl: mediaAssetUrl(post.mediaAsset)
   }));
 }
 

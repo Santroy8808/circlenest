@@ -1,0 +1,3004 @@
+{
+  "createdAt": "2026-07-02T14:46:37.381Z",
+  "baseUrl": "https://theta-space.net",
+  "loginState": {
+    "href": "https://theta-space.net/home",
+    "text": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Marke"
+  },
+  "viewports": [
+    {
+      "label": "desktop-1600x900",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "label": "desktop-1366x768",
+      "width": 1366,
+      "height": 768
+    }
+  ],
+  "routes": [
+    {
+      "route": {
+        "name": "home",
+        "path": "/home"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\home.png",
+      "audit": {
+        "url": "https://theta-space.net/home",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 7,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Sally Matsukawa",
+            "selector": "a.feed-author-name-link",
+            "rect": {
+              "x": 402,
+              "y": 298,
+              "w": 118,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "@sally",
+            "selector": "a.feed-author-handle-link",
+            "rect": {
+              "x": 402,
+              "y": 316,
+              "w": 118,
+              "h": 15
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.feed-author-name-link",
+            "rect": {
+              "x": 412,
+              "y": 517,
+              "w": 132,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "@midearmon",
+            "selector": "a.feed-author-handle-link",
+            "rect": {
+              "x": 412,
+              "y": 535,
+              "w": 132,
+              "h": 15
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.feed-author-name-link",
+            "rect": {
+              "x": 402,
+              "y": 789,
+              "w": 132,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "@midearmon",
+            "selector": "a.feed-author-handle-link",
+            "rect": {
+              "x": 402,
+              "y": 807,
+              "w": 132,
+              "h": 15
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "messages",
+        "path": "/messages"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\messages.png",
+      "audit": {
+        "url": "https://theta-space.net/messages",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 6,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 414,
+              "y": 488,
+              "w": 206,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Jules",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 414,
+              "y": 574,
+              "w": 226,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Direct",
+            "selector": "button.is-active",
+            "rect": {
+              "x": 545,
+              "y": 845,
+              "w": 49,
+              "h": 27
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Group",
+            "selector": "button",
+            "rect": {
+              "x": 595,
+              "y": 845,
+              "w": 50,
+              "h": 27
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "controls-touching",
+            "detail": "Direct / Group",
+            "selector": "controls",
+            "rect": {
+              "gap": 2,
+              "ax": 545,
+              "ay": 845,
+              "aw": 49,
+              "ah": 27,
+              "bx": 595,
+              "by": 845,
+              "bw": 50,
+              "bh": 27
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "mail",
+        "path": "/mail"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\mail.png",
+      "audit": {
+        "url": "https://theta-space.net/mail",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 10,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 407,
+              "y": 488,
+              "w": 150,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Jules",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 407,
+              "y": 558,
+              "w": 117,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Hi Michael De Armon: Hoe Direct · 6/29/2026, 5:55:45 PM",
+            "selector": "div.mail-thread-card",
+            "rect": {
+              "x": 618,
+              "y": 205,
+              "w": 334,
+              "h": 235
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 632,
+              "y": 247,
+              "w": 115,
+              "h": 19
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "Jules: Jules mail pass 1 retry 2026-06-24T13:26:20.188Z",
+            "selector": "p.mail-thread-preview.mt-1.truncate",
+            "rect": {
+              "x": 632,
+              "y": 490,
+              "w": 306,
+              "h": 20,
+              "scrollWidth": 338
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Jules",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 632,
+              "y": 490,
+              "w": 30,
+              "h": 19
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "[Theta demo] Mail thread between Mike and Midearmon",
+            "selector": "p.mail-thread-subject.truncate.font-semibold",
+            "rect": {
+              "x": 632,
+              "y": 705,
+              "w": 286,
+              "h": 24,
+              "scrollWidth": 413
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "Michael De Armon: This mail verifies contacts, inbox, sent mail, and notification flow.",
+            "selector": "p.mail-thread-preview.mt-1.truncate",
+            "rect": {
+              "x": 632,
+              "y": 733,
+              "w": 306,
+              "h": 20,
+              "scrollWidth": 519
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 632,
+              "y": 733,
+              "w": 115,
+              "h": 19
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "notifications",
+        "path": "/notifications"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\notifications.png",
+      "audit": {
+        "url": "https://theta-space.net/notifications",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "alerts",
+        "path": "/alerts"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\alerts.png",
+      "audit": {
+        "url": "https://theta-space.net/alerts",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 26s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "people",
+        "path": "/people"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\people.png",
+      "audit": {
+        "url": "https://theta-space.net/people",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 9,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Theta Demo Studio Full name: Theta Demo Studio @theta-demo-studio",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 346,
+              "y": 458,
+              "w": 172,
+              "h": 228
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Michael De Armon Full name: Michael De Armon @midearmon Austin, TX Friend",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 573,
+              "y": 458,
+              "w": 172,
+              "h": 279
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Admin Full name: Admin @admin South Africa",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 799,
+              "y": 458,
+              "w": 172,
+              "h": 232
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Jules Full name: Jules @jules Clearwater, FL Contact",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 1025,
+              "y": 458,
+              "w": 172,
+              "h": 259
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SM Sally Matsukawa Full name: Sally Matsukawa @sally Murfreesboro, TN",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 346,
+              "y": 890,
+              "w": 172,
+              "h": 232
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "RP Ray Peck Full name: Ray Peck @astari",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 573,
+              "y": 890,
+              "w": 172,
+              "h": 208
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Mike De Armon Full name: Mike De Armon @maverick Here, there, nowhere",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 799,
+              "y": 890,
+              "w": 172,
+              "h": 232
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "A Auditor Full name: Auditor @auditor",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 1025,
+              "y": 890,
+              "w": 172,
+              "h": 208
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 20s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "friends",
+        "path": "/friends"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\friends.png",
+      "audit": {
+        "url": "https://theta-space.net/friends",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 2,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Michael De Armon Full name: Michael De Armon @midearmon Austin, TX Friend",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 346,
+              "y": 384,
+              "w": 172,
+              "h": 279
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 14s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "profile-midearmon",
+        "path": "/profile/midearmon"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\profile-midearmon.png",
+      "audit": {
+        "url": "https://theta-space.net/profile/midearmon",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Friend",
+            "selector": "button.profile-relationship-link",
+            "rect": {
+              "x": 1057,
+              "y": 334,
+              "w": 41,
+              "h": 17
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Acquaintance",
+            "selector": "button.profile-relationship-link",
+            "rect": {
+              "x": 1108,
+              "y": 334,
+              "w": 88,
+              "h": 17
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.feed-author-name-link",
+            "rect": {
+              "x": 402,
+              "y": 815,
+              "w": 132,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "@midearmon",
+            "selector": "a.feed-author-handle-link",
+            "rect": {
+              "x": 402,
+              "y": 833,
+              "w": 132,
+              "h": 15
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 7s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "profile-gallery",
+        "path": "/profile/gallery"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\profile-gallery.png",
+      "audit": {
+        "url": "https://theta-space.net/profile/gallery",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "SEARCH Clear FILENAME TAGS COMMENTS FROM TO",
+            "selector": "section.gallery-search-panel",
+            "rect": {
+              "x": 348,
+              "y": 174,
+              "w": 314,
+              "h": 167,
+              "scrollWidth": 751
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "FILENAME TAGS COMMENTS FROM TO",
+            "selector": "div.gallery-search-grid",
+            "rect": {
+              "x": 365,
+              "y": 245,
+              "w": 280,
+              "h": 79,
+              "scrollWidth": 735
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "mike-stream-win.jpg 6/23/2026",
+            "selector": "a.gallery-tile-link",
+            "rect": {
+              "x": 328,
+              "y": 451,
+              "w": 280,
+              "h": 280
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 2s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "controls-touching",
+            "detail": "Selected / Visible",
+            "selector": "controls",
+            "rect": {
+              "gap": 2,
+              "ax": 697,
+              "ay": 316,
+              "aw": 87,
+              "ah": 36,
+              "bx": 786,
+              "by": 316,
+              "bw": 74,
+              "bh": 36
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "profile-scientology",
+        "path": "/profile/scientology"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\profile-scientology.png",
+      "audit": {
+        "url": "https://theta-space.net/profile/scientology",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "settings",
+        "path": "/settings"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\settings.png",
+      "audit": {
+        "url": "https://theta-space.net/settings",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "settings-profile",
+        "path": "/settings/profile"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\settings-profile.png",
+      "audit": {
+        "url": "https://theta-space.net/settings/profile",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Profile Edit display name, bio, avatar, banner, and visibility.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 327,
+              "y": 273,
+              "w": 286,
+              "h": 154
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "My Pics Open your photo gallery without the secure settings wall.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 931,
+              "y": 273,
+              "w": 286,
+              "h": 154
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "My Scientology Manage Scientology-specific profile details and privacy.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 327,
+              "y": 443,
+              "w": 286,
+              "h": 154
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Public Profile View your member-facing profile page.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 931,
+              "y": 443,
+              "w": 286,
+              "h": 154
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "settings-resume",
+        "path": "/settings/profile/resume"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\settings-resume.png",
+      "audit": {
+        "url": "https://theta-space.net/settings/profile/resume",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "market",
+        "path": "/market"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\market.png",
+      "audit": {
+        "url": "https://theta-space.net/market",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Demo Course Supply Kit",
+            "selector": "a",
+            "rect": {
+              "x": 342,
+              "y": 607,
+              "w": 257,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 361,
+              "y": 637,
+              "w": 113,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "IT Support",
+            "selector": "a",
+            "rect": {
+              "x": 644,
+              "y": 607,
+              "w": 256,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 662,
+              "y": 637,
+              "w": 113,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "jobs",
+        "path": "/jobs"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\jobs.png",
+      "audit": {
+        "url": "https://theta-space.net/jobs",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 2,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Contract REMOTE Demo Production Assistant Theta Demo Studio Creative $30-$40/hr",
+            "selector": "a.listing-square-card.listing-card--square.job-card",
+            "rect": {
+              "x": 327,
+              "y": 349,
+              "w": 286,
+              "h": 286
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "groups",
+        "path": "/groups"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\groups.png",
+      "audit": {
+        "url": "https://theta-space.net/groups",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 27s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-center",
+        "path": "/business-center"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\business-center.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 19s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-create-ad",
+        "path": "/business-center/create-ad"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\business-create-ad.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center/create-ad",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 13s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-campaigns",
+        "path": "/business-center/campaigns"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\business-campaigns.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center/campaigns",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 7s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 162,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-metrics",
+        "path": "/business-center/metrics"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\business-metrics.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center/metrics",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "search",
+        "path": "/search"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\search.png",
+      "audit": {
+        "url": "https://theta-space.net/search",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "auditors",
+        "path": "/auditors"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\auditors.png",
+      "audit": {
+        "url": "https://theta-space.net/auditors",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 36 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "writers-corner",
+        "path": "/writers-corner"
+      },
+      "viewport": "desktop-1600x900",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1600x900\\writers-corner.png",
+      "audit": {
+        "url": "https://theta-space.net/writers-corner",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1600,
+          "height": 900
+        },
+        "scroll": {
+          "width": 1600,
+          "height": 900
+        },
+        "mainRect": {
+          "x": 304,
+          "y": 72,
+          "w": 936,
+          "h": 828
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 1259,
+              "y": 588,
+              "w": 322,
+              "h": 414
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "home",
+        "path": "/home"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\home.png",
+      "audit": {
+        "url": "https://theta-space.net/home",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Sally Matsukawa",
+            "selector": "a.feed-author-name-link",
+            "rect": {
+              "x": 473,
+              "y": 295,
+              "w": 118,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "@sally",
+            "selector": "a.feed-author-handle-link",
+            "rect": {
+              "x": 473,
+              "y": 313,
+              "w": 118,
+              "h": 15
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.feed-author-name-link",
+            "rect": {
+              "x": 483,
+              "y": 513,
+              "w": 132,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "@midearmon",
+            "selector": "a.feed-author-handle-link",
+            "rect": {
+              "x": 483,
+              "y": 532,
+              "w": 132,
+              "h": 15
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "messages",
+        "path": "/messages"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\messages.png",
+      "audit": {
+        "url": "https://theta-space.net/messages",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 6,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 487,
+              "y": 485,
+              "w": 206,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Jules",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 487,
+              "y": 571,
+              "w": 226,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Direct",
+            "selector": "button.is-active",
+            "rect": {
+              "x": 617,
+              "y": 710,
+              "w": 49,
+              "h": 27
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Group",
+            "selector": "button",
+            "rect": {
+              "x": 668,
+              "y": 710,
+              "w": 50,
+              "h": 27
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "controls-touching",
+            "detail": "Direct / Group",
+            "selector": "controls",
+            "rect": {
+              "gap": 2,
+              "ax": 617,
+              "ay": 710,
+              "aw": 49,
+              "ah": 27,
+              "bx": 668,
+              "by": 710,
+              "bw": 50,
+              "bh": 27
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "mail",
+        "path": "/mail"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\mail.png",
+      "audit": {
+        "url": "https://theta-space.net/mail",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 10,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 420,
+              "y": 485,
+              "w": 150,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Jules",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 420,
+              "y": 555,
+              "w": 117,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Hi Michael De Armon: Hoe Direct · 6/29/2026, 5:55:45 PM",
+            "selector": "div.mail-thread-card",
+            "rect": {
+              "x": 631,
+              "y": 202,
+              "w": 334,
+              "h": 191
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 645,
+              "y": 244,
+              "w": 115,
+              "h": 19
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "Jules: Jules mail pass 1 retry 2026-06-24T13:26:20.188Z",
+            "selector": "p.mail-thread-preview.mt-1.truncate",
+            "rect": {
+              "x": 645,
+              "y": 443,
+              "w": 306,
+              "h": 20,
+              "scrollWidth": 338
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Jules",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 645,
+              "y": 443,
+              "w": 30,
+              "h": 19
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "[Theta demo] Mail thread between Mike and Midearmon",
+            "selector": "p.mail-thread-subject.truncate.font-semibold",
+            "rect": {
+              "x": 645,
+              "y": 614,
+              "w": 286,
+              "h": 24,
+              "scrollWidth": 413
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "Michael De Armon: This mail verifies contacts, inbox, sent mail, and notification flow.",
+            "selector": "p.mail-thread-preview.mt-1.truncate",
+            "rect": {
+              "x": 645,
+              "y": 642,
+              "w": 306,
+              "h": 20,
+              "scrollWidth": 519
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 645,
+              "y": 642,
+              "w": 115,
+              "h": 19
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 25s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "notifications",
+        "path": "/notifications"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\notifications.png",
+      "audit": {
+        "url": "https://theta-space.net/notifications",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 21s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "alerts",
+        "path": "/alerts"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\alerts.png",
+      "audit": {
+        "url": "https://theta-space.net/alerts",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 17s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "people",
+        "path": "/people"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\people.png",
+      "audit": {
+        "url": "https://theta-space.net/people",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 6,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Theta Demo Studio Full name: Theta Demo Studio @theta-demo-studio",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 359,
+              "y": 455,
+              "w": 150,
+              "h": 256
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Michael De Armon Full name: Michael De Armon @midearmon Austin, TX Friend",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 563,
+              "y": 455,
+              "w": 150,
+              "h": 307
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Admin Full name: Admin @admin South Africa",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 768,
+              "y": 455,
+              "w": 150,
+              "h": 232
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Jules Full name: Jules @jules Clearwater, FL Contact",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 972,
+              "y": 455,
+              "w": 150,
+              "h": 259
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SM Sally Matsukawa Full name: Sally Matsukawa @sally Murfreesboro, TN",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 1177,
+              "y": 455,
+              "w": 150,
+              "h": 252
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 12s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "friends",
+        "path": "/friends"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\friends.png",
+      "audit": {
+        "url": "https://theta-space.net/friends",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 2,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Michael De Armon Full name: Michael De Armon @midearmon Austin, TX Friend",
+            "selector": "a.people-card-link",
+            "rect": {
+              "x": 359,
+              "y": 381,
+              "w": 150,
+              "h": 307
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 8s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "profile-midearmon",
+        "path": "/profile/midearmon"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\profile-midearmon.png",
+      "audit": {
+        "url": "https://theta-space.net/profile/midearmon",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 3,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Friend",
+            "selector": "button.profile-relationship-link",
+            "rect": {
+              "x": 1186,
+              "y": 331,
+              "w": 41,
+              "h": 17
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Acquaintance",
+            "selector": "button.profile-relationship-link",
+            "rect": {
+              "x": 1237,
+              "y": 331,
+              "w": 88,
+              "h": 17
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "profile-gallery",
+        "path": "/profile/gallery"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\profile-gallery.png",
+      "audit": {
+        "url": "https://theta-space.net/profile/gallery",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "SEARCH Clear FILENAME TAGS COMMENTS FROM TO",
+            "selector": "section.gallery-search-panel",
+            "rect": {
+              "x": 361,
+              "y": 171,
+              "w": 430,
+              "h": 167,
+              "scrollWidth": 751
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "text-clipped",
+            "detail": "FILENAME TAGS COMMENTS FROM TO",
+            "selector": "div.gallery-search-grid",
+            "rect": {
+              "x": 378,
+              "y": 242,
+              "w": 396,
+              "h": 79,
+              "scrollWidth": 735
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "mike-stream-win.jpg 6/23/2026",
+            "selector": "a.gallery-tile-link",
+            "rect": {
+              "x": 341,
+              "y": 447,
+              "w": 320,
+              "h": 320
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "controls-touching",
+            "detail": "Selected / Visible",
+            "selector": "controls",
+            "rect": {
+              "gap": 2,
+              "ax": 826,
+              "ay": 312,
+              "aw": 87,
+              "ah": 36,
+              "bx": 915,
+              "by": 312,
+              "bw": 74,
+              "bh": 36
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "profile-scientology",
+        "path": "/profile/scientology"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\profile-scientology.png",
+      "audit": {
+        "url": "https://theta-space.net/profile/scientology",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "settings",
+        "path": "/settings"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\settings.png",
+      "audit": {
+        "url": "https://theta-space.net/settings",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "settings-profile",
+        "path": "/settings/profile"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\settings-profile.png",
+      "audit": {
+        "url": "https://theta-space.net/settings/profile",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Profile Edit display name, bio, avatar, banner, and visibility.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 340,
+              "y": 270,
+              "w": 325,
+              "h": 130
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "My Pics Open your photo gallery without the secure settings wall.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 1021,
+              "y": 270,
+              "w": 325,
+              "h": 130
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "My Scientology Manage Scientology-specific profile details and privacy.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 340,
+              "y": 416,
+              "w": 325,
+              "h": 154
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Public Profile View your member-facing profile page.",
+            "selector": "a.module-card.rounded-md.p-5",
+            "rect": {
+              "x": 1021,
+              "y": 416,
+              "w": 325,
+              "h": 154
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "settings-resume",
+        "path": "/settings/profile/resume"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\settings-resume.png",
+      "audit": {
+        "url": "https://theta-space.net/settings/profile/resume",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "market",
+        "path": "/market"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\market.png",
+      "audit": {
+        "url": "https://theta-space.net/market",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 5,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Demo Course Supply Kit",
+            "selector": "a",
+            "rect": {
+              "x": 355,
+              "y": 643,
+              "w": 295,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 373,
+              "y": 672,
+              "w": 113,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "IT Support",
+            "selector": "a",
+            "rect": {
+              "x": 696,
+              "y": 643,
+              "w": 295,
+              "h": 24
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "tiny-control",
+            "detail": "Michael De Armon",
+            "selector": "a.profile-inline-link",
+            "rect": {
+              "x": 714,
+              "y": 672,
+              "w": 113,
+              "h": 18
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "jobs",
+        "path": "/jobs"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\jobs.png",
+      "audit": {
+        "url": "https://theta-space.net/jobs",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 2,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "Contract REMOTE Demo Production Assistant Theta Demo Studio Creative $30-$40/hr",
+            "selector": "a.listing-square-card.listing-card--square.job-card",
+            "rect": {
+              "x": 340,
+              "y": 346,
+              "w": 325,
+              "h": 325
+            }
+          },
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "groups",
+        "path": "/groups"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\groups.png",
+      "audit": {
+        "url": "https://theta-space.net/groups",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-center",
+        "path": "/business-center"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\business-center.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-create-ad",
+        "path": "/business-center/create-ad"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\business-create-ad.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center/create-ad",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-campaigns",
+        "path": "/business-center/campaigns"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\business-campaigns.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center/campaigns",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "business-metrics",
+        "path": "/business-center/metrics"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\business-metrics.png",
+      "audit": {
+        "url": "https://theta-space.net/business-center/metrics",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "search",
+        "path": "/search"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\search.png",
+      "audit": {
+        "url": "https://theta-space.net/search",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 30s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 849,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "auditors",
+        "path": "/auditors"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\auditors.png",
+      "audit": {
+        "url": "https://theta-space.net/auditors",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 25s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    },
+    {
+      "route": {
+        "name": "writers-corner",
+        "path": "/writers-corner"
+      },
+      "viewport": "desktop-1366x768",
+      "screenshot": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\visual-qa\\2026-07-02\\screenshots-prod\\desktop-1366x768\\writers-corner.png",
+      "audit": {
+        "url": "https://theta-space.net/writers-corner",
+        "title": "Theta-Space Rebuild",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "scroll": {
+          "width": 1366,
+          "height": 768
+        },
+        "mainRect": {
+          "x": 320,
+          "y": 72,
+          "w": 1046,
+          "h": 435
+        },
+        "bodyTextStart": "TS Theta-Space home Search Theta-Space Go Home People Market Search Comm + Create ad N Notifications ! Alerts THETA-SPACE Mike Member control panel HOME › My Stream My Pics Search Membership Logout COMM › Messages Mail Notifications Alerts PEOPLE › Browse People Friends Groups MARKET › The Market Fi",
+        "issueCount": 1,
+        "issues": [
+          {
+            "severity": "medium",
+            "type": "oversized-control",
+            "detail": "SPONSORED TESTING Check out this strawberry 19s paid hold | 35 credits left",
+            "selector": "a.ad-placement-card",
+            "rect": {
+              "x": 340,
+              "y": 592,
+              "w": 497,
+              "h": 433
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

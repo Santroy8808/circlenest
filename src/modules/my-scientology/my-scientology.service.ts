@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { MediaVisibility, ScientologyVisibility } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import {
   completeScientologyCommendationUploadSchema,
   createScientologyCommendationUploadIntentSchema,
@@ -164,6 +164,22 @@ export async function completeScientologyCommendationUpload(userId: string, inpu
 
   if (parsed.data.mimeType === "application/pdf" && !parsed.data.isFlattenedPdf) {
     return { ok: false as const, error: "PDF commendations must be flattened and not encrypted before upload." };
+  }
+
+  const expectedPrefix = ["users", userId, "my-scientology", "commendations"].join("/") + "/";
+  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
+    return { ok: false as const, error: "Invalid commendation upload key." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Commendation upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
   }
 
   const result = await prisma.$transaction(async (tx) => {

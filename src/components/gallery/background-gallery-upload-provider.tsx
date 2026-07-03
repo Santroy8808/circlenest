@@ -31,6 +31,7 @@ type BackgroundGalleryUploadContextValue = {
   isUploading: boolean;
   notice: UploadNotice | null;
   addFiles: (files: FileList | File[]) => void;
+  addFilesAndUpload: (files: FileList | File[], settings: GalleryAccessSettings) => void;
   clearFinished: () => void;
   dismissNotice: () => void;
   uploadAll: (settings: GalleryAccessSettings) => void;
@@ -131,11 +132,26 @@ async function createUploadNotification(input: { uploaded: number; failed: numbe
   }).catch(() => null);
 }
 
+function createQueuedUploadItems(files: FileList | File[]) {
+  return Array.from(files).map((file) => ({
+    id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+    file,
+    previewUrl: URL.createObjectURL(file),
+    progress: 0,
+    status: "queued" as const
+  }));
+}
+
 export function BackgroundGalleryUploadProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<BackgroundGalleryUploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [notice, setNotice] = useState<UploadNotice | null>(null);
+  const itemsRef = useRef<BackgroundGalleryUploadItem[]>([]);
   const uploadInProgressRef = useRef(false);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   useEffect(() => {
     if (!isUploading) return;
@@ -150,19 +166,21 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
   }, [isUploading]);
 
   const updateItem = useCallback((id: string, patch: Partial<BackgroundGalleryUploadItem>) => {
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    setItems((current) => {
+      const updated = current.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      itemsRef.current = updated;
+      return updated;
+    });
   }, []);
 
   const addFiles = useCallback((files: FileList | File[]) => {
-    const next = Array.from(files).map((file) => ({
-      id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-      progress: 0,
-      status: "queued" as const
-    }));
+    const next = createQueuedUploadItems(files);
 
-    setItems((current) => [...current, ...next]);
+    setItems((current) => {
+      const updated = [...current, ...next];
+      itemsRef.current = updated;
+      return updated;
+    });
   }, []);
 
   const clearFinished = useCallback(() => {
@@ -171,6 +189,7 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
       current
         .filter((item) => item.status === "done")
         .forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      itemsRef.current = keep;
       return keep;
     });
   }, []);
@@ -185,106 +204,110 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
       setIsUploading(true);
 
       void (async () => {
-        const batchItems = items.filter((candidate) => candidate.status !== "done");
         let uploaded = 0;
         let failed = 0;
+        let batchItems = itemsRef.current.filter((candidate) => candidate.status !== "done");
 
-        for (const item of batchItems) {
-          try {
-            updateItem(item.id, { status: "uploading", progress: 1, error: undefined });
-            const uploadFile = await optimizeImageForUpload(item.file);
-            let thumbnailStorageKey: string | undefined;
-            const intentResponse = await fetch("/api/media/upload-intent", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                fileName: uploadFile.name,
-                mimeType: uploadFile.type,
-                sizeBytes: uploadFile.size,
-                visibility: settings.visibility,
-                source: "GALLERY"
-              })
-            });
-            const intent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(intentResponse);
-
-            if (!intentResponse.ok || !intent?.uploadUrl || !intent.storageKey) {
-              throw new Error(intent?.error ?? "Could not prepare upload.");
-            }
-
-            await uploadWithResilientFallback({
-              uploadUrl: intent.uploadUrl,
-              storageKey: intent.storageKey,
-              file: uploadFile,
-              onProgress: (progress) => updateItem(item.id, { progress })
-            });
-
-            updateItem(item.id, { progress: 96 });
-
+        while (batchItems.length > 0) {
+          for (const item of batchItems) {
             try {
-              const thumbnailFile = await createThumbnailForUpload(item.file);
+              updateItem(item.id, { status: "uploading", progress: 1, error: undefined });
+              const uploadFile = await optimizeImageForUpload(item.file);
+              let thumbnailStorageKey: string | undefined;
+              const intentResponse = await fetch("/api/media/upload-intent", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  fileName: uploadFile.name,
+                  mimeType: uploadFile.type,
+                  sizeBytes: uploadFile.size,
+                  visibility: settings.visibility,
+                  source: "GALLERY"
+                })
+              });
+              const intent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(intentResponse);
 
-              if (thumbnailFile) {
-                const thumbnailIntentResponse = await fetch("/api/media/upload-intent", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    fileName: thumbnailFile.name,
-                    mimeType: thumbnailFile.type,
-                    sizeBytes: thumbnailFile.size,
-                    visibility: settings.visibility,
-                    source: "GALLERY"
-                  })
-                });
-                const thumbnailIntent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(thumbnailIntentResponse);
-
-                if (thumbnailIntentResponse.ok && thumbnailIntent?.uploadUrl && thumbnailIntent.storageKey) {
-                  await uploadWithResilientFallback({
-                    uploadUrl: thumbnailIntent.uploadUrl,
-                    storageKey: thumbnailIntent.storageKey,
-                    file: thumbnailFile,
-                    onProgress: () => updateItem(item.id, { progress: 98 })
-                  });
-                  thumbnailStorageKey = thumbnailIntent.storageKey;
-                }
+              if (!intentResponse.ok || !intent?.uploadUrl || !intent.storageKey) {
+                throw new Error(intent?.error ?? "Could not prepare upload.");
               }
-            } catch {
-              thumbnailStorageKey = undefined;
-            }
 
-            const completeResponse = await fetch("/api/media/complete-upload", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+              await uploadWithResilientFallback({
+                uploadUrl: intent.uploadUrl,
                 storageKey: intent.storageKey,
-                thumbnailStorageKey,
-                fileName: uploadFile.name,
-                mimeType: uploadFile.type,
-                sizeBytes: uploadFile.size,
-                visibility: settings.visibility,
-                commentsEnabled: settings.commentsEnabled,
-                source: "GALLERY",
-                tags: []
-              })
-            });
-            const complete = await readJsonResponse<{ error?: string; asset?: { id: string } }>(completeResponse);
+                file: uploadFile,
+                onProgress: (progress) => updateItem(item.id, { progress })
+              });
 
-            if (!completeResponse.ok) {
-              throw new Error(complete?.error ?? "Could not save photo record.");
+              updateItem(item.id, { progress: 96 });
+
+              try {
+                const thumbnailFile = await createThumbnailForUpload(item.file);
+
+                if (thumbnailFile) {
+                  const thumbnailIntentResponse = await fetch("/api/media/upload-intent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      fileName: thumbnailFile.name,
+                      mimeType: thumbnailFile.type,
+                      sizeBytes: thumbnailFile.size,
+                      visibility: settings.visibility,
+                      source: "GALLERY"
+                    })
+                  });
+                  const thumbnailIntent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(thumbnailIntentResponse);
+
+                  if (thumbnailIntentResponse.ok && thumbnailIntent?.uploadUrl && thumbnailIntent.storageKey) {
+                    await uploadWithResilientFallback({
+                      uploadUrl: thumbnailIntent.uploadUrl,
+                      storageKey: thumbnailIntent.storageKey,
+                      file: thumbnailFile,
+                      onProgress: () => updateItem(item.id, { progress: 98 })
+                    });
+                    thumbnailStorageKey = thumbnailIntent.storageKey;
+                  }
+                }
+              } catch {
+                thumbnailStorageKey = undefined;
+              }
+
+              const completeResponse = await fetch("/api/media/complete-upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  storageKey: intent.storageKey,
+                  thumbnailStorageKey,
+                  fileName: uploadFile.name,
+                  mimeType: uploadFile.type,
+                  sizeBytes: uploadFile.size,
+                  visibility: settings.visibility,
+                  commentsEnabled: settings.commentsEnabled,
+                  source: "GALLERY",
+                  tags: []
+                })
+              });
+              const complete = await readJsonResponse<{ error?: string; asset?: { id: string } }>(completeResponse);
+
+              if (!completeResponse.ok) {
+                throw new Error(complete?.error ?? "Could not save photo record.");
+              }
+
+              if (!complete?.asset?.id) {
+                throw new Error("Photo uploaded, but the gallery record was not returned.");
+              }
+
+              uploaded += 1;
+              updateItem(item.id, { assetId: complete.asset.id, status: "done", progress: 100 });
+            } catch (caught) {
+              failed += 1;
+              updateItem(item.id, {
+                status: "error",
+                error: caught instanceof Error ? caught.message : "Upload failed."
+              });
             }
-
-            if (!complete?.asset?.id) {
-              throw new Error("Photo uploaded, but the gallery record was not returned.");
-            }
-
-            uploaded += 1;
-            updateItem(item.id, { assetId: complete.asset.id, status: "done", progress: 100 });
-          } catch (caught) {
-            failed += 1;
-            updateItem(item.id, {
-              status: "error",
-              error: caught instanceof Error ? caught.message : "Upload failed."
-            });
           }
+
+          batchItems = itemsRef.current.filter((candidate) => candidate.status === "queued");
         }
 
         uploadInProgressRef.current = false;
@@ -304,7 +327,24 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
         }
       })();
     },
-    [items, updateItem]
+    [updateItem]
+  );
+
+  const addFilesAndUpload = useCallback(
+    (files: FileList | File[], settings: GalleryAccessSettings) => {
+      const next = createQueuedUploadItems(files);
+
+      if (next.length === 0) return;
+
+      setItems((current) => {
+        const updated = [...current, ...next];
+        itemsRef.current = updated;
+        return updated;
+      });
+
+      window.setTimeout(() => uploadAll(settings), 0);
+    },
+    [uploadAll]
   );
 
   const value = useMemo(
@@ -313,11 +353,12 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
       isUploading,
       notice,
       addFiles,
+      addFilesAndUpload,
       clearFinished,
       dismissNotice,
       uploadAll
     }),
-    [addFiles, clearFinished, dismissNotice, isUploading, items, notice, uploadAll]
+    [addFiles, addFilesAndUpload, clearFinished, dismissNotice, isUploading, items, notice, uploadAll]
   );
 
   return (

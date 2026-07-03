@@ -3,7 +3,7 @@ import { MarketListingCategory, MarketListingStatus, MediaVisibility, Prisma, Us
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
-import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { canUserAccessFeature, getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import {
   completeMarketPhotoUploadSchema,
@@ -74,6 +74,10 @@ function sellerView(user: {
     displayName: profileName(user),
     avatarUrl: user.profile?.avatarUrl
   };
+}
+
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
 function futureDate(days: number) {
@@ -184,7 +188,7 @@ function toMarketCardView(listing: MarketListingPayload): MarketListingCardView 
     status: listing.status,
     expiresAt: listing.expiresAt?.toISOString(),
     createdAt: listing.createdAt.toISOString(),
-    thumbnailUrl: thumbnail?.mediaAsset.publicUrl,
+    thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
     seller: sellerView(listing.seller)
   };
 }
@@ -307,6 +311,17 @@ export async function completeMarketPhotoUpload(userId: string, input: unknown) 
 
   if (!parsed.data.storageKey.startsWith(`market/${userId}/`)) {
     return { ok: false as const, error: "Invalid upload target." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Market photo upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
   }
 
   const asset = await prisma.mediaAsset.upsert({
@@ -453,7 +468,7 @@ export async function getMarketListingDetail(viewerUserId: string, listingIdOrSl
     description: listing.description,
     photos: listing.photos.map((photo) => ({
       id: photo.id,
-      publicUrl: photo.mediaAsset.publicUrl,
+      publicUrl: mediaAssetUrl(photo.mediaAsset),
       originalName: photo.mediaAsset.originalName
     })),
     viewerCanManage: isAdminRole(role) || listing.sellerUserId === viewerUserId,

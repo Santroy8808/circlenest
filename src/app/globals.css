@@ -47,7 +47,7 @@ a {
   grid-template-areas:
     "top top top"
     "nav main ads";
-  grid-template-columns: clamp(304px, 16vw, 360px) minmax(0, 1fr) clamp(360px, 19vw, 430px);
+  grid-template-columns: clamp(280px, 15vw, 330px) minmax(520px, 1fr) clamp(300px, 18vw, 380px);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
   inset: 0;
@@ -60,7 +60,7 @@ a {
   grid-template-areas:
     "top top"
     "nav main";
-  grid-template-columns: clamp(304px, 16vw, 360px) minmax(0, 1fr);
+  grid-template-columns: clamp(280px, 15vw, 330px) minmax(520px, 1fr);
 }
 
 .desktop-command-bar {
@@ -1485,7 +1485,7 @@ a {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 10px 14px;
   justify-content: flex-end;
 }
 
@@ -1495,17 +1495,18 @@ a {
   border: 0;
   color: var(--gold);
   cursor: pointer;
-  font-size: 0.86rem;
-  font-weight: 650;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 500;
   line-height: 1.2;
-  padding: 0;
+  padding: 2px 0;
   text-decoration: none;
+  text-shadow: none;
 }
 
 .profile-relationship-link:hover {
   color: #ffe794;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration: none;
 }
 
 .profile-inline-link {
@@ -1528,7 +1529,7 @@ a {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
   position: relative;
 }
@@ -3917,9 +3918,9 @@ a {
   align-items: center;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  min-height: 92px;
-  padding: 10px 12px;
+  gap: 16px;
+  min-height: 76px;
+  padding: 8px 12px;
 }
 
 .people-card--compact {
@@ -3954,10 +3955,10 @@ a {
 
 .people-card--row .people-card-copy {
   align-items: center;
-  column-gap: 12px;
+  column-gap: 14px;
   display: grid;
-  grid-template-columns: minmax(150px, 0.7fr) minmax(150px, 0.8fr) minmax(110px, 0.55fr);
-  row-gap: 4px;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(110px, 0.55fr) minmax(140px, 0.75fr);
+  row-gap: 2px;
 }
 
 .people-card--row .people-card-copy h2,
@@ -3967,15 +3968,29 @@ a {
 }
 
 .people-card--row .people-card-copy h2 {
-  font-size: 1rem;
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.people-card--row .people-full-name,
+.people-card--row .people-username,
+.people-card--row .people-location {
+  font-size: 0.78rem;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .people-card--row .people-location {
-  grid-column: 2;
+  grid-column: 3;
 }
 
 .people-card--row .people-relationship-pills {
   justify-content: flex-start;
+  grid-column: 1 / -1;
+  max-height: 22px;
+  overflow: hidden;
 }
 
 .people-card--compact .people-card-copy {
@@ -4016,7 +4031,7 @@ a {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
   margin-top: 14px;
 }
@@ -4024,6 +4039,7 @@ a {
 .people-card--row .people-family-action,
 .people-card--compact .people-family-action {
   flex-wrap: nowrap;
+  gap: 12px;
   justify-content: flex-end;
   margin-top: 0;
 }
@@ -4045,8 +4061,8 @@ a {
 
 .people-card--row .people-avatar {
   border-radius: 16px;
-  font-size: 1.05rem;
-  width: 50px;
+  font-size: 1rem;
+  width: 44px;
 }
 
 .people-card--compact .people-avatar {
@@ -4066,9 +4082,10 @@ a {
 }
 
 .family-action-button {
-  font-size: 0.82rem;
-  min-width: 88px;
-  padding: 8px 14px;
+  font-size: 0.78rem;
+  min-width: 96px;
+  padding: 7px 12px;
+  white-space: nowrap;
 }
 
 .notice-card {
@@ -6159,7 +6176,7 @@ a {
   }
 }
 
-@media (min-width: 861px) and (max-width: 1440px) {
+@media (min-width: 861px) and (max-width: 1180px) {
   .app-shell {
     grid-template-areas:
       "top top"
@@ -6177,7 +6194,7 @@ a {
   }
 
   .desktop-command-bar {
-    grid-template-columns: minmax(245px, 0.9fr) minmax(390px, 1.2fr) minmax(220px, 0.8fr);
+    grid-template-columns: minmax(245px, 0.9fr) minmax(360px, 1.2fr) minmax(210px, 0.8fr);
   }
 
   .desktop-command-link {

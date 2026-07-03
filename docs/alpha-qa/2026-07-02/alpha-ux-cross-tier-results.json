@@ -1,0 +1,699 @@
+{
+  "startedAt": "2026-07-02T16:16:28.249Z",
+  "base": "https://theta-space.net",
+  "marker": "Alpha Test Run - 2026-07-02",
+  "id": "TS-ALPHA-20260702",
+  "accounts": [
+    {
+      "tier": "Contributor",
+      "browser": "Edge",
+      "username": "mike",
+      "loginUrl": "https://theta-space.net/login",
+      "result": "Logged in; profile identified as CONTRIBUTOR MEMBERS in previous identification pass."
+    },
+    {
+      "tier": "Free",
+      "browser": "Firefox",
+      "username": "john",
+      "loginUrl": "https://theta-space.net/login",
+      "result": "Logged in; onboarding skip attempted."
+    },
+    {
+      "tier": "Auditor",
+      "browser": "Edge",
+      "username": "jules",
+      "loginUrl": "https://theta-space.net/login",
+      "result": "Logged in; profile identified as AUDITOR MEMBERS in previous identification pass."
+    }
+  ],
+  "actions": [
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/login",
+      "status": "note",
+      "actual": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "label": "Contributor login and dashboard",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/login",
+      "status": "pass",
+      "elapsedMs": 5725,
+      "actual": "{\"url\":\"https://theta-space.net/login\",\"text\":\"THETA-SPACE ACCESS\\n\\nLog in\\n\\nUse your member credentials. Email and handle login are both supported.\\n\\nEMAIL OR HANDLE\\nPASSWORD\\nChecking...\\nForgot password?\\nHave an invite?\\nReturn to dev update page\"}",
+      "bodySample": "THETA-SPACE ACCESS\n\nLog in\n\nUse your member credentials. Email and handle login are both supported.\n\nEMAIL OR HANDLE\nPASSWORD\nChecking...\nForgot password?\nHave an invite?\nReturn to dev update page",
+      "error": null
+    },
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/login",
+      "status": "note",
+      "actual": "Failed to fetch RSC payload for https://theta-space.net/home. Falling back to browser navigation. TypeError: Failed to fetch\n    at f (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:1:45434)\n    at h (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:1:66072)\n    at f (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:1:74993)\n    at Object.action (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:2:7082)\n    at c (ht"
+    },
+    {
+      "label": "Contributor profile visibility",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/profile/mike",
+      "status": "pass",
+      "elapsedMs": 5899,
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\n@MIKE\n\nMike\n\nDemo member for testing the daily-use loop.\n\nEdit profile\nCONTRIBUTOR\nMEMBERS\nDallas, TX\nMy Scientology\n\nMike demo profile with active messages, mail, groups, events, Market listings, and Production Zone data.\n\nStream\nPost, react, reply, and return without losing your place.\nLatest\nFriends\nGroups\nPics\nCommunicate\nMike\n@mike\n6/24/2026, 6:22:50 AM\nMEMBERS\n•••\n\nUX smoke pass 1 from Mike 2026-06-24T13:22:50.033Z\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n3\n↪\nMike\n@mike\n6/24/2026\n\nMike OP comment pass 1 2026-06-24T13:23:30.117Z\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\nJules\n@jules\n6/24/2026\n1 replies\n\nJules replying in pass 1 2026-06-24T13:24:19.288Z\n\n😂\n1\n😂\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRigh",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\n@MIKE\n\nMike\n\nDemo member for testing the daily-use loop.\n\nEdit profile\nCONTRIBUTOR\nMEMBERS\nDallas, TX\nMy Scientology\n\nMike demo profile with active messages, mail, groups, events, Market listings, and Production Zone data.\n\nStream\nPost, react, reply, and return without losing your place.\nLatest\nFriends\nGroups\nPics\nCommunicate\nMike\n@mike\n6/24/2026, 6:22:50 AM\nMEMBERS\n•••\n\nUX smoke pass 1 from Mike 2026-06-24T13:22:50.033Z\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n3\n↪\nMike\n@mike\n6/24/2026\n\nMike OP comment pass 1 2026-06-24T13:23:30.117Z\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\nJules\n@jules\n6/24/2026\n1 replies\n\nJules replying in pass 1 2026-06-24T13:24:19.288Z\n\n😂\n1\n😂\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRigh",
+      "error": null
+    },
+    {
+      "label": "Contributor settings visibility",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/settings",
+      "status": "pass",
+      "elapsedMs": 2772,
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nSETTINGS\n\nChoose a settings area\n\nSettings stay card-first. Sensitive areas route through a fresh secure-area prompt; My Pics does not.\n\nSEARCH SETTINGS\n\nSETTINGS AREAS\n\nChoose an area\nProfile > Edit Profile\nProfile\n\nEdit display name, bio, avatar, banner, location, and visibility.\n\nProfile > My Pics\nPics\n\nOpen your photo gallery without the secure settings wall.\n\nProfile > My Scientology\nProfile\n\nManage Scientology-specific classification, org, training, processing, and privacy.\n\nProfile > My Resume\nProfile\n\nBuild a printable professional resume with optional My Scientology summary.\n\nSecurity > Blocked Users\nsecure\n\nManage blocked users and account protection rules.\n\nRules > Notification Dings\nsecure\n\nTune notification ding",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nSETTINGS\n\nChoose a settings area\n\nSettings stay card-first. Sensitive areas route through a fresh secure-area prompt; My Pics does not.\n\nSEARCH SETTINGS\n\nSETTINGS AREAS\n\nChoose an area\nProfile > Edit Profile\nProfile\n\nEdit display name, bio, avatar, banner, location, and visibility.\n\nProfile > My Pics\nPics\n\nOpen your photo gallery without the secure settings wall.\n\nProfile > My Scientology\nProfile\n\nManage Scientology-specific classification, org, training, processing, and privacy.\n\nProfile > My Resume\nProfile\n\nBuild a printable professional resume with optional My Scientology summary.\n\nSecurity > Blocked Users\nsecure\n\nManage blocked users and account protection rules.\n\nRules > Notification Dings\nsecure\n\nTune notification ding",
+      "error": null
+    },
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/market/create",
+      "status": "note",
+      "actual": "Failed to load resource: the server responded with a status of 400 ()"
+    },
+    {
+      "label": "Contributor create listing form",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/market/create",
+      "status": "pass",
+      "elapsedMs": 9862,
+      "actual": "after submit url=https://theta-space.net/market/create",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nTHE MARKET\n\nCreate a listing\n\nListings browse as square thumbnails. Categories are fixed so search stays clean.\n\n6 of 6 listings left this 14-day period.\n\nTITLE\nPRICE\nCATEGORY\nBooks & Materials\nCourse Supplies\nAuditing Supplies\nE-Meters\nFurniture & Equipment\nServices\nBusiness Services\nEvent Supplies\nOther\nLOCATION\nDESCRIPTION\nPhotos\n\nUp to 3 photos. First photo becomes the thumbnail.\n\nChoose photos\n\nts-alpha-upload.svg\n\nInvalid\n\nCancel\nCreate listing\n\nAD STREAM\n\nRotating paid placements on the right.\n\nSPONSORED\n[Theta demo] Course Supply Kit ad\nClickable ad that lands on the Market listing.\n40s paid hold | 7 credits left\nSPONSORED\nTESTING\nCheck out this strawberry\n30s paid hold | 35 credits left\nReport issue",
+      "error": null
+    },
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/groups/create",
+      "status": "note",
+      "actual": "Failed to load resource: the server responded with a status of 500 ()"
+    },
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/groups/create",
+      "status": "note",
+      "actual": "SyntaxError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at https://theta-space.net/_next/static/chunks/app/groups/create/page-58f6fa1b2dd29166.js:1:1061"
+    },
+    {
+      "label": "Contributor create group",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/groups/create",
+      "status": "pass",
+      "elapsedMs": 8605,
+      "actual": "after submit url=https://theta-space.net/groups/create",
+      "bodySample": "Application error: a client-side exception has occurred (see the browser console for more information).",
+      "error": null
+    },
+    {
+      "label": "Contributor create event availability",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/events/create",
+      "status": "pass",
+      "elapsedMs": 3523,
+      "actual": "event create unavailable/gated",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nCREATE EVENT\n\nThis feature is not yet available\n\nThis feature is in development and is not yet available from this account right now.\n\nBack to Events\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free login and dashboard",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/login",
+      "status": "pass",
+      "elapsedMs": 5578,
+      "actual": "{\"url\":\"https://theta-space.net/login\",\"text\":\"THETA-SPACE ACCESS\\n\\nLog in\\n\\nUse your member credentials. Email and handle login are both supported.\\n\\nEMAIL OR HANDLE\\nPASSWORD\\nChecking...\\nForgot password?\\nHave an invite?\\nReturn to dev update page\"}",
+      "bodySample": "THETA-SPACE ACCESS\n\nLog in\n\nUse your member credentials. Email and handle login are both supported.\n\nEMAIL OR HANDLE\nPASSWORD\nChecking...\nForgot password?\nHave an invite?\nReturn to dev update page",
+      "error": null
+    },
+    {
+      "label": "console-error",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/login",
+      "status": "note",
+      "actual": "Failed to fetch RSC payload for https://theta-space.net/home. Falling back to browser navigation. JSHandle@object"
+    },
+    {
+      "label": "Free profile and membership visibility",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 4526,
+      "actual": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free discovers listing through Market",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 7960,
+      "actual": "not visible on first market page; direct URL opened. Detail contains marker=false",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free listing permission boundary",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 3,
+      "actual": "owner controls visible=false",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free interacts with Contributor group",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 3220,
+      "actual": "cta clicked=false; beforeHasMarker=false; afterSample=STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free event visibility/registration",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 4001,
+      "actual": "No event URL from Contributor flow; checked events index.",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free notifications after interactions",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 3478,
+      "actual": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free forbidden admin/business access checks",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 17414,
+      "actual": "[{\"route\":\"/admin\",\"url\":\"https://theta-space.net/onboarding/profile\",\"blocked\":false,\"sample\":\"STEP 1 OF 4\\n\\nSet up your profile\\n\\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\\n\\nEMAIL\\nFULL NAME\\nLOCATION\\nTAGLINE\\nBIO\\nContinue\\nSkip for now\\nReport issue\"},{\"route\":\"/business-center\",\"url\":\"https://theta-space.net/onboarding/profile\",\"blocked\":false,\"sample\":\"STEP 1 OF 4\\n\\nSet up your profile\\n\\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\\n\\nEMAIL\\nFULL NAME\\nLOCATION\\nTAGLINE\\nBIO\\nContinue\\nSkip for now\\nReport issue\"},{\"route\":\"/events/create\",\"url\":\"https://theta-space.net/onboarding/profile\",\"blocked\":false,\"sample\":\"STEP 1 OF 4\\n\\nSet up your profile\\n\\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\\n\\nEMAIL\\nFULL NAME\\nLOCATION\\nTAGLINE\\nBIO\\nContinue\\nSkip for now\\nReport issue\"}]",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Contributor sees Free interaction effects",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/notifications",
+      "status": "pass",
+      "elapsedMs": 6050,
+      "actual": "[{\"route\":\"group\",\"url\":\"https://theta-space.net/groups/create\",\"hasJohn\":false},{\"route\":\"notifications\",\"sample\":\"TS\\nTheta-Space home\\nSearch Theta-Space\\nGo\\nHome\\nPeople\\nMarket\\nSearch\\nComm\\n+\\nCreate ad\\nN\\nNotifications\\n!\\nAlerts\\n\\nTHETA-SPACE\\n\\nMike\\n\\nMember control panel\\n\\nHOME\\n›\\nMy Stream\\nMy Pics\\nSearch\\nMembership\\nLogout\\nCOMM\\n›\\nMessages\\nMail\\nNotifications\\nAlerts\\nPEOPLE\\n›\\nBrowse People\\nFriends\\nGroups\\nMARKET\\n›\\nThe Market\\nFind a Job\\nFind an Auditor\\nBusiness Center\\nAds\\nEvents\\nWriters Corner\\nFundraisers\\nSETTINGS\\n›\\nProfile\\nMy Scientology\\nMy Resume\\nSettings\\nTheta-Space member controls.\\n\\nCOMMUNICATIONS\\n\\nNotifications\\n\\nMentions, replies, friend and family requests, and ordinary social updates live here. Alerts stay separate for system and account-critical notices.\\n\\nNo notifications yet\\n\\nThere are no items in this inbox.\\n\\nAD STREAM\\n\\nRotating paid placements on the right.\\n\\nSPONSORED\\nTESTING\\nCheck out this strawberry\\n1s paid hold | 35 credits left\\nSPONSORED\\n[Theta demo] Course Supply Kit ad\\nClickable ad that lands on the Market listing.\\n30s paid hold | 7 credits left\\nReport issue\"}]",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nCOMMUNICATIONS\n\nNotifications\n\nMentions, replies, friend and family requests, and ordinary social updates live here. Alerts stay separate for system and account-critical notices.\n\nNo notifications yet\n\nThere are no items in this inbox.\n\nAD STREAM\n\nRotating paid placements on the right.\n\nSPONSORED\nTESTING\nCheck out this strawberry\n1s paid hold | 35 credits left\nSPONSORED\n[Theta demo] Course Supply Kit ad\nClickable ad that lands on the Market listing.\n30s paid hold | 7 credits left\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Auditor login and dashboard",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/login",
+      "status": "pass",
+      "elapsedMs": 5728,
+      "actual": "{\"url\":\"https://theta-space.net/login\",\"text\":\"THETA-SPACE ACCESS\\n\\nLog in\\n\\nUse your member credentials. Email and handle login are both supported.\\n\\nEMAIL OR HANDLE\\nPASSWORD\\nChecking...\\nForgot password?\\nHave an invite?\\nReturn to dev update page\"}",
+      "bodySample": "THETA-SPACE ACCESS\n\nLog in\n\nUse your member credentials. Email and handle login are both supported.\n\nEMAIL OR HANDLE\nPASSWORD\nChecking...\nForgot password?\nHave an invite?\nReturn to dev update page",
+      "error": null
+    },
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/login",
+      "status": "note",
+      "actual": "Failed to fetch RSC payload for https://theta-space.net/home. Falling back to browser navigation. TypeError: Failed to fetch\n    at f (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:1:45434)\n    at h (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:1:66072)\n    at f (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:1:74993)\n    at Object.action (https://theta-space.net/_next/static/chunks/2117-5a9e1ecbc097ab9b.js:2:7082)\n    at c (ht"
+    },
+    {
+      "label": "console-error",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/profile/jules",
+      "status": "note",
+      "actual": "Failed to load resource: the server responded with a status of 403 ()"
+    },
+    {
+      "label": "Auditor dashboard/profile/navigation",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/profile/jules",
+      "status": "pass",
+      "elapsedMs": 5539,
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\n@JULES\n\nJules\n\nFriend and family demo account.\n\nEdit profile\nAUDITOR\nMEMBERS\nClearwater, FL\nMy Scientology\n\nJules demo profile with active messages, mail, groups, events, Market listings, and Production Zone data.\n\nFamily\nAPPROVED\nMichael De Armon\nSpouse\nMike De Armon\nSibling\nStream\nPost, react, reply, and return without losing your place.\nLatest\nFriends\nGroups\nPics\nCommunicate\nJules\n@jules\n7/1/2026, 12:40:39 PM\nMEMBERS\n•••\n\nanyone else just sit at their desk like...\n\n😂\n1\n😂\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n1\n↪\nMichael De Armon\n@midearmon\n7/1/2026\n\nIf I did that, things would break 😂\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\nJules\n@jules\n7/1/2026, 12:39:43 PM\nMEMBERS\n•••\n\nneed to test this more\n\n1\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n1\n↪\nMichael De Armon\n@midearmon\n7/1/2026\n\nThat's why I gave you the updated MOBILE version, because you all but refuse to do it on desktop. 🔥\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\n@JULES\n\nJules\n\nFriend and family demo account.\n\nEdit profile\nAUDITOR\nMEMBERS\nClearwater, FL\nMy Scientology\n\nJules demo profile with active messages, mail, groups, events, Market listings, and Production Zone data.\n\nFamily\nAPPROVED\nMichael De Armon\nSpouse\nMike De Armon\nSibling\nStream\nPost, react, reply, and return without losing your place.\nLatest\nFriends\nGroups\nPics\nCommunicate\nJules\n@jules\n7/1/2026, 12:40:39 PM\nMEMBERS\n•••\n\nanyone else just sit at their desk like...\n\n😂\n1\n😂\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n1\n↪\nMichael De Armon\n@midearmon\n7/1/2026\n\nIf I did that, things would break 😂\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n↩\n↪\nJules\n@jules\n7/1/2026, 12:39:43 PM\nMEMBERS\n•••\n\nneed to test this more\n\n1\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n1\n↪\nMichael De Armon\n@m",
+      "error": null
+    },
+    {
+      "label": "Auditor production/auditor tools",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/auditors",
+      "status": "pass",
+      "elapsedMs": 3981,
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nPRODUCTION ZONE\n\nFind an Auditor\n\nSearch auditor mini profiles. “I’m an Auditor” is a separate profile builder for Auditor accounts.\n\nI'm an Auditor\nNo auditor profiles yet\n\nApproved Auditor accounts can publish listings here.\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nPRODUCTION ZONE\n\nFind an Auditor\n\nSearch auditor mini profiles. “I’m an Auditor” is a separate profile builder for Auditor accounts.\n\nI'm an Auditor\nNo auditor profiles yet\n\nApproved Auditor accounts can publish listings here.\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Auditor admin permission boundary",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/home",
+      "status": "pass",
+      "elapsedMs": 5884,
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\nCommunicate\nPost, photo, link, survey\nSYSTEM NOTICE\nFriend request approval needed\nMichael De Armon wants to add you as a friend on Theta-Space.\nStream\nPost, react, reply, and return without losing your place.\nLatest\nFriends\nGroups\nPics\nS\nSally Matsukawa\n@sally\n7/2/2026, 7:21:19 AM\nMEMBERS\n•••\n\nDo you want me to tell you about the bugs I find?\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n↪\nMichael De Armon\n@midearmon\n7/2/2026, 4:25:42 AM\nMEMBERS\n•••\n\nPassing this along from Jules:\n\nanyone else just sit at their desk like...\n\nhttps://theta-space.net/posts/cmr2hdb1s02ii62wtx1wmwftb\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n↪\nMichael De Armon\n@midearmon\n7/1/2026, 3:52:27 PM\nMEMBERS\n•••\n\nPassing this along from Sally Matsukawa:\n\nNo one has friended me yet.\n\nhttps://theta-space.net/posts/cmqved7zy005aoqg7xidnxwva\n\n❤️\n1\n❤️\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n↪\nJules\n@jules\n7/1/2026, 12:40:39 PM\nMEMBERS\n•••\n\nanyone else just sit at their desk like...\n\n😂\n1\n😂\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n1\n↪\nMichael De Armon\n@midearmon\n7/1/2026\n\nIf I did that, things would break 😂\n\n❤️\n🤗\n😂",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\nCommunicate\nPost, photo, link, survey\nSYSTEM NOTICE\nFriend request approval needed\nMichael De Armon wants to add you as a friend on Theta-Space.\nStream\nPost, react, reply, and return without losing your place.\nLatest\nFriends\nGroups\nPics\nS\nSally Matsukawa\n@sally\n7/2/2026, 7:21:19 AM\nMEMBERS\n•••\n\nDo you want me to tell you about the bugs I find?\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n↪\nMichael De Armon\n@midearmon\n7/2/2026, 4:25:42 AM\nMEMBERS\n•••\n\nPassing this along from Jules:\n\nanyone else just sit at their desk like...\n\nhttps://theta-space.net/posts/cmr2hdb1s02ii62wtx1wmwftb\n\n❤️\n🤗\n😂\n😮\n😢\n😡\n👎\n🗨︎\n↪\nMichael De Armon\n@midearmon\n7/1/2026, 3:52:27 PM\nMEMBERS\n•••\n\nPassing this along from Sally Matsukawa:\n\nNo one has friended me yet.\n\nhttps",
+      "error": null
+    },
+    {
+      "label": "Auditor reviews Contributor-created content visibility",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/groups/create",
+      "status": "pass",
+      "elapsedMs": 5967,
+      "actual": "[{\"type\":\"listing\",\"url\":\"https://theta-space.net/market/create\",\"marker\":false,\"controls\":true},{\"type\":\"group\",\"url\":\"https://theta-space.net/groups/create\",\"marker\":false,\"controls\":true}]",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nJules\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nCREATE GROUP\n\nSet up the group profile\n\nCreate the group profile, then manage discussions, photos, docs, and members from the group page.\n\nGROUP NAME\nTAGLINE\nDESCRIPTION\nVISIBILITY\nPublic\nPrivate\nJOIN POLICY\nOpen join\nApproval required\nCancel\nCreate group\n\nAD STREAM\n\nRotating paid placements on the right.\n\nSPONSORED\n[Theta demo] Course Supply Kit ad\nClickable ad that lands on the Market listing.\n3s paid hold | 7 credits left\nSPONSORED\nTESTING\nCheck out this strawberry\n30s paid hold | 35 credits left\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Free post-auditor effect check",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "status": "pass",
+      "elapsedMs": 4043,
+      "actual": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "bodySample": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue",
+      "error": null
+    },
+    {
+      "label": "Contributor post-auditor effect check",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/notifications",
+      "status": "pass",
+      "elapsedMs": 3519,
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nCOMMUNICATIONS\n\nNotifications\n\nMentions, replies, friend and family requests, and ordinary social updates live here. Alerts stay separate for system and account-critical notices.\n\nNo notifications yet\n\nThere are no items in this inbox.\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue",
+      "bodySample": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nCOMMUNICATIONS\n\nNotifications\n\nMentions, replies, friend and family requests, and ordinary social updates live here. Alerts stay separate for system and account-critical notices.\n\nNo notifications yet\n\nThere are no items in this inbox.\n\nAD STREAM\n\nRotating paid placements on the right.\n\nRESERVED\nRight stream placement\nNo active ads are available for this placement.\nReport issue",
+      "error": null
+    }
+  ],
+  "created": [],
+  "bugs": [
+    {
+      "id": "ALPHA-001",
+      "title": "Contributor listing did not complete or redirect clearly",
+      "severity": "High",
+      "tier": "Contributor",
+      "browser": "Edge",
+      "url": "https://theta-space.net/market/create",
+      "steps": "Fill /market/create and click Create/Publish.",
+      "expected": "Listing should save and redirect to a detail or confirmation page.",
+      "actual": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nTHE MARKET\n\nCreate a listing\n\nListings browse as square thumbnails. Categories are fixed so search stays clean.\n\n6 of 6 listings left this 14-day period.\n\nTITLE\nPRICE\nCATEGORY\nBooks & Materials\nCourse Supplies\nAuditing Supplies\nE-Meters\nFurniture & Equipment\nServices\nBusiness Services\nEvent Supplies\nOther\nLOCATION\nDESCRIPTION\nPhotos",
+      "screenshotLabel": "contributor-create-listing-filled"
+    },
+    {
+      "id": "ALPHA-002",
+      "title": "Contributor group creation did not complete or redirect clearly",
+      "severity": "High",
+      "tier": "Contributor",
+      "browser": "Edge",
+      "url": "https://theta-space.net/groups/create",
+      "steps": "Fill /groups/create and click Create.",
+      "expected": "Group should save and redirect to group detail page.",
+      "actual": "Application error: a client-side exception has occurred (see the browser console for more information).",
+      "screenshotLabel": "contributor-create-group-filled"
+    }
+  ],
+  "performance": [
+    {
+      "pageFlow": "Contributor login and dashboard",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/login",
+      "elapsedMs": 5725,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor profile visibility",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/profile/mike",
+      "elapsedMs": 5899,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor settings visibility",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/settings",
+      "elapsedMs": 2772,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor create listing form",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/market/create",
+      "elapsedMs": 9862,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor create group",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/groups/create",
+      "elapsedMs": 8605,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor create event availability",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/events/create",
+      "elapsedMs": 3523,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free login and dashboard",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/login",
+      "elapsedMs": 5578,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free profile and membership visibility",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 4526,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free discovers listing through Market",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 7960,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free listing permission boundary",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 3,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free interacts with Contributor group",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 3220,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free event visibility/registration",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 4001,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free notifications after interactions",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 3478,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free forbidden admin/business access checks",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 17414,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor sees Free interaction effects",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/notifications",
+      "elapsedMs": 6050,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Auditor login and dashboard",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/login",
+      "elapsedMs": 5728,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Auditor dashboard/profile/navigation",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/profile/jules",
+      "elapsedMs": 5539,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Auditor production/auditor tools",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/auditors",
+      "elapsedMs": 3981,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Auditor admin permission boundary",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/home",
+      "elapsedMs": 5884,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Auditor reviews Contributor-created content visibility",
+      "browser": "Edge",
+      "tier": "Auditor",
+      "url": "https://theta-space.net/groups/create",
+      "elapsedMs": 5967,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Free post-auditor effect check",
+      "browser": "Firefox",
+      "tier": "Free",
+      "url": "https://theta-space.net/onboarding/profile",
+      "elapsedMs": 4043,
+      "status": "pass"
+    },
+    {
+      "pageFlow": "Contributor post-auditor effect check",
+      "browser": "Edge",
+      "tier": "Contributor",
+      "url": "https://theta-space.net/notifications",
+      "elapsedMs": 3519,
+      "status": "pass"
+    }
+  ],
+  "permissions": [
+    {
+      "feature": "Event creation",
+      "tier": "Contributor",
+      "result": "Unavailable or gated",
+      "url": "https://theta-space.net/events/create",
+      "note": "TS\nTheta-Space home\nSearch Theta-Space\nGo\nHome\nPeople\nMarket\nSearch\nComm\n+\nCreate ad\nN\nNotifications\n!\nAlerts\n\nTHETA-SPACE\n\nMike\n\nMember control panel\n\nHOME\n›\nMy Stream\nMy Pics\nSearch\nMembership\nLogout\nCOMM\n›\nMessages\nMail\nNotifications\nAlerts\nPEOPLE\n›\nBrowse People\nFriends\nGroups\nMARKET\n›\nThe Market\nFind a Job\nFind an Auditor\nBusiness Center\nAds\nEvents\nWriters Corner\nFundraisers\nSETTINGS\n›\nProfile\nMy Scientology\nMy Resume\nSettings\nTheta-Space member controls.\n\nCREATE EVENT\n\nThis feature is not "
+    },
+    {
+      "feature": "Group join/request",
+      "tier": "Free",
+      "result": "No obvious CTA found",
+      "url": "https://theta-space.net/onboarding/profile",
+      "note": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue"
+    }
+  ],
+  "screenshots": [
+    {
+      "label": "contributor-dashboard",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\01-contributor-dashboard.png",
+      "url": "https://theta-space.net/login",
+      "at": "2026-07-02T16:16:36.845Z"
+    },
+    {
+      "label": "contributor-profile",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\02-contributor-profile.png",
+      "url": "https://theta-space.net/profile/mike",
+      "at": "2026-07-02T16:16:42.838Z"
+    },
+    {
+      "label": "contributor-settings",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\03-contributor-settings.png",
+      "url": "https://theta-space.net/settings",
+      "at": "2026-07-02T16:16:45.684Z"
+    },
+    {
+      "label": "contributor-create-listing-filled",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\04-contributor-create-listing-filled.png",
+      "url": "https://theta-space.net/market/create",
+      "at": "2026-07-02T16:16:50.513Z"
+    },
+    {
+      "label": "contributor-listing-result",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\05-contributor-listing-result.png",
+      "url": "https://theta-space.net/market/create",
+      "at": "2026-07-02T16:16:55.616Z"
+    },
+    {
+      "label": "contributor-create-group-filled",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\06-contributor-create-group-filled.png",
+      "url": "https://theta-space.net/groups/create",
+      "at": "2026-07-02T16:16:59.184Z"
+    },
+    {
+      "label": "contributor-group-result",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\07-contributor-group-result.png",
+      "url": "https://theta-space.net/groups/create",
+      "at": "2026-07-02T16:17:04.332Z"
+    },
+    {
+      "label": "contributor-event-result",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\08-contributor-event-result.png",
+      "url": "https://theta-space.net/events/create",
+      "at": "2026-07-02T16:17:07.942Z"
+    },
+    {
+      "label": "free-dashboard",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\09-free-dashboard.png",
+      "url": "https://theta-space.net/login",
+      "at": "2026-07-02T16:17:13.557Z"
+    },
+    {
+      "label": "free-profile",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\10-free-profile.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:17:18.134Z"
+    },
+    {
+      "label": "free-market-or-listing",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\11-free-market-or-listing.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:17:26.127Z"
+    },
+    {
+      "label": "free-group-detail-after-interaction",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\12-free-group-detail-after-interaction.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:17:29.391Z"
+    },
+    {
+      "label": "free-event-or-events",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\13-free-event-or-events.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:17:33.445Z"
+    },
+    {
+      "label": "free-notifications",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\14-free-notifications.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:17:36.958Z"
+    },
+    {
+      "label": "free-permission-checks",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\15-free-permission-checks.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:17:54.410Z"
+    },
+    {
+      "label": "contributor-after-free-interaction",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\16-contributor-after-free-interaction.png",
+      "url": "https://theta-space.net/notifications",
+      "at": "2026-07-02T16:18:00.561Z"
+    },
+    {
+      "label": "auditor-dashboard",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\17-auditor-dashboard.png",
+      "url": "https://theta-space.net/login",
+      "at": "2026-07-02T16:18:06.411Z"
+    },
+    {
+      "label": "auditor-profile",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\18-auditor-profile.png",
+      "url": "https://theta-space.net/profile/jules",
+      "at": "2026-07-02T16:18:12.036Z"
+    },
+    {
+      "label": "auditor-tools",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\19-auditor-tools.png",
+      "url": "https://theta-space.net/auditors",
+      "at": "2026-07-02T16:18:16.101Z"
+    },
+    {
+      "label": "auditor-admin-check",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\20-auditor-admin-check.png",
+      "url": "https://theta-space.net/home",
+      "at": "2026-07-02T16:18:22.093Z"
+    },
+    {
+      "label": "auditor-content-visibility",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\21-auditor-content-visibility.png",
+      "url": "https://theta-space.net/groups/create",
+      "at": "2026-07-02T16:18:28.146Z"
+    },
+    {
+      "label": "free-after-auditor-check",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\22-free-after-auditor-check.png",
+      "url": "https://theta-space.net/onboarding/profile",
+      "at": "2026-07-02T16:18:32.229Z"
+    },
+    {
+      "label": "contributor-after-auditor-check",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots\\23-contributor-after-auditor-check.png",
+      "url": "https://theta-space.net/notifications",
+      "at": "2026-07-02T16:18:35.828Z"
+    }
+  ],
+  "completedAt": "2026-07-02T16:18:35.828Z"
+}

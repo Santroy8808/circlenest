@@ -1,0 +1,61 @@
+{
+  "actions": [
+    {
+      "label": "edge-console-error",
+      "url": "https://theta-space.net/login",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "label": "edge-after-login",
+      "url": "https://theta-space.net/profile/edit?next=/profile/scientology",
+      "text": "Report issue"
+    },
+    {
+      "label": "edge-final-home",
+      "url": "https://theta-space.net/onboarding/scientology",
+      "text": "STEP 2 OF 4\n\nFill in My Scientology\n\nTheta-Space is private membership. These fields are recommended and stay private unless you later choose otherwise. You can skip this page and finish it later.\n\nCLASSIFICATION\nPublic\nStaff\nSea Org\nAuditor\nLAST 6 OF IAS MEMBERSHIP NUMBER, OPTIONAL\nCURRENT ORG RECEIVING SERVICES\nLAST SERVICE\nTRAINING LEVEL\nSelect training level\nNot Classified\nStudent Hat\nPro Upper Indoc\nPro Metering\nClass 0 Auditor\nClass I Auditor\nClass II Auditor\nClass III Auditor\nClass IV\nClass IV Auditor\nClass V\nClass V Auditor\nClass V Graduate\nClass V Graduate Auditor\nClass VA Graduate\nClass VA Graduate Auditor\nClass VI\nClass VI Auditor\nClass VII Auditor\nClass VIII Auditor\nPROCESSING / RUNDOWN\nSelect processing level\nPurification Rundown\nTRs and Objectives\nScientology Drug Rundown\nHappiness Rundown\nARC Straightwire Expanded\nGrade 0 Expanded\nGrade I Expanded\nGrade II Expanded\nGrade III Expanded\nGrade IV Expanded\nNew Era Dianetics\nExpanded Dianetics\nGrade V\nGrade VA\nOT Preps\nGrade VI Release\nClearing Course\nClear Certainty Rundown\nCLEAR\nSunshine Rundown\nSolo Course Part I\nOT Preparations\nSolo Course Part II\nOT Eligibility\nOT I\nOT II\nOT III\nOT IV\nOT V\nOT VI\nOT VII\nOT VIII\nNOTES, "
+    },
+    {
+      "label": "firefox-after-login",
+      "url": "https://theta-space.net/onboarding/scientology",
+      "text": "STEP 2 OF 4\n\nFill in My Scientology\n\nTheta-Space is private membership. These fields are recommended and stay private unless you later choose otherwise. You can skip this page and finish it later.\n\nCLASSIFICATION\nLAST 6 OF IAS MEMBERSHIP NUMBER, OPTIONAL\nCURRENT ORG RECEIVING SERVICES\nLAST SERVICE\nTRAINING LEVEL\nPROCESSING / RUNDOWN\nNOTES, OPTIONAL\nContinue\nSkip for now\nReport issue"
+    },
+    {
+      "label": "firefox-listing",
+      "url": "https://theta-space.net/onboarding/scientology",
+      "text": "STEP 2 OF 4\n\nFill in My Scientology\n\nTheta-Space is private membership. These fields are recommended and stay private unless you later choose otherwise. You can skip this page and finish it later.\n\nCLASSIFICATION\nLAST 6 OF IAS MEMBERSHIP NUMBER, OPTIONAL\nCURRENT ORG RECEIVING SERVICES\nLAST SERVICE\nTRAINING LEVEL\nPROCESSING / RUNDOWN\nNOTES, OPTIONAL\nContinue\nSkip for now\nReport issue"
+    },
+    {
+      "label": "firefox-notifications",
+      "url": "https://theta-space.net/onboarding/scientology",
+      "text": "STEP 2 OF 4\n\nFill in My Scientology\n\nTheta-Space is private membership. These fields are recommended and stay private unless you later choose otherwise. You can skip this page and finish it later.\n\nCLASSIFICATION\nLAST 6 OF IAS MEMBERSHIP NUMBER, OPTIONAL\nCURRENT ORG RECEIVING SERVICES\nLAST SERVICE\nTRAINING LEVEL\nPROCESSING / RUNDOWN\nNOTES, OPTIONAL\nContinue\nSkip for now\nReport issue"
+    }
+  ],
+  "screenshots": [
+    {
+      "label": "01-edge-after-login",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-final\\01-edge-after-login.png",
+      "url": "https://theta-space.net/profile/edit?next=/profile/scientology"
+    },
+    {
+      "label": "09-edge-final-home",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-final\\09-edge-final-home.png",
+      "url": "https://theta-space.net/onboarding/scientology"
+    },
+    {
+      "label": "10-firefox-after-login",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-final\\10-firefox-after-login.png",
+      "url": "https://theta-space.net/onboarding/scientology"
+    },
+    {
+      "label": "11-firefox-listing",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-final\\11-firefox-listing.png",
+      "url": "https://theta-space.net/onboarding/scientology"
+    },
+    {
+      "label": "12-firefox-notifications",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-final\\12-firefox-notifications.png",
+      "url": "https://theta-space.net/onboarding/scientology"
+    }
+  ]
+}

@@ -548,8 +548,10 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     return createdPost;
   });
 
+  const postView = await fetchFeedPostThread(post.id);
+
   await diagnostics.info(MODULE_KEY, "Feed post created.", { authorUserId, postId: post.id });
-  return { ok: true as const, post };
+  return { ok: true as const, post: postView ? toFeedPostView(postView as unknown as FeedPostRecord) : null };
 }
 
 export async function createFeedComment(authorUserId: string, input: unknown) {
@@ -630,12 +632,14 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
     });
   }
 
+  const postView = await fetchFeedPostThread(comment.postId);
+
   await diagnostics.info(MODULE_KEY, "Feed comment created.", {
     authorUserId,
     postId: comment.postId,
     commentId: comment.id
   });
-  return { ok: true as const, comment };
+  return { ok: true as const, comment, post: postView ? toFeedPostView(postView as unknown as FeedPostRecord) : null };
 }
 
 export async function reactToFeedPost(userId: string, input: unknown) {

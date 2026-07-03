@@ -7,7 +7,7 @@ import {
   Prisma,
   SocialRelationshipType
 } from "@prisma/client";
-import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
@@ -56,6 +56,10 @@ function readThumbnailUrl(metadata: Prisma.JsonValue | null | undefined) {
 
   const value = (metadata as Record<string, unknown>).thumbnailUrl;
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
 function toPersonView(user: {
@@ -121,7 +125,7 @@ function toAttachmentView(
     fileName: attachment.fileName,
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes.toString(),
-    publicUrl: attachment.publicUrl ?? attachment.mediaAsset?.publicUrl,
+    publicUrl: attachment.publicUrl ?? mediaAssetUrl(attachment.mediaAsset),
     thumbnailUrl: readThumbnailUrl(attachment.mediaAsset?.metadata),
     mediaAssetId: attachment.mediaAssetId
   };
@@ -309,7 +313,7 @@ function mobileBridgeBody(message: Prisma.ChatMessageGetPayload<{ include: { att
   if (body) parts.push(body);
 
   for (const attachment of message.attachments) {
-    const publicUrl = attachment.publicUrl ?? attachment.mediaAsset?.publicUrl;
+    const publicUrl = attachment.publicUrl ?? mediaAssetUrl(attachment.mediaAsset);
     if (publicUrl) {
       parts.push(`${attachment.kind === ChatAttachmentKind.IMAGE ? "[photo]" : "[file]"} ${attachment.fileName}: ${publicUrl}`);
     } else {
@@ -1130,6 +1134,29 @@ export async function completeChatUpload(userId: string, input: unknown) {
 
   if (parsed.data.thumbnailStorageKey && !parsed.data.thumbnailStorageKey.startsWith(expectedPrefix)) {
     return { ok: false as const, error: "Invalid thumbnail upload key." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Chat attachment upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
+  }
+
+  if (parsed.data.thumbnailStorageKey) {
+    const uploadedThumbnail = await verifyR2Object({
+      storageKey: parsed.data.thumbnailStorageKey,
+      expectedMimeType: "image/jpeg",
+      label: "Chat thumbnail upload"
+    });
+
+    if (!uploadedThumbnail.ok) {
+      return { ok: false as const, error: uploadedThumbnail.error };
+    }
   }
 
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);

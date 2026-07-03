@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { MediaAssetStatus, MediaCollectionType, MediaVisibility, Prisma } from "@prisma/client";
-import { deleteR2Object, getR2PublicUrl, createPresignedR2PutUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
@@ -266,6 +266,29 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
 
   if (parsed.data.thumbnailStorageKey && !parsed.data.thumbnailStorageKey.startsWith(expectedPrefix)) {
     return { ok: false as const, error: "Invalid thumbnail upload target." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Photo upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
+  }
+
+  if (parsed.data.thumbnailStorageKey) {
+    const uploadedThumbnail = await verifyR2Object({
+      storageKey: parsed.data.thumbnailStorageKey,
+      expectedMimeType: "image/jpeg",
+      label: "Photo thumbnail upload"
+    });
+
+    if (!uploadedThumbnail.ok) {
+      return { ok: false as const, error: uploadedThumbnail.error };
+    }
   }
 
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);

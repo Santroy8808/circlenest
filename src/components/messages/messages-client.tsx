@@ -132,7 +132,15 @@ function ChatAvatar({ className = "chat-avatar", person }: { className?: string;
 }
 
 function attachmentImageUrl(attachment: ChatAttachmentView) {
-  return attachment.thumbnailUrl ?? attachment.publicUrl ?? "";
+  return attachment.thumbnailUrl ?? attachment.publicUrl ?? (attachment.mediaAssetId ? `/api/media/assets/${attachment.mediaAssetId}` : "");
+}
+
+function handleChatImageError(event: React.SyntheticEvent<HTMLImageElement>, attachment: ChatAttachmentView) {
+  const image = event.currentTarget;
+  if (!attachment.mediaAssetId || image.dataset.mediaFallbackApplied === "true") return;
+
+  image.dataset.mediaFallbackApplied = "true";
+  image.src = `/api/media/assets/${attachment.mediaAssetId}`;
 }
 
 function hasImageFileSignature(attachment: ChatAttachmentView) {
@@ -170,6 +178,33 @@ function messagesLikelyMatch(serverMessage: ChatMessageView, localMessage: ChatM
   return sameBody && sameSender && sameAttachmentCount && closeInTime;
 }
 
+function isLocalMessage(message: ChatMessageView) {
+  return message.id.startsWith("local-");
+}
+
+function dedupeMessages(messages: ChatMessageView[]) {
+  const result: ChatMessageView[] = [];
+
+  for (const message of messages) {
+    if (result.some((existing) => existing.id === message.id)) continue;
+
+    if (isLocalMessage(message) && result.some((existing) => !isLocalMessage(existing) && messagesLikelyMatch(existing, message))) {
+      continue;
+    }
+
+    if (!isLocalMessage(message)) {
+      const localDuplicateIndex = result.findIndex((existing) => isLocalMessage(existing) && messagesLikelyMatch(message, existing));
+      if (localDuplicateIndex >= 0) {
+        result.splice(localDuplicateIndex, 1);
+      }
+    }
+
+    result.push(message);
+  }
+
+  return result;
+}
+
 function MessageImageAttachment({
   attachment,
   isMine
@@ -182,7 +217,7 @@ function MessageImageAttachment({
   return (
     <figure className={isMine ? "chat-media-message is-mine" : "chat-media-message"}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img alt={attachment.fileName} loading="lazy" src={imageUrl} />
+      <img alt={attachment.fileName} loading="lazy" onError={(event) => handleChatImageError(event, attachment)} src={imageUrl} />
       <figcaption className="chat-media-caption">{attachment.fileName}</figcaption>
     </figure>
   );
@@ -252,17 +287,19 @@ export function MessagesClient({
     incomingThread: ChatThreadDetailView,
     currentThread: ChatThreadDetailView | null
   ): ChatThreadDetailView {
-    if (!currentThread || currentThread.id !== incomingThread.id) return incomingThread;
+    if (!currentThread || currentThread.id !== incomingThread.id) {
+      return { ...incomingThread, messages: dedupeMessages(incomingThread.messages) };
+    }
 
     const pending = currentThread.messages.filter((message) => message.id.startsWith("local-"));
-    if (pending.length === 0) return incomingThread;
+    if (pending.length === 0) return { ...incomingThread, messages: dedupeMessages(incomingThread.messages) };
 
     return {
       ...incomingThread,
-      messages: [
+      messages: dedupeMessages([
         ...incomingThread.messages,
         ...pending.filter((pendingMessage) => !incomingThread.messages.some((message) => messagesLikelyMatch(message, pendingMessage)))
-      ]
+      ])
     };
   }
 
@@ -586,13 +623,15 @@ export function MessagesClient({
           current
             ? {
                 ...current,
-                messages: current.messages.some((message) => message.id === optimisticId)
-                  ? current.messages.map((message) =>
-                      message.id === optimisticId
-                        ? ({ ...savedMessage, deliveryState: savedMessage.deliveryState ?? "SENT" } as ChatMessageView)
-                        : message
-                    )
-                  : [...current.messages, savedMessage as ChatMessageView]
+                messages: dedupeMessages(
+                  current.messages.some((message) => message.id === optimisticId)
+                    ? current.messages.map((message) =>
+                        message.id === optimisticId
+                          ? ({ ...savedMessage, deliveryState: savedMessage.deliveryState ?? "SENT" } as ChatMessageView)
+                          : message
+                      )
+                    : [...current.messages, savedMessage as ChatMessageView]
+                )
               }
             : current
         );
@@ -654,10 +693,11 @@ export function MessagesClient({
       .filter((thread) => thread.type === ChatThreadType.DIRECT)
       .flatMap((thread) => thread.participants.filter((participant) => participant.id !== currentUserId).map((participant) => participant.id))
   );
-  const visibleContacts =
+  const visibleContacts = uniquePeopleById(
     chatStartMode === "DIRECT"
       ? contacts.filter((person) => !directThreadUserIdsInResults.has(person.id))
-      : contacts.filter((person) => !groupParticipants.some((participant) => participant.id === person.id));
+      : contacts.filter((person) => !groupParticipants.some((participant) => participant.id === person.id))
+  );
 
   function directThreadProfile(thread: ChatThreadView | ChatThreadDetailView) {
     if (thread.type !== ChatThreadType.DIRECT) return null;
@@ -676,17 +716,13 @@ export function MessagesClient({
         tabIndex={0}
       >
         {profile ? (
-          <ProfileNameLink person={profile}>
-            <ChatAvatar person={profile} />
-          </ProfileNameLink>
+          <ChatAvatar person={profile} />
         ) : (
           <span className="chat-avatar">{initials(thread.title)}</span>
         )}
         <span className="min-w-0 flex-1 text-left">
           {profile ? (
-            <ProfileNameLink person={profile}>
-              <span className="block truncate font-semibold">{thread.title}</span>
-            </ProfileNameLink>
+            <span className="block truncate font-semibold">{thread.title}</span>
           ) : (
             <span className="block truncate font-semibold">{thread.title}</span>
           )}

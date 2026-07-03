@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { ProfileVisibility, ScientologyVisibility, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { createPresignedR2PutUrl, getR2PublicUrl } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { parseScientologySelections } from "@/modules/my-scientology/types";
 import {
   completeResumeUploadSchema,
@@ -236,6 +236,17 @@ export async function completeResumeUpload(userId: string, input: unknown) {
   const expectedPrefix = ["users", userId, "resume"].join("/") + "/";
   if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
     return { ok: false as const, error: "Invalid resume upload key." };
+  }
+
+  const uploadedObject = await verifyR2Object({
+    storageKey: parsed.data.storageKey,
+    expectedMimeType: parsed.data.mimeType,
+    expectedSizeBytes: parsed.data.sizeBytes,
+    label: "Resume upload"
+  });
+
+  if (!uploadedObject.ok) {
+    return { ok: false as const, error: uploadedObject.error };
   }
 
   const publicUrl = getR2PublicUrl(parsed.data.storageKey);

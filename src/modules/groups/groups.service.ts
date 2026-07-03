@@ -258,7 +258,18 @@ export async function createGroup(viewerUserId: string, input: unknown) {
     visibility: group.visibility
   });
 
-  return { ok: true as const, group };
+  return {
+    ok: true as const,
+    group: {
+      id: group.id,
+      slug: group.slug,
+      name: group.name,
+      visibility: group.visibility,
+      joinPolicy: group.joinPolicy,
+      createdAt: group.createdAt.toISOString(),
+      updatedAt: group.updatedAt.toISOString()
+    }
+  };
 }
 
 export async function getGroupProfile(viewerUserId: string, groupIdOrSlug: string) {

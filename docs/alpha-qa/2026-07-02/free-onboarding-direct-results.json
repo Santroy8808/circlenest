@@ -1,0 +1,46 @@
+{
+  "actions": [
+    {
+      "label": "after-login",
+      "url": "https://theta-space.net/login",
+      "text": "THETA-SPACE ACCESS\n\nLog in\n\nUse your member credentials. Email and handle login are both supported.\n\nEMAIL OR HANDLE\nPASSWORD\nChecking...\nForgot password?\nHave an invite?\nReturn to dev update page"
+    },
+    {
+      "label": "console-error",
+      "url": "https://theta-space.net/login",
+      "text": "Failed to fetch RSC payload for https://theta-space.net/home. Falling back to browser navigation. JSHandle@object"
+    },
+    {
+      "label": "goto-onboarding-error",
+      "url": "https://theta-space.net/login",
+      "text": "page.goto: NS_BINDING_ABORTED\nCall log:\n\u001b[2m  - navigating to \"https://theta-space.net/onboarding/profile\", waiting until \"domcontentloaded\"\u001b[22m\n"
+    },
+    {
+      "label": "direct-onboarding",
+      "url": "https://theta-space.net/login",
+      "text": "THETA-SPACE ACCESS\n\nLog in\n\nUse your member credentials. Email and handle login are both supported.\n\nEMAIL OR HANDLE\nPASSWORD\nChecking...\nForgot password?\nHave an invite?\nReturn to dev update page"
+    },
+    {
+      "label": "final-home",
+      "url": "https://theta-space.net/onboarding/profile",
+      "text": "STEP 1 OF 4\n\nSet up your profile\n\nStart with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later.\n\nEMAIL\nFULL NAME\nLOCATION\nTAGLINE\nBIO\nContinue\nSkip for now\nReport issue"
+    }
+  ],
+  "screenshots": [
+    {
+      "label": "after-login",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-onboarding-direct\\after-login.png",
+      "url": "https://theta-space.net/login"
+    },
+    {
+      "label": "direct-onboarding",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-onboarding-direct\\direct-onboarding.png",
+      "url": "https://theta-space.net/login"
+    },
+    {
+      "label": "final-home",
+      "file": "C:\\Repos\\Theta-Space-net\\NewRepo\\docs\\alpha-qa\\2026-07-02\\screenshots-free-onboarding-direct\\final-home.png",
+      "url": "https://theta-space.net/onboarding/profile"
+    }
+  ]
+}

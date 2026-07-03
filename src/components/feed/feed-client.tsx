@@ -844,20 +844,20 @@ export function FeedClient({
     return parentCommentId ? `${postId}:${parentCommentId}` : postId;
   }
 
-  function focusCommentComposer(postId: string, parentCommentId?: string) {
-    const key = commentKey(postId, parentCommentId);
+  const focusCommentComposer = useCallback((postId: string, parentCommentId?: string) => {
+    const key = parentCommentId ? `${postId}:${parentCommentId}` : postId;
     window.requestAnimationFrame(() => {
       const textarea = commentTextareaRefs.current[key];
       textarea?.focus();
       textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
-  }
+  }, []);
 
   const refreshFeed = useCallback(async () => {
     const response = await fetch(refreshPath, { cache: "no-store" });
     const payload = (await response.json()) as FeedCachePayload;
-    setPosts(payload.posts ?? []);
-    setReservedStreamAds(payload.reservedStreamAds ?? []);
+    if (payload.posts) setPosts(payload.posts);
+    if (payload.reservedStreamAds) setReservedStreamAds(payload.reservedStreamAds);
   }, [refreshPath]);
 
   useEffect(() => {
@@ -886,7 +886,7 @@ export function FeedClient({
       const focusTimer = window.setTimeout(() => focusCommentComposer(initialReplyPostId), 80);
       return () => window.clearTimeout(focusTimer);
     }
-  }, [initialReplyPostId]);
+  }, [focusCommentComposer, initialReplyPostId]);
 
   useEffect(() => {
     function startPull(event: TouchEvent) {
@@ -1034,16 +1034,17 @@ export function FeedClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ body, visibility: FeedVisibility.MEMBERS, mediaAssetId, targetProfileUserId: postTargetProfileUserId })
         });
-        const payload = (await response.json()) as { error?: string };
+        const payload = (await response.json()) as { error?: string; post?: FeedPostView | null };
 
-        if (!response.ok) {
+        if (!response.ok || !payload.post) {
           throw new Error(payload.error ?? "Could not create post.");
         }
 
+        setPosts((current) => [payload.post!, ...current.filter((post) => post.id !== payload.post!.id)]);
         setBody("");
         setPostImage(null);
         setComposerOpen(false);
-        await refreshFeed();
+        void refreshFeed().catch(() => undefined);
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Could not create post.";
         setError(message);
@@ -1068,17 +1069,18 @@ export function FeedClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ postId, parentCommentId, body: commentBody, mediaAssetId })
         });
-        const payload = (await response.json()) as { error?: string };
+        const payload = (await response.json()) as { error?: string; post?: FeedPostView | null };
 
-        if (!response.ok) {
+        if (!response.ok || !payload.post) {
           throw new Error(payload.error ?? "Could not add comment.");
         }
 
+        setPosts((current) => current.map((post) => (post.id === payload.post!.id ? payload.post! : post)));
         setCommentBodies((current) => ({ ...current, [key]: "" }));
         setCommentImages((current) => ({ ...current, [key]: undefined }));
         setReplyTargets((current) => ({ ...current, [postId]: undefined }));
         setExpandedComments((current) => ({ ...current, [postId]: true }));
-        await refreshFeed();
+        void refreshFeed().catch(() => undefined);
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Could not add comment.";
         setCommentErrors((current) => ({ ...current, [key]: message }));

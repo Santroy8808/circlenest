@@ -34,6 +34,10 @@ function profileName(user: { username: string; profile: { displayName: string | 
   return user.profile?.displayName ?? user.username;
 }
 
+function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
+  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+}
+
 function countReactions<T extends { type: GroupForumReactionType }>(reactions: T[]) {
   return reactions.reduce<Partial<Record<GroupForumReactionType, number>>>((acc, reaction) => {
     acc[reaction.type] = (acc[reaction.type] ?? 0) + 1;
@@ -105,7 +109,7 @@ function toPostView(
   return {
     id: post.id,
     body: post.body,
-    mediaUrl: post.mediaAsset?.publicUrl,
+    mediaUrl: mediaAssetUrl(post.mediaAsset),
     parentPostId: post.parentPostId,
     createdAt: post.createdAt.toISOString(),
     author: authorView(post.author),
