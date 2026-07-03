@@ -31,16 +31,45 @@ function withFeedDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T
   ]);
 }
 
-function countReactions<T extends { type: FeedReactionType }>(reactions: T[]) {
-  return reactions.reduce<Partial<Record<FeedReactionType, number>>>((acc, reaction) => {
+type ReactionIdentity = {
+  type: FeedReactionType;
+  userId?: string | null;
+  user?: { id: string } | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+
+function reactionTime(reaction: ReactionIdentity) {
+  const value = reaction.updatedAt ?? reaction.createdAt;
+  return value ? new Date(value).getTime() : 0;
+}
+
+function latestReactionPerUser<T extends ReactionIdentity>(reactions: T[]) {
+  const byUser = new Map<string, T>();
+
+  for (const reaction of reactions) {
+    const userId = reaction.userId ?? reaction.user?.id;
+    if (!userId) continue;
+
+    const current = byUser.get(userId);
+    if (!current || reactionTime(reaction) >= reactionTime(current)) {
+      byUser.set(userId, reaction);
+    }
+  }
+
+  return Array.from(byUser.values());
+}
+
+function countReactions<T extends ReactionIdentity>(reactions: T[]) {
+  return latestReactionPerUser(reactions).reduce<Partial<Record<FeedReactionType, number>>>((acc, reaction) => {
     if (reaction.type === FeedReactionType.DISLIKE) return acc;
     acc[reaction.type] = (acc[reaction.type] ?? 0) + 1;
     return acc;
   }, {});
 }
 
-function reactionReactors<T extends { type: FeedReactionType; user?: FeedReactionUser | null }>(reactions: T[]) {
-  return reactions.reduce<FeedReactionReactorsView>((acc, reaction) => {
+function reactionReactors<T extends ReactionIdentity & { user?: FeedReactionUser | null }>(reactions: T[]) {
+  return latestReactionPerUser(reactions).reduce<FeedReactionReactorsView>((acc, reaction) => {
     if (reaction.type === FeedReactionType.DISLIKE) return acc;
     if (!reaction.user) return acc;
     acc[reaction.type] = [...(acc[reaction.type] ?? []), toFeedAuthorView(reaction.user)];
@@ -92,6 +121,9 @@ type FeedReactionUser = {
 
 type FeedReactionRecord = {
   type: FeedReactionType;
+  userId?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
   user?: FeedReactionUser | null;
 };
 

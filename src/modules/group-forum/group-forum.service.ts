@@ -38,8 +38,37 @@ function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | n
   return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
-function countReactions<T extends { type: GroupForumReactionType }>(reactions: T[]) {
-  return reactions.reduce<Partial<Record<GroupForumReactionType, number>>>((acc, reaction) => {
+type GroupForumReactionIdentity = {
+  type: GroupForumReactionType;
+  userId?: string | null;
+  user?: { id: string } | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+
+function reactionTime(reaction: GroupForumReactionIdentity) {
+  const value = reaction.updatedAt ?? reaction.createdAt;
+  return value ? new Date(value).getTime() : 0;
+}
+
+function latestReactionPerUser<T extends GroupForumReactionIdentity>(reactions: T[]) {
+  const byUser = new Map<string, T>();
+
+  for (const reaction of reactions) {
+    const userId = reaction.userId ?? reaction.user?.id;
+    if (!userId) continue;
+
+    const current = byUser.get(userId);
+    if (!current || reactionTime(reaction) >= reactionTime(current)) {
+      byUser.set(userId, reaction);
+    }
+  }
+
+  return Array.from(byUser.values());
+}
+
+function countReactions<T extends GroupForumReactionIdentity>(reactions: T[]) {
+  return latestReactionPerUser(reactions).reduce<Partial<Record<GroupForumReactionType, number>>>((acc, reaction) => {
     acc[reaction.type] = (acc[reaction.type] ?? 0) + 1;
     return acc;
   }, {});
