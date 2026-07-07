@@ -1974,8 +1974,12 @@ a {
 .gallery-search-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(150px, 1fr));
   margin-top: 12px;
+}
+
+.gallery-search-main {
+  min-width: 0;
 }
 
 .gallery-search-grid label,
@@ -5995,6 +5999,95 @@ a {
   transform: translateY(-2px);
 }
 
+.gethelp-surface {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(214, 178, 74, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(8, 11, 16, 0.98), rgba(12, 17, 28, 0.98));
+  color: var(--text);
+  min-height: 100vh;
+  padding: 28px;
+}
+
+.gethelp-shell {
+  margin: 0 auto;
+  max-width: 1180px;
+}
+
+.gethelp-top,
+.gethelp-layout {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.gethelp-layout {
+  align-items: stretch;
+  margin-top: 54px;
+}
+
+.gethelp-hero {
+  display: grid;
+  flex: 1 1 540px;
+  gap: 22px;
+  place-content: center start;
+}
+
+.gethelp-hero h1 {
+  font-size: clamp(2.4rem, 5vw, 5.2rem);
+  font-weight: 800;
+  line-height: 0.98;
+  max-width: 780px;
+}
+
+.gethelp-hero p {
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1.8;
+  max-width: 680px;
+}
+
+.gethelp-steps {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+}
+
+.gethelp-steps span,
+.gethelp-credentials p {
+  background: rgba(17, 24, 36, 0.78);
+  border: 1px solid rgba(214, 178, 74, 0.22);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.gethelp-card {
+  flex: 0 1 440px;
+  padding: 22px;
+}
+
+.gethelp-credentials {
+  display: grid;
+  gap: 10px;
+}
+
+.gethelp-credentials span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.gethelp-credentials strong {
+  color: var(--gold);
+  display: block;
+  font-size: 1.2rem;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
 .production-zone-grid {
   display: grid;
   gap: 14px;
@@ -6414,6 +6507,24 @@ a {
   .gallery-tag-actions {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .gethelp-surface {
+    padding: 18px;
+  }
+
+  .gethelp-top,
+  .gethelp-layout {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gethelp-layout {
+    margin-top: 32px;
+  }
+
+  .gethelp-card {
+    flex-basis: auto;
   }
 
   .gallery-tag-actions {

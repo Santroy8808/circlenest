@@ -34,14 +34,19 @@ export function AuditorsDirectoryClient({
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Production Zone</p>
             <h1 className="mt-3 text-3xl font-semibold">Find an Auditor</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Search auditor mini profiles. “I’m an Auditor” is a separate profile builder for Auditor accounts.
+              Search published auditor profiles by name, practice, location, offerings, and training. If you need help finding the right auditor, create a private auditor-search account.
             </p>
           </div>
-          {viewerCanCreate ? (
-            <Link className="btn-primary" href="/auditors/im-an-auditor">
-              I&apos;m an Auditor
+          <div className="flex flex-wrap gap-3">
+            <Link className="btn-secondary" href="/gethelp">
+              Get help
             </Link>
-          ) : null}
+            {viewerCanCreate ? (
+              <Link className="btn-primary" href="/auditors/im-an-auditor">
+                I&apos;m an Auditor
+              </Link>
+            ) : null}
+          </div>
         </div>
         <input className="form-field mt-6" onChange={(event) => setQuery(event.target.value)} placeholder="Search auditors..." value={query} />
       </section>

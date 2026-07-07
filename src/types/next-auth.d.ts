@@ -1,6 +1,6 @@
 import type { DefaultSession } from "next-auth";
 import type { JWT as DefaultJWT } from "next-auth/jwt";
-import type { MembershipTier, UserRole } from "@prisma/client";
+import type { AccountPurpose, MembershipTier, UserRole } from "@prisma/client";
 
 declare module "next-auth" {
   interface Session {
@@ -8,6 +8,7 @@ declare module "next-auth" {
       id: string;
       username: string;
       role: UserRole;
+      accountPurpose: AccountPurpose;
       tier: MembershipTier;
       sessionVersion: number;
       revoked?: boolean;
@@ -17,6 +18,7 @@ declare module "next-auth" {
   interface User {
     username: string;
     role: UserRole;
+    accountPurpose: AccountPurpose;
     tier: MembershipTier;
     sessionVersion: number;
   }
@@ -26,6 +28,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     username?: string;
     role?: UserRole;
+    accountPurpose?: AccountPurpose;
     tier?: MembershipTier;
     sessionVersion?: number;
     revoked?: boolean;

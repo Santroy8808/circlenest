@@ -41,9 +41,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const { addFilesAndUpload, isUploading } = useBackgroundGalleryUploads();
   const [galleryAssets, setGalleryAssets] = useState(assets);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [filenameQuery, setFilenameQuery] = useState("");
-  const [tagQuery, setTagQuery] = useState("");
-  const [commentQuery, setCommentQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [tagChoice, setTagChoice] = useState(DEFAULT_TAGS[0]);
@@ -53,7 +51,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const tagName = tagChoice === "Custom" ? customTag.trim() : tagChoice;
-  const hasSearch = Boolean(filenameQuery.trim() || tagQuery.trim() || commentQuery.trim() || dateFrom || dateTo);
+  const hasSearch = Boolean(searchQuery.trim() || dateFrom || dateTo);
   const availableTags = useMemo(() => {
     const byName = new Map<string, string>();
 
@@ -69,28 +67,28 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   }, [galleryAssets]);
   const visibleAssets = useMemo(() => {
     return galleryAssets.filter((asset) => {
-      const cleanTagQuery = tagQuery.trim();
-      if (isSystemGalleryAsset(asset) && !cleanTagQuery) return false;
+      const cleanSearchQuery = searchQuery.trim();
+      if (isSystemGalleryAsset(asset) && !cleanSearchQuery) return false;
 
       const createdDate = createdDateKey(asset);
-      const matchesFilename = includesSearch(asset.originalName, filenameQuery.trim());
-      const matchesTags = !cleanTagQuery || asset.tags.some((tag) => includesSearch(tag, cleanTagQuery));
-      const matchesComments = includesSearch(asset.commentSearchText, commentQuery.trim());
+      const matchesSearch =
+        !cleanSearchQuery ||
+        includesSearch(asset.originalName, cleanSearchQuery) ||
+        includesSearch(asset.commentSearchText, cleanSearchQuery) ||
+        asset.tags.some((tag) => includesSearch(tag, cleanSearchQuery));
       const matchesDateFrom = !dateFrom || createdDate >= dateFrom;
       const matchesDateTo = !dateTo || createdDate <= dateTo;
 
-      return matchesFilename && matchesTags && matchesComments && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesDateFrom && matchesDateTo;
     });
-  }, [commentQuery, dateFrom, dateTo, filenameQuery, galleryAssets, tagQuery]);
+  }, [dateFrom, dateTo, galleryAssets, searchQuery]);
   const hiddenSystemCount = galleryAssets.filter(isSystemGalleryAsset).length;
   const visibleIds = visibleAssets.map((asset) => asset.id);
   const selectedVisibleIds = selectedIds.filter((id) => visibleIds.includes(id));
   const tagTargetIds = tagTarget === "visible" ? visibleIds : selectedVisibleIds;
 
   function clearSearch() {
-    setFilenameQuery("");
-    setTagQuery("");
-    setCommentQuery("");
+    setSearchQuery("");
     setDateFrom("");
     setDateTo("");
   }
@@ -276,38 +274,20 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
               </button>
             </div>
             <div className="gallery-search-grid">
-              <label className="grid gap-2">
-                <span className="form-label">Filename</span>
-                <input
-                  className="form-field"
-                  onChange={(event) => setFilenameQuery(event.target.value)}
-                  placeholder="Filename"
-                  value={filenameQuery}
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Tags</span>
+              <label className="gallery-search-main grid gap-2">
+                <span className="form-label">Search gallery</span>
                 <input
                   className="form-field"
                   list="gallery-tag-suggestions"
-                  onChange={(event) => setTagQuery(event.target.value)}
-                  placeholder="Family, events, ad..."
-                  value={tagQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search filenames, tags, or comments"
+                  value={searchQuery}
                 />
                 <datalist id="gallery-tag-suggestions">
                   {availableTags.map((tag) => (
                     <option key={tag} value={tag} />
                   ))}
                 </datalist>
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Comments</span>
-                <input
-                  className="form-field"
-                  onChange={(event) => setCommentQuery(event.target.value)}
-                  placeholder="Comment text"
-                  value={commentQuery}
-                />
               </label>
               <label className="grid gap-2">
                 <span className="form-label">From</span>
@@ -384,7 +364,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
           <span>{selectedVisibleIds.length} selected</span>
           <span>
-            {visibleAssets.length} shown{!tagQuery.trim() && hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
+            {visibleAssets.length} shown{!searchQuery.trim() && hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
           </span>
         </div>
         {message ? <p className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}

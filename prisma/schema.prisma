@@ -46,6 +46,11 @@ enum UserRole {
   GOD
 }
 
+enum AccountPurpose {
+  MEMBER
+  AUDITOR_SEEKER
+}
+
 enum LogLevel {
   debug
   info
@@ -449,6 +454,7 @@ model User {
   username                        String                             @unique
   passwordHash                    String?
   role                            UserRole                           @default(MEMBER)
+  accountPurpose                  AccountPurpose                     @default(MEMBER)
   emailVerified                   DateTime?
   deactivatedAt                   DateTime?
   sessionVersion                  Int                                @default(1)
@@ -524,6 +530,8 @@ model User {
   marketListings                  MarketListing[]                    @relation("MarketListingSeller")
   jobListings                     JobListing[]                       @relation("JobListingEmployer")
   auditorProfile                  AuditorProfile?
+  auditorSeekerProfile            AuditorSeekerProfile?
+  auditorSuccessStories           AuditorSuccessStory[]              @relation("AuditorSuccessStoryAuthor")
   privateAuditorAccounts          AuditorAccount[]                   @relation("AuditorAccountPrivateOwner")
   auditorAccountOwnerLink         AuditorAccount?                    @relation("AuditorAccountActor")
   businessProfile                 BusinessProfile?                   @relation("BusinessProfileOwner")
@@ -1856,8 +1864,48 @@ model AuditorProfile {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  successStories  AuditorSuccessStory[]
 
   @@index([active, createdAt])
+}
+
+model AuditorSeekerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  fullName        String
+  email           String
+  phone           String?
+  resolutionGoal  String?
+  location        String?
+  relationship    String?
+  bio             String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  successStories  AuditorSuccessStory[]
+
+  @@index([email, createdAt])
+}
+
+model AuditorSuccessStory {
+  id                     String                @id @default(cuid())
+  seekerProfileId        String
+  auditorProfileId       String?
+  authorUserId           String
+  title                  String?
+  body                   String
+  visibility             ProfileVisibility     @default(MEMBERS)
+  pinnedByAuditorAt      DateTime?
+  removedByAuditorAt     DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  seekerProfile          AuditorSeekerProfile  @relation(fields: [seekerProfileId], references: [id], onDelete: Cascade)
+  auditorProfile         AuditorProfile?       @relation(fields: [auditorProfileId], references: [id], onDelete: SetNull)
+  author                 User                  @relation("AuditorSuccessStoryAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([seekerProfileId, createdAt])
+  @@index([auditorProfileId, removedByAuditorAt, createdAt])
+  @@index([authorUserId, createdAt])
 }
 
 model AuditorAccount {

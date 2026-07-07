@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { AuthSecurityEventType, AuditSeverity, MembershipTier, Prisma, UserRole } from "@prisma/client";
+import { AccountPurpose, AuthSecurityEventType, AuditSeverity, MembershipTier, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
@@ -76,6 +76,7 @@ function toAuthenticatedUser(user: {
   email: string;
   username: string;
   role: UserRole;
+  accountPurpose: AccountPurpose;
   sessionVersion: number;
   profile: { displayName: string | null } | null;
   membership: { tier: MembershipTier } | null;
@@ -86,6 +87,7 @@ function toAuthenticatedUser(user: {
     username: user.username,
     displayName: user.profile?.displayName ?? user.username,
     role: user.role,
+    accountPurpose: user.accountPurpose,
     tier: user.membership?.tier ?? MembershipTier.FREE,
     sessionVersion: user.sessionVersion
   };
@@ -175,8 +177,9 @@ export async function authorizeCredentials(
 
 export async function createMemberAccount(
   input: unknown,
-  options: {
+    options: {
     preverified?: boolean;
+    accountPurpose?: AccountPurpose;
     tier?: MembershipTier;
     role?: UserRole;
     context?: RequestContext;
@@ -224,6 +227,7 @@ export async function createMemberAccount(
           username,
           passwordHash,
           role: options.role ?? UserRole.MEMBER,
+          accountPurpose: options.accountPurpose ?? AccountPurpose.MEMBER,
           emailVerified: options.preverified ? new Date() : undefined,
           lastPasswordChangedAt: new Date(),
           profile: {
@@ -474,6 +478,7 @@ export async function getUserSessionGuard(userId: string) {
     select: {
       id: true,
       role: true,
+      accountPurpose: true,
       sessionVersion: true,
       deactivatedAt: true,
       membership: {

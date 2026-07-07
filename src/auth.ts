@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { MembershipTier, UserRole } from "@prisma/client";
+import { AccountPurpose, MembershipTier, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { authorizeCredentials, getUserSessionGuard } from "@/modules/auth-security/auth-security.service";
 
@@ -34,6 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.displayName,
           username: user.username,
           role: user.role,
+          accountPurpose: user.accountPurpose,
           tier: user.tier,
           sessionVersion: user.sessionVersion
         };
@@ -48,6 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.username = user.username;
         token.role = user.role;
+        token.accountPurpose = user.accountPurpose;
         token.tier = user.tier;
         token.sessionVersion = user.sessionVersion;
         token.revoked = false;
@@ -67,6 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         token.role = guard.role;
+        token.accountPurpose = guard.accountPurpose;
         token.tier = guard.membership?.tier ?? MembershipTier.FREE;
       } catch {
         token.revoked = true;
@@ -79,6 +82,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.sub ?? "";
         session.user.username = token.username ?? "";
         session.user.role = token.role ?? UserRole.MEMBER;
+        session.user.accountPurpose = token.accountPurpose ?? AccountPurpose.MEMBER;
         session.user.tier = token.tier ?? MembershipTier.FREE;
         session.user.sessionVersion = token.sessionVersion ?? 1;
         session.user.revoked = Boolean(token.revoked);

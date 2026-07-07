@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AuditorsDirectoryClient } from "@/components/auditors/auditors-directory-client";
 import { AppShell } from "@/components/platform/app-shell";
@@ -6,12 +5,10 @@ import { safeListAuditors, viewerCanCreateAuditorProfile } from "@/modules/audit
 
 export default async function AuditorsPage() {
   const session = await auth();
-
-  if (!session?.user || session.user.revoked) {
-    redirect("/login?callbackUrl=/auditors");
-  }
-
-  const [auditors, access] = await Promise.all([safeListAuditors(), viewerCanCreateAuditorProfile(session.user.id)]);
+  const [auditors, access] = await Promise.all([
+    safeListAuditors(),
+    session?.user && !session.user.revoked ? viewerCanCreateAuditorProfile(session.user.id) : Promise.resolve({ allowed: false })
+  ]);
 
   return (
     <AppShell>

@@ -1,4 +1,4 @@
-import { MembershipTier, UserRole } from "@prisma/client";
+import { AccountPurpose, MembershipTier, UserRole } from "@prisma/client";
 import { z } from "zod";
 
 export const loginSchema = z
@@ -51,6 +51,7 @@ export type AuthenticatedUser = {
   username: string;
   displayName: string;
   role: UserRole;
+  accountPurpose: AccountPurpose;
   tier: MembershipTier;
   sessionVersion: number;
 };

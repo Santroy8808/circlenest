@@ -1,4 +1,4 @@
-import { MembershipTier, UserRole } from "@prisma/client";
+import { AccountPurpose, MembershipTier } from "@prisma/client";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -88,6 +88,7 @@ function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isMobileAdRa
 }
 
 function getNavSections(input: {
+  accountPurpose?: AccountPurpose;
   isAdmin: boolean;
   isBusinessAccount: boolean;
   isSignedIn: boolean;
@@ -101,6 +102,20 @@ function getNavSections(input: {
       {
         label: "Account",
         items: [{ label: "Login", href: "/login" }]
+      }
+    ];
+  }
+
+  if (input.accountPurpose === AccountPurpose.AUDITOR_SEEKER) {
+    return [
+      {
+        label: "Get Help",
+        items: [
+          { label: "Find an Auditor", href: "/auditors" },
+          { label: "Mail", href: "/mail", countKey: "mail" },
+          { label: "Profile", href: "/profile" },
+          { label: "Logout", action: "logout" }
+        ]
       }
     ];
   }
@@ -134,6 +149,12 @@ function getNavSections(input: {
   ];
 
   return sections.filter((section) => section.items.length > 0);
+}
+
+function isAllowedAuditorSeekerPath(currentPath: string) {
+  return ["/auditors", "/mail", "/profile", "/settings/profile", "/api/profile", "/api/mail"].some(
+    (path) => currentPath === path || currentPath.startsWith(`${path}/`)
+  );
 }
 
 async function getShellProfile(userId?: string) {
@@ -187,8 +208,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
   const currentPath = headers().get("x-current-path") ?? "";
   const isOnboardingPath = currentPath.startsWith("/onboarding");
+  const isAuditorSeeker = session?.user?.accountPurpose === AccountPurpose.AUDITOR_SEEKER;
 
-  if (isSignedIn && session?.user?.id && !isOnboardingPath) {
+  if (isSignedIn && isAuditorSeeker && currentPath && !isAllowedAuditorSeekerPath(currentPath)) {
+    redirect("/auditors");
+  }
+
+  if (isSignedIn && session?.user?.id && !isOnboardingPath && !isAuditorSeeker) {
     const onboarding = await timeServerStep("shell.onboarding", getOnboardingState(session.user.id), { path: currentPath });
 
     if (onboarding?.nextPath) {
@@ -210,7 +236,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const counts = zeroCounts;
-  const navSections = getNavSections({ isAdmin, isBusinessAccount, isSignedIn });
+  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn });
   const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
 
   return (
