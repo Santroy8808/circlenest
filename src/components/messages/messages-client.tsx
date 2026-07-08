@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type {
   ChatAttachmentView,
   ChatMessageView,
@@ -216,8 +217,10 @@ function MessageImageAttachment({
 
   return (
     <figure className={isMine ? "chat-media-message is-mine" : "chat-media-message"}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img alt={attachment.fileName} loading="lazy" onError={(event) => handleChatImageError(event, attachment)} src={imageUrl} />
+      <InAppImageViewer alt={attachment.fileName} className="chat-media-image-trigger" src={attachment.publicUrl ?? imageUrl}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img alt={attachment.fileName} loading="lazy" onError={(event) => handleChatImageError(event, attachment)} src={imageUrl} />
+      </InAppImageViewer>
       <figcaption className="chat-media-caption">{attachment.fileName}</figcaption>
     </figure>
   );

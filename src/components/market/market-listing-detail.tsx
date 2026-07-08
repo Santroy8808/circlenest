@@ -1,6 +1,7 @@
 import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type { MarketListingDetailView } from "@/modules/market/types";
 
 function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "currency">) {
@@ -19,8 +20,10 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
       <section className="surface overflow-hidden rounded-md">
         <div className="market-detail-hero">
           {hero?.publicUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt="" src={hero.publicUrl} />
+            <InAppImageViewer alt={hero.originalName ?? listing.title} className="market-detail-image-trigger" src={hero.publicUrl}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="" src={hero.publicUrl} />
+            </InAppImageViewer>
           ) : (
             <span>{listing.categoryLabel}</span>
           )}
@@ -51,8 +54,10 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
             {listing.photos.map((photo) => (
               <div className="gallery-tile" key={photo.id}>
                 {photo.publicUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" src={photo.publicUrl} />
+                  <InAppImageViewer alt={photo.originalName ?? listing.title} className="gallery-tile-image-trigger" src={photo.publicUrl}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt="" src={photo.publicUrl} />
+                  </InAppImageViewer>
                 ) : (
                   <span className="gallery-tile-fallback">{photo.originalName ?? "Photo"}</span>
                 )}

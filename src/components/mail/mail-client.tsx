@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type {
   MailAttachmentView,
   MailFolder,
@@ -51,10 +52,10 @@ function MailProfileLink({ person, children }: { person: MailPersonView; childre
 function MailAttachmentPreview({ attachment }: { attachment: MailAttachmentView }) {
   if (attachment.kind === "IMAGE" && attachment.publicUrl) {
     return (
-      <a className="mail-attachment-image" href={attachment.publicUrl} rel="noreferrer" target="_blank">
+      <InAppImageViewer alt={attachment.fileName} className="mail-attachment-image" src={attachment.publicUrl}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img alt={attachment.fileName} src={attachment.publicUrl} />
-      </a>
+      </InAppImageViewer>
     );
   }
 

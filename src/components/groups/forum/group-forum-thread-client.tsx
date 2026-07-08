@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { GroupForumThreadDetailView } from "@/modules/group-forum/types";
 
@@ -309,8 +310,10 @@ export function GroupForumThreadClient({
               </div>
               <p className="mt-3 whitespace-pre-wrap leading-7">{post.body}</p>
               {post.mediaUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" className="mt-3 max-h-72 rounded-md object-cover" src={post.mediaUrl} />
+                <InAppImageViewer alt="Group thread image" className="group-forum-image-trigger mt-3" src={post.mediaUrl}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="" className="max-h-72 rounded-md object-cover" src={post.mediaUrl} />
+                </InAppImageViewer>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
                 {quickReactions.map((reaction) => (

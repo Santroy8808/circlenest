@@ -3,6 +3,7 @@
 import { BusinessProfileKind } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type { BusinessProfileView } from "@/modules/business-storefront/types";
 
 function priceLabel(listing: BusinessProfileView["marketListings"][number]) {
@@ -147,10 +148,10 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
               <h2 className="text-2xl font-semibold text-[var(--gold)]">Gallery</h2>
               <div className="business-storefront-gallery mt-5">
                 {profile.galleryImageUrls.map((url) => (
-                  <a className="business-storefront-gallery-image" href={url} key={url} rel="noreferrer" target="_blank">
+                  <InAppImageViewer alt={`${profile.businessName} storefront photo`} className="business-storefront-gallery-image" key={url} src={url}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img alt={`${profile.businessName} storefront photo`} src={url} />
-                  </a>
+                  </InAppImageViewer>
                 ))}
               </div>
             </section>

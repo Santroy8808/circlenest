@@ -122,6 +122,10 @@ function normalizeContentType(value?: string | null) {
   return value?.split(";")[0]?.trim().toLowerCase() ?? "";
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function verifyR2Object(input: {
   storageKey: string;
   expectedSizeBytes?: number;
@@ -129,39 +133,54 @@ export async function verifyR2Object(input: {
   label?: string;
 }) {
   const label = input.label ?? "upload";
+  const retryDelaysMs = [250, 750, 1500];
 
-  try {
-    const object = await headR2Object(input.storageKey);
-    const actualSize = object.ContentLength;
-    const actualMimeType = normalizeContentType(object.ContentType);
-    const expectedMimeType = normalizeContentType(input.expectedMimeType);
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+    try {
+      const object = await headR2Object(input.storageKey);
+      const actualSize = object.ContentLength;
+      const actualMimeType = normalizeContentType(object.ContentType);
+      const expectedMimeType = normalizeContentType(input.expectedMimeType);
 
-    if (typeof input.expectedSizeBytes === "number" && typeof actualSize === "number" && actualSize !== input.expectedSizeBytes) {
+      if (typeof input.expectedSizeBytes === "number" && typeof actualSize === "number" && actualSize !== input.expectedSizeBytes) {
+        return {
+          ok: false as const,
+          error: `${label} did not finish correctly. Expected ${input.expectedSizeBytes} bytes, found ${actualSize}.`
+        };
+      }
+
+      if (expectedMimeType && actualMimeType && actualMimeType !== expectedMimeType) {
+        return {
+          ok: false as const,
+          error: `${label} content type changed during upload.`
+        };
+      }
+
+      return {
+        ok: true as const,
+        sizeBytes: typeof actualSize === "number" ? actualSize : null,
+        mimeType: actualMimeType || null,
+        eTag: object.ETag ?? null
+      };
+    } catch {
+      const retryDelayMs = retryDelaysMs[attempt];
+
+      if (typeof retryDelayMs === "number") {
+        await delay(retryDelayMs);
+        continue;
+      }
+
       return {
         ok: false as const,
-        error: `${label} did not finish correctly. Expected ${input.expectedSizeBytes} bytes, found ${actualSize}.`
+        error: `${label} was not found in media storage. Try uploading it again.`
       };
     }
-
-    if (expectedMimeType && actualMimeType && actualMimeType !== expectedMimeType) {
-      return {
-        ok: false as const,
-        error: `${label} content type changed during upload.`
-      };
-    }
-
-    return {
-      ok: true as const,
-      sizeBytes: typeof actualSize === "number" ? actualSize : null,
-      mimeType: actualMimeType || null,
-      eTag: object.ETag ?? null
-    };
-  } catch {
-    return {
-      ok: false as const,
-      error: `${label} was not found in media storage. Try uploading it again.`
-    };
   }
+
+  return {
+    ok: false as const,
+    error: `${label} was not found in media storage. Try uploading it again.`
+  };
 }
 
 export async function deleteR2Object(storageKey: string) {

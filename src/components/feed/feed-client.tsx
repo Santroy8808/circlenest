@@ -3,10 +3,11 @@
 import { AdPlacement, FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
@@ -43,10 +44,12 @@ type FeedCachePayload = {
   reservedStreamAds?: AdPlacementCardView[];
 };
 
-type TextFormatResult = {
-  value: string;
-  selectionStart: number;
-  selectionEnd: number;
+type ComposerFormatState = Partial<Record<Exclude<TextFormat, "link">, boolean>>;
+
+type FeedRichTextHandle = {
+  focus: () => void;
+  format: (format: TextFormat) => void;
+  scrollIntoView: () => void;
 };
 
 type QuickReaction = {
@@ -155,85 +158,80 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
   return complete.asset.id;
 }
 
-function stripListMarker(line: string) {
-  const indent = line.match(/^\s*/)?.[0] ?? "";
-  const content = line.slice(indent.length).replace(/^(?:[-*]\s+|\d+[.)]\s+)/, "");
-  return { indent, content };
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-function formatListLines(text: string, ordered: boolean) {
-  return text
+function markdownInlineToHtml(value: string) {
+  let html = escapeHtml(value);
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, href: string) => {
+    const safeHref = safeRichTextHref(href);
+    return `<a href="${escapeHtml(safeHref)}">${text}</a>`;
+  });
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>");
+  return html || "<br>";
+}
+
+function markdownToEditorHtml(value: string) {
+  if (!value.trim()) return "";
+
+  return value
     .split("\n")
-    .map((line, index) => {
-      if (!line.trim()) return line;
-      const { indent, content } = stripListMarker(line);
-      return ordered ? `${indent}${index + 1}. ${content}` : `${indent}- ${content}`;
+    .map((line) => {
+      const bullet = line.match(/^-\s+(.+)$/);
+      if (bullet) return `<ul><li>${markdownInlineToHtml(bullet[1])}</li></ul>`;
+      const numbered = line.match(/^(\d+)\.\s+(.+)$/);
+      if (numbered) return `<ol><li>${markdownInlineToHtml(numbered[2])}</li></ol>`;
+      return `<div>${markdownInlineToHtml(line)}</div>`;
     })
-    .join("\n");
+    .join("");
 }
 
-function applyInlineFormat(value: string, format: Exclude<TextFormat, "bulletList" | "numberedList">, selectionStart: number, selectionEnd: number): TextFormatResult {
-  const selected = value.slice(selectionStart, selectionEnd);
-  const fallback = format === "bold" ? "bold text" : format === "italic" ? "italic text" : "link text";
-  const selectedOrFallback = selected || fallback;
-  const wrapped =
-    format === "bold"
-      ? `**${selectedOrFallback}**`
-      : format === "italic"
-        ? `_${selectedOrFallback}_`
-        : `[${selectedOrFallback}](https://)`;
-
-  const nextValue = `${value.slice(0, selectionStart)}${wrapped}${value.slice(selectionEnd)}`;
-  const cursorStart = selectionStart + (format === "link" ? 1 : format === "bold" ? 2 : 1);
-  const cursorEnd = cursorStart + selectedOrFallback.length;
-
-  return {
-    value: nextValue,
-    selectionStart: selected ? selectionStart : cursorStart,
-    selectionEnd: selected ? selectionStart + wrapped.length : cursorEnd
-  };
+function nodeChildrenToMarkdown(node: Node) {
+  return Array.from(node.childNodes).map(nodeToMarkdown).join("");
 }
 
-function applyListFormat(value: string, ordered: boolean, selectionStart: number, selectionEnd: number): TextFormatResult {
-  const marker = ordered ? "1. " : "- ";
-  const selected = value.slice(selectionStart, selectionEnd);
+function nodeToMarkdown(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+  if (!(node instanceof HTMLElement)) return "";
 
-  if (!selected) {
-    const lineStart = value.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
-    const nextLineBreak = value.indexOf("\n", selectionStart);
-    const lineEnd = nextLineBreak === -1 ? value.length : nextLineBreak;
-    const currentLine = value.slice(lineStart, lineEnd);
+  const tag = node.tagName.toLowerCase();
 
-    if (!currentLine.trim()) {
-      const nextValue = `${value.slice(0, selectionStart)}${marker}${value.slice(selectionStart)}`;
-      const nextCursor = selectionStart + marker.length;
-      return { value: nextValue, selectionStart: nextCursor, selectionEnd: nextCursor };
-    }
-
-    const formattedLine = formatListLines(currentLine, ordered);
-    const nextValue = `${value.slice(0, lineStart)}${formattedLine}${value.slice(lineEnd)}`;
-    const delta = formattedLine.length - currentLine.length;
-    const nextCursor = selectionStart + delta;
-    return { value: nextValue, selectionStart: nextCursor, selectionEnd: nextCursor };
+  if (tag === "br") return "\n";
+  if (tag === "strong" || tag === "b") return `**${nodeChildrenToMarkdown(node)}**`;
+  if (tag === "em" || tag === "i") return `_${nodeChildrenToMarkdown(node)}_`;
+  if (tag === "a") {
+    const text = nodeChildrenToMarkdown(node);
+    const href = safeRichTextHref(node.getAttribute("href") ?? "");
+    return href === "#" ? text : `[${text}](${href})`;
   }
-
-  const formatted = formatListLines(selected, ordered);
-  const nextValue = `${value.slice(0, selectionStart)}${formatted}${value.slice(selectionEnd)}`;
-
-  return {
-    value: nextValue,
-    selectionStart,
-    selectionEnd: selectionStart + formatted.length
-  };
+  if (tag === "ul") {
+    return Array.from(node.children)
+      .filter((child) => child.tagName.toLowerCase() === "li")
+      .map((child) => `- ${nodeChildrenToMarkdown(child).trim()}`)
+      .join("\n");
+  }
+  if (tag === "ol") {
+    return Array.from(node.children)
+      .filter((child) => child.tagName.toLowerCase() === "li")
+      .map((child, index) => `${index + 1}. ${nodeChildrenToMarkdown(child).trim()}`)
+      .join("\n");
+  }
+  if (tag === "div" || tag === "p") return nodeChildrenToMarkdown(node);
+  return nodeChildrenToMarkdown(node);
 }
 
-function applyTextFormat(value: string, format: TextFormat, selectionStart = value.length, selectionEnd = selectionStart): TextFormatResult {
-  const start = Math.max(0, Math.min(selectionStart, selectionEnd));
-  const end = Math.min(value.length, Math.max(selectionStart, selectionEnd));
-
-  if (format === "bulletList") return applyListFormat(value, false, start, end);
-  if (format === "numberedList") return applyListFormat(value, true, start, end);
-  return applyInlineFormat(value, format, start, end);
+function editorElementToMarkdown(element: HTMLElement) {
+  return Array.from(element.childNodes)
+    .map(nodeToMarkdown)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function safeRichTextHref(href: string) {
@@ -339,10 +337,10 @@ function FeedMedia({ media }: { media?: FeedPostView["media"] }) {
   if (!media?.publicUrl || !media.mimeType.startsWith("image/")) return null;
 
   return (
-    <a className="feed-media-card" href={media.publicUrl} rel="noreferrer" target="_blank">
+    <InAppImageViewer alt={media.originalName ?? "Attached stream image"} className="feed-media-card" src={media.publicUrl}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img alt={media.originalName ?? "Attached stream image"} src={media.publicUrl} />
-    </a>
+    </InAppImageViewer>
   );
 }
 
@@ -527,7 +525,108 @@ function ReactionButtons({
   );
 }
 
+const FeedRichTextInput = forwardRef<
+  FeedRichTextHandle,
+  {
+    ariaLabel: string;
+    autoFocus?: boolean;
+    className?: string;
+    onChange: (value: string) => void;
+    onFormatStateChange?: (state: ComposerFormatState) => void;
+    placeholder: string;
+    value: string;
+  }
+>(function FeedRichTextInput({ ariaLabel, autoFocus, className, onChange, onFormatStateChange, placeholder, value }, ref) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const lastMarkdownRef = useRef(value);
+
+  const emitFormatState = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = document.getSelection();
+    const anchor = selection?.anchorNode;
+
+    if (!editor || !anchor || !editor.contains(anchor)) return;
+
+    onFormatStateChange?.({
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      bulletList: document.queryCommandState("insertUnorderedList"),
+      numberedList: document.queryCommandState("insertOrderedList")
+    });
+  }, [onFormatStateChange]);
+
+  const emitChange = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const markdown = editorElementToMarkdown(editor);
+    lastMarkdownRef.current = markdown;
+    onChange(markdown);
+    emitFormatState();
+  }, [emitFormatState, onChange]);
+
+  const runCommand = useCallback((command: string, value?: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(command, false, value);
+    emitChange();
+  }, [emitChange]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => editorRef.current?.focus(),
+      format: (format) => {
+        if (format === "bold") runCommand("bold");
+        if (format === "italic") runCommand("italic");
+        if (format === "bulletList") runCommand("insertUnorderedList");
+        if (format === "numberedList") runCommand("insertOrderedList");
+        if (format === "link") {
+          const href = window.prompt("Paste the link URL");
+          if (!href || safeRichTextHref(href) === "#") return;
+          runCommand("createLink", href);
+        }
+      },
+      scrollIntoView: () => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }),
+    [runCommand]
+  );
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || value === lastMarkdownRef.current) return;
+    lastMarkdownRef.current = value;
+    editor.innerHTML = markdownToEditorHtml(value);
+  }, [value]);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", emitFormatState);
+    return () => document.removeEventListener("selectionchange", emitFormatState);
+  }, [emitFormatState]);
+
+  useEffect(() => {
+    if (autoFocus) window.setTimeout(() => editorRef.current?.focus(), 0);
+  }, [autoFocus]);
+
+  return (
+    <div
+      aria-label={ariaLabel}
+      className={["form-field feed-rich-composer-input", className].filter(Boolean).join(" ")}
+      contentEditable
+      data-placeholder={placeholder}
+      onBlur={emitChange}
+      onInput={emitChange}
+      onKeyUp={emitFormatState}
+      onMouseUp={emitFormatState}
+      ref={editorRef}
+      role="textbox"
+      suppressContentEditableWarning
+    />
+  );
+});
+
 function ComposerToolbar({
+  activeFormats,
   compact = false,
   disabled,
   onEmoji,
@@ -535,6 +634,7 @@ function ComposerToolbar({
   onFormat,
   trailingAction
 }: {
+  activeFormats?: ComposerFormatState;
   compact?: boolean;
   disabled?: boolean;
   onEmoji: (emoji: string) => void;
@@ -557,19 +657,19 @@ function ComposerToolbar({
             ))}
           </div>
         </div>
-        <button disabled={disabled} onClick={() => onFormat("bold")} type="button">
+        <button aria-pressed={Boolean(activeFormats?.bold)} className={activeFormats?.bold ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("bold")} onMouseDown={(event) => event.preventDefault()} type="button">
           B
         </button>
-        <button disabled={disabled} onClick={() => onFormat("italic")} type="button">
+        <button aria-pressed={Boolean(activeFormats?.italic)} className={activeFormats?.italic ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("italic")} onMouseDown={(event) => event.preventDefault()} type="button">
           I
         </button>
-        <button disabled={disabled} onClick={() => onFormat("bulletList")} type="button">
+        <button aria-pressed={Boolean(activeFormats?.bulletList)} className={activeFormats?.bulletList ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("bulletList")} onMouseDown={(event) => event.preventDefault()} type="button">
           Bullets
         </button>
-        <button disabled={disabled} onClick={() => onFormat("numberedList")} type="button">
+        <button aria-pressed={Boolean(activeFormats?.numberedList)} className={activeFormats?.numberedList ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("numberedList")} onMouseDown={(event) => event.preventDefault()} type="button">
           Numbers
         </button>
-        <button disabled={disabled} onClick={() => onFormat("link")} type="button">
+        <button disabled={disabled} onClick={() => onFormat("link")} onMouseDown={(event) => event.preventDefault()} type="button">
           Link
         </button>
         <label aria-label="Attach image" className="feed-picture-button" title="Attach image">
@@ -624,6 +724,7 @@ function ImagePreview({
 }
 
 function CommentComposer({
+  activeFormats,
   commentBody,
   commentError,
   commentImage,
@@ -633,11 +734,13 @@ function CommentComposer({
   onEmoji,
   onFile,
   onFormat,
+  onFormatStateChange,
   onImageRemove,
   onSubmit,
-  setTextareaRef,
+  setEditorRef,
   updateBody
 }: {
+  activeFormats?: ComposerFormatState;
   commentBody: string;
   commentError?: string;
   commentImage?: FeedImageAttachment;
@@ -647,9 +750,10 @@ function CommentComposer({
   onEmoji: (emoji: string) => void;
   onFile: (file: File) => void;
   onFormat: (format: TextFormat) => void;
+  onFormatStateChange: (state: ComposerFormatState) => void;
   onImageRemove: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  setTextareaRef: (node: HTMLTextAreaElement | null) => void;
+  setEditorRef: (node: FeedRichTextHandle | null) => void;
   updateBody: (value: string) => void;
 }) {
   return (
@@ -660,15 +764,18 @@ function CommentComposer({
           Cancel
         </button>
       </div>
-      <textarea
-        className="form-field min-h-16 resize-y"
-        onChange={(event) => updateBody(event.target.value)}
+      <FeedRichTextInput
+        ariaLabel="Reply text"
+        className="min-h-16"
+        onChange={updateBody}
+        onFormatStateChange={onFormatStateChange}
         placeholder="Quick reply..."
-        ref={setTextareaRef}
+        ref={setEditorRef}
         value={commentBody}
       />
       {commentImage ? <ImagePreview image={commentImage} onRemove={onImageRemove} /> : null}
       <ComposerToolbar
+        activeFormats={activeFormats}
         compact
         disabled={disabled}
         onEmoji={onEmoji}
@@ -815,9 +922,11 @@ export function FeedClient({
   });
   const [feedMode, setFeedMode] = useState<FeedMode>("latest");
   const [body, setBody] = useState("");
+  const [postFormatState, setPostFormatState] = useState<ComposerFormatState>({});
   const [composerOpen, setComposerOpen] = useState(false);
   const [postImage, setPostImage] = useState<FeedImageAttachment | null>(null);
   const [commentBodies, setCommentBodies] = useState<Record<string, string>>({});
+  const [commentFormatStates, setCommentFormatStates] = useState<Record<string, ComposerFormatState>>({});
   const [commentImages, setCommentImages] = useState<Record<string, FeedImageAttachment | undefined>>({});
   const [commentErrors, setCommentErrors] = useState<Record<string, string | undefined>>({});
   const [replyTargets, setReplyTargets] = useState<Record<string, ReplyTarget | undefined>>(() =>
@@ -832,8 +941,8 @@ export function FeedClient({
   );
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const postTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const postEditorRef = useRef<FeedRichTextHandle | null>(null);
+  const commentEditorRefs = useRef<Record<string, FeedRichTextHandle | null>>({});
   const reservedStreamImpressionRef = useRef("");
   const pullStartYRef = useRef<number | null>(null);
   const composerIdentity = currentAuthor ?? { displayName: "You", username: "member", avatarUrl: null };
@@ -852,9 +961,9 @@ export function FeedClient({
   const focusCommentComposer = useCallback((postId: string, parentCommentId?: string) => {
     const key = parentCommentId ? `${postId}:${parentCommentId}` : postId;
     window.requestAnimationFrame(() => {
-      const textarea = commentTextareaRefs.current[key];
-      textarea?.focus();
-      textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const editor = commentEditorRefs.current[key];
+      editor?.focus();
+      editor?.scrollIntoView();
     });
   }, []);
 
@@ -879,7 +988,7 @@ export function FeedClient({
   useEffect(() => {
     function openExternalComposer() {
       setComposerOpen(true);
-      window.setTimeout(() => postTextareaRef.current?.focus(), 0);
+      window.setTimeout(() => postEditorRef.current?.focus(), 0);
     }
 
     window.addEventListener("theta:open-feed-composer", openExternalComposer);
@@ -924,27 +1033,12 @@ export function FeedClient({
     postReservedStreamDeliveryEvent(firstReservedAd, IMPRESSION_EVENT);
   }, [feedMode, reservedStreamAds, showThreadLinks, visiblePosts.length]);
 
-  function restoreTextSelection(textarea: HTMLTextAreaElement | null | undefined, result: TextFormatResult) {
-    if (!textarea) return;
-    window.requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
-    });
-  }
-
   function formatPostText(format: TextFormat) {
-    const textarea = postTextareaRef.current;
-    const result = applyTextFormat(body, format, textarea?.selectionStart ?? body.length, textarea?.selectionEnd ?? body.length);
-    setBody(result.value);
-    restoreTextSelection(textarea, result);
+    postEditorRef.current?.format(format);
   }
 
   function formatCommentText(key: string, format: TextFormat) {
-    const value = commentBodies[key] ?? "";
-    const textarea = commentTextareaRefs.current[key];
-    const result = applyTextFormat(value, format, textarea?.selectionStart ?? value.length, textarea?.selectionEnd ?? value.length);
-    setCommentBodies((current) => ({ ...current, [key]: result.value }));
-    restoreTextSelection(textarea, result);
+    commentEditorRefs.current[key]?.format(format);
   }
 
   function currentReactionAuthor(): FeedAuthorView | null {
@@ -1208,8 +1302,8 @@ export function FeedClient({
       return current.trim() ? `${current.trim()}\n\n${draft}` : draft;
     });
     window.requestAnimationFrame(() => {
-      postTextareaRef.current?.focus();
-      postTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      postEditorRef.current?.focus();
+      postEditorRef.current?.scrollIntoView();
     });
   }
 
@@ -1317,22 +1411,25 @@ export function FeedClient({
             </div>
             <label className="grid gap-2">
               <span className="sr-only">Post to stream</span>
-              <textarea
+              <FeedRichTextInput
+                ariaLabel="Post to stream"
                 autoFocus
-                className="form-field min-h-28 resize-y"
-                onChange={(event) => setBody(event.target.value)}
+                className="min-h-28"
+                onChange={setBody}
+                onFormatStateChange={setPostFormatState}
                 placeholder="Text, picture, link, survey..."
-                ref={postTextareaRef}
+                ref={postEditorRef}
                 value={body}
               />
             </label>
             <ComposerToolbar
+              activeFormats={postFormatState}
               disabled={isPending}
               onEmoji={appendToPost}
               onFile={(file) => setPostImage(createImageAttachment(file))}
               onFormat={formatPostText}
               trailingAction={
-                <button className="btn-primary send-logo-button" disabled={isPending || (!body.trim() && !postImage)} type="submit">
+                <button className="btn-primary send-logo-button" data-tooltip="Send Post" disabled={isPending || (!body.trim() && !postImage)} type="submit">
                   <span aria-hidden="true" className="send-logo-icon" />
                   <span className="sr-only">{isPending ? "Posting..." : "Post"}</span>
                 </button>
@@ -1367,8 +1464,14 @@ export function FeedClient({
           const commentSummary = post.comments.length + replyCount;
           const reservedStreamAd = showThreadLinks && feedMode === "latest" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
           const postLevelReplyInThread = Boolean(replyTarget && !replyTarget.parentCommentId && !showThreadLinks);
+          const hasImageMedia = Boolean(post.media?.publicUrl && post.media.mimeType.startsWith("image/"));
+          const isLongBody =
+            showThreadLinks &&
+            (post.body.length > (hasImageMedia ? 170 : 540) || post.body.split("\n").length > (hasImageMedia ? 3 : 8));
+          const streamCardClass = showThreadLinks ? ` is-stream-card ${hasImageMedia ? "has-media" : "is-text-only"}` : "";
           const replyComposer = replyTarget ? (
             <CommentComposer
+              activeFormats={commentFormatStates[activeCommentKey]}
               commentBody={commentBodies[activeCommentKey] ?? ""}
               commentError={commentErrors[activeCommentKey]}
               commentImage={commentImage}
@@ -1378,10 +1481,15 @@ export function FeedClient({
               onEmoji={(emoji) => appendToComment(post.id, emoji, replyTarget.parentCommentId)}
               onFile={(file) => setCommentImages((current) => ({ ...current, [activeCommentKey]: createImageAttachment(file) }))}
               onFormat={(format) => formatCommentText(activeCommentKey, format)}
+              onFormatStateChange={(state) => setCommentFormatStates((current) => ({ ...current, [activeCommentKey]: state }))}
               onImageRemove={() => setCommentImages((current) => ({ ...current, [activeCommentKey]: undefined }))}
               onSubmit={(event) => submitComment(post.id, event, replyTarget.parentCommentId)}
-              setTextareaRef={(node) => {
-                commentTextareaRefs.current[activeCommentKey] = node;
+              setEditorRef={(node) => {
+                if (node) {
+                  commentEditorRefs.current[activeCommentKey] = node;
+                } else {
+                  delete commentEditorRefs.current[activeCommentKey];
+                }
               }}
               updateBody={(value) => setCommentBodies((current) => ({ ...current, [activeCommentKey]: value }))}
             />
@@ -1391,7 +1499,7 @@ export function FeedClient({
             <Fragment key={post.id}>
             <article
               aria-label={`Open ${post.author.displayName}'s post`}
-              className={`${showThreadLinks ? "feed-post surface rounded-md is-clickable" : "feed-post surface rounded-md"}${post.isAdminAnnouncement ? " is-announcement" : ""}`}
+              className={`${showThreadLinks ? "feed-post surface rounded-md is-clickable" : "feed-post surface rounded-md"}${streamCardClass}${post.isAdminAnnouncement ? " is-announcement" : ""}`}
               onClick={(event) => handlePostClick(post.id, event)}
               onKeyDown={(event) => handlePostKeyDown(post.id, event)}
               role={showThreadLinks ? "link" : undefined}
@@ -1451,7 +1559,14 @@ export function FeedClient({
                   </details>
                 </div>
               </div>
-              <RichText value={post.body} />
+              <div className="feed-post-body-preview">
+                <RichText value={post.body} />
+              </div>
+              {isLongBody ? (
+                <button className="feed-read-more-button" onClick={() => openThread(post.id)} type="button">
+                  Read more
+                </button>
+              ) : null}
               <FeedMedia media={post.media} />
               <div className="feed-post-actions">
                 <ReactionButtons

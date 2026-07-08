@@ -232,6 +232,18 @@ a {
   width: 50px;
 }
 
+.desktop-command-nav-glyph {
+  color: var(--gold);
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(255, 216, 95, 0.22));
+  height: 34px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 34px;
+}
+
 .desktop-command-link:hover,
 .desktop-command-link.is-active {
   color: var(--text);
@@ -2680,11 +2692,55 @@ a {
   transform: translateY(-2px);
 }
 
+.feed-format-tools button.is-active,
+.feed-format-tools button[aria-pressed="true"] {
+  border-color: rgba(255, 216, 95, 0.72);
+  background: rgba(214, 178, 74, 0.18);
+  color: var(--gold);
+}
+
 .feed-format-tools button:disabled,
 .feed-emoji-tools button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
+}
+
+.feed-rich-composer-input {
+  line-height: 1.55;
+  min-height: 112px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.feed-comment-composer .feed-rich-composer-input {
+  min-height: 64px;
+}
+
+.feed-rich-composer-input:empty::before {
+  color: var(--muted);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.feed-rich-composer-input:focus {
+  outline: none;
+}
+
+.feed-rich-composer-input ul,
+.feed-rich-composer-input ol {
+  margin: 0.35rem 0 0.35rem 1.25rem;
+  padding-left: 1rem;
+}
+
+.feed-rich-composer-input li {
+  margin: 0.15rem 0;
+}
+
+.feed-rich-composer-input a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .feed-picture-button {
@@ -3422,6 +3478,94 @@ a {
 
 .feed-media-card img {
   max-height: 310px;
+}
+
+.feed-post.is-stream-card {
+  --feed-stream-image-card-height: clamp(620px, 70vh, 780px);
+  --feed-stream-text-card-height: 360px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.feed-post.is-stream-card.has-media {
+  height: var(--feed-stream-image-card-height);
+  min-height: var(--feed-stream-image-card-height);
+}
+
+.feed-post.is-stream-card.is-text-only {
+  height: var(--feed-stream-text-card-height);
+  min-height: var(--feed-stream-text-card-height);
+}
+
+.feed-post.is-stream-card .feed-post-header {
+  flex: 0 0 auto;
+}
+
+.feed-post.is-stream-card .feed-post-body-preview {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.feed-post.is-stream-card.has-media .feed-post-body-preview {
+  max-height: 5em;
+}
+
+.feed-post.is-stream-card.is-text-only .feed-post-body-preview {
+  flex: 1 1 auto;
+  max-height: 220px;
+}
+
+.feed-post.is-stream-card .feed-read-more-button {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 900;
+  margin-top: 6px;
+  padding: 0;
+}
+
+.feed-post.is-stream-card .feed-read-more-button:hover {
+  text-decoration: underline;
+}
+
+.feed-post.is-stream-card.has-media .feed-media-card {
+  align-items: center;
+  cursor: zoom-in;
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  margin-top: 12px;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.feed-post.is-stream-card.has-media .feed-media-card img {
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+}
+
+.feed-post.is-stream-card .feed-post-actions {
+  flex: 0 0 auto;
+  margin-top: auto;
+}
+
+.feed-post.is-stream-card .feed-comment-preview {
+  flex: 0 0 auto;
+  max-height: 150px;
+  overflow: hidden;
+}
+
+.feed-post.is-stream-card.is-text-only .feed-comment-preview {
+  max-height: 110px;
 }
 
 .feed-post-actions {
@@ -4538,6 +4682,133 @@ html.theta-theme-light .desktop-command-mark,
 html.theta-theme-light .desktop-command-avatar,
 html.theta-theme-light .desktop-command-create-ad {
   background-color: rgba(255, 250, 240, 0.86);
+}
+
+html.theta-theme-light .main-surface {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(156, 118, 34, 0.1), transparent 26rem),
+    linear-gradient(180deg, rgba(255, 250, 240, 0.5), rgba(235, 226, 205, 0.42));
+}
+
+html.theta-theme-light .desktop-command-bar,
+html.theta-theme-light .side-nav,
+html.theta-theme-light .ad-rail {
+  border-color: rgba(156, 118, 34, 0.18);
+  color: var(--text);
+}
+
+html.theta-theme-light .desktop-command-search input,
+html.theta-theme-light .form-field,
+html.theta-theme-light .account-actor-switcher select {
+  background: rgba(255, 255, 250, 0.9);
+  border-color: rgba(156, 118, 34, 0.26);
+  color: var(--text);
+}
+
+html.theta-theme-light .desktop-command-search input::placeholder,
+html.theta-theme-light .form-field::placeholder {
+  color: rgba(82, 96, 112, 0.78);
+}
+
+html.theta-theme-light .btn-secondary,
+html.theta-theme-light .control-panel-header,
+html.theta-theme-light .control-panel-link,
+html.theta-theme-light .feed-format-tools button,
+html.theta-theme-light .feed-picture-button,
+html.theta-theme-light .feed-emoji-trigger,
+html.theta-theme-light .feed-emoji-tools button,
+html.theta-theme-light .feed-reaction-button,
+html.theta-theme-light .feed-mode-tab,
+html.theta-theme-light .feed-composer-close,
+html.theta-theme-light .feed-reaction-trigger,
+html.theta-theme-light .feed-reply-button,
+html.theta-theme-light .feed-share-button,
+html.theta-theme-light .feed-open-thread-button,
+html.theta-theme-light .comment-reply-link,
+html.theta-theme-light .comment-share-link,
+html.theta-theme-light .ad-rail-create-link {
+  background: rgba(255, 250, 240, 0.9);
+  border-color: rgba(156, 118, 34, 0.22);
+  color: var(--text);
+}
+
+html.theta-theme-light .btn-secondary:hover,
+html.theta-theme-light .control-panel-header:hover,
+html.theta-theme-light .control-panel-link:hover,
+html.theta-theme-light .control-panel-link.is-active,
+html.theta-theme-light .feed-format-tools button:hover,
+html.theta-theme-light .feed-picture-button:hover,
+html.theta-theme-light .feed-emoji-trigger:hover,
+html.theta-theme-light .feed-emoji-tools button:hover,
+html.theta-theme-light .feed-reaction-button:hover,
+html.theta-theme-light .feed-mode-tab:hover,
+html.theta-theme-light .feed-mode-tab.is-active,
+html.theta-theme-light .feed-composer-close:hover,
+html.theta-theme-light .feed-reaction-trigger:hover,
+html.theta-theme-light .feed-reply-button:hover,
+html.theta-theme-light .feed-share-button:hover,
+html.theta-theme-light .feed-open-thread-button:hover,
+html.theta-theme-light .comment-reply-link:hover,
+html.theta-theme-light .comment-share-link:hover,
+html.theta-theme-light .ad-rail-create-link:hover {
+  background: rgba(244, 232, 204, 0.96);
+  border-color: rgba(156, 118, 34, 0.5);
+  color: var(--gold);
+}
+
+html.theta-theme-light .feed-loop-panel.surface,
+html.theta-theme-light .feed-composer.surface,
+html.theta-theme-light .home-front-strip.surface,
+html.theta-theme-light .surface.feed-post,
+html.theta-theme-light .feed-reserved-ad.surface,
+html.theta-theme-light .ad-placement-card {
+  background:
+    linear-gradient(145deg, rgba(255, 253, 247, 0.96), rgba(247, 238, 219, 0.94)),
+    rgba(255, 250, 240, 0.96);
+  border-color: rgba(156, 118, 34, 0.26);
+  box-shadow:
+    0 16px 42px rgba(104, 76, 22, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: var(--text);
+}
+
+html.theta-theme-light .surface.feed-post:hover,
+html.theta-theme-light .feed-reserved-ad.surface:hover,
+html.theta-theme-light .ad-placement-card:hover {
+  background:
+    linear-gradient(145deg, rgba(255, 250, 240, 0.98), rgba(242, 229, 199, 0.96)),
+    rgba(255, 250, 240, 0.98);
+  border-color: rgba(156, 118, 34, 0.42);
+}
+
+html.theta-theme-light .feed-post::before {
+  background: linear-gradient(180deg, rgba(156, 118, 34, 0.8), rgba(41, 87, 216, 0.16), transparent);
+}
+
+html.theta-theme-light .home-front-compose-trigger,
+html.theta-theme-light .feed-communicate-trigger,
+html.theta-theme-light .feed-trust-message,
+html.theta-theme-light .feed-media-card,
+html.theta-theme-light .feed-emoji-tools,
+html.theta-theme-light .feed-reaction-popover,
+html.theta-theme-light .feed-reaction-details-popover {
+  background: rgba(255, 255, 250, 0.92);
+  border-color: rgba(156, 118, 34, 0.24);
+  color: var(--text);
+  box-shadow: 0 12px 34px rgba(104, 76, 22, 0.12);
+}
+
+html.theta-theme-light .home-front-compose-trigger:hover,
+html.theta-theme-light .feed-communicate-trigger:hover {
+  background: rgba(244, 232, 204, 0.96);
+  border-color: rgba(156, 118, 34, 0.5);
+}
+
+html.theta-theme-light .global-tooltip {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 216, 95, 0.14), transparent 9rem),
+    linear-gradient(135deg, rgba(17, 24, 36, 0.98), rgba(8, 12, 20, 0.98));
+  color: #f7efe0;
 }
 
 .chat-sidebar,
@@ -7138,7 +7409,9 @@ body.theta-android-app .feedback-fab,
 }
 
 .theta-android-app .feed-post > .feed-rich-text,
-.app-shell.is-android-app .feed-post > .feed-rich-text {
+.app-shell.is-android-app .feed-post > .feed-rich-text,
+.theta-android-app .feed-post > .feed-post-body-preview,
+.app-shell.is-android-app .feed-post > .feed-post-body-preview {
   max-height: 6.9em;
   overflow: hidden;
 }
@@ -7275,7 +7548,7 @@ body.theta-android-app .feedback-fab,
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
   display: grid;
   gap: 4px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   left: 10px;
   min-height: 48px;
   padding: 5px;
@@ -7574,4 +7847,113 @@ body.theta-android-app .feedback-fab,
     page-break-after: auto;
     break-after: auto;
   }
+}
+
+.in-app-image-trigger {
+  appearance: none;
+  color: inherit;
+  cursor: zoom-in;
+  font: inherit;
+  margin: 0;
+  text-align: inherit;
+}
+
+.in-app-image-trigger:not(.btn-secondary) {
+  background: transparent;
+  border: 0;
+  display: block;
+  padding: 0;
+}
+
+.in-app-image-trigger:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.in-app-image-viewer {
+  align-items: center;
+  background: rgba(2, 6, 14, 0.82);
+  backdrop-filter: blur(10px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: clamp(18px, 4vw, 56px);
+  position: fixed;
+  z-index: 1200;
+}
+
+.in-app-image-viewer-panel {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 94vh;
+  max-width: min(1120px, 96vw);
+  position: relative;
+}
+
+.in-app-image-viewer-panel img {
+  background: rgba(5, 12, 22, 0.92);
+  border: 1px solid rgba(214, 178, 74, 0.42);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+  max-height: min(82vh, 920px);
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.in-app-image-viewer-close {
+  align-self: flex-end;
+  background: rgba(10, 15, 24, 0.96);
+  border: 1px solid rgba(214, 178, 74, 0.42);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 18px;
+}
+
+.in-app-image-viewer-close:hover,
+.in-app-image-viewer-close:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.in-app-image-viewer-caption {
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 86vw;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.in-app-image-trigger.feed-media-card {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+}
+
+.in-app-image-trigger.mail-attachment-image {
+  border: 1px solid rgba(214, 178, 74, 0.2);
+}
+
+.in-app-image-trigger.business-storefront-gallery-image {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+}
+
+.chat-media-image-trigger,
+.group-media-photo-trigger,
+.market-detail-image-trigger,
+.gallery-tile-image-trigger {
+  height: 100%;
+  width: 100%;
+}
+
+.chat-media-image-trigger img,
+.group-media-photo-trigger img,
+.market-detail-image-trigger img,
+.gallery-tile-image-trigger img {
+  display: block;
+}
+
+.group-forum-image-trigger {
+  max-width: 100%;
 }

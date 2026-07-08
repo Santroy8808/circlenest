@@ -13,6 +13,7 @@ import {
   scientologyTrainingLevels,
   parseScientologySelections
 } from "@/modules/my-scientology/types";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 
 type ScientologyProfileWithCommendations =
   | (ScientologyProfile & {
@@ -323,7 +324,15 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
                 <p className="mt-1 text-sm text-[var(--muted)]">
                   {commendation.mediaAsset.mimeType} - {new Date(commendation.createdAt).toLocaleDateString()}
                 </p>
-                {commendation.mediaAsset.publicUrl ? (
+                {commendation.mediaAsset.publicUrl && commendation.mediaAsset.mimeType.startsWith("image/") ? (
+                  <InAppImageViewer
+                    alt={commendation.title ?? commendation.mediaAsset.originalName ?? "Commendation"}
+                    className="btn-secondary mt-3 inline-flex text-sm"
+                    src={commendation.mediaAsset.publicUrl}
+                  >
+                    View
+                  </InAppImageViewer>
+                ) : commendation.mediaAsset.publicUrl ? (
                   <a className="mt-3 inline-flex text-sm text-[var(--gold)] underline" href={commendation.mediaAsset.publicUrl} rel="noreferrer" target="_blank">
                     View file
                   </a>

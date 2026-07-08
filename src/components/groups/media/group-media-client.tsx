@@ -3,6 +3,7 @@
 import { GroupAssetKind } from "@prisma/client";
 import { useRef, useState } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type { GroupAssetView } from "@/modules/group-media-docs/types";
 
 type UploadItem = {
@@ -480,8 +481,10 @@ export function GroupMediaClient({
             {asset.kind === GroupAssetKind.PHOTO ? (
               <div className="group-media-photo-frame">
                 {asset.publicUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" src={asset.publicUrl} />
+                  <InAppImageViewer alt={asset.originalName ?? asset.headline ?? "Group photo"} className="group-media-photo-trigger" src={asset.publicUrl}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt="" src={asset.publicUrl} />
+                  </InAppImageViewer>
                 ) : (
                   <span>Photo</span>
                 )}
@@ -501,7 +504,11 @@ export function GroupMediaClient({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {asset.publicUrl ? (
+                  {asset.publicUrl && asset.kind === GroupAssetKind.PHOTO ? (
+                    <InAppImageViewer alt={asset.originalName ?? asset.headline ?? "Group photo"} className="btn-secondary px-3 py-2 text-sm" src={asset.publicUrl}>
+                      Open
+                    </InAppImageViewer>
+                  ) : asset.publicUrl ? (
                     <a className="btn-secondary px-3 py-2 text-sm" href={asset.publicUrl} rel="noreferrer" target="_blank">
                       Open
                     </a>

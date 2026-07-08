@@ -4,6 +4,7 @@ import { ChatThreadType } from "@prisma/client";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { FeedClient } from "@/components/feed/feed-client";
+import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { ChatMessageView, ChatPersonView, ChatThreadDetailView, ChatThreadView } from "@/modules/chat-messages/types";
 import type { FeedPostView } from "@/modules/feed-stream/types";
@@ -66,10 +67,14 @@ function CompactMessage({
     <article className={isMine ? "home-comm-message is-mine" : "home-comm-message"}>
       {!isMine ? <span className="home-comm-message-author">{message.sender.displayName}</span> : null}
       {imageAttachment ? (
-        <a className="home-comm-image-link" href={imageAttachment.publicUrl ?? imageAttachment.thumbnailUrl ?? "#"} target="_blank" rel="noreferrer">
+        <InAppImageViewer
+          alt={imageAttachment.fileName}
+          className="home-comm-image-link"
+          src={imageAttachment.publicUrl ?? imageAttachment.thumbnailUrl ?? ""}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img alt={imageAttachment.fileName} loading="lazy" src={imageAttachment.thumbnailUrl ?? imageAttachment.publicUrl ?? ""} />
-        </a>
+        </InAppImageViewer>
       ) : null}
       {message.body?.trim() ? <p>{message.body}</p> : isImageAttachment(message) ? null : <p>{messagePreview(message)}</p>}
       {isAdmin && !message.id.startsWith("local-") ? <code className="admin-object-id">Chat message ID: {message.id}</code> : null}

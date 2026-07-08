@@ -19,6 +19,7 @@ type IconName =
   | "briefcase"
   | "chat"
   | "drawer"
+  | "gallery"
   | "home"
   | "mail"
   | "people"
@@ -30,6 +31,7 @@ type IconName =
 
 const bottomActions: Array<{ href: string; icon: IconName; label: string; countKey?: CountKey }> = [
   { href: "/home", icon: "home", label: "Home" },
+  { href: "/profile/gallery", icon: "gallery", label: "My Pics" },
   { href: "/messages", icon: "chat", label: "Messages", countKey: "messages" },
   { href: "/mail", icon: "mail", label: "Mail", countKey: "mail" },
   { href: "/notifications", icon: "bell", label: "Notifications", countKey: "notifications" },
@@ -108,6 +110,13 @@ function Icon({ name }: { name: IconName }) {
           <path d="M4 6h16" />
           <path d="M4 12h16" />
           <path d="M4 18h16" />
+        </>
+      ) : null}
+      {name === "gallery" ? (
+        <>
+          <rect height="15" rx="2.4" width="18" x="3" y="5" />
+          <path d="M7 15.5 10.1 12l2.3 2.3 2.1-2.8L19 17" />
+          <circle cx="16.2" cy="9.3" r="1.1" />
         </>
       ) : null}
       {name === "home" ? (
