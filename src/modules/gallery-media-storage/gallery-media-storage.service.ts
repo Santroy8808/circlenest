@@ -98,6 +98,9 @@ function toGalleryAssetView(
   }>
 ): GalleryAssetView {
   const metadata = asset.metadata as GalleryAssetMetadata | null;
+  const publicUrl = asset.publicUrl ?? getR2PublicUrl(asset.storageKey);
+  const thumbnailUrl =
+    metadata?.thumbnailUrl ?? (metadata?.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null);
   const collections = asset.collections.map((item) => ({
     name: item.collection.name,
     type: item.collection.type
@@ -106,7 +109,7 @@ function toGalleryAssetView(
   return {
     id: asset.id,
     storageKey: asset.storageKey,
-    publicUrl: asset.publicUrl,
+    publicUrl,
     originalName: asset.originalName,
     mimeType: asset.mimeType,
     sizeBytes: asset.sizeBytes.toString(),
@@ -115,7 +118,7 @@ function toGalleryAssetView(
     commentsEnabled: Boolean(metadata?.commentsEnabled),
     createdAt: asset.createdAt.toISOString(),
     source: metadata?.source ?? null,
-    thumbnailUrl: metadata?.thumbnailUrl ?? null,
+    thumbnailUrl,
     commentSearchText: asset.galleryComments.map((comment) => comment.body).join(" "),
     collections,
     tags: collections.filter((item) => item.type === MediaCollectionType.TAG).map((item) => item.name)

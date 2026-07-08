@@ -81,6 +81,7 @@ const emojiChoices = ["\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F64F}", "\u{1F
 const RESERVED_STREAM_SLOT_INDEX = 5;
 const IMPRESSION_EVENT = "IMPRESSION";
 const CLICK_EVENT = "CLICK";
+const FEED_THUMBNAIL_MAX_EDGE = 420;
 
 function reactionMeta(type: FeedReactionType) {
   return quickReactions.find((reaction) => reaction.type === type) ?? quickReactions[0];
@@ -107,8 +108,47 @@ function createImageAttachment(file: File): FeedImageAttachment {
   };
 }
 
+function loadImageElement(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not create image thumbnail."));
+    image.src = url;
+  });
+}
+
+async function createFeedThumbnail(file: File) {
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return null;
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const scale = Math.min(1, FEED_THUMBNAIL_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+
+    if (!context) return null;
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+    if (!blob) return null;
+
+    const fileName = file.name.replace(/\.[^.]+$/, "") || "stream-image";
+    return new File([blob], `${fileName}-thumb.jpg`, { type: "image/jpeg", lastModified: file.lastModified });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Partial<FeedImageAttachment>) => void, source: FeedImageSource) {
   onUpdate({ status: "uploading", progress: 1, error: undefined });
+  let thumbnailStorageKey: string | undefined;
 
   const intentResponse = await fetch("/api/media/upload-intent", {
     method: "POST",
@@ -134,11 +174,44 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
     onProgress: (progress) => onUpdate({ progress })
   });
 
+  try {
+    const thumbnailFile = await createFeedThumbnail(image.file);
+
+    if (thumbnailFile) {
+      onUpdate({ progress: 96 });
+      const thumbnailIntentResponse = await fetch("/api/media/upload-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: thumbnailFile.name,
+          mimeType: thumbnailFile.type,
+          sizeBytes: thumbnailFile.size,
+          visibility: MediaVisibility.MEMBERS,
+          source
+        })
+      });
+      const thumbnailIntent = (await thumbnailIntentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+
+      if (thumbnailIntentResponse.ok && thumbnailIntent.uploadUrl && thumbnailIntent.storageKey) {
+        await uploadWithResilientFallback({
+          uploadUrl: thumbnailIntent.uploadUrl,
+          storageKey: thumbnailIntent.storageKey,
+          file: thumbnailFile,
+          onProgress: () => onUpdate({ progress: 98 })
+        });
+        thumbnailStorageKey = thumbnailIntent.storageKey;
+      }
+    }
+  } catch {
+    thumbnailStorageKey = undefined;
+  }
+
   const completeResponse = await fetch("/api/media/complete-upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       storageKey: intent.storageKey,
+      thumbnailStorageKey,
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
@@ -336,10 +409,23 @@ function ProfileNameLink({ author, compact = false }: { author: FeedAuthorView; 
 function FeedMedia({ media }: { media?: FeedPostView["media"] }) {
   if (!media?.publicUrl || !media.mimeType.startsWith("image/")) return null;
 
+  const fullImageUrl = media.publicUrl;
+  const cardImageUrl = media.thumbnailUrl ?? fullImageUrl;
+
   return (
-    <InAppImageViewer alt={media.originalName ?? "Attached stream image"} className="feed-media-card" src={media.publicUrl}>
+    <InAppImageViewer alt={media.originalName ?? "Attached stream image"} className="feed-media-card" src={fullImageUrl}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img alt={media.originalName ?? "Attached stream image"} src={media.publicUrl} />
+      <img
+        alt={media.originalName ?? "Attached stream image"}
+        decoding="async"
+        loading="lazy"
+        onError={(event) => {
+          if (event.currentTarget.dataset.fullMediaFallbackApplied === "true") return;
+          event.currentTarget.dataset.fullMediaFallbackApplied = "true";
+          event.currentTarget.src = fullImageUrl;
+        }}
+        src={cardImageUrl}
+      />
     </InAppImageViewer>
   );
 }
@@ -398,13 +484,15 @@ function ReactionButtons({
   compact = false,
   currentUserId,
   onReact,
-  reactors = {}
+  reactors = {},
+  showCounts = true
 }: {
   counts: Partial<Record<FeedReactionType, number>>;
   compact?: boolean;
   currentUserId?: string;
   onReact: (type: FeedReactionType) => void;
   reactors?: FeedReactionReactorsView;
+  showCounts?: boolean;
 }) {
   const visibleReactionCounts = publicQuickReactions.filter((reaction) => (counts[reaction.type] ?? 0) > 0);
   const closeTimerRef = useRef<number | undefined>(undefined);
@@ -456,22 +544,24 @@ function ReactionButtons({
       onMouseEnter={openChoices}
       onMouseLeave={scheduleCloseChoices}
     >
-      <div className="feed-reaction-counts" aria-label="Reaction counts">
-        {visibleReactionCounts.map((reaction) => (
-          <button
-            aria-expanded={detailsType === reaction.type}
-            aria-label={`See ${reaction.label} reactions`}
-            className="feed-reaction-count-chip"
-            key={reaction.type}
-            onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
-            title={`See ${reaction.label} reactions`}
-            type="button"
-          >
-            <ReactionIcon reaction={reaction} />
-            <span>{counts[reaction.type]}</span>
-          </button>
-        ))}
-      </div>
+      {showCounts ? (
+        <div className="feed-reaction-counts" aria-label="Reaction counts">
+          {visibleReactionCounts.map((reaction) => (
+            <button
+              aria-expanded={detailsType === reaction.type}
+              aria-label={`See ${reaction.label} reactions`}
+              className="feed-reaction-count-chip"
+              key={reaction.type}
+              onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
+              title={`See ${reaction.label} reactions`}
+              type="button"
+            >
+              <ReactionIcon reaction={reaction} />
+              <span>{counts[reaction.type]}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="feed-reaction-control">
         <button
           aria-expanded={choicesOpen}
@@ -1462,6 +1552,8 @@ export function FeedClient({
           const hiddenPreviewCount = showThreadLinks ? Math.max(0, post.comments.length - previewComments.length) : 0;
           const replyCount = post.comments.reduce((total, comment) => total + comment.replyCount, 0);
           const commentSummary = post.comments.length + replyCount;
+          const visibleReactionCounts = publicQuickReactions.filter((reaction) => (post.reactions[reaction.type] ?? 0) > 0);
+          const commentSummaryLabel = `${commentSummary} ${commentSummary === 1 ? "comment" : "comments"}`;
           const reservedStreamAd = showThreadLinks && feedMode === "latest" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
           const postLevelReplyInThread = Boolean(replyTarget && !replyTarget.parentCommentId && !showThreadLinks);
           const hasImageMedia = Boolean(post.media?.publicUrl && post.media.mimeType.startsWith("image/"));
@@ -1568,12 +1660,34 @@ export function FeedClient({
                 </button>
               ) : null}
               <FeedMedia media={post.media} />
+              <div className="feed-engagement-summary" aria-label="Post engagement">
+                <div className="feed-engagement-reactions" aria-label="Reaction summary">
+                  {visibleReactionCounts.length > 0 ? (
+                    visibleReactionCounts.map((reaction) => (
+                      <span className="feed-engagement-reaction-chip" key={reaction.type} title={`${reaction.label}: ${post.reactions[reaction.type]}`}>
+                        <ReactionIcon reaction={reaction} />
+                        <span>{post.reactions[reaction.type]}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="feed-engagement-empty" aria-hidden="true" />
+                  )}
+                </div>
+                <button
+                  className="feed-engagement-comment-count"
+                  onClick={() => openThread(post.id)}
+                  type="button"
+                >
+                  {commentSummaryLabel}
+                </button>
+              </div>
               <div className="feed-post-actions">
                 <ReactionButtons
                   counts={post.reactions}
                   currentUserId={composerIdentity.id}
                   onReact={(reaction) => reactToPost(post.id, reaction)}
                   reactors={post.reactionReactors}
+                  showCounts={false}
                 />
                 <button
                   aria-label="Comment"

@@ -1,14 +1,17 @@
 import { MediaAssetStatus, type Prisma } from "@prisma/client";
 import type { PlatformMediaDto, PlatformMediaStatus } from "@/lib/platform/dto";
+import { getR2PublicUrl } from "@/lib/platform/r2";
 
 type MediaAssetForDto = {
   id: string;
   publicUrl: string | null;
+  storageKey?: string | null;
   metadata: Prisma.JsonValue | null;
   status?: MediaAssetStatus;
 };
 
 type MediaMetadata = {
+  thumbnailStorageKey?: string | null;
   thumbnailUrl?: string | null;
   width?: number | null;
   height?: number | null;
@@ -36,12 +39,14 @@ function toPlatformMediaStatus(status?: MediaAssetStatus): PlatformMediaStatus {
 
 export function toPlatformMediaDto(asset: MediaAssetForDto): PlatformMediaDto {
   const metadata = readMetadata(asset.metadata);
-  const assetUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
+  const assetUrl = asset.publicUrl ?? (asset.storageKey ? getR2PublicUrl(asset.storageKey) : null) ?? `/api/media/assets/${asset.id}`;
+  const thumbnailUrl =
+    metadata.thumbnailUrl ?? (metadata.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null) ?? assetUrl;
 
   return {
     id: asset.id,
     url: assetUrl,
-    thumbnailUrl: metadata.thumbnailUrl ?? assetUrl,
+    thumbnailUrl,
     width: typeof metadata.width === "number" ? metadata.width : null,
     height: typeof metadata.height === "number" ? metadata.height : null,
     status: toPlatformMediaStatus(asset.status),

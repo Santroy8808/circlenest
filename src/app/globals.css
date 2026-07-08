@@ -3415,14 +3415,14 @@ a {
 .feed-author-line {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .feed-author-line strong {
   color: var(--gold);
   display: block;
-  font-size: 0.94rem;
+  font-size: 1rem;
   line-height: 1.2;
 }
 
@@ -3437,16 +3437,16 @@ a {
   align-items: center;
   background: rgba(63, 115, 255, 0.18);
   border: 1px solid rgba(214, 178, 74, 0.2);
-  border-radius: 12px;
+  border-radius: 999px;
   color: var(--gold);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 0.78rem;
   font-weight: 900;
-  height: 36px;
+  height: 42px;
   justify-content: center;
   overflow: hidden;
-  width: 36px;
+  width: 42px;
 }
 
 .feed-author-avatar.is-current {
@@ -3481,11 +3481,12 @@ a {
 }
 
 .feed-post.is-stream-card {
-  --feed-stream-image-card-height: clamp(620px, 70vh, 780px);
+  --feed-stream-image-card-height: clamp(720px, 82vh, 900px);
   --feed-stream-text-card-height: 360px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 16px 18px;
 }
 
 .feed-post.is-stream-card.has-media {
@@ -3509,7 +3510,7 @@ a {
 }
 
 .feed-post.is-stream-card.has-media .feed-post-body-preview {
-  max-height: 5em;
+  max-height: 4.2em;
 }
 
 .feed-post.is-stream-card.is-text-only .feed-post-body-preview {
@@ -3555,7 +3556,7 @@ a {
 
 .feed-post.is-stream-card .feed-post-actions {
   flex: 0 0 auto;
-  margin-top: auto;
+  margin-top: 0;
 }
 
 .feed-post.is-stream-card .feed-comment-preview {
@@ -3568,29 +3569,87 @@ a {
   max-height: 110px;
 }
 
-.feed-post-actions {
+.feed-engagement-summary {
+  align-items: center;
   border-top: 1px solid rgba(214, 178, 74, 0.1);
+  color: var(--muted);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 12px;
+  min-height: 34px;
+  padding-top: 8px;
+}
+
+.feed-engagement-reactions {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.feed-engagement-reaction-chip {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 800;
+  gap: 5px;
+}
+
+.feed-engagement-reaction-chip .theta-like-triangle {
+  height: 1em;
+  width: 1em;
+}
+
+.feed-engagement-empty {
+  color: rgba(174, 184, 201, 0.72);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.feed-engagement-comment-count {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 0;
+}
+
+.feed-engagement-comment-count:hover {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.feed-post-actions {
+  border-top: 1px solid rgba(214, 178, 74, 0.08);
   align-items: center;
   display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(120px, 1fr) repeat(3, auto) minmax(120px, 1fr);
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   justify-content: stretch;
-  margin-top: 10px;
-  padding-top: 12px;
+  margin-top: 0;
+  padding-top: 8px;
   position: relative;
 }
 
 .feed-post-actions > .feed-reaction-menu {
-  grid-column: 2;
+  grid-column: 1;
   position: static;
 }
 
 .feed-post-actions > .feed-reply-button {
-  grid-column: 3;
+  grid-column: 2;
 }
 
 .feed-post-actions > .feed-share-menu {
-  grid-column: 4;
+  grid-column: 3;
 }
 
 .feed-open-thread-button,
@@ -3622,6 +3681,7 @@ a {
   display: inline-flex;
   gap: 10px;
   position: relative;
+  width: 100%;
 }
 
 .feed-reaction-counts {
@@ -3643,38 +3703,41 @@ a {
   align-items: center;
   display: inline-flex;
   position: relative;
+  width: 100%;
 }
 
 .feed-share-menu {
   display: inline-flex;
   position: relative;
+  width: 100%;
 }
 
 .feed-reaction-trigger,
 .feed-reply-button,
 .feed-share-button {
   align-items: center;
-  border: 1px solid rgba(214, 178, 74, 0.16);
-  border-radius: 999px;
-  background: rgba(8, 11, 16, 0.24);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
-  font-size: 1.68rem;
+  font-size: 1.42rem;
   font-weight: 900;
   gap: 12px;
   justify-content: center;
-  min-height: 70px;
-  min-width: 70px;
-  padding: 12px 18px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 8px 12px;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  width: 100%;
 }
 
 .feed-reaction-trigger:hover,
 .feed-reply-button:hover,
 .feed-share-button:hover {
-  border-color: rgba(255, 216, 95, 0.52);
-  background: rgba(23, 33, 51, 0.92);
+  background: rgba(255, 216, 95, 0.09);
+  color: var(--gold);
   transform: translateY(-1px);
 }
 
@@ -4077,6 +4140,53 @@ a {
 
 .feed-quick-reply-topline button:hover {
   color: var(--gold);
+}
+
+.feed-post.is-stream-card .feed-post-header {
+  padding-bottom: 2px;
+}
+
+.feed-post.is-stream-card .feed-post-body-preview .feed-rich-text {
+  margin-top: 8px;
+}
+
+.feed-post.is-stream-card.has-media .feed-media-card {
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px rgba(214, 178, 74, 0.1);
+}
+
+.feed-post.is-stream-card .feed-engagement-summary {
+  margin-top: 10px;
+}
+
+.feed-post.is-stream-card .feed-post-actions {
+  border-bottom: 1px solid rgba(214, 178, 74, 0.08);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+
+.feed-post.is-stream-card .feed-reaction-trigger,
+.feed-post.is-stream-card .feed-reply-button,
+.feed-post.is-stream-card .feed-share-button {
+  color: var(--muted);
+}
+
+.feed-post.is-stream-card .feed-reaction-trigger .theta-like-triangle,
+.feed-post.is-stream-card .feed-share-button {
+  color: var(--gold);
+}
+
+.feed-post.is-stream-card .feed-comment-preview {
+  gap: 7px;
+  margin-top: 0;
+}
+
+.feed-post.is-stream-card.has-media .feed-comment-preview {
+  max-height: 118px;
+}
+
+.feed-post.is-stream-card.has-media .comment-bubble:nth-of-type(n+2) {
+  display: none;
 }
 
 .people-grid {

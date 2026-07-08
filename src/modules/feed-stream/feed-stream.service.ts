@@ -1,6 +1,7 @@
 import { FeedReactionType, FeedVisibility, MembershipTier, Prisma, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { getR2PublicUrl } from "@/lib/platform/r2";
 import {
   attachFeedCommentHashtags,
   attachFeedPostHashtags,
@@ -96,17 +97,40 @@ function toFeedAuthorView(user: {
   } as const;
 }
 
-function toFeedMediaView(mediaAsset: {
+type FeedMediaMetadata = {
+  thumbnailStorageKey?: string | null;
+  thumbnailUrl?: string | null;
+};
+
+type FeedMediaAssetRecord = {
   id: string;
+  storageKey: string;
   publicUrl: string | null;
   mimeType: string;
   originalName: string | null;
-} | null) {
+  metadata: Prisma.JsonValue | null;
+};
+
+function readFeedMediaMetadata(value: Prisma.JsonValue | null): FeedMediaMetadata {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as FeedMediaMetadata;
+}
+
+function toFeedMediaView(mediaAsset: FeedMediaAssetRecord | null, allowDirectPublicMedia: boolean) {
   if (!mediaAsset) return null;
+
+  const protectedUrl = `/api/media/assets/${mediaAsset.id}`;
+  const directPublicUrl = mediaAsset.publicUrl ?? getR2PublicUrl(mediaAsset.storageKey);
+  const mediaUrl = allowDirectPublicMedia && directPublicUrl ? directPublicUrl : protectedUrl;
+  const metadata = readFeedMediaMetadata(mediaAsset.metadata);
+  const directThumbnailUrl =
+    metadata.thumbnailUrl ?? (metadata.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null);
+  const thumbnailUrl = allowDirectPublicMedia && directThumbnailUrl ? directThumbnailUrl : mediaUrl;
 
   return {
     id: mediaAsset.id,
-    publicUrl: `/api/media/assets/${mediaAsset.id}`,
+    publicUrl: mediaUrl,
+    thumbnailUrl,
     mimeType: mediaAsset.mimeType,
     originalName: mediaAsset.originalName
   };
@@ -137,12 +161,7 @@ type FeedCommentRecord = {
     profile: { displayName: string | null; avatarUrl?: string | null } | null;
     membership?: { tier: MembershipTier } | null;
   };
-  mediaAsset: {
-    id: string;
-    publicUrl: string | null;
-    mimeType: string;
-    originalName: string | null;
-  } | null;
+  mediaAsset: FeedMediaAssetRecord | null;
   reactions: FeedReactionRecord[];
   _count?: { replies: number };
   replies?: FeedCommentRecord[];
@@ -155,12 +174,7 @@ type FeedPostRecord = {
   isAdminAnnouncement: boolean;
   pinnedUntil: Date | null;
   createdAt: Date;
-  mediaAsset: {
-    id: string;
-    publicUrl: string | null;
-    mimeType: string;
-    originalName: string | null;
-  } | null;
+  mediaAsset: FeedMediaAssetRecord | null;
   author: FeedCommentRecord["author"];
   reactions: FeedReactionRecord[];
   comments: FeedCommentRecord[];
@@ -190,9 +204,11 @@ function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
     mediaAsset: {
       select: {
         id: true,
+        storageKey: true,
         publicUrl: true,
         mimeType: true,
-        originalName: true
+        originalName: true,
+        metadata: true
       }
     },
     reactions: feedReactionInclude(),
@@ -215,15 +231,15 @@ function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
   };
 }
 
-function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
-  const replies = comment.replies?.map(toFeedCommentView);
+function toFeedCommentView(comment: FeedCommentRecord, allowDirectPublicMedia: boolean): FeedCommentView {
+  const replies = comment.replies?.map((reply) => toFeedCommentView(reply, allowDirectPublicMedia));
 
   return {
     id: comment.id,
     body: comment.body,
     createdAt: comment.createdAt.toISOString(),
     author: toFeedAuthorView(comment.author),
-    media: toFeedMediaView(comment.mediaAsset),
+    media: toFeedMediaView(comment.mediaAsset, allowDirectPublicMedia),
     reactions: countReactions(comment.reactions),
     reactionReactors: reactionReactors(comment.reactions),
     replyCount: comment._count?.replies ?? replies?.length ?? 0,
@@ -232,6 +248,8 @@ function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
 }
 
 function toFeedPostView(post: FeedPostRecord): FeedPostView {
+  const allowDirectPublicMedia = post.visibility === FeedVisibility.MEMBERS;
+
   return {
     id: post.id,
     body: post.body,
@@ -239,11 +257,11 @@ function toFeedPostView(post: FeedPostRecord): FeedPostView {
     isAdminAnnouncement: post.isAdminAnnouncement,
     pinnedUntil: post.pinnedUntil?.toISOString() ?? null,
     createdAt: post.createdAt.toISOString(),
-    media: toFeedMediaView(post.mediaAsset),
+    media: toFeedMediaView(post.mediaAsset, allowDirectPublicMedia),
     author: toFeedAuthorView(post.author),
     reactions: countReactions(post.reactions),
     reactionReactors: reactionReactors(post.reactions),
-    comments: post.comments.map(toFeedCommentView)
+    comments: post.comments.map((comment) => toFeedCommentView(comment, allowDirectPublicMedia))
   };
 }
 
@@ -258,9 +276,11 @@ function feedPostInclude() {
     mediaAsset: {
       select: {
         id: true,
+        storageKey: true,
         publicUrl: true,
         mimeType: true,
-        originalName: true
+        originalName: true,
+        metadata: true
       }
     },
     reactions: feedReactionInclude(),
@@ -279,9 +299,11 @@ function feedPostInclude() {
         mediaAsset: {
           select: {
             id: true,
+            storageKey: true,
             publicUrl: true,
             mimeType: true,
-            originalName: true
+            originalName: true,
+            metadata: true
           }
         },
         reactions: feedReactionInclude(),
@@ -376,9 +398,11 @@ function fetchFeedPostThread(postId: string) {
       mediaAsset: {
         select: {
           id: true,
+          storageKey: true,
           publicUrl: true,
           mimeType: true,
-          originalName: true
+          originalName: true,
+          metadata: true
         }
       },
       reactions: feedReactionInclude(),

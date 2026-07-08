@@ -34,6 +34,7 @@ export const reactToFeedCommentSchema = z.object({
 export type FeedMediaView = {
   id: string;
   publicUrl?: string | null;
+  thumbnailUrl?: string | null;
   mimeType: string;
   originalName?: string | null;
 };
