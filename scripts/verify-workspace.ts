@@ -1,8 +1,8 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 
-const expectedPath = "C:\\Repos\\Theta-Space-net\\NewRepo";
 const expectedRemote = "https://github.com/Santroy8808/circlenest.git";
+const expectedPath = process.env.THETA_EXPECTED_REPO_PATH?.trim();
 
 function fail(message: string): never {
   console.error(`[workspace:verify] ${message}`);
@@ -11,7 +11,7 @@ function fail(message: string): never {
 
 const cwd = path.resolve(process.cwd());
 
-if (cwd.toLowerCase() !== expectedPath.toLowerCase()) {
+if (expectedPath && cwd.toLowerCase() !== path.resolve(expectedPath).toLowerCase()) {
   fail(`Wrong working directory: ${cwd}. Expected ${expectedPath}.`);
 }
 

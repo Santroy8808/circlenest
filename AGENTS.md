@@ -4,10 +4,11 @@
 
 This is the active Theta-Space web app repo.
 
-- Correct path: `C:\Repos\Theta-Space-net\NewRepo`
-- GitHub/Railway source: `https://github.com/Santroy8808/circlenest.git`
+- Production server path: `S:\Workspace\circlenest`
+- Local development path: `C:\Repos\Theta-Space-net\NewRepo`
+- GitHub production source: `https://github.com/Santroy8808/circlenest.git`
 - Branch for live production source: `main`
-- Database target: Neon PostgreSQL
+- Database target: production PostgreSQL
 - Media target: Cloudflare R2
 
 ## Before Editing
@@ -19,6 +20,12 @@ npm run workspace:verify
 ```
 
 If this command fails, stop and correct the repo path before editing.
+
+The verifier accepts the current checkout path by default. To enforce a specific path on a machine, set:
+
+```powershell
+$env:THETA_EXPECTED_REPO_PATH='S:\Workspace\circlenest'
+```
 
 ## Related Active Repo
 

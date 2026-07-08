@@ -1,13 +1,15 @@
-# Theta-Space NewRepo
+# Theta-Space
 
-This is the clean rebuild repo for Theta-Space, created from the current production app shape in `C:\Repos\thetansplace\circlenest`.
+This is the production source repo for Theta-Space.
 
 ## Platform Targets
 
-- Web hosting: Railway
-- Database: Neon PostgreSQL
+- Production server checkout: `S:\Workspace\circlenest`
+- Local development checkout: `C:\Repos\Theta-Space-net\NewRepo`
+- Web hosting: Windows Server behind Caddy
+- Database: production PostgreSQL
 - Media: Cloudflare R2
-- Production GitHub source at cutover: `Santroy8808/circlenest`
+- Production GitHub source: `Santroy8808/circlenest`
 
 ## Build Sequence
 
@@ -15,8 +17,8 @@ The app is rebuilt one module at a time. Each module has a blueprint in `docs/mo
 
 Current implementation status:
 
-- Core module phases 1-26: built in NewRepo
-- Next slice: cutover readiness and production overwrite planning
+- Desktop/API production source is this repo on `main`
+- Android remains in the existing Android repo and consumes the same API contracts
 
 ## Local Commands
 
@@ -47,8 +49,14 @@ npm run workspace:verify
 
 This confirms the working path is `C:\Repos\Theta-Space-net\NewRepo`, the remote is `https://github.com/Santroy8808/circlenest.git`, and the branch is `main`.
 
+On production, set `THETA_EXPECTED_REPO_PATH` if you want the guardrail to enforce the server path:
+
+```powershell
+$env:THETA_EXPECTED_REPO_PATH='S:\Workspace\circlenest'
+```
+
 Repo layout details are in `docs/repo-layout.md`.
 
 ## Production Cutover Rule
 
-Before overwriting the live Railway source, archive the current production repo as `archive-<date>` or `archive-<date>.vN`, create a rollback tag, push the new source to GitHub, and smoke test Railway, Neon, and R2.
+Before changing live production, create a server backup under `S:\Backups`, create a rollback tag or commit reference, pull from GitHub, build, restart the local app service behind Caddy, and smoke test Caddy, PostgreSQL, and R2.
