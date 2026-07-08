@@ -37,6 +37,10 @@ const groupReactionGlyphs: Partial<Record<GroupForumReactionType, string>> = {
   [GroupForumReactionType.ANGRY]: "\u{1F621}"
 };
 
+function groupReactionTooltip(reaction: GroupForumReactionType) {
+  return reaction === GroupForumReactionType.LIKE ? "Like it!" : groupReactionLabels[reaction];
+}
+
 function GroupReactionDisplay({ reaction }: { reaction: GroupForumReactionType }) {
   if (reaction === GroupForumReactionType.LIKE) {
     return <ThetaLikeTriangle />;
@@ -272,11 +276,11 @@ export function GroupForumThreadClient({
         <div className="mt-5 flex flex-wrap gap-2">
           {quickReactions.map((reaction) => (
             <button
-              aria-label={groupReactionLabels[reaction]}
+              aria-label={groupReactionTooltip(reaction)}
               className="btn-secondary group-reaction-button px-3 py-2 text-sm"
               key={reaction}
               onClick={() => reactToThread(reaction)}
-              title={groupReactionLabels[reaction]}
+              title={groupReactionTooltip(reaction)}
               type="button"
             >
               <GroupReactionDisplay reaction={reaction} /> <span>{thread.reactions[reaction] ?? 0}</span>
@@ -311,11 +315,11 @@ export function GroupForumThreadClient({
               <div className="mt-4 flex flex-wrap gap-2">
                 {quickReactions.map((reaction) => (
                   <button
-                    aria-label={groupReactionLabels[reaction]}
+                    aria-label={groupReactionTooltip(reaction)}
                     className="btn-secondary group-reaction-button px-3 py-2 text-sm"
                     key={reaction}
                     onClick={() => reactToPost(post.id, reaction)}
-                    title={groupReactionLabels[reaction]}
+                    title={groupReactionTooltip(reaction)}
                     type="button"
                   >
                     <GroupReactionDisplay reaction={reaction} /> <span>{post.reactions[reaction] ?? 0}</span>

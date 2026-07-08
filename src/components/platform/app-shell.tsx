@@ -1,6 +1,7 @@
 import { AccountPurpose, MembershipTier } from "@prisma/client";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { AdRailRotator } from "@/components/ads-credits/ad-rail-rotator";
 import { AccountActorSwitcher } from "@/components/platform/account-actor-switcher";
@@ -12,10 +13,12 @@ import { prisma } from "@/lib/platform/db";
 import { isAdminRole } from "@/lib/platform/roles";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
+import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
 
 const homeSection: NavSection = {
+  href: "/home",
   label: "Home",
   items: [
     { label: "My Stream", href: "/home" },
@@ -27,16 +30,18 @@ const homeSection: NavSection = {
 };
 
 const communicationsSection: NavSection = {
+  href: "/messages",
   label: "Comm",
   items: [
     { label: "Messages", href: "/messages", countKey: "messages" },
     { label: "Mail", href: "/mail", countKey: "mail" },
     { label: "Notifications", href: "/notifications", countKey: "notifications" },
-    { label: "Alerts", href: "/alerts", countKey: "alerts" }
+    { label: "Alerts", href: "/notifications?view=alerts", countKey: "alerts" }
   ]
 };
 
 const peopleSection: NavSection = {
+  href: "/people",
   label: "People",
   items: [
     { label: "Browse People", href: "/people" },
@@ -46,6 +51,7 @@ const peopleSection: NavSection = {
 };
 
 const productionZoneSection: NavSection = {
+  href: "/market",
   label: "Market",
   items: [
     { label: "The Market", href: "/market" },
@@ -60,6 +66,7 @@ const productionZoneSection: NavSection = {
 };
 
 const settingsSection: NavSection = {
+  href: "/settings",
   label: "Settings",
   items: [
     { label: "Profile", href: "/profile" },
@@ -97,10 +104,12 @@ function getNavSections(input: {
     return [
       {
         label: "Home",
+        href: "/membership",
         items: [{ label: "Membership", href: "/membership" }]
       },
       {
         label: "Account",
+        href: "/login",
         items: [{ label: "Login", href: "/login" }]
       }
     ];
@@ -110,6 +119,7 @@ function getNavSections(input: {
     return [
       {
         label: "Get Help",
+        href: "/auditors",
         items: [
           { label: "Find an Auditor", href: "/auditors" },
           { label: "Mail", href: "/mail", countKey: "mail" },
@@ -128,10 +138,12 @@ function getNavSections(input: {
     ...memberSections,
     {
       label: "Admin",
+      href: input.isAdmin ? "/admin" : undefined,
       items: input.isAdmin ? [{ label: "Admin Portal", href: "/admin" }] : []
     },
     {
       label: "Status",
+      href: input.isAdmin ? "/health" : undefined,
       items: input.isAdmin
         ? [
             { label: "Dev Status", href: "/" },
@@ -144,6 +156,7 @@ function getNavSections(input: {
     },
     {
       label: "Account",
+      href: input.isSignedIn ? undefined : "/login",
       items: input.isSignedIn ? [] : [{ label: "Login", href: "/login" }]
     }
   ];
@@ -235,7 +248,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const isAndroidApp = isAndroidAppRequest();
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
-  const counts = zeroCounts;
+  const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
   const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn });
   const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
 
@@ -276,8 +289,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {showAdRail ? (
         <aside className="ad-rail">
           <section className="ad-rail-card">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
+            <div className="ad-rail-header">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
+              </div>
+              <Link className="ad-rail-create-link" href="/ads/create">
+                Create ad
+              </Link>
+            </div>
             <div className="mt-5 grid gap-3">
               <AdRailRotator initialAds={[]} isAdmin={isAdmin} />
             </div>

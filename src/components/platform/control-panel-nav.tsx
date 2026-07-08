@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { MouseEvent } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
@@ -17,6 +17,7 @@ export type NavItem = {
 };
 
 export type NavSection = {
+  href?: string;
   label: string;
   items: NavItem[];
 };
@@ -26,30 +27,52 @@ type ControlPanelNavProps = {
   sections: NavSection[];
 };
 
+function hrefPath(href: string) {
+  return href.split("?")[0] ?? href;
+}
+
 function sectionCount(section: NavSection, counts: Record<NavCountKey, number>) {
   return section.items.reduce((total, item) => total + (item.countKey ? counts[item.countKey] : 0), 0);
 }
 
 function matchesPath(pathname: string, href: string) {
-  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+  const path = hrefPath(href);
+  return pathname === path || (path !== "/" && pathname.startsWith(`${path}/`));
 }
 
 function itemMatchesPath(pathname: string, item: NavItem) {
   return item.href ? matchesPath(pathname, item.href) : false;
 }
 
+function confirmLogout() {
+  if (window.confirm("Log out of Theta-Space?")) {
+    void signOut({ callbackUrl: "/login" });
+  }
+}
+
 export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
-  const activeSection = useMemo(
-    () => sections.find((section) => section.items.some((item) => itemMatchesPath(pathname, item)))?.label ?? sections[0]?.label ?? "",
-    [pathname, sections]
+  const navRows = useMemo(
+    () =>
+      sections.map((section) => {
+        const targetHref = section.href ?? section.items.find((item) => item.href)?.href;
+        return {
+          ...section,
+          isActive: Boolean(targetHref && matchesPath(pathname, targetHref)) || section.items.some((item) => itemMatchesPath(pathname, item)),
+          targetHref,
+          totalCount: sectionCount(section, liveCounts)
+        };
+      }),
+    [liveCounts, pathname, sections]
   );
-  const [openSection, setOpenSection] = useState(activeSection);
-
-  useEffect(() => {
-    setOpenSection(activeSection);
-  }, [activeSection]);
+  const utilityItems = useMemo(
+    () =>
+      sections
+        .flatMap((section) => section.items)
+        .filter((item) => item.action === "logout"),
+    [sections]
+  );
 
   function handleItemClick(event: MouseEvent<HTMLAnchorElement>, item: NavItem) {
     if (pathname !== "/home" || item.href !== "/messages" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
@@ -62,69 +85,31 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
 
   return (
     <nav aria-label="Control panel" className="mt-8 control-panel-nav">
-      {sections.map((section) => {
-        const isOpen = openSection === section.label;
-        const totalCount = sectionCount(section, liveCounts);
+      {navRows.map((section) => {
+        if (!section.targetHref) return null;
 
         return (
-          <section className={isOpen ? "control-panel-section is-open" : "control-panel-section"} key={section.label}>
-            <button
-              aria-controls={`control-panel-${section.label.toLowerCase().replace(/\s+/g, "-")}`}
-              aria-expanded={isOpen}
-              className="control-panel-header"
-              onClick={() => setOpenSection((current) => (current === section.label ? "" : section.label))}
-              type="button"
-            >
-              <span>{section.label}</span>
-              <span className="control-panel-header-meta">
-                {totalCount > 0 ? <span className="control-panel-section-count">{totalCount}</span> : null}
-                <span aria-hidden="true" className="control-panel-chevron">
-                  ›
-                </span>
-              </span>
-            </button>
-            <div
-              aria-hidden={!isOpen}
-              className="control-panel-items"
-              id={`control-panel-${section.label.toLowerCase().replace(/\s+/g, "-")}`}
-            >
-              <div className="control-panel-items-inner">
-                {section.items.map((item) => {
-                  const isActive = itemMatchesPath(pathname, item);
-                  const count = item.countKey ? liveCounts[item.countKey] : 0;
-
-                  if (item.action === "logout") {
-                    return (
-                      <button
-                        className="control-panel-link control-panel-action"
-                        key={item.label}
-                        onClick={() => signOut({ callbackUrl: "/login" })}
-                        tabIndex={isOpen ? undefined : -1}
-                        type="button"
-                      >
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <Link
-                      className={isActive ? "control-panel-link is-active" : "control-panel-link"}
-                      href={item.href ?? "/"}
-                      key={item.href ?? item.label}
-                      onClick={(event) => handleItemClick(event, item)}
-                      tabIndex={isOpen ? undefined : -1}
-                    >
-                      <span>{item.label}</span>
-                      {count > 0 ? <span className="control-panel-link-count">{count}</span> : null}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
+          <Link
+            className={section.isActive ? "control-panel-main-link is-active" : "control-panel-main-link"}
+            data-tooltip={`Open ${section.label}.`}
+            href={section.targetHref}
+            key={section.label}
+            onClick={(event) => handleItemClick(event, { href: section.targetHref, label: section.label })}
+          >
+            <span>{section.label}</span>
+            {section.totalCount > 0 ? <span className="control-panel-section-count">{section.totalCount}</span> : null}
+          </Link>
         );
       })}
+      {utilityItems.length > 0 ? (
+        <div className="control-panel-utility-list">
+          {utilityItems.map((item) => (
+            <button className="control-panel-main-link control-panel-action" key={item.label} onClick={confirmLogout} type="button">
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 }

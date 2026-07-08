@@ -392,8 +392,8 @@ export function HomeStreamWorkspace({
               )}
             </span>
             <span className="home-front-compose-copy">
-              <strong>Communicate</strong>
-              <span>Post, photo, link, survey</span>
+              <strong>Communicate!</strong>
+              <span>Share a post, photo, link, or update.</span>
             </span>
           </button>
           {latestAlert ? (

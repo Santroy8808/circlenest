@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function FamilyRequestActions({ requestId }: { requestId: string }) {
+export function FamilyRequestActions({ onResolved, requestId }: { onResolved?: () => void; requestId: string }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [resolved, setResolved] = useState(false);
@@ -26,6 +26,7 @@ export function FamilyRequestActions({ requestId }: { requestId: string }) {
 
       setResolved(true);
       setMessage(payload.status === "APPROVED" ? "Family tag approved." : "Family tag denied.");
+      onResolved?.();
       router.refresh();
     });
   }

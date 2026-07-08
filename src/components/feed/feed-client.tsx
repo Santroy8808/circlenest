@@ -91,6 +91,10 @@ function ReactionIcon({ reaction }: { reaction: QuickReaction }) {
   return <span aria-hidden="true">{reaction.icon}</span>;
 }
 
+function reactionTooltip(reaction: QuickReaction) {
+  return reaction.type === FeedReactionType.LIKE ? "Like it!" : reaction.label;
+}
+
 function createImageAttachment(file: File): FeedImageAttachment {
   return {
     file,
@@ -475,6 +479,7 @@ function ReactionButtons({
           aria-expanded={choicesOpen}
           aria-label="React"
           className={myReactionType ? "feed-reaction-trigger has-user-reaction" : "feed-reaction-trigger"}
+          data-tooltip={reactionTooltip(triggerReaction)}
           onClick={() => setChoicesOpen((open) => !open)}
           type="button"
         >
@@ -483,12 +488,12 @@ function ReactionButtons({
         <div className="feed-reaction-popover" role="menu" aria-label="Reaction options">
           {quickReactions.map((reaction) => (
             <button
-              aria-label={reaction.label}
+              aria-label={reactionTooltip(reaction)}
               className={myReactionType === reaction.type ? "feed-reaction-choice is-selected" : "feed-reaction-choice"}
               key={reaction.type}
               onClick={() => chooseReaction(reaction.type)}
               role="menuitem"
-              title={reaction.label}
+              title={reactionTooltip(reaction)}
               type="button"
             >
               <ReactionIcon reaction={reaction} />
@@ -1417,7 +1422,13 @@ export function FeedClient({
                       </button>
                     </>
                   ) : null}
-                  <span className="feed-visibility-chip">{post.visibility === FeedVisibility.FRIENDS ? "friends" : "members"}</span>
+                  <span
+                    className="feed-visibility-chip"
+                    data-tooltip={post.visibility === FeedVisibility.FRIENDS ? "Visible to friends." : "Visible to Theta-Space members."}
+                    title={post.visibility === FeedVisibility.FRIENDS ? "Visible to friends." : "Visible to Theta-Space members."}
+                  >
+                    {post.visibility === FeedVisibility.FRIENDS ? "friends" : "members"}
+                  </span>
                   <details className="feed-trust-menu">
                     <summary aria-label="Post options">•••</summary>
                     <div className="feed-trust-popover">
@@ -1468,7 +1479,7 @@ export function FeedClient({
                     title="Share"
                     type="button"
                   >
-                    <span aria-hidden="true">{"\u21AA"}</span>
+                    <span aria-hidden="true">{"\u2934"}</span>
                   </button>
                   {shareMenus[post.id] ? (
                     <div className="feed-share-popover" role="menu">

@@ -31,7 +31,7 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
   delete: "Delete this item.",
   edit: "Edit this item.",
   home: "Open the home stream.",
-  like: "Like this item.",
+  like: "Like it!",
   love: "React with love.",
   menu: "Open the menu.",
   next: "Continue to the next step.",

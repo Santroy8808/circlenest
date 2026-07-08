@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { FormEvent, MouseEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
 type Counts = {
@@ -91,12 +91,63 @@ function ShellSummaryPanel({ count, kind, summary }: { count: number; kind: Summ
   );
 }
 
+function NotificationBellIcon() {
+  return (
+    <svg aria-hidden="true" className="desktop-command-svg" viewBox="0 0 24 24">
+      <path d="M6.5 10.7c0-3.4 2.2-6.1 5.5-6.1s5.5 2.7 5.5 6.1v3.2l1.7 2.7H4.8l1.7-2.7z" />
+      <path d="M9.5 18.4c.5 1 1.3 1.5 2.5 1.5s2-.5 2.5-1.5" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg aria-hidden="true" className="desktop-command-svg desktop-command-svg--alert" viewBox="0 0 24 24">
+      <path d="M12 3.8 21 19H3z" />
+      <path d="M12 8.5v5.2" />
+      <path d="M12 16.8h.01" />
+    </svg>
+  );
+}
+
+function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
+  if (theme === "dark") {
+    return (
+      <svg aria-hidden="true" className="desktop-command-svg" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4.2" />
+        <path d="M12 2.8v2.1" />
+        <path d="M12 19.1v2.1" />
+        <path d="M4.9 4.9l1.5 1.5" />
+        <path d="M17.6 17.6l1.5 1.5" />
+        <path d="M2.8 12h2.1" />
+        <path d="M19.1 12h2.1" />
+        <path d="M4.9 19.1l1.5-1.5" />
+        <path d="M17.6 6.4l1.5-1.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" className="desktop-command-svg" viewBox="0 0 24 24">
+      <path d="M20.2 15.2A7.6 7.6 0 0 1 8.8 3.8 8.7 8.7 0 1 0 20.2 15.2z" />
+    </svg>
+  );
+}
+
 export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const liveCounts = useShellCounts(counts);
   const commCount = totalCommCount(liveCounts);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("theta-theme");
+    const nextTheme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "dark";
+    setTheme(nextTheme);
+    document.documentElement.classList.toggle("theta-theme-light", nextTheme === "light");
+  }, []);
 
   function runSearch() {
     const trimmed = query.trim();
@@ -131,11 +182,18 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
       });
   }
 
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    window.localStorage.setItem("theta-theme", nextTheme);
+    document.documentElement.classList.toggle("theta-theme-light", nextTheme === "light");
+  }
+
   return (
     <header className="desktop-command-bar" aria-label="Theta-Space command bar">
       <div className="desktop-command-brand">
         <Link className="desktop-command-mark" href="/home" data-tooltip="Go to your stream.">
-          <span aria-hidden="true">TS</span>
+          <Image alt="" aria-hidden="true" height={44} src="/assets/theta-send-logo.png" width={58} />
           <span className="sr-only">Theta-Space home</span>
         </Link>
         <form className="desktop-command-search" onSubmit={submitSearch}>
@@ -183,9 +241,13 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
       <div className="desktop-command-actions">
         {isSignedIn ? (
           <>
-            <Link className="desktop-command-icon" href="/ads/create" data-tooltip="Create an ad.">
+            <button className="desktop-command-icon" data-tooltip={`Switch to ${theme === "dark" ? "light" : "dark"} mode.`} onClick={toggleTheme} type="button">
+              <ThemeIcon theme={theme} />
+              <span className="sr-only">Toggle theme</span>
+            </button>
+            <Link className="desktop-command-create-ad" href="/ads/create" data-tooltip="Create an ad campaign.">
               <span aria-hidden="true">+</span>
-              <span className="sr-only">Create ad</span>
+              <span>Create ad</span>
             </Link>
             <Link
               className="desktop-command-icon"
@@ -194,19 +256,19 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               onFocus={() => loadSummary("notifications")}
               onPointerEnter={() => loadSummary("notifications")}
             >
-              <span aria-hidden="true">N</span>
+              <NotificationBellIcon />
               {liveCounts.notifications > 0 ? <strong>{liveCounts.notifications}</strong> : null}
               <span className="sr-only">Notifications</span>
               <ShellSummaryPanel count={liveCounts.notifications} kind="notifications" summary={summaries.notifications} />
             </Link>
             <Link
-              className="desktop-command-icon"
-              href="/alerts"
+              className="desktop-command-icon is-alert"
+              href="/notifications?view=alerts"
               data-tooltip={summaryTooltip("alerts", summaries.alerts)}
               onFocus={() => loadSummary("alerts")}
               onPointerEnter={() => loadSummary("alerts")}
             >
-              <span aria-hidden="true">!</span>
+              <AlertIcon />
               {liveCounts.alerts > 0 ? <strong>{liveCounts.alerts}</strong> : null}
               <span className="sr-only">Alerts</span>
               <ShellSummaryPanel count={liveCounts.alerts} kind="alerts" summary={summaries.alerts} />
