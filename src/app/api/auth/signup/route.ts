@@ -19,5 +19,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ user: result.user }, { status: 201 });
+  return NextResponse.json(
+    {
+      user: result.user,
+      verificationEmailSent: result.verificationEmailSent,
+      verificationEmailError: result.verificationEmailError ? "Verification email could not be sent." : undefined
+    },
+    { status: 201 }
+  );
 }

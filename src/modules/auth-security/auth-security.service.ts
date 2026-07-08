@@ -3,6 +3,7 @@ import { AccountPurpose, AuthSecurityEventType, AuditSeverity, MembershipTier, P
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { sendSmtpMail } from "@/lib/platform/smtp";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/modules/auth-security/password";
 import {
   type AuthenticatedUser,
@@ -42,6 +43,41 @@ function hashToken(token: string) {
 
 function exposeDevToken() {
   return process.env.NODE_ENV !== "production" || process.env.AUTH_DEV_EXPOSE_TOKENS === "true";
+}
+
+function publicBaseUrl() {
+  return (process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://theta-space.net").replace(/\/+$/, "");
+}
+
+function verificationEmailText(token: string) {
+  const verificationUrl = `${publicBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+
+  return [
+    "Welcome to Theta-Space.",
+    "",
+    "Use this link to verify your email address:",
+    verificationUrl,
+    "",
+    `Verification token: ${token}`,
+    "",
+    "If you did not create this account, you can ignore this email."
+  ].join("\n");
+}
+
+async function sendEmailVerificationMessage(email: string, token: string) {
+  const verificationUrl = `${publicBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+
+  await sendSmtpMail({
+    to: email,
+    subject: "Verify your Theta-Space email",
+    text: verificationEmailText(token),
+    html: [
+      "<p>Welcome to Theta-Space.</p>",
+      `<p><a href="${verificationUrl}">Verify your email address</a></p>`,
+      `<p><strong>Verification token:</strong> ${token}</p>`,
+      "<p>If you did not create this account, you can ignore this email.</p>"
+    ].join("")
+  });
 }
 
 async function recordSecurityEvent(input: {
@@ -266,11 +302,28 @@ export async function createMemberAccount(
       metadata: { preverified: Boolean(options.preverified), tier: user.membership?.tier ?? MembershipTier.FREE }
     });
 
+    let verificationEmailSent = false;
+    let verificationEmailError: string | undefined;
+
     if (!options.preverified) {
-      await createEmailVerificationToken(user.id, user.email, options.context);
+      const token = await createEmailVerificationToken(user.id, user.email, options.context);
+
+      if (token) {
+        try {
+          await sendEmailVerificationMessage(user.email, token);
+          verificationEmailSent = true;
+        } catch (error) {
+          verificationEmailError = error instanceof Error ? error.message : "Could not send verification email.";
+          await diagnostics.warn(MODULE_KEY, "Email verification SMTP send failed.", {
+            userId: user.id,
+            email: user.email,
+            error: verificationEmailError
+          });
+        }
+      }
     }
 
-    return { ok: true as const, user: toAuthenticatedUser(user) };
+    return { ok: true as const, user: toAuthenticatedUser(user), verificationEmailSent, verificationEmailError };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false as const, error: "That email or username is already in use." };
@@ -307,7 +360,7 @@ export async function createEmailVerificationToken(userId: string, email: string
     context
   });
 
-  return exposeDevToken() ? token : undefined;
+  return token;
 }
 
 export async function verifyEmailToken(input: unknown, context?: RequestContext) {

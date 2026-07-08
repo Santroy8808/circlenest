@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 
-export function EmailVerificationForm() {
+export function EmailVerificationForm({ initialToken = "" }: { initialToken?: string }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [token, setToken] = useState(initialToken);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -28,6 +29,7 @@ export function EmailVerificationForm() {
 
       setMessage("Email verified.");
       event.currentTarget.reset();
+      setToken("");
     });
   }
 
@@ -35,13 +37,18 @@ export function EmailVerificationForm() {
     <form className="grid gap-4" onSubmit={handleSubmit}>
       <label className="grid gap-2">
         <span className="form-label">Verification token</span>
-        <input className="form-field" name="token" required />
+        <input className="form-field" name="token" onChange={(event) => setToken(event.target.value)} required value={token} />
       </label>
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       {message ? <p className="rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
         Verify email
       </button>
+      {message ? (
+        <a className="btn-secondary text-center" href="/login">
+          Back to login
+        </a>
+      ) : null}
     </form>
   );
 }
