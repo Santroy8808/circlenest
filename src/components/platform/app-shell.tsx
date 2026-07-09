@@ -173,13 +173,28 @@ function isAllowedAuditorSeekerPath(currentPath: string) {
 async function getShellProfile(userId?: string) {
   if (!userId) return null;
 
-  return prisma.profile.findUnique({
-    where: { userId },
+  return prisma.user.findUnique({
+    where: { id: userId },
     select: {
-      displayName: true,
-      avatarUrl: true
+      createdAt: true,
+      profile: {
+        select: {
+          displayName: true,
+          avatarUrl: true
+        }
+      }
     }
   });
+}
+
+function formatMemberSince(createdAt?: Date) {
+  if (!createdAt) return "Member";
+
+  return `Member since ${new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(createdAt)}`;
 }
 
 function initials(value: string) {
@@ -250,14 +265,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
   const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn });
-  const displayName = shellProfile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
+  const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
+  const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
 
   return (
     <div className={["app-shell", isAndroidApp ? "is-android-app" : "", showAdRail ? "" : "no-ad-rail"].filter(Boolean).join(" ")}>
       <ShellCountsProvider enabled={isSignedIn} initialCounts={counts}>
       {isSignedIn ? <ActivityTracker /> : null}
       <DesktopCommandBar
-        avatarUrl={shellProfile?.avatarUrl}
+        avatarUrl={shellProfile?.profile?.avatarUrl}
         counts={counts}
         displayName={displayName}
         isAdmin={isAdmin}
@@ -266,9 +282,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="side-nav">
         <div className="side-nav-profile">
           <Link className="side-nav-avatar" data-tooltip="Open your gallery." href="/profile/gallery">
-            {shellProfile?.avatarUrl ? (
+            {shellProfile?.profile?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" src={shellProfile.avatarUrl} />
+              <img alt="" src={shellProfile.profile.avatarUrl} />
             ) : (
               <span>{initials(displayName)}</span>
             )}
@@ -276,7 +292,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Theta-Space</p>
             <h1 className="mt-1 truncate text-xl font-semibold leading-tight">{displayName}</h1>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{isSignedIn ? "Member control panel" : "Private membership platform"}</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{memberSinceLabel}</p>
           </div>
         </div>
         {isSignedIn ? <AccountActorSwitcher activeActorUserId={actorPicker.activeActorUserId} actors={actorPicker.actors} /> : null}

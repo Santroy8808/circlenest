@@ -54,12 +54,20 @@ type PrimaryNavItem = {
   icon?: string;
   key: string;
   label: string;
+  lightIcon?: string;
   tooltip: string;
 };
 
 const primaryNavItems: PrimaryNavItem[] = [
   { href: "/home", icon: "/assets/nav/nav-home.png", key: "home", label: "Home", tooltip: "Home stream." },
-  { href: "/profile/gallery", icon: "/assets/nav/nav-gallery-v2.png", key: "gallery", label: "My Pics", tooltip: "Open your gallery." },
+  {
+    href: "/profile/gallery",
+    icon: "/assets/nav/nav-gallery-v2.png",
+    key: "gallery",
+    label: "My Pics",
+    lightIcon: "/assets/nav/light/light-gallery.png",
+    tooltip: "Open your gallery."
+  },
   { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
@@ -117,6 +125,10 @@ function AlertIcon() {
       <path d="M12 16.8h.01" />
     </svg>
   );
+}
+
+function LightCommandImage({ alt, src }: { alt: string; src: string }) {
+  return <Image alt={alt} aria-hidden="true" className="desktop-command-action-image" height={52} src={src} width={52} />;
 }
 
 function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
@@ -239,7 +251,16 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               key={item.key}
               onClick={item.key === "messages" ? toggleComm : undefined}
             >
-              {item.icon ? <Image alt="" aria-hidden="true" className="desktop-command-nav-image" height={50} src={item.icon} width={50} /> : null}
+              {item.icon ? (
+                <Image
+                  alt=""
+                  aria-hidden="true"
+                  className="desktop-command-nav-image"
+                  height={50}
+                  src={theme === "light" && item.lightIcon ? item.lightIcon : item.icon}
+                  width={50}
+                />
+              ) : null}
               <span className="sr-only">{item.label}</span>
               {item.key === "messages" && commCount > 0 ? <strong>{commCount}</strong> : null}
             </Link>
@@ -255,8 +276,14 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               <span className="sr-only">Toggle theme</span>
             </button>
             <Link className="desktop-command-create-ad" href="/ads/create" data-tooltip="Create an ad campaign.">
-              <span aria-hidden="true">+</span>
-              <span>Create ad</span>
+              {theme === "light" ? (
+                <LightCommandImage alt="" src="/assets/nav/light/light-create-ad.png" />
+              ) : (
+                <>
+                  <span aria-hidden="true">+</span>
+                  <span>Create ad</span>
+                </>
+              )}
             </Link>
             <Link
               className="desktop-command-icon"
@@ -265,8 +292,8 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               onFocus={() => loadSummary("notifications")}
               onPointerEnter={() => loadSummary("notifications")}
             >
-              <NotificationBellIcon />
-              {liveCounts.notifications > 0 ? <strong>{liveCounts.notifications}</strong> : null}
+              {theme === "light" ? <LightCommandImage alt="" src="/assets/nav/light/light-notifications.png" /> : <NotificationBellIcon />}
+              {theme !== "light" && liveCounts.notifications > 0 ? <strong>{liveCounts.notifications}</strong> : null}
               <span className="sr-only">Notifications</span>
               <ShellSummaryPanel count={liveCounts.notifications} kind="notifications" summary={summaries.notifications} />
             </Link>
@@ -277,8 +304,8 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               onFocus={() => loadSummary("alerts")}
               onPointerEnter={() => loadSummary("alerts")}
             >
-              <AlertIcon />
-              {liveCounts.alerts > 0 ? <strong>{liveCounts.alerts}</strong> : null}
+              {theme === "light" ? <LightCommandImage alt="" src="/assets/nav/light/light-alerts.png" /> : <AlertIcon />}
+              {theme !== "light" && liveCounts.alerts > 0 ? <strong>{liveCounts.alerts}</strong> : null}
               <span className="sr-only">Alerts</span>
               <ShellSummaryPanel count={liveCounts.alerts} kind="alerts" summary={summaries.alerts} />
             </Link>
