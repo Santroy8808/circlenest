@@ -49,6 +49,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const [customTag, setCustomTag] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [controlsOpen, setControlsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const tagName = tagChoice === "Custom" ? customTag.trim() : tagChoice;
   const hasSearch = Boolean(searchQuery.trim() || dateFrom || dateTo);
@@ -219,37 +220,19 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     <section className="grid gap-5">
       <div className="surface rounded-md p-4 sm:p-5">
         <div className="gallery-toolbar">
-          <div className="gallery-selection-actions">
+          <div className="gallery-toolbar-summary">
             <button
+              aria-expanded={controlsOpen}
               className="btn-secondary"
-              data-tooltip="Select every photo currently shown."
-              disabled={visibleAssets.length === 0 || isPending}
-              onClick={() => setSelectedIds(visibleIds)}
-              title="Select all visible photos"
+              data-tooltip="Show gallery search, selection, delete, and tag controls."
+              onClick={() => setControlsOpen((current) => !current)}
               type="button"
             >
-              Select
+              Controls
             </button>
-            <button
-              className="btn-secondary"
-              data-tooltip="Clear the selected photos."
-              disabled={selectedIds.length === 0 || isPending}
-              onClick={() => setSelectedIds([])}
-              title="Clear selected photos"
-              type="button"
-            >
-              Clear
-            </button>
-            <button
-              className="btn-secondary"
-              data-tooltip="Delete the selected photos."
-              disabled={selectedVisibleIds.length === 0 || isPending}
-              onClick={() => deleteAssets(selectedVisibleIds)}
-              title="Delete selected photos"
-              type="button"
-            >
-              Delete
-            </button>
+            <span className="text-sm text-[var(--muted)]">
+              {visibleAssets.length} shown{selectedVisibleIds.length > 0 ? `, ${selectedVisibleIds.length} selected` : ""}
+            </span>
           </div>
           {quickUploadInput}
           <button
@@ -263,103 +246,140 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
           </button>
         </div>
 
-        <div className="gallery-control-layout mt-4">
-          <section aria-labelledby="gallery-search-heading" className="gallery-search-panel">
-            <div className="gallery-panel-heading">
-              <p className="form-label" id="gallery-search-heading">
-                Search
-              </p>
-              <button className="btn-secondary gallery-compact-button" data-tooltip="Clear all gallery search fields." disabled={!hasSearch} onClick={clearSearch} type="button">
+        {controlsOpen ? (
+          <div className="gallery-controls-panel">
+            <div className="gallery-selection-actions">
+              <button
+                className="btn-secondary"
+                data-tooltip="Select every photo currently shown."
+                disabled={visibleAssets.length === 0 || isPending}
+                onClick={() => setSelectedIds(visibleIds)}
+                title="Select all visible photos"
+                type="button"
+              >
+                Select
+              </button>
+              <button
+                className="btn-secondary"
+                data-tooltip="Clear the selected photos."
+                disabled={selectedIds.length === 0 || isPending}
+                onClick={() => setSelectedIds([])}
+                title="Clear selected photos"
+                type="button"
+              >
                 Clear
               </button>
+              <button
+                className="btn-secondary"
+                data-tooltip="Delete the selected photos."
+                disabled={selectedVisibleIds.length === 0 || isPending}
+                onClick={() => deleteAssets(selectedVisibleIds)}
+                title="Delete selected photos"
+                type="button"
+              >
+                Delete
+              </button>
             </div>
-            <div className="gallery-search-grid">
-              <label className="gallery-search-main grid gap-2">
-                <span className="form-label">Search gallery</span>
-                <input
-                  className="form-field"
-                  list="gallery-tag-suggestions"
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search filenames, tags, or comments"
-                  value={searchQuery}
-                />
-                <datalist id="gallery-tag-suggestions">
-                  {availableTags.map((tag) => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">From</span>
-                <input className="form-field" onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">To</span>
-                <input className="form-field" onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
-              </label>
-            </div>
-          </section>
 
-          <section aria-labelledby="gallery-tags-heading" className="gallery-tag-panel">
-            <p className="form-label" id="gallery-tags-heading">
-              Tags
-            </p>
-            <div className="gallery-tag-fields">
-              <label className="grid gap-2">
-                <span className="form-label">Tag</span>
-                <select className="form-field" onChange={(event) => setTagChoice(event.target.value)} value={tagChoice}>
-                  {availableTags.map((tag) => (
-                    <option key={tag} value={tag}>
-                      {tag}
-                    </option>
-                  ))}
-                  <option value="Custom">Custom</option>
-                </select>
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Custom</span>
-                <input
-                  className="form-field"
-                  disabled={tagChoice !== "Custom" || isPending}
-                  maxLength={40}
-                  onChange={(event) => setCustomTag(event.target.value)}
-                  placeholder="Type a tag"
-                  value={customTag}
-                />
-              </label>
+            <div className="gallery-control-layout">
+              <section aria-labelledby="gallery-search-heading" className="gallery-search-panel">
+                <div className="gallery-panel-heading">
+                  <p className="form-label" id="gallery-search-heading">
+                    Search
+                  </p>
+                  <button className="btn-secondary gallery-compact-button" data-tooltip="Clear all gallery search fields." disabled={!hasSearch} onClick={clearSearch} type="button">
+                    Clear
+                  </button>
+                </div>
+                <div className="gallery-search-grid">
+                  <label className="gallery-search-main grid gap-2">
+                    <span className="form-label">Search gallery</span>
+                    <input
+                      className="form-field"
+                      list="gallery-tag-suggestions"
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search filenames, tags, or comments"
+                      value={searchQuery}
+                    />
+                    <datalist id="gallery-tag-suggestions">
+                      {availableTags.map((tag) => (
+                        <option key={tag} value={tag} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="form-label">From</span>
+                    <input className="form-field" onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="form-label">To</span>
+                    <input className="form-field" onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
+                  </label>
+                </div>
+              </section>
+
+              <section aria-labelledby="gallery-tags-heading" className="gallery-tag-panel">
+                <p className="form-label" id="gallery-tags-heading">
+                  Tags
+                </p>
+                <div className="gallery-tag-fields">
+                  <label className="grid gap-2">
+                    <span className="form-label">Tag</span>
+                    <select className="form-field" onChange={(event) => setTagChoice(event.target.value)} value={tagChoice}>
+                      {availableTags.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                      <option value="Custom">Custom</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="form-label">Custom</span>
+                    <input
+                      className="form-field"
+                      disabled={tagChoice !== "Custom" || isPending}
+                      maxLength={40}
+                      onChange={(event) => setCustomTag(event.target.value)}
+                      placeholder="Type a tag"
+                      value={customTag}
+                    />
+                  </label>
+                </div>
+                <div className="gallery-tag-footer">
+                  <div aria-label="Tag target" className="gallery-tag-scope" role="group">
+                    <button
+                      aria-pressed={tagTarget === "selected"}
+                      className={tagTarget === "selected" ? "is-active" : ""}
+                      data-tooltip="Apply tag actions only to checked photos."
+                      onClick={() => setTagTarget("selected")}
+                      type="button"
+                    >
+                      Selected
+                    </button>
+                    <button
+                      aria-pressed={tagTarget === "visible"}
+                      className={tagTarget === "visible" ? "is-active" : ""}
+                      data-tooltip="Apply tag actions to every photo currently shown."
+                      onClick={() => setTagTarget("visible")}
+                      type="button"
+                    >
+                      Visible
+                    </button>
+                  </div>
+                  <div className="gallery-tag-actions">
+                    <button className="btn-primary" data-tooltip="Add this tag to the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "add")} type="button">
+                      Apply
+                    </button>
+                    <button className="btn-secondary" data-tooltip="Remove this tag from the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "remove")} type="button">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </section>
             </div>
-            <div className="gallery-tag-footer">
-              <div aria-label="Tag target" className="gallery-tag-scope" role="group">
-                <button
-                  aria-pressed={tagTarget === "selected"}
-                  className={tagTarget === "selected" ? "is-active" : ""}
-                  data-tooltip="Apply tag actions only to checked photos."
-                  onClick={() => setTagTarget("selected")}
-                  type="button"
-                >
-                  Selected
-                </button>
-                <button
-                  aria-pressed={tagTarget === "visible"}
-                  className={tagTarget === "visible" ? "is-active" : ""}
-                  data-tooltip="Apply tag actions to every photo currently shown."
-                  onClick={() => setTagTarget("visible")}
-                  type="button"
-                >
-                  Visible
-                </button>
-              </div>
-              <div className="gallery-tag-actions">
-                <button className="btn-primary" data-tooltip="Add this tag to the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "add")} type="button">
-                  Apply
-                </button>
-                <button className="btn-secondary" data-tooltip="Remove this tag from the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "remove")} type="button">
-                  Remove
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
+          </div>
+        ) : null}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
           <span>{selectedVisibleIds.length} selected</span>

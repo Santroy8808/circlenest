@@ -371,6 +371,21 @@ export function HomeStreamWorkspace({
   latestAlert
 }: HomeStreamWorkspaceProps) {
   const [commOpen, setCommOpen] = useState(false);
+  const [showBannerAlert, setShowBannerAlert] = useState(Boolean(latestAlert));
+
+  useEffect(() => {
+    setShowBannerAlert(Boolean(latestAlert));
+  }, [latestAlert]);
+
+  useEffect(() => {
+    if (!latestAlert || !showBannerAlert) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setShowBannerAlert(false);
+    }, 30000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [latestAlert, showBannerAlert]);
 
   useEffect(() => {
     function openCommDock() {
@@ -397,10 +412,19 @@ export function HomeStreamWorkspace({
     <div className={commOpen ? "home-comm-workspace is-comm-open" : "home-comm-workspace"}>
       <div className="home-comm-main">
         <section
-          className="home-front-strip surface rounded-md"
+          className={["home-front-strip surface rounded-md", showBannerAlert && latestAlert ? "is-announcement-visible" : ""].filter(Boolean).join(" ")}
           style={bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 11, 16, 0.86), rgba(8, 11, 16, 0.42)), url(${bannerUrl})` } : undefined}
         >
-          <button className="home-front-compose-trigger" data-tooltip="Open the stream composer." onClick={openComposer} type="button">
+          {latestAlert && showBannerAlert ? (
+            <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
+              <strong>{latestAlert.title}</strong>
+              {latestAlert.body ? <span>{latestAlert.body}</span> : null}
+            </a>
+          ) : null}
+        </section>
+        <div className="home-front-compose-row">
+          <button className="home-front-compose-trigger" data-tooltip="Create a stream post." onClick={openComposer} type="button">
             <span className="home-front-avatar">
               {currentAuthor.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -410,18 +434,11 @@ export function HomeStreamWorkspace({
               )}
             </span>
             <span className="home-front-compose-copy">
-              <strong>Communicate!</strong>
-              <span>Share a post, photo, link, or update.</span>
+              <strong>Communicate! Click here</strong>
+              <span>Create a post, photo, link, or update.</span>
             </span>
           </button>
-          {latestAlert ? (
-            <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
-              <strong>{latestAlert.title}</strong>
-              {latestAlert.body ? <span>{latestAlert.body}</span> : null}
-            </a>
-          ) : null}
-        </section>
+        </div>
         <section className="mt-5">
           <FeedClient currentAuthor={currentAuthor} initialReservedStreamAds={initialReservedStreamAds} initialPosts={initialPosts} isAdmin={isAdmin} showComposerTrigger={false} />
         </section>
