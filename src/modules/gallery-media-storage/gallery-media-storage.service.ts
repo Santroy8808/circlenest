@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { MediaAssetStatus, MediaCollectionType, MediaVisibility, Prisma } from "@prisma/client";
+import { FeedReactionType, MediaAssetStatus, MediaCollectionType, MediaVisibility, Prisma } from "@prisma/client";
 import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
@@ -9,9 +9,12 @@ import {
   createUploadIntentSchema,
   deleteGalleryAssetsSchema,
   DEFAULT_GALLERY_TAGS,
+  reactToGalleryAssetCommentSchema,
+  reactToGalleryAssetSchema,
   updateGalleryAssetTagsSchema,
   updateGalleryAssetSettingsSchema,
   type GalleryAssetCommentView,
+  type GalleryReactionReactorsView,
   type GalleryAssetViewer,
   type GalleryAssetView
 } from "@/modules/gallery-media-storage/types";
@@ -89,11 +92,58 @@ type GalleryAssetMetadata = {
   thumbnailUrl?: string | null;
 };
 
+type GalleryReactionRecord = {
+  type: FeedReactionType;
+  user: {
+    id: string;
+    username: string;
+    profile: {
+      displayName: string | null;
+      avatarUrl: string | null;
+    } | null;
+  };
+};
+
+function galleryReactionInclude() {
+  return {
+    include: {
+      user: {
+        include: {
+          profile: true
+        }
+      }
+    }
+  };
+}
+
+function summarizeReactions(reactions: GalleryReactionRecord[]) {
+  const counts: Partial<Record<FeedReactionType, number>> = {};
+  const reactors: GalleryReactionReactorsView = {};
+
+  reactions.forEach((reaction) => {
+    if (reaction.type === FeedReactionType.DISLIKE) return;
+
+    counts[reaction.type] = (counts[reaction.type] ?? 0) + 1;
+    reactors[reaction.type] = [
+      ...(reactors[reaction.type] ?? []),
+      {
+        id: reaction.user.id,
+        displayName: reaction.user.profile?.displayName ?? reaction.user.username,
+        username: reaction.user.username,
+        avatarUrl: reaction.user.profile?.avatarUrl
+      }
+    ];
+  });
+
+  return { counts, reactors };
+}
+
 function toGalleryAssetView(
   asset: Prisma.MediaAssetGetPayload<{
     include: {
       collections: { include: { collection: true } };
       galleryComments: { select: { body: true } };
+      galleryReactions: ReturnType<typeof galleryReactionInclude>;
     };
   }>
 ): GalleryAssetView {
@@ -105,6 +155,7 @@ function toGalleryAssetView(
     name: item.collection.name,
     type: item.collection.type
   }));
+  const reactionSummary = summarizeReactions(asset.galleryReactions);
 
   return {
     id: asset.id,
@@ -120,6 +171,8 @@ function toGalleryAssetView(
     source: metadata?.source ?? null,
     thumbnailUrl,
     commentSearchText: asset.galleryComments.map((comment) => comment.body).join(" "),
+    reactions: reactionSummary.counts,
+    reactionReactors: reactionSummary.reactors,
     collections,
     tags: collections.filter((item) => item.type === MediaCollectionType.TAG).map((item) => item.name)
   };
@@ -132,9 +185,11 @@ function isSystemGalleryAsset(asset: GalleryAssetView) {
 
 function toGalleryAssetCommentView(
   comment: Prisma.GalleryAssetCommentGetPayload<{
-    include: { author: { include: { profile: true } } };
+    include: { author: { include: { profile: true } }; reactions: ReturnType<typeof galleryReactionInclude> };
   }>
 ): GalleryAssetCommentView {
+  const reactionSummary = summarizeReactions(comment.reactions);
+
   return {
     id: comment.id,
     body: comment.body,
@@ -144,7 +199,9 @@ function toGalleryAssetCommentView(
       displayName: comment.author.profile?.displayName ?? comment.author.username,
       username: comment.author.username,
       avatarUrl: comment.author.profile?.avatarUrl
-    }
+    },
+    reactions: reactionSummary.counts,
+    reactionReactors: reactionSummary.reactors
   };
 }
 
@@ -212,7 +269,8 @@ function galleryAssetInclude() {
         body: true
       },
       take: 50
-    }
+    },
+    galleryReactions: galleryReactionInclude()
   };
 }
 
@@ -470,7 +528,8 @@ export async function getMyPicViewer(userId: string, mediaAssetId: string): Prom
           include: {
             profile: true
           }
-        }
+        },
+        reactions: galleryReactionInclude()
       },
       orderBy: {
         createdAt: "asc"
@@ -741,7 +800,8 @@ export async function createGalleryAssetComment(userId: string, input: unknown) 
         include: {
           profile: true
         }
-      }
+      },
+      reactions: galleryReactionInclude()
     }
   });
 
@@ -757,6 +817,98 @@ export async function createGalleryAssetComment(userId: string, input: unknown) 
   }
 
   return { ok: true as const, comment: toGalleryAssetCommentView(comment) };
+}
+
+export async function reactToGalleryAsset(userId: string, input: unknown) {
+  const parsed = reactToGalleryAssetSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid reaction." };
+  }
+
+  const asset = await prisma.mediaAsset.findFirst({
+    where: {
+      id: parsed.data.mediaAssetId,
+      mimeType: {
+        startsWith: "image/"
+      }
+    },
+    select: {
+      id: true,
+      ownerUserId: true,
+      visibility: true
+    }
+  });
+
+  if (!asset || !canViewAsset(userId, asset)) {
+    return { ok: false as const, error: "Photo not found." };
+  }
+
+  const reaction = await prisma.galleryAssetReaction.upsert({
+    where: {
+      mediaAssetId_userId: {
+        mediaAssetId: asset.id,
+        userId
+      }
+    },
+    update: {
+      type: parsed.data.type
+    },
+    create: {
+      mediaAssetId: asset.id,
+      userId,
+      type: parsed.data.type
+    }
+  });
+
+  return { ok: true as const, reaction };
+}
+
+export async function reactToGalleryAssetComment(userId: string, input: unknown) {
+  const parsed = reactToGalleryAssetCommentSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid reaction." };
+  }
+
+  const comment = await prisma.galleryAssetComment.findFirst({
+    where: {
+      id: parsed.data.commentId,
+      deletedAt: null
+    },
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          ownerUserId: true,
+          visibility: true
+        }
+      }
+    }
+  });
+
+  if (!comment || !canViewAsset(userId, comment.mediaAsset)) {
+    return { ok: false as const, error: "Comment not found." };
+  }
+
+  const reaction = await prisma.galleryAssetCommentReaction.upsert({
+    where: {
+      commentId_userId: {
+        commentId: comment.id,
+        userId
+      }
+    },
+    update: {
+      type: parsed.data.type
+    },
+    create: {
+      commentId: comment.id,
+      userId,
+      type: parsed.data.type
+    }
+  });
+
+  return { ok: true as const, reaction };
 }
 
 export async function createGalleryAlbum(userId: string, name: string) {

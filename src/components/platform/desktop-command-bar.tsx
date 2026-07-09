@@ -50,7 +50,6 @@ function totalCommCount(counts: Counts) {
 }
 
 type PrimaryNavItem = {
-  glyph?: "gallery";
   href: string;
   icon?: string;
   key: string;
@@ -60,7 +59,7 @@ type PrimaryNavItem = {
 
 const primaryNavItems: PrimaryNavItem[] = [
   { href: "/home", icon: "/assets/nav/nav-home.png", key: "home", label: "Home", tooltip: "Home stream." },
-  { href: "/profile/gallery", glyph: "gallery", key: "gallery", label: "My Pics", tooltip: "Open your gallery." },
+  { href: "/profile/gallery", icon: "/assets/nav/nav-gallery.png", key: "gallery", label: "My Pics", tooltip: "Open your gallery." },
   { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
@@ -116,16 +115,6 @@ function AlertIcon() {
       <path d="M12 3.8 21 19H3z" />
       <path d="M12 8.5v5.2" />
       <path d="M12 16.8h.01" />
-    </svg>
-  );
-}
-
-function GalleryNavIcon() {
-  return (
-    <svg aria-hidden="true" className="desktop-command-nav-glyph" viewBox="0 0 24 24">
-      <rect height="15" rx="2.6" width="18" x="3" y="5" />
-      <path d="M7 15.5 10.2 12l2.2 2.3 2.1-2.8L19 17" />
-      <circle cx="16.2" cy="9.3" r="1.2" />
     </svg>
   );
 }
@@ -250,7 +239,7 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               key={item.key}
               onClick={item.key === "messages" ? openComm : undefined}
             >
-              {item.icon ? <Image alt="" aria-hidden="true" className="desktop-command-nav-image" height={50} src={item.icon} width={50} /> : <GalleryNavIcon />}
+              {item.icon ? <Image alt="" aria-hidden="true" className="desktop-command-nav-image" height={50} src={item.icon} width={50} /> : null}
               <span className="sr-only">{item.label}</span>
               {item.key === "messages" && commCount > 0 ? <strong>{commCount}</strong> : null}
             </Link>

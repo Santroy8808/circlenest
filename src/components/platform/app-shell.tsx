@@ -265,14 +265,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       />
       <aside className="side-nav">
         <div className="side-nav-profile">
-          <div className="side-nav-avatar">
+          <Link className="side-nav-avatar" data-tooltip="Open your gallery." href="/profile/gallery">
             {shellProfile?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img alt="" src={shellProfile.avatarUrl} />
             ) : (
               <span>{initials(displayName)}</span>
             )}
-          </div>
+          </Link>
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Theta-Space</p>
             <h1 className="mt-1 truncate text-xl font-semibold leading-tight">{displayName}</h1>
@@ -281,9 +281,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         {isSignedIn ? <AccountActorSwitcher activeActorUserId={actorPicker.activeActorUserId} actors={actorPicker.actors} /> : null}
         <ControlPanelNav counts={counts} sections={navSections} />
-        <div className="mt-8 rounded-md border border-[var(--line)] bg-black/16 p-3 text-xs leading-5 text-[var(--muted)]">
-          {isAdmin ? "Production source remains untouched until cutover and rollback archive are ready." : "Theta-Space member controls."}
-        </div>
       </aside>
       <main className="main-surface">{children}</main>
       {showAdRail ? (

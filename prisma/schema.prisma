@@ -487,6 +487,8 @@ model User {
   feedCommentReactions            FeedCommentReaction[]
   feedPostDismissals              FeedPostDismissal[]
   galleryAssetComments            GalleryAssetComment[]              @relation("GalleryAssetCommentAuthor")
+  galleryAssetReactions           GalleryAssetReaction[]
+  galleryAssetCommentReactions    GalleryAssetCommentReaction[]
   socialRelationshipsFrom         SocialRelationship[]               @relation("SocialRelationshipFrom")
   socialRelationshipsTo           SocialRelationship[]               @relation("SocialRelationshipTo")
   familyRequestsSent              FamilyRelationshipRequest[]        @relation("FamilyRequestRequester")
@@ -1007,6 +1009,7 @@ model MediaAsset {
   feedPosts               FeedPost[]
   feedComments            FeedComment[]
   galleryComments         GalleryAssetComment[]
+  galleryReactions        GalleryAssetReaction[]
   adCampaignImages        AdCampaign[]             @relation("AdCampaignImage")
   businessArticleCovers   BusinessArticle[]        @relation("BusinessArticleCover")
   chatAttachments         ChatAttachment[]
@@ -1114,9 +1117,38 @@ model GalleryAssetComment {
   updatedAt    DateTime   @updatedAt
   mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
   author       User       @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  reactions    GalleryAssetCommentReaction[]
 
   @@index([mediaAssetId, deletedAt, createdAt])
   @@index([authorUserId, createdAt])
+}
+
+model GalleryAssetReaction {
+  id           String           @id @default(cuid())
+  mediaAssetId String
+  userId       String
+  type         FeedReactionType
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  mediaAsset   MediaAsset       @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaAssetId, userId])
+  @@index([mediaAssetId, type])
+}
+
+model GalleryAssetCommentReaction {
+  id        String              @id @default(cuid())
+  commentId String
+  userId    String
+  type      FeedReactionType
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  comment   GalleryAssetComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId, type])
 }
 
 model MediaCollection {

@@ -1,4 +1,4 @@
-import { MediaVisibility } from "@prisma/client";
+import { FeedReactionType, MediaVisibility } from "@prisma/client";
 import { z } from "zod";
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -33,6 +33,16 @@ export const createGalleryAssetCommentSchema = z.object({
   body: z.string().trim().min(1, "Write a comment first.").max(1000, "Comment is too long.")
 });
 
+export const reactToGalleryAssetSchema = z.object({
+  mediaAssetId: z.string().min(1),
+  type: z.nativeEnum(FeedReactionType)
+});
+
+export const reactToGalleryAssetCommentSchema = z.object({
+  commentId: z.string().min(1),
+  type: z.nativeEnum(FeedReactionType)
+});
+
 export const updateGalleryAssetTagsSchema = z.object({
   mediaAssetIds: z.array(z.string().min(1)).min(1).max(100),
   tags: z.array(z.string().trim().min(1).max(40)).min(1).max(20),
@@ -57,6 +67,8 @@ export type GalleryAssetView = {
   source?: string | null;
   thumbnailUrl?: string | null;
   commentSearchText?: string | null;
+  reactions: Partial<Record<FeedReactionType, number>>;
+  reactionReactors: GalleryReactionReactorsView;
   collections: Array<{
     name: string;
     type: string;
@@ -86,4 +98,15 @@ export type GalleryAssetCommentView = {
     username: string;
     avatarUrl?: string | null;
   };
+  reactions: Partial<Record<FeedReactionType, number>>;
+  reactionReactors: GalleryReactionReactorsView;
 };
+
+export type GalleryReactionUserView = {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl?: string | null;
+};
+
+export type GalleryReactionReactorsView = Partial<Record<FeedReactionType, GalleryReactionUserView[]>>;

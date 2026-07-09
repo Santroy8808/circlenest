@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -66,6 +67,10 @@ function countForAction(counts: Record<CountKey, number>, countKey?: CountKey) {
 }
 
 function Icon({ name }: { name: IconName }) {
+  if (name === "gallery") {
+    return <Image alt="" aria-hidden="true" className="android-control-image" height={46} src="/assets/nav/nav-gallery.png" width={46} />;
+  }
+
   const common = {
     "aria-hidden": true,
     fill: "none",
@@ -110,13 +115,6 @@ function Icon({ name }: { name: IconName }) {
           <path d="M4 6h16" />
           <path d="M4 12h16" />
           <path d="M4 18h16" />
-        </>
-      ) : null}
-      {name === "gallery" ? (
-        <>
-          <rect height="15" rx="2.4" width="18" x="3" y="5" />
-          <path d="M7 15.5 10.1 12l2.3 2.3 2.1-2.8L19 17" />
-          <circle cx="16.2" cy="9.3" r="1.1" />
         </>
       ) : null}
       {name === "home" ? (

@@ -72,17 +72,19 @@ export function GalleryAssetTags({ asset }: { asset: GalleryAssetView }) {
             <option value="Custom">Custom</option>
           </select>
         </label>
-        <label className="grid gap-2">
-          <span className="form-label">Custom tag</span>
-          <input
-            className="form-field"
-            disabled={tagChoice !== "Custom" || isPending}
-            maxLength={40}
-            onChange={(event) => setCustomTag(event.target.value)}
-            placeholder="Type a tag"
-            value={customTag}
-          />
-        </label>
+        {tagChoice === "Custom" ? (
+          <label className="grid gap-2">
+            <span className="form-label">Custom tag</span>
+            <input
+              className="form-field"
+              disabled={isPending}
+              maxLength={40}
+              onChange={(event) => setCustomTag(event.target.value)}
+              placeholder="Type a tag"
+              value={customTag}
+            />
+          </label>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" disabled={isPending || !tagName} onClick={() => saveTags("add")} type="button">
             Add tag

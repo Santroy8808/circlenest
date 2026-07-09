@@ -6,6 +6,7 @@ import { GalleryAssetEngagement } from "@/components/gallery/gallery-asset-engag
 import { GalleryAssetTags } from "@/components/gallery/gallery-asset-tags";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { prisma } from "@/lib/platform/db";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { getMyPicViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
@@ -17,7 +18,13 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
   }
 
   const activeActor = await timeServerStep("gallery-detail.actor", getActiveAccountActor(session.user.id));
-  const viewer = await timeServerStep("gallery-detail.media-viewer", getMyPicViewer(activeActor.actorUserId, params.assetId));
+  const [viewer, currentActorProfile] = await Promise.all([
+    timeServerStep("gallery-detail.media-viewer", getMyPicViewer(activeActor.actorUserId, params.assetId)),
+    prisma.user.findUnique({
+      where: { id: activeActor.actorUserId },
+      include: { profile: true }
+    })
+  ]);
 
   if (!viewer) {
     notFound();
@@ -41,7 +48,7 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
         </div>
       </section>
 
-      <div className="gallery-detail-layout mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="gallery-detail-layout mt-5">
         <section className="surface gallery-viewer rounded-md p-4">
           <div className="gallery-viewer-nav">
             {previous ? (
@@ -60,13 +67,22 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
             )}
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt={asset.originalName ?? "Gallery photo"} className="max-h-[72vh] w-full rounded-md object-contain" src={imageUrl} />
+          <img alt={asset.originalName ?? "Gallery photo"} className="gallery-detail-image rounded-md" src={imageUrl} />
         </section>
 
         <div className="gallery-detail-sidebar grid content-start gap-5">
           <GalleryAssetActions mediaAssetId={asset.id} />
           <GalleryAssetTags asset={asset} />
-          <GalleryAssetEngagement asset={asset} initialComments={comments} />
+          <GalleryAssetEngagement
+            asset={asset}
+            currentUser={{
+              id: activeActor.actorUserId,
+              displayName: currentActorProfile?.profile?.displayName ?? currentActorProfile?.username ?? "You",
+              username: currentActorProfile?.username ?? "you",
+              avatarUrl: currentActorProfile?.profile?.avatarUrl
+            }}
+            initialComments={comments}
+          />
           <section className="surface rounded-md p-5">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Details</p>
             <dl className="mt-4 grid gap-3 text-sm">

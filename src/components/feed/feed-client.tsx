@@ -929,14 +929,14 @@ function FeedCommentRow({
               reactors={comment.reactionReactors}
             />
             {hasLoadedReplies ? (
-              <button className="comment-reply-link" onClick={() => setExpanded((value) => !value)} type="button">
+              <button className="comment-reply-link comment-collapse-link" onClick={() => setExpanded((value) => !value)} type="button">
                 {expanded ? "Collapse" : `Expand ${loadedReplies.length}`}
               </button>
             ) : null}
-            <button aria-label="Reply to comment" className="comment-reply-link" onClick={() => onReply(comment)} title="Reply" type="button">
+            <button aria-label="Reply to comment" className="comment-reply-link comment-reply-icon-link" onClick={() => onReply(comment)} title="Reply" type="button">
               <span aria-hidden="true">{"\u21A9"}</span>
             </button>
-            <button aria-label="Share comment" className="comment-share-link" onClick={() => onShare(comment.id)} title="Share" type="button">
+            <button aria-label="Share comment" className="comment-share-link comment-share-icon-link" onClick={() => onShare(comment.id)} title="Share" type="button">
               <span aria-hidden="true">{"\u21AA"}</span>
             </button>
           </div>

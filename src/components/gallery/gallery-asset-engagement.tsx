@@ -1,13 +1,141 @@
 "use client";
 
-import { MediaVisibility } from "@prisma/client";
+import { FeedReactionType, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { FormEvent } from "react";
-import type { GalleryAssetCommentView, GalleryAssetView } from "@/modules/gallery-media-storage/types";
+import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
+import type {
+  GalleryAssetCommentView,
+  GalleryAssetView,
+  GalleryReactionReactorsView,
+  GalleryReactionUserView
+} from "@/modules/gallery-media-storage/types";
 
 type GalleryAccess = "PRIVATE" | "MEMBERS_NO_COMMENTS" | "MEMBERS_COMMENTS" | "PUBLIC_NO_COMMENTS" | "PUBLIC_COMMENTS";
+
+type GalleryReactionState = {
+  counts: Partial<Record<FeedReactionType, number>>;
+  reactors: GalleryReactionReactorsView;
+};
+
+type GalleryReactionChoice = {
+  type: FeedReactionType;
+  icon: string;
+  label: string;
+};
+
+const galleryReactionChoices = [
+  { type: FeedReactionType.LIKE, icon: "", label: "Like" },
+  { type: FeedReactionType.LOVE, icon: "\u{2764}\u{FE0F}", label: "Love" },
+  { type: FeedReactionType.CARE, icon: "\u{1F917}", label: "Care" },
+  { type: FeedReactionType.HAHA, icon: "\u{1F602}", label: "Haha" },
+  { type: FeedReactionType.WOW, icon: "\u{1F62E}", label: "Wow" },
+  { type: FeedReactionType.SAD, icon: "\u{1F622}", label: "Sad" },
+  { type: FeedReactionType.ANGRY, icon: "\u{1F621}", label: "Angry" },
+  { type: FeedReactionType.DISLIKE, icon: "\u{1F44E}", label: "Dislike privately" }
+] satisfies GalleryReactionChoice[];
+
+const publicGalleryReactionChoices = galleryReactionChoices.filter((reaction) => reaction.type !== FeedReactionType.DISLIKE);
+
+function GalleryReactionIcon({ reaction }: { reaction: GalleryReactionChoice }) {
+  if (reaction.type === FeedReactionType.LIKE) {
+    return <ThetaLikeTriangle />;
+  }
+
+  return <span aria-hidden="true">{reaction.icon}</span>;
+}
+
+function reactionTooltip(reaction: GalleryReactionChoice) {
+  return reaction.type === FeedReactionType.LIKE ? "Like it!" : reaction.label;
+}
+
+function currentReaction(reactors: GalleryReactionReactorsView, currentUserId: string) {
+  return publicGalleryReactionChoices.find((reaction) => reactors[reaction.type]?.some((user) => user.id === currentUserId))?.type ?? null;
+}
+
+function nextReactionState(
+  state: GalleryReactionState,
+  reactionType: FeedReactionType,
+  currentUser: GalleryReactionUserView
+): GalleryReactionState {
+  const reactors: GalleryReactionReactorsView = {};
+
+  publicGalleryReactionChoices.forEach((reaction) => {
+    const reactionUsers = state.reactors[reaction.type]?.filter((user) => user.id !== currentUser.id) ?? [];
+    if (reactionUsers.length > 0) {
+      reactors[reaction.type] = reactionUsers;
+    }
+  });
+
+  if (reactionType !== FeedReactionType.DISLIKE) {
+    reactors[reactionType] = [...(reactors[reactionType] ?? []), currentUser];
+  }
+
+  const counts: Partial<Record<FeedReactionType, number>> = {};
+  publicGalleryReactionChoices.forEach((reaction) => {
+    const count = reactors[reaction.type]?.length ?? 0;
+    if (count > 0) counts[reaction.type] = count;
+  });
+
+  return { counts, reactors };
+}
+
+function GalleryReactionControls({
+  currentUser,
+  onReact,
+  state
+}: {
+  currentUser: GalleryReactionUserView;
+  onReact: (reactionType: FeedReactionType) => void;
+  state: GalleryReactionState;
+}) {
+  const selectedType = currentReaction(state.reactors, currentUser.id);
+  const selectedReaction = galleryReactionChoices.find((reaction) => reaction.type === selectedType) ?? galleryReactionChoices[0];
+  const visibleCounts = publicGalleryReactionChoices.filter((reaction) => (state.counts[reaction.type] ?? 0) > 0);
+
+  return (
+    <div className="gallery-reaction-controls">
+      {visibleCounts.length ? (
+        <div className="gallery-reaction-counts" aria-label="Photo reactions">
+          {visibleCounts.map((reaction) => (
+            <span className="feed-reaction-count-chip" key={reaction.type} title={reactionTooltip(reaction)}>
+              <GalleryReactionIcon reaction={reaction} />
+              <strong>{state.counts[reaction.type]}</strong>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="feed-reaction-menu gallery-reaction-menu">
+        <button
+          aria-label={reactionTooltip(selectedReaction)}
+          className={selectedType ? "feed-reaction-trigger is-selected" : "feed-reaction-trigger"}
+          data-tooltip={reactionTooltip(selectedReaction)}
+          onClick={() => onReact(FeedReactionType.LIKE)}
+          type="button"
+        >
+          <GalleryReactionIcon reaction={selectedReaction} />
+        </button>
+        <div className="feed-reaction-popover" role="menu">
+          {galleryReactionChoices.map((reaction) => (
+            <button
+              aria-label={reactionTooltip(reaction)}
+              className="feed-reaction-choice"
+              key={reaction.type}
+              onClick={() => onReact(reaction.type)}
+              role="menuitem"
+              type="button"
+            >
+              <GalleryReactionIcon reaction={reaction} />
+              <span>{reaction.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function accessFromAsset(asset: GalleryAssetView): GalleryAccess {
   if (asset.visibility === MediaVisibility.PUBLIC && asset.commentsEnabled) return "PUBLIC_COMMENTS";
@@ -27,19 +155,80 @@ function accessToSettings(access: GalleryAccess) {
 
 export function GalleryAssetEngagement({
   asset,
+  currentUser,
   initialComments
 }: {
   asset: GalleryAssetView;
+  currentUser: GalleryReactionUserView;
   initialComments: GalleryAssetCommentView[];
 }) {
   const router = useRouter();
   const [access, setAccess] = useState<GalleryAccess>(() => accessFromAsset(asset));
   const [comments, setComments] = useState(initialComments);
+  const [assetReactions, setAssetReactions] = useState<GalleryReactionState>({
+    counts: asset.reactions,
+    reactors: asset.reactionReactors
+  });
   const [body, setBody] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const settings = accessToSettings(access);
+
+  async function reactToPhoto(reactionType: FeedReactionType) {
+    setAssetReactions((current) => nextReactionState(current, reactionType, currentUser));
+
+    const response = await fetch(`/api/media/assets/${asset.id}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: reactionType })
+    });
+
+    if (!response.ok) {
+      setError("Could not save photo reaction.");
+      router.refresh();
+      return;
+    }
+
+    router.refresh();
+  }
+
+  async function reactToComment(commentId: string, reactionType: FeedReactionType) {
+    setComments((current) =>
+      current.map((comment) =>
+        comment.id === commentId
+          ? {
+              ...comment,
+              ...(() => {
+                const next = nextReactionState(
+                  { counts: comment.reactions, reactors: comment.reactionReactors },
+                  reactionType,
+                  currentUser
+                );
+                return {
+                  reactions: next.counts,
+                  reactionReactors: next.reactors
+                };
+              })()
+            }
+          : comment
+      )
+    );
+
+    const response = await fetch(`/api/media/assets/${asset.id}/comments/${commentId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: reactionType })
+    });
+
+    if (!response.ok) {
+      setError("Could not save comment reaction.");
+      router.refresh();
+      return;
+    }
+
+    router.refresh();
+  }
 
   function saveSettings(nextAccess: GalleryAccess) {
     setAccess(nextAccess);
@@ -104,6 +293,10 @@ export function GalleryAssetEngagement({
         </select>
       </label>
 
+      <div className="gallery-photo-reactions mt-5">
+        <GalleryReactionControls currentUser={currentUser} onReact={reactToPhoto} state={assetReactions} />
+      </div>
+
       <div className="gallery-comment-area mt-5 grid gap-3">
         <div className="gallery-comment-list">
           {comments.length ? (
@@ -119,6 +312,11 @@ export function GalleryAssetEngagement({
                   | {new Date(comment.createdAt).toLocaleDateString()}
                 </span>
                 <p>{comment.body}</p>
+                <GalleryReactionControls
+                  currentUser={currentUser}
+                  onReact={(reactionType) => reactToComment(comment.id, reactionType)}
+                  state={{ counts: comment.reactions, reactors: comment.reactionReactors }}
+                />
               </article>
             ))
           ) : (
