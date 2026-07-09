@@ -13,26 +13,26 @@ export default async function SecuritySettingsPage() {
 
   return (
     <AppShell>
-      <SecureSettingsPanel title="Security" description="Account protection actions that are available now. Admin session revocation stays in the Admin portal.">
+      <SecureSettingsPanel title="Security" description="Account protection, login safety, blocked users, and visibility controls.">
         <SecureActionGrid
           actions={[
             {
-              title: "Reset password",
-              description: "Send yourself through the password-reset flow. Completing it revokes old sessions.",
-              href: "/reset-password",
-              badge: "password"
-            },
-            {
-              title: "Blocked users",
+              title: "Blocked Users",
               description: "Review accounts you have blocked and remove blocks when needed.",
               href: "/settings/security/blocked-users",
               badge: "people"
             },
             {
-              title: "Admin security tools",
-              description: "Admins can revoke suspicious sessions and review security activity from the Admin portal.",
-              href: "/admin",
-              badge: "admin"
+              title: "Login Security",
+              description: "Reset your password and refresh login protection. Completing password reset revokes old sessions.",
+              href: "/reset-password",
+              badge: "password"
+            },
+            {
+              title: "Site Visibility",
+              description: "Change whether your profile is public, member-only, or more private.",
+              href: "/profile/edit",
+              badge: "visibility"
             }
           ]}
         />

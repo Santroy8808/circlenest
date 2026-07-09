@@ -80,7 +80,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
     }
 
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("theta:open-comm-dock"));
+    window.dispatchEvent(new CustomEvent("theta:toggle-comm-dock"));
   }
 
   return (

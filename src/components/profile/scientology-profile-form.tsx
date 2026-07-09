@@ -13,6 +13,7 @@ import {
   scientologyTrainingLevels,
   parseScientologySelections
 } from "@/modules/my-scientology/types";
+import { findScientologyOrgs, formatScientologyOrg } from "@/modules/my-scientology/scientology-orgs";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 
 type ScientologyProfileWithCommendations =
@@ -46,6 +47,76 @@ function CheckboxGroup({
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function ScientologyOrgSearchField({ defaultValue }: { defaultValue: string }) {
+  const [value, setValue] = useState(defaultValue);
+  const [open, setOpen] = useState(false);
+  const matches = useMemo(() => findScientologyOrgs(value), [value]);
+  const exactMatch = matches.find((org) => org.organization === value);
+
+  function chooseOrg(orgName: string) {
+    setValue(orgName);
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative grid gap-2">
+      <label className="form-label" htmlFor="scientology-org-name">
+        Current org
+      </label>
+      <input
+        aria-autocomplete="list"
+        aria-controls="scientology-org-matches"
+        aria-expanded={open}
+        autoComplete="off"
+        className="form-field"
+        id="scientology-org-name"
+        name="orgName"
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onChange={(event) => {
+          setValue(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search org, city, or country"
+        role="combobox"
+        value={value}
+      />
+      {open ? (
+        <div
+          className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--panel)] shadow-2xl"
+          id="scientology-org-matches"
+          role="listbox"
+        >
+          <p className="border-b border-[var(--line)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Closest org matches</p>
+          {matches.length > 0 ? (
+            matches.map((org) => (
+              <button
+                className="block w-full border-b border-[var(--line)] px-4 py-3 text-left last:border-b-0 hover:bg-[var(--panel-soft)] focus:bg-[var(--panel-soft)]"
+                key={`${org.organization}:${org.city}:${org.country}`}
+                onClick={() => chooseOrg(org.organization)}
+                onMouseDown={(event) => event.preventDefault()}
+                aria-selected={org.organization === value}
+                role="option"
+                type="button"
+              >
+                <strong className="block text-[var(--text)]">{org.organization}</strong>
+                <span className="mt-1 block text-sm text-[var(--muted)]">{`${org.city}, ${org.country}`}</span>
+              </button>
+            ))
+          ) : (
+            <p className="px-4 py-3 text-sm text-[var(--muted)]">No listed org matches. Keep typing to save a custom org name.</p>
+          )}
+        </div>
+      ) : null}
+      {value ? (
+        <p className="text-xs leading-5 text-[var(--muted)]">
+          {exactMatch ? formatScientologyOrg(exactMatch) : "Select the closest listed org when possible."}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -204,10 +275,7 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
               <option value={ScientologyClassification.AUDITOR}>Auditor</option>
             </select>
           </label>
-          <label className="grid gap-2">
-            <span className="form-label">Current org</span>
-            <input className="form-field" name="orgName" defaultValue={profile?.orgName ?? ""} />
-          </label>
+          <ScientologyOrgSearchField defaultValue={profile?.orgName ?? ""} />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">

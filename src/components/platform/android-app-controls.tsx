@@ -68,7 +68,7 @@ function countForAction(counts: Record<CountKey, number>, countKey?: CountKey) {
 
 function Icon({ name }: { name: IconName }) {
   if (name === "gallery") {
-    return <Image alt="" aria-hidden="true" className="android-control-image" height={46} src="/assets/nav/nav-gallery.png" width={46} />;
+    return <Image alt="" aria-hidden="true" className="android-control-image" height={46} src="/assets/nav/nav-gallery-v2.png" width={46} />;
   }
 
   const common = {

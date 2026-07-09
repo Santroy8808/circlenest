@@ -54,18 +54,21 @@ function isImageAttachment(message: ChatMessageView) {
 function CompactMessage({
   currentUserId,
   isAdmin,
+  isNotice = false,
   message
 }: {
   currentUserId: string;
   isAdmin?: boolean;
+  isNotice?: boolean;
   message: ChatMessageView;
 }) {
   const isMine = message.sender.id === currentUserId;
   const imageAttachment = message.attachments.find((attachment) => attachment.kind === "IMAGE" && (attachment.thumbnailUrl || attachment.publicUrl));
+  const messageClassName = ["home-comm-message", isMine ? "is-mine" : "", isNotice ? "is-notice" : ""].filter(Boolean).join(" ");
 
   return (
-    <article className={isMine ? "home-comm-message is-mine" : "home-comm-message"}>
-      {!isMine ? <span className="home-comm-message-author">{message.sender.displayName}</span> : null}
+    <article className={messageClassName}>
+      {!isMine ? <span className="home-comm-message-author">{isNotice ? "System notice" : message.sender.displayName}</span> : null}
       {imageAttachment ? (
         <InAppImageViewer
           alt={imageAttachment.fileName}
@@ -104,6 +107,8 @@ function HomeCommDock({
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const selectedThreadIsNotice = Boolean(selectedThread?.title.match(/^announcement:/i));
+  const selectedThreadTitle = selectedThread?.title.replace(/^announcement:\s*/i, "") ?? "Messages";
 
   const filteredThreads = useMemo(() => {
     const query = threadQuery.trim().toLowerCase();
@@ -243,7 +248,7 @@ function HomeCommDock({
     <aside aria-hidden={!open} className={open ? "home-comm-dock is-open" : "home-comm-dock"}>
       {open ? (
         <>
-          <header className="home-comm-dock-header">
+          <header className={selectedThreadIsNotice ? "home-comm-dock-header is-announcement-chat" : "home-comm-dock-header"}>
             <button
               className="home-comm-dock-back"
               data-tooltip="Return to your chat list."
@@ -253,10 +258,10 @@ function HomeCommDock({
             >
               Chats
             </button>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Comm</p>
-              <h2>{selectedThread?.title ?? "Messages"}</h2>
-              {selectedThread ? <span>{selectedThread.participants.length} participants</span> : <span>Chat while browsing the stream.</span>}
+            <div className="home-comm-title-block min-w-0">
+              <p className="home-comm-kicker">{selectedThreadIsNotice ? "System Notice" : "Comm"}</p>
+              <h2>{selectedThreadTitle}</h2>
+              {selectedThread ? <span>{selectedThreadIsNotice ? "Pinned platform announcement" : `${selectedThread.participants.length} participants`}</span> : <span>Chat while browsing the stream.</span>}
               {isAdmin && selectedThread ? <code className="admin-object-id">Chat thread ID: {selectedThread.id}</code> : null}
             </div>
             <button className="home-comm-close" data-tooltip="Close Comm and return the stream to center." onClick={onClose} type="button">
@@ -271,7 +276,7 @@ function HomeCommDock({
                   <p className="home-comm-empty">No messages yet. Send the first note.</p>
                 ) : null}
                 {selectedThread.messages.map((message) => (
-                  <CompactMessage currentUserId={currentUserId} isAdmin={isAdmin} key={message.id} message={message} />
+                  <CompactMessage currentUserId={currentUserId} isAdmin={isAdmin} isNotice={selectedThreadIsNotice} key={message.id} message={message} />
                 ))}
               </div>
               <form className="home-comm-compose" onSubmit={sendMessage}>
@@ -372,8 +377,16 @@ export function HomeStreamWorkspace({
       setCommOpen(true);
     }
 
+    function toggleCommDock() {
+      setCommOpen((current) => !current);
+    }
+
     window.addEventListener("theta:open-comm-dock", openCommDock);
-    return () => window.removeEventListener("theta:open-comm-dock", openCommDock);
+    window.addEventListener("theta:toggle-comm-dock", toggleCommDock);
+    return () => {
+      window.removeEventListener("theta:open-comm-dock", openCommDock);
+      window.removeEventListener("theta:toggle-comm-dock", toggleCommDock);
+    };
   }, []);
 
   function openComposer() {

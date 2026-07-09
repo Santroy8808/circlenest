@@ -59,11 +59,11 @@ type PrimaryNavItem = {
 
 const primaryNavItems: PrimaryNavItem[] = [
   { href: "/home", icon: "/assets/nav/nav-home.png", key: "home", label: "Home", tooltip: "Home stream." },
-  { href: "/profile/gallery", icon: "/assets/nav/nav-gallery.png", key: "gallery", label: "My Pics", tooltip: "Open your gallery." },
+  { href: "/profile/gallery", icon: "/assets/nav/nav-gallery-v2.png", key: "gallery", label: "My Pics", tooltip: "Open your gallery." },
   { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
-  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm", tooltip: "Open Comm without leaving the stream." }
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm", tooltip: "Toggle Comm without leaving the stream." }
 ];
 
 const initialSummaryState: Record<SummaryKind, SummaryState> = {
@@ -168,11 +168,11 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
     runSearch();
   }
 
-  function openComm(event: MouseEvent<HTMLAnchorElement>) {
+  function toggleComm(event: MouseEvent<HTMLAnchorElement>) {
     if (pathname !== "/home" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
 
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("theta:open-comm-dock"));
+    window.dispatchEvent(new CustomEvent("theta:toggle-comm-dock"));
   }
 
   function loadSummary(kind: SummaryKind) {
@@ -237,7 +237,7 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
               data-tooltip={item.tooltip}
               href={item.href}
               key={item.key}
-              onClick={item.key === "messages" ? openComm : undefined}
+              onClick={item.key === "messages" ? toggleComm : undefined}
             >
               {item.icon ? <Image alt="" aria-hidden="true" className="desktop-command-nav-image" height={50} src={item.icon} width={50} /> : null}
               <span className="sr-only">{item.label}</span>

@@ -62,6 +62,22 @@ function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | n
   return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
+function chatThreadHref(threadId: string) {
+  return `/messages?thread=${threadId}`;
+}
+
+async function deleteHandledChatNotifications(client: Prisma.TransactionClient, userId: string, threadId: string) {
+  await client.notification.deleteMany({
+    where: {
+      userId,
+      href: chatThreadHref(threadId),
+      title: {
+        startsWith: "New chat from "
+      }
+    }
+  });
+}
+
 function toPersonView(user: {
   id: string;
   username: string;
@@ -510,6 +526,8 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
       data: { lastReadAt: created.createdAt }
     });
 
+    await deleteHandledChatNotifications(tx, input.senderUserId, thread.id);
+
     return created;
   });
 
@@ -519,7 +537,7 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
       userId: target.id,
       title: `New chat from ${sender.displayName}`,
       body: body.slice(0, 180),
-      href: `/messages?thread=${thread.id}`
+      href: chatThreadHref(thread.id)
     }
   });
 
@@ -941,6 +959,8 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
       }
     });
 
+    await deleteHandledChatNotifications(tx, senderUserId, parsed.data.threadId);
+
     return created;
   });
 
@@ -971,7 +991,7 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
         userId: participant.userId,
         title: `New chat from ${sender.displayName}`,
         body: parsed.data.body?.trim().slice(0, 180) || "Sent an attachment.",
-        href: `/messages?thread=${parsed.data.threadId}`
+        href: chatThreadHref(parsed.data.threadId)
       }))
     });
   }
