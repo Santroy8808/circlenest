@@ -3,6 +3,7 @@
 import { AdDestinationKind, AdPlacement, InterestCategory, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
+import type { FormEvent } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   adPlacementOptions,
@@ -31,10 +32,57 @@ export type InitialAdCampaignDraft = {
   targetInterestCategories?: InterestCategory[];
 };
 
+type WizardStepKey = "heading" | "text" | "image" | "destination" | "audience" | "budget" | "preview";
+
 const MAX_AD_IMAGE_BYTES = 10 * 1024 * 1024;
 const AD_IMAGE_GUIDANCE = "Recommended: 1200 x 675px, minimum 600 x 338px. JPG, PNG, GIF, or WEBP up to 10MB.";
 const CREDIT_BUDGET_PRESETS = [10, 25, 50, 100, 250, 500];
 const CAMPAIGN_DURATION_PRESETS = [1, 3, 7, 14, 30, 60, 90];
+
+const wizardSteps: Array<{ key: WizardStepKey; label: string; title: string; helper: string }> = [
+  {
+    key: "heading",
+    label: "Heading",
+    title: "Write the headline",
+    helper: "This is the first line people scan. Keep it direct and specific."
+  },
+  {
+    key: "text",
+    label: "Ad Text",
+    title: "Write the message",
+    helper: "Say what the viewer gets and why they should click."
+  },
+  {
+    key: "image",
+    label: "Upload Image",
+    title: "Choose the ad image",
+    helper: "Use a clear image that still reads well when shown as a compact ad card."
+  },
+  {
+    key: "destination",
+    label: "Click Target",
+    title: "Choose where the ad opens",
+    helper: "The ad should only land on your storefront, your content, your listing, or a trusted URL."
+  },
+  {
+    key: "audience",
+    label: "Audience",
+    title: "Choose the target audience",
+    helper: "Leave targeting broad, or narrow delivery by location, interests, and subscriber group."
+  },
+  {
+    key: "budget",
+    label: "Budget",
+    title: "Set credits and campaign length",
+    helper: "Credits determine how much ad time this campaign receives during the scheduled run."
+  },
+  {
+    key: "preview",
+    label: "Preview",
+    title: "Review and publish",
+    helper: "Check the rendered ad, jump back to edit anything, then publish when all requirements are met."
+  }
+];
 
 async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial<AdImageAttachment>) => void) {
   if (image.mediaAssetId) return image.mediaAssetId;
@@ -129,6 +177,8 @@ export function CreateAdCampaignForm({
   successHref?: string;
 }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [hasVisitedPreview, setHasVisitedPreview] = useState(false);
   const [title, setTitle] = useState(initialDraft?.title ?? "");
   const [body, setBody] = useState(initialDraft?.body ?? "");
   const [destinationKind, setDestinationKind] = useState<AdDestinationKind>(() => initialDestinationKind(adsManager, initialDraft));
@@ -136,7 +186,8 @@ export function CreateAdCampaignForm({
   const [businessArticleId, setBusinessArticleId] = useState(initialDraft?.businessArticleId ?? adsManager.destinationOptions.businessArticles[0]?.id ?? "");
   const [customDestinationUrl, setCustomDestinationUrl] = useState(initialDraft?.customDestinationUrl ?? "");
   const [subscriberTargetManuscriptId, setSubscriberTargetManuscriptId] = useState(initialDraft?.subscriberTargetManuscriptId ?? "");
-  const initialPricingPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === AdPlacement.RIGHT_STREAM) ?? adsManager.pricingPackages[0];
+  const initialPricingPackage =
+    adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === AdPlacement.RIGHT_STREAM) ?? adsManager.pricingPackages[0];
   const [placement, setPlacement] = useState<AdPlacement>(initialPricingPackage?.placement ?? AdPlacement.RIGHT_STREAM);
   const [pricingRuleKey, setPricingRuleKey] = useState(initialPricingPackage?.key ?? "");
   const [campaignCredits, setCampaignCredits] = useState(() => packageCreditCost(initialPricingPackage, adsManager.fundraiserOnly));
@@ -151,6 +202,7 @@ export function CreateAdCampaignForm({
   const [variantBExternalImageUrl, setVariantBExternalImageUrl] = useState("");
   const [error, setError] = useState(adsManager.canCreate ? "" : adsManager.reason ?? "This account cannot create ads.");
   const [isPending, startTransition] = useTransition();
+  const currentStep = wizardSteps[stepIndex] ?? wizardSteps[0];
   const placementPackages = useMemo(
     () => adsManager.pricingPackages.filter((pricingPackage) => pricingPackage.placement === placement),
     [adsManager.pricingPackages, placement]
@@ -177,6 +229,61 @@ export function CreateAdCampaignForm({
     (destinationKind === AdDestinationKind.MARKET_LISTING && marketListingId.length > 0) ||
     (destinationKind === AdDestinationKind.BUSINESS_ARTICLE && businessArticleId.length > 0) ||
     (destinationKind === AdDestinationKind.EXTERNAL_URL && customDestinationUrl.trim().length > 0);
+
+  const publishBlockers = useMemo(() => {
+    const blockers: string[] = [];
+    if (title.trim().length < 2) blockers.push("Add a headline.");
+    if (body.trim().length < 8) blockers.push("Write at least 8 characters of ad text.");
+    if (!image && !externalImageUrl.trim()) blockers.push("Upload an ad image or enter an image URL.");
+    if (!hasDestination) blockers.push("Choose a valid click target.");
+    if (!selectedPricingPackage) blockers.push("Choose an active ad package.");
+    if (campaignCredits < 1 || campaignCredits > 100000) blockers.push("Choose a credit budget between 1 and 100,000 credits.");
+    if (campaignDurationDays < 1 || campaignDurationDays > 365) blockers.push("Choose a campaign length between 1 and 365 days.");
+    if (abTestingEnabled && campaignCredits < 2) blockers.push("A/B testing needs at least 2 credits.");
+    if (abTestingEnabled && (variantBTitle.trim().length < 2 || variantBBody.trim().length < 8)) {
+      blockers.push("Complete Variant B headline and ad text.");
+    }
+    if (!canAffordBudget) blockers.push("You do not have enough platform credits for this budget.");
+    return blockers;
+  }, [
+    abTestingEnabled,
+    body,
+    campaignCredits,
+    campaignDurationDays,
+    canAffordBudget,
+    externalImageUrl,
+    hasDestination,
+    image,
+    selectedPricingPackage,
+    title,
+    variantBBody,
+    variantBTitle
+  ]);
+
+  function stepNote(stepKey: WizardStepKey) {
+    if (stepKey === "heading" && title.trim().length < 2) return "Needed before publishing: a clear headline.";
+    if (stepKey === "text" && body.trim().length < 8) return "Needed before publishing: a short ad message.";
+    if (stepKey === "image" && !image && !externalImageUrl.trim()) return "Needed before publishing: an uploaded image or image URL.";
+    if (stepKey === "destination" && !hasDestination) return "Needed before publishing: a valid click target.";
+    if (stepKey === "budget" && !canAffordBudget) return "Needed before publishing: a budget covered by your available credits.";
+    if (stepKey === "budget" && !selectedPricingPackage) return "Needed before publishing: an active package.";
+    return "";
+  }
+
+  function goToStep(stepKey: WizardStepKey) {
+    const nextIndex = wizardSteps.findIndex((step) => step.key === stepKey);
+    if (nextIndex < 0) return;
+    setError("");
+    setStepIndex(nextIndex);
+    if (stepKey === "preview") setHasVisitedPreview(true);
+  }
+
+  function goNext() {
+    const nextIndex = Math.min(stepIndex + 1, wizardSteps.length - 1);
+    setError("");
+    setStepIndex(nextIndex);
+    if (wizardSteps[nextIndex]?.key === "preview") setHasVisitedPreview(true);
+  }
 
   function updateImage(file?: File) {
     if (!file) return;
@@ -222,60 +329,34 @@ export function CreateAdCampaignForm({
     setVariantBExternalImageUrl((current) => current || externalImageUrl);
   }
 
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setHasVisitedPreview(true);
+    setStepIndex(wizardSteps.findIndex((step) => step.key === "preview"));
     setError("");
+
+    if (publishBlockers.length > 0) {
+      setError(publishBlockers[0] ?? "Complete the ad before publishing.");
+      return;
+    }
 
     startTransition(async () => {
       try {
-        if (!image && !externalImageUrl.trim()) {
-          setError("Upload an ad image or enter an image URL before creating the campaign.");
-          return;
-        }
-        if (!hasDestination) {
-          setError("Choose a valid internal destination for this ad.");
-          return;
-        }
-        if (!selectedPricingPackage) {
-          setError("Choose an active ad package.");
-          return;
-        }
-        if (campaignCredits < 1 || campaignCredits > 100000) {
-          setError("Choose a credit budget between 1 and 100,000 credits.");
-          return;
-        }
-        if (campaignDurationDays < 1 || campaignDurationDays > 365) {
-          setError("Choose a campaign length between 1 and 365 days.");
-          return;
-        }
-        if (abTestingEnabled && campaignCredits < 2) {
-          setError("A/B testing needs at least 2 credits so each variant can run.");
-          return;
-        }
-        if (abTestingEnabled && (variantBTitle.trim().length < 2 || variantBBody.trim().length < 8)) {
-          setError("Complete the Variant B headline and ad text before creating the A/B test.");
-          return;
-        }
-        if (!canAffordBudget) {
-          setError("Not enough platform credits for this campaign budget.");
-          return;
-        }
-
         const imageMediaAssetId = image ? await uploadAdImage(image, patchImage) : "";
         const primaryBudgetCredits = abTestingEnabled ? Math.ceil(campaignCredits / 2) : campaignCredits;
         const secondaryBudgetCredits = campaignCredits - primaryBudgetCredits;
         const sharedPayload = {
-            destinationKind,
-            marketListingId: destinationKind === AdDestinationKind.MARKET_LISTING ? marketListingId : "",
-            businessArticleId: destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? businessArticleId : "",
-            customDestinationUrl: destinationKind === AdDestinationKind.EXTERNAL_URL ? customDestinationUrl : "",
-            subscriberTargetManuscriptId,
-            placement,
-            pricingRuleKey: selectedPricingPackage.key,
-            targetLocation,
-            targetInterestCategories,
-            campaignDurationDays
-          };
+          destinationKind,
+          marketListingId: destinationKind === AdDestinationKind.MARKET_LISTING ? marketListingId : "",
+          businessArticleId: destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? businessArticleId : "",
+          customDestinationUrl: destinationKind === AdDestinationKind.EXTERNAL_URL ? customDestinationUrl : "",
+          subscriberTargetManuscriptId,
+          placement,
+          pricingRuleKey: selectedPricingPackage?.key,
+          targetLocation,
+          targetInterestCategories,
+          campaignDurationDays
+        };
 
         async function createCampaign(payload: Record<string, unknown>) {
           const response = await fetch("/api/ads/campaigns", {
@@ -333,450 +414,467 @@ export function CreateAdCampaignForm({
     );
   }
 
+  const note = stepNote(currentStep.key);
+
   return (
-    <form className="surface grid gap-5 rounded-md p-6" onSubmit={submit}>
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ads Credits</p>
-        <h1 className="mt-3 text-3xl font-semibold">Create an ad</h1>
-        <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          Ads use uploaded creative and a defined click-through destination. They never appear inside listings, events, posts, or detail content.
-        </p>
-        {adsManager.fundraiserOnly ? (
-          <p className="mt-3 max-w-2xl rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 p-3 text-sm leading-6 text-[var(--gold)]">
-            Org accounts can create fundraiser ads only. Credits count double here, so the displayed package cost is half the normal platform price.
-          </p>
-        ) : null}
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold)]">
-          <span>{adsManager.platformCredits.toLocaleString()} credits available</span>
+    <form className="surface ad-wizard rounded-md" onSubmit={submit}>
+      <div className="ad-wizard-header">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ads Credits</p>
+          <h1 className="mt-2 text-3xl font-semibold">Create an ad</h1>
+        </div>
+        <div className="ad-wizard-credit-pill">
+          <span>Credits available</span>
+          <strong>{adsManager.platformCredits.toLocaleString()}</strong>
         </div>
       </div>
 
-      <section className="ab-testing-panel">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Testing</p>
-          <h2 className="mt-2 text-xl font-semibold">Creative comparison</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            A/B testing creates two campaign variants with the same targeting and destination, splitting the credit budget between them.
-          </p>
+      <nav className="ad-wizard-steps" aria-label="Ad creation steps">
+        {wizardSteps.map((step, index) => (
+          <button
+            className={index === stepIndex ? "ad-wizard-step is-active" : "ad-wizard-step"}
+            key={step.key}
+            onClick={() => goToStep(step.key)}
+            type="button"
+          >
+            <span>{index + 1}</span>
+            <strong>{step.label}</strong>
+          </button>
+        ))}
+      </nav>
+
+      <section className="ad-wizard-page">
+        <div className="ad-wizard-page-heading">
+          <div>
+            <h2>{currentStep.title}</h2>
+            <p>{currentStep.helper}</p>
+          </div>
+          {note ? <small>{note}</small> : null}
         </div>
-        <button className="btn-secondary" onClick={enableAbTesting} type="button">
-          A B Testing
-        </button>
-        {abTestingEnabled ? (
-          <div className="ab-testing-variant-panel">
-            <div className="ab-testing-tabs" aria-label="Ad variants">
-              <span>Variant A</span>
-              <strong>Variant B</strong>
-            </div>
-            <p className="rounded-md border border-[var(--gold)]/30 bg-[var(--gold)]/10 p-3 text-sm leading-6 text-[var(--gold)]">
-              Recommendation: change only one major thing on Variant B, such as the image, headline, or offer. This keeps the comparison useful.
-            </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2">
-                <span className="form-label">Variant B headline</span>
-                <input className="form-field" onChange={(event) => setVariantBTitle(event.target.value)} value={variantBTitle} />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Variant B ad text</span>
-                <input className="form-field" onChange={(event) => setVariantBBody(event.target.value)} value={variantBBody} />
-              </label>
-            </div>
+
+        {currentStep.key === "heading" ? (
+          <div className="ad-wizard-two-column">
             <label className="grid gap-2">
-              <span className="form-label">Variant B image URL override</span>
+              <span className="form-label">Heading</span>
               <input
-                className="form-field"
-                onChange={(event) => setVariantBExternalImageUrl(event.target.value)}
-                placeholder="Leave blank to reuse Variant A image"
-                value={variantBExternalImageUrl}
+                autoFocus
+                className="form-field ad-wizard-large-input"
+                maxLength={120}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Example: Course supply kits ready now"
+                value={title}
               />
+              <small className="text-[var(--muted)]">{Math.max(0, 120 - title.length)} characters left.</small>
             </label>
-            <p className="text-xs leading-5 text-[var(--muted)]">
-              Current split: Variant A receives {Math.ceil(campaignCredits / 2).toLocaleString()} credits and Variant B receives{" "}
-              {Math.max(0, campaignCredits - Math.ceil(campaignCredits / 2)).toLocaleString()} credits.
-            </p>
+            <div className="ad-wizard-tip">
+              <strong>Good headline pattern</strong>
+              <span>Product or service + clear outcome. Avoid vague titles like &quot;Check this out&quot;.</span>
+            </div>
           </div>
         ) : null}
-      </section>
 
-      <section className="ad-creative-picker">
-        <input
-          accept="image/*"
-          className="sr-only"
-          onChange={(event) => updateImage(event.target.files?.[0])}
-          ref={imageInputRef}
-          type="file"
-        />
-        <div>
-          <span className="form-label">Ad image</span>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Upload the image people will see in the reserved ad stream, or paste an image URL below. If both are provided, the uploaded image is used.
-          </p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--gold)]">{AD_IMAGE_GUIDANCE}</p>
-        </div>
-        <button className="btn-secondary" onClick={() => imageInputRef.current?.click()} type="button">
-          {image ? "Change image" : "Upload image"}
-        </button>
-        {image ? (
-          <div className="ad-creative-preview">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt="Selected ad creative preview" src={image.previewUrl} />
-            <div>
-              <p className="font-semibold">{image.file.name}</p>
-              <p className="text-sm text-[var(--muted)]">{Math.max(1, Math.round(image.file.size / 1024))} KB</p>
-              {image.status === "uploading" ? (
-                <div className="feed-upload-meter">
-                  <span style={{ width: `${image.progress}%` }} />
+        {currentStep.key === "text" ? (
+          <div className="ad-wizard-two-column">
+            <label className="grid gap-2">
+              <span className="form-label">Ad text</span>
+              <textarea
+                className="form-field ad-wizard-textarea"
+                maxLength={280}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder="Tell people what you are promoting and why it matters."
+                value={body}
+              />
+              <small className="text-[var(--muted)]">{Math.max(0, 280 - body.length)} characters left.</small>
+            </label>
+            <div className="ad-wizard-ab-panel">
+              <div>
+                <strong>A/B Testing</strong>
+                <span>Optional. Split the budget between two text/image variants.</span>
+              </div>
+              <button className="btn-secondary" onClick={enableAbTesting} type="button">
+                {abTestingEnabled ? "Enabled" : "Enable"}
+              </button>
+              {abTestingEnabled ? (
+                <div className="ad-wizard-ab-fields">
+                  <p>Change only one major thing on Variant B so the comparison is useful.</p>
+                  <input className="form-field" onChange={(event) => setVariantBTitle(event.target.value)} placeholder="Variant B heading" value={variantBTitle} />
+                  <input className="form-field" onChange={(event) => setVariantBBody(event.target.value)} placeholder="Variant B text" value={variantBBody} />
+                  <input
+                    className="form-field"
+                    onChange={(event) => setVariantBExternalImageUrl(event.target.value)}
+                    placeholder="Variant B image URL, optional"
+                    value={variantBExternalImageUrl}
+                  />
                 </div>
               ) : null}
-              {image.error ? <p className="mt-2 text-sm text-red-100">{image.error}</p> : null}
             </div>
           </div>
         ) : null}
-        <label className="grid gap-2">
-          <span className="form-label">Image URL fallback</span>
-          <input
-            className="form-field"
-            onChange={(event) => setExternalImageUrl(event.target.value)}
-            placeholder="https://example.com/ad-image.jpg"
-            value={externalImageUrl}
-          />
-          <small className="text-[var(--muted)]">Use this when the creative is hosted elsewhere. Uploaded files are preferred for reliability.</small>
-        </label>
-        {!image && externalImageUrl.trim() ? (
-          <div className="ad-creative-preview">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt="Linked ad creative preview" src={externalImageUrl} />
+
+        {currentStep.key === "image" ? (
+          <div className="ad-wizard-two-column">
+            <input
+              accept="image/*"
+              className="sr-only"
+              onChange={(event) => updateImage(event.target.files?.[0])}
+              ref={imageInputRef}
+              type="file"
+            />
+            <div className="ad-wizard-image-control">
+              <span className="form-label">Ad image</span>
+              <p>{AD_IMAGE_GUIDANCE}</p>
+              <button className="btn-primary" onClick={() => imageInputRef.current?.click()} type="button">
+                {image ? "Change" : "Upload"}
+              </button>
+              <label className="grid gap-2">
+                <span className="form-label">Image URL fallback</span>
+                <input
+                  className="form-field"
+                  onChange={(event) => setExternalImageUrl(event.target.value)}
+                  placeholder="https://example.com/ad-image.jpg"
+                  value={externalImageUrl}
+                />
+              </label>
+            </div>
+            <div className="ad-wizard-image-preview">
+              {previewImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="Selected ad creative preview" src={previewImageUrl} />
+              ) : (
+                <span>Image preview</span>
+              )}
+              {image ? (
+                <div>
+                  <strong>{image.file.name}</strong>
+                  <small>{Math.max(1, Math.round(image.file.size / 1024))} KB</small>
+                  {image.status === "uploading" ? (
+                    <div className="feed-upload-meter">
+                      <span style={{ width: `${image.progress}%` }} />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {currentStep.key === "destination" ? (
+          <div className="ad-wizard-destination">
+            <div className="ad-wizard-choice-grid">
+              <button
+                className={`destination-choice ${destinationKind === AdDestinationKind.STOREFRONT ? "is-active" : ""}`}
+                disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.storefronts.length === 0}
+                onClick={() => setDestinationKind(AdDestinationKind.STOREFRONT)}
+                type="button"
+              >
+                <span>Storefront</span>
+                <small>{adsManager.destinationOptions.storefronts[0]?.label ?? "Publish a storefront first"}</small>
+              </button>
+              <button
+                className={`destination-choice ${destinationKind === AdDestinationKind.MARKET_LISTING ? "is-active" : ""}`}
+                disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.marketListings.length === 0}
+                onClick={() => setDestinationKind(AdDestinationKind.MARKET_LISTING)}
+                type="button"
+              >
+                <span>Listing</span>
+                <small>{adsManager.destinationOptions.marketListings.length} active listing(s)</small>
+              </button>
+              <button
+                className={`destination-choice ${destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? "is-active" : ""}`}
+                disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.businessArticles.length === 0}
+                onClick={() => setDestinationKind(AdDestinationKind.BUSINESS_ARTICLE)}
+                type="button"
+              >
+                <span>Article</span>
+                <small>{adsManager.destinationOptions.businessArticles.length} published article(s)</small>
+              </button>
+              <button
+                className={`destination-choice ${destinationKind === AdDestinationKind.EXTERNAL_URL ? "is-active" : ""}`}
+                onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)}
+                type="button"
+              >
+                <span>URL</span>
+                <small>External site or owned internal page</small>
+              </button>
+            </div>
+
+            {destinationKind === AdDestinationKind.MARKET_LISTING ? (
+              <label className="grid gap-2">
+                <span className="form-label">Market listing</span>
+                <select className="form-field" onChange={(event) => setMarketListingId(event.target.value)} value={marketListingId}>
+                  {adsManager.destinationOptions.marketListings.map((listing) => (
+                    <option key={listing.id} value={listing.id}>
+                      {listing.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? (
+              <label className="grid gap-2">
+                <span className="form-label">Storefront article</span>
+                <select className="form-field" onChange={(event) => setBusinessArticleId(event.target.value)} value={businessArticleId}>
+                  {adsManager.destinationOptions.businessArticles.map((article) => (
+                    <option key={article.id} value={article.id}>
+                      {article.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {destinationKind === AdDestinationKind.EXTERNAL_URL ? (
+              <label className="grid gap-2">
+                <span className="form-label">Click-through URL</span>
+                <input
+                  className="form-field"
+                  onChange={(event) => setCustomDestinationUrl(event.target.value)}
+                  placeholder={adsManager.fundraiserOnly ? "/fundraisers/your-fundraiser" : "https://example.com/page or /market/your-listing"}
+                  value={customDestinationUrl}
+                />
+                <small className="text-[var(--muted)]">
+                  {adsManager.fundraiserOnly
+                    ? "Org ads must point to one of your own fundraiser pages."
+                    : "Internal Theta-Space destinations must belong to you."}
+                </small>
+              </label>
+            ) : null}
+          </div>
+        ) : null}
+
+        {currentStep.key === "audience" ? (
+          <div className="ad-wizard-two-column">
+            <label className="grid gap-2">
+              <span className="form-label">Location</span>
+              <input
+                className="form-field"
+                onChange={(event) => setTargetLocation(event.target.value)}
+                placeholder="Optional city, state, region, or leave blank"
+                value={targetLocation}
+              />
+              <small className="text-[var(--muted)]">Location is broad text targeting. Leave it blank for wider delivery.</small>
+            </label>
             <div>
-              <p className="font-semibold">Linked image preview</p>
-              <p className="text-sm text-[var(--muted)]">The server will validate this as an HTTP(S) image URL when the campaign is created.</p>
-            </div>
-          </div>
-        ) : null}
-      </section>
+              <span className="form-label">Interest categories</span>
+              <div className="ad-wizard-interest-grid">
+                {interestCategoryOptions.map((option) => {
+                  const active = targetInterestCategories.includes(option.value);
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="form-label">Headline</span>
-          <input className="form-field" onChange={(event) => setTitle(event.target.value)} value={title} />
-        </label>
-        <label className="grid gap-2">
-          <span className="form-label">Ad text</span>
-          <input className="form-field" onChange={(event) => setBody(event.target.value)} value={body} />
-        </label>
-      </div>
-
-      <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
-        <div>
-          <h2 className="font-semibold text-[var(--gold)]">Destination</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Choose what opens when someone clicks the ad.</p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          <button
-            className={`destination-choice ${destinationKind === AdDestinationKind.STOREFRONT ? "is-active" : ""}`}
-            disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.storefronts.length === 0}
-            onClick={() => setDestinationKind(AdDestinationKind.STOREFRONT)}
-            type="button"
-          >
-            <span>Storefront</span>
-            <small>{adsManager.destinationOptions.storefronts[0]?.label ?? "Publish a storefront first"}</small>
-          </button>
-          <button
-            className={`destination-choice ${destinationKind === AdDestinationKind.MARKET_LISTING ? "is-active" : ""}`}
-            disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.marketListings.length === 0}
-            onClick={() => setDestinationKind(AdDestinationKind.MARKET_LISTING)}
-            type="button"
-          >
-            <span>Listing ad</span>
-            <small>{adsManager.destinationOptions.marketListings.length} active listing(s)</small>
-          </button>
-          <button
-            className={`destination-choice ${destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? "is-active" : ""}`}
-            disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.businessArticles.length === 0}
-            onClick={() => setDestinationKind(AdDestinationKind.BUSINESS_ARTICLE)}
-            type="button"
-          >
-            <span>Article</span>
-            <small>{adsManager.destinationOptions.businessArticles.length} published article(s)</small>
-          </button>
-          <button
-            className={`destination-choice ${destinationKind === AdDestinationKind.EXTERNAL_URL ? "is-active" : ""}`}
-            onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)}
-            type="button"
-          >
-            <span>Custom URL</span>
-            <small>Use your website or one of your own internal pages</small>
-          </button>
-        </div>
-
-        {destinationKind === AdDestinationKind.MARKET_LISTING ? (
-          <label className="grid gap-2">
-            <span className="form-label">Market listing</span>
-            <select className="form-field" onChange={(event) => setMarketListingId(event.target.value)} value={marketListingId}>
-              {adsManager.destinationOptions.marketListings.map((listing) => (
-                <option key={listing.id} value={listing.id}>
-                  {listing.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
-        {destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? (
-          <label className="grid gap-2">
-            <span className="form-label">Storefront article</span>
-            <select className="form-field" onChange={(event) => setBusinessArticleId(event.target.value)} value={businessArticleId}>
-              {adsManager.destinationOptions.businessArticles.map((article) => (
-                <option key={article.id} value={article.id}>
-                  {article.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
-        {destinationKind === AdDestinationKind.EXTERNAL_URL ? (
-          <label className="grid gap-2">
-            <span className="form-label">Click-through URL</span>
-            <input
-              className="form-field"
-              onChange={(event) => setCustomDestinationUrl(event.target.value)}
-              placeholder={adsManager.fundraiserOnly ? "/fundraisers/your-fundraiser" : "https://example.com/page or /market/your-listing"}
-              value={customDestinationUrl}
-            />
-            <small className="text-[var(--muted)]">
-              {adsManager.fundraiserOnly
-                ? "Org ads must point to one of your own fundraiser pages."
-                : "Internal Theta-Space destinations must belong to you: your storefront, listings, jobs, events, fundraisers, or manuscripts."}
-            </small>
-          </label>
-        ) : null}
-      </section>
-
-      <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
-        <div>
-          <h2 className="font-semibold text-[var(--gold)]">Budget and schedule</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Pick a placement and preset, then set how many credits and days this campaign should use.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="form-label">Placement</span>
-            <select
-              className="form-field"
-              onChange={(event) => {
-                const nextPlacement = event.target.value as AdPlacement;
-                const nextPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === nextPlacement);
-                setPlacement(nextPlacement);
-                applyPricingPreset(nextPackage);
-              }}
-              value={placement}
-            >
-              {adPlacementOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2">
-            <span className="form-label">Preset package</span>
-            <select
-              className="form-field"
-              onChange={(event) => {
-                const nextPackage = placementPackages.find((pricingPackage) => pricingPackage.key === event.target.value);
-                applyPricingPreset(nextPackage);
-              }}
-              value={selectedPricingPackage?.key ?? ""}
-            >
-              {placementPackages.map((pricingPackage) => (
-                <option key={pricingPackage.key} value={pricingPackage.key}>
-                  {pricingPackage.label}
-                </option>
-              ))}
-            </select>
-            <small className="text-[var(--muted)]">
-              Presets fill a starting budget and duration. You can adjust both before creating the campaign.
-            </small>
-          </label>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_0.9fr]">
-          <label className="grid gap-2">
-            <span className="form-label">Credits to designate</span>
-            <input
-              className="form-field"
-              max={100000}
-              min={1}
-              onChange={(event) => setCampaignCredits(Math.max(1, Math.min(100000, Number(event.target.value) || 1)))}
-              type="number"
-              value={campaignCredits}
-            />
-            <div className="flex flex-wrap gap-2">
-              {CREDIT_BUDGET_PRESETS.map((credits) => (
-                <button
-                  className={`interest-chip ${campaignCredits === credits ? "is-active" : ""}`}
-                  disabled={credits > adsManager.platformCredits}
-                  key={credits}
-                  onClick={() => setCampaignCredits(credits)}
-                  type="button"
-                >
-                  {credits}
-                </button>
-              ))}
-            </div>
-          </label>
-          <label className="grid gap-2">
-            <span className="form-label">Campaign length</span>
-            <input
-              className="form-field"
-              max={365}
-              min={1}
-              onChange={(event) => setCampaignDurationDays(Math.max(1, Math.min(365, Number(event.target.value) || 1)))}
-              type="number"
-              value={campaignDurationDays}
-            />
-            <div className="flex flex-wrap gap-2">
-              {CAMPAIGN_DURATION_PRESETS.map((days) => (
-                <button
-                  className={`interest-chip ${campaignDurationDays === days ? "is-active" : ""}`}
-                  key={days}
-                  onClick={() => setCampaignDurationDays(days)}
-                  type="button"
-                >
-                  {durationLabel(days)}
-                </button>
-              ))}
-            </div>
-          </label>
-          <div className="ad-cost-estimate">
-            <span>Campaign budget</span>
-            <strong>{selectedPricingPackage ? `${campaignCredits.toLocaleString()} credits` : "No package"}</strong>
-            <small>
-              {selectedPricingPackage
-                ? `${durationLabel(campaignDurationDays)} | ${campaignDailyWeight.toFixed(1)} credits/day weight | preset ${selectedPackageCreditCost} credits`
-                : "Ask an admin to activate a package."}
-            </small>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-md border border-[var(--line)] bg-black/10 p-4">
-        <h2 className="font-semibold text-[var(--gold)]">Targeting</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Optional targeting narrows delivery using member-declared interests and broad location text. It does not read private mail, chat, or post content.
-        </p>
-        <input
-          className="form-field mt-4"
-          onChange={(event) => setTargetLocation(event.target.value)}
-          placeholder="Location text, optional"
-          value={targetLocation}
-        />
-        <div className="mt-4">
-          <span className="form-label">Interest categories</span>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {interestCategoryOptions.map((option) => {
-              const active = targetInterestCategories.includes(option.value);
-
-              return (
-                <button
-                  className={`interest-chip ${active ? "is-active" : ""}`}
-                  key={option.value}
-                  onClick={() => toggleInterest(option.value)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-            Leave blank for broad delivery. Choose up to 6 categories for interest-targeted placement.
-          </p>
-        </div>
-        {adsManager.destinationOptions.writerManuscripts.length > 0 ? (
-          <label className="mt-4 grid gap-2">
-            <span className="form-label">Subscriber audience</span>
-            <select
-              className="form-field"
-              onChange={(event) => setSubscriberTargetManuscriptId(event.target.value)}
-              value={subscriberTargetManuscriptId}
-            >
-              <option value="">No subscriber audience</option>
-              {adsManager.destinationOptions.writerManuscripts.map((manuscript) => (
-                <option key={manuscript.id} value={manuscript.id}>
-                  {manuscript.label} ({manuscript.subscriberCount} subscribers)
-                </option>
-              ))}
-            </select>
-            <small className="text-[var(--muted)]">Choose a manuscript to limit delivery to members subscribed to that manuscript.</small>
-          </label>
-        ) : null}
-      </section>
-
-      <section className="ad-render-preview">
-        <div className="ad-render-preview-heading">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Preview</p>
-            <h2 className="mt-2 text-xl font-semibold">Rendered campaign</h2>
-          </div>
-          <div className="ad-render-preview-meta">
-            <span>{placementLabel}</span>
-            <strong>{campaignCredits.toLocaleString()} credits</strong>
-            <small>{durationLabel(campaignDurationDays)}</small>
-          </div>
-        </div>
-        <div className="ad-render-stage">
-          <div className="ad-render-context">
-            <span className="form-label">Destination</span>
-            <strong>{previewDestinationLabel}</strong>
-            <small>
-              {selectedPricingPackage
-                ? `${campaignDailyWeight.toFixed(1)} credits/day weight | ${targetInterestCategories.length} interest filter${targetInterestCategories.length === 1 ? "" : "s"}`
-                : "Choose an active ad package"}
-            </small>
-          </div>
-          <article className="ad-placement-card ad-render-card">
-            {previewImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt="Ad preview creative" className="ad-placement-image" src={previewImageUrl} />
-            ) : (
-              <div className="ad-render-image-placeholder">
-                <span>Creative</span>
+                  return (
+                    <button className={`interest-chip ${active ? "is-active" : ""}`} key={option.value} onClick={() => toggleInterest(option.value)} type="button">
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
-            )}
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
-            <strong className="mt-2 block">{previewTitle}</strong>
-            <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{previewBody}</span>
-            <span className="ad-rotation-meta">
-              {selectedPricingPackage ? `Preview render | ${campaignCredits.toLocaleString()} credits queued` : "Package needed"}
-            </span>
-          </article>
-        </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">Choose up to 6 categories, or leave blank for broad delivery.</p>
+            </div>
+            {adsManager.destinationOptions.writerManuscripts.length > 0 ? (
+              <label className="ad-wizard-span grid gap-2">
+                <span className="form-label">Subscriber audience</span>
+                <select className="form-field" onChange={(event) => setSubscriberTargetManuscriptId(event.target.value)} value={subscriberTargetManuscriptId}>
+                  <option value="">No subscriber audience</option>
+                  {adsManager.destinationOptions.writerManuscripts.map((manuscript) => (
+                    <option key={manuscript.id} value={manuscript.id}>
+                      {manuscript.label} ({manuscript.subscriberCount} subscribers)
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+        ) : null}
+
+        {currentStep.key === "budget" ? (
+          <div className="ad-wizard-budget-grid">
+            <label className="grid gap-2">
+              <span className="form-label">Placement</span>
+              <select
+                className="form-field"
+                onChange={(event) => {
+                  const nextPlacement = event.target.value as AdPlacement;
+                  const nextPackage = adsManager.pricingPackages.find((pricingPackage) => pricingPackage.placement === nextPlacement);
+                  setPlacement(nextPlacement);
+                  applyPricingPreset(nextPackage);
+                }}
+                value={placement}
+              >
+                {adPlacementOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="form-label">Preset</span>
+              <select
+                className="form-field"
+                onChange={(event) => {
+                  const nextPackage = placementPackages.find((pricingPackage) => pricingPackage.key === event.target.value);
+                  applyPricingPreset(nextPackage);
+                }}
+                value={selectedPricingPackage?.key ?? ""}
+              >
+                {placementPackages.map((pricingPackage) => (
+                  <option key={pricingPackage.key} value={pricingPackage.key}>
+                    {pricingPackage.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="form-label">Credits</span>
+              <input
+                className="form-field"
+                max={100000}
+                min={1}
+                onChange={(event) => setCampaignCredits(Math.max(1, Math.min(100000, Number(event.target.value) || 1)))}
+                type="number"
+                value={campaignCredits}
+              />
+              <div className="ad-wizard-chip-row">
+                {CREDIT_BUDGET_PRESETS.map((credits) => (
+                  <button
+                    className={`interest-chip ${campaignCredits === credits ? "is-active" : ""}`}
+                    disabled={credits > adsManager.platformCredits}
+                    key={credits}
+                    onClick={() => setCampaignCredits(credits)}
+                    type="button"
+                  >
+                    {credits}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <label className="grid gap-2">
+              <span className="form-label">Length</span>
+              <input
+                className="form-field"
+                max={365}
+                min={1}
+                onChange={(event) => setCampaignDurationDays(Math.max(1, Math.min(365, Number(event.target.value) || 1)))}
+                type="number"
+                value={campaignDurationDays}
+              />
+              <div className="ad-wizard-chip-row">
+                {CAMPAIGN_DURATION_PRESETS.map((days) => (
+                  <button className={`interest-chip ${campaignDurationDays === days ? "is-active" : ""}`} key={days} onClick={() => setCampaignDurationDays(days)} type="button">
+                    {durationLabel(days)}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <div className="ad-cost-estimate ad-wizard-span">
+              <span>Campaign budget</span>
+              <strong>{selectedPricingPackage ? `${campaignCredits.toLocaleString()} credits` : "No package"}</strong>
+              <small>
+                {selectedPricingPackage
+                  ? `${durationLabel(campaignDurationDays)} | ${campaignDailyWeight.toFixed(1)} credits/day weight | preset ${selectedPackageCreditCost} credits`
+                  : "Ask an admin to activate a package."}
+              </small>
+            </div>
+          </div>
+        ) : null}
+
+        {currentStep.key === "preview" ? (
+          <div className="ad-wizard-preview-grid">
+            <div className="ad-render-preview ad-wizard-preview">
+              <div className="ad-render-preview-heading">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Preview</p>
+                  <h2 className="mt-2 text-xl font-semibold">Rendered campaign</h2>
+                </div>
+                <div className="ad-render-preview-meta">
+                  <span>{placementLabel}</span>
+                  <strong>{campaignCredits.toLocaleString()} credits</strong>
+                  <small>{durationLabel(campaignDurationDays)}</small>
+                </div>
+              </div>
+              <div className="ad-render-stage">
+                <div className="ad-render-context">
+                  <span className="form-label">Destination</span>
+                  <strong>{previewDestinationLabel}</strong>
+                  <small>
+                    {selectedPricingPackage
+                      ? `${campaignDailyWeight.toFixed(1)} credits/day weight | ${targetInterestCategories.length} interest filter${targetInterestCategories.length === 1 ? "" : "s"}`
+                      : "Choose an active ad package"}
+                  </small>
+                </div>
+                <article className="ad-placement-card ad-render-card">
+                  {previewImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="Ad preview creative" className="ad-placement-image" src={previewImageUrl} />
+                  ) : (
+                    <div className="ad-render-image-placeholder">
+                      <span>Creative</span>
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
+                  <strong className="mt-2 block">{previewTitle}</strong>
+                  <span className="mt-2 block text-sm leading-6 text-[var(--muted)]">{previewBody}</span>
+                  <span className="ad-rotation-meta">
+                    {selectedPricingPackage ? `Preview render | ${campaignCredits.toLocaleString()} credits queued` : "Package needed"}
+                  </span>
+                </article>
+              </div>
+            </div>
+            <aside className="ad-wizard-review-panel">
+              <h3>Review</h3>
+              <div className="ad-wizard-edit-grid">
+                {wizardSteps.filter((step) => step.key !== "preview").map((step) => (
+                  <button key={step.key} onClick={() => goToStep(step.key)} type="button">
+                    <span>{step.label}</span>
+                    <strong>Edit</strong>
+                  </button>
+                ))}
+              </div>
+              {publishBlockers.length > 0 ? (
+                <div className="ad-wizard-blockers">
+                  <strong>Cannot publish yet</strong>
+                  <ul>
+                    {publishBlockers.map((blocker) => (
+                      <li key={blocker}>{blocker}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="ad-wizard-ready">
+                  <strong>Ready to publish</strong>
+                  <span>The campaign can be submitted now.</span>
+                </div>
+              )}
+            </aside>
+          </div>
+        ) : null}
       </section>
 
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      {error ? <p className="ad-wizard-error">{error}</p> : null}
 
-      <div className="flex justify-end gap-3">
+      <div className="ad-wizard-footer">
         <Link className="btn-secondary" href={cancelHref}>
           Cancel
         </Link>
-        <button
-          className="btn-primary"
-          disabled={
-            isPending ||
-            title.trim().length < 2 ||
-            body.trim().length < 8 ||
-            (!image && !externalImageUrl.trim()) ||
-            !hasDestination ||
-            !selectedPricingPackage ||
-            !canAffordBudget ||
-            campaignCredits < 1 ||
-            campaignDurationDays < 1
-          }
-          type="submit"
-        >
-          {isPending ? "Creating..." : "Create campaign"}
-        </button>
+        <div className="ad-wizard-footer-actions">
+          <button className="btn-secondary" disabled={stepIndex === 0 || isPending} onClick={() => setStepIndex((current) => Math.max(0, current - 1))} type="button">
+            Back
+          </button>
+          {hasVisitedPreview && currentStep.key !== "preview" ? (
+            <button className="btn-secondary" disabled={isPending} onClick={() => goToStep("preview")} type="button">
+              Return to preview
+            </button>
+          ) : null}
+          {currentStep.key === "preview" ? (
+            <button className="btn-primary" disabled={isPending || publishBlockers.length > 0} type="submit">
+              {isPending ? "Publishing..." : "Publish Ad"}
+            </button>
+          ) : (
+            <button className="btn-primary" disabled={isPending} onClick={goNext} type="button">
+              Next
+            </button>
+          )}
+        </div>
       </div>
     </form>
   );
