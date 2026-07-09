@@ -4,7 +4,8 @@ import { MarketListingCategory } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
-import { marketCategoryOptions, type MarketCreateState } from "@/modules/market/types";
+import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
+import { marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
 
 type UploadItem = {
   id: string;
@@ -24,19 +25,32 @@ function parsePriceCents(value: string) {
   return Math.round(amount * 100);
 }
 
-export function CreateMarketListingForm({ createState }: { createState: MarketCreateState }) {
+export function CreateMarketListingForm({
+  createState,
+  initialListing,
+  mode = "create"
+}: {
+  createState: MarketCreateState;
+  initialListing?: MarketListingDetailView;
+  mode?: "create" | "edit";
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<MarketListingCategory>(marketCategoryOptions[0]?.value ?? MarketListingCategory.OTHER);
-  const [location, setLocation] = useState("");
-  const [price, setPrice] = useState("");
+  const existingPhotoCount = initialListing?.photos.length ?? 0;
+  const [title, setTitle] = useState(initialListing?.title ?? "");
+  const [description, setDescription] = useState(initialListing?.description ?? "");
+  const [category, setCategory] = useState<MarketListingCategory>(initialListing?.category ?? marketCategoryOptions[0]?.value ?? MarketListingCategory.OTHER);
+  const [location, setLocation] = useState(initialListing?.location ?? "");
+  const [price, setPrice] = useState(initialListing?.priceCents ? (initialListing.priceCents / 100).toFixed(2) : "");
+  const [contactEmail, setContactEmail] = useState(initialListing?.contactEmail ?? "");
+  const [contactPhone, setContactPhone] = useState(initialListing?.contactPhone ?? "");
+  const [contactNotes, setContactNotes] = useState(initialListing?.contactNotes ?? "");
+  const [allowMessages, setAllowMessages] = useState(initialListing?.allowMessages ?? true);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [error, setError] = useState(createState.viewerCanCreate ? "" : createState.reason ?? "This tier cannot create Market listings.");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function addFiles(files: FileList | File[]) {
-    const remaining = Math.max(0, createState.photoCap - items.length);
+    const remaining = Math.max(0, createState.photoCap - existingPhotoCount - items.length);
     const next = Array.from(files)
       .slice(0, remaining)
       .map((file) => ({
@@ -116,14 +130,18 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
 
     try {
       const photoMediaAssetIds = await uploadPhotos();
-      const response = await fetch("/api/market", {
-        method: "POST",
+      const response = await fetch(mode === "edit" && initialListing ? `/api/market/${initialListing.slug}` : "/api/market", {
+        method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           description,
           category,
           location,
+          contactEmail,
+          contactPhone,
+          contactNotes,
+          allowMessages,
           priceCents: parsePriceCents(price),
           photoMediaAssetIds
         })
@@ -154,12 +172,12 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
   }
 
   return (
-    <form className="surface grid gap-5 rounded-md p-6" onSubmit={submitListing}>
+    <form className="surface market-listing-form grid gap-4 rounded-md p-5" onSubmit={submitListing}>
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">The Market</p>
-        <h1 className="mt-3 text-3xl font-semibold">Create a listing</h1>
-        <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          Listings browse as square thumbnails. Categories are fixed so search stays clean.
+        <h1 className="mt-2 text-3xl font-semibold">{mode === "edit" ? "Edit listing" : "Create a listing"}</h1>
+        <p className="mt-2 max-w-3xl leading-6 text-[var(--muted)]">
+          Add clear details, photos, and seller contact options. Buyers can message you inside Theta-Space or use the contact info you choose to show.
         </p>
         {createState.listingLimit !== null ? (
           <p className="mt-3 text-sm text-[var(--gold)]">
@@ -168,7 +186,7 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
         ) : null}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="market-listing-fields grid gap-3 md:grid-cols-2">
         <label className="grid gap-2">
           <span className="form-label">Title</span>
           <input className="form-field" onChange={(event) => setTitle(event.target.value)} value={title} />
@@ -179,7 +197,7 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
         </label>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="market-listing-fields grid gap-3 md:grid-cols-2">
         <label className="grid gap-2">
           <span className="form-label">Category</span>
           <select className="form-field" onChange={(event) => setCategory(event.target.value as MarketListingCategory)} value={category}>
@@ -196,23 +214,45 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
         </label>
       </div>
 
-      <label className="grid gap-2">
+      <div className="market-listing-fields grid gap-3 md:grid-cols-3">
+        <label className="grid gap-2">
+          <span className="form-label">Seller email</span>
+          <input className="form-field" onChange={(event) => setContactEmail(event.target.value)} placeholder="Optional public email" type="email" value={contactEmail} />
+        </label>
+        <label className="grid gap-2">
+          <span className="form-label">Seller phone</span>
+          <input className="form-field" onChange={(event) => setContactPhone(event.target.value)} placeholder="Optional public phone" value={contactPhone} />
+        </label>
+        <label className="grid gap-2">
+          <span className="form-label">Contact note</span>
+          <input className="form-field" onChange={(event) => setContactNotes(event.target.value)} placeholder="Best times, shipping, pickup..." value={contactNotes} />
+        </label>
+      </div>
+
+      <label className="market-message-toggle">
+        <input checked={allowMessages} onChange={(event) => setAllowMessages(event.target.checked)} type="checkbox" />
+        <span>Allow buyers to send me a Theta-Space message about this listing.</span>
+      </label>
+
+      <div className="grid gap-2">
         <span className="form-label">Description</span>
-        <textarea
-          className="form-field min-h-40 resize-y"
-          onChange={(event) => setDescription(event.target.value)}
+        <MarkdownRichTextEditor
+          disabled={isSubmitting}
+          onChange={setDescription}
           placeholder="Condition, details, pickup/shipping notes, and anything the buyer should know."
           value={description}
         />
-      </label>
+      </div>
 
-      <section className="rounded-md border border-[var(--line)] p-4">
+      <section className="market-photo-panel rounded-md border border-[var(--line)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-[var(--gold)]">Photos</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Up to {createState.photoCap} photos. First photo becomes the thumbnail.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Up to {createState.photoCap} photos. {mode === "edit" ? `${existingPhotoCount} already attached; new photos append.` : "First photo becomes the thumbnail."}
+            </p>
           </div>
-          <button className="btn-secondary" disabled={items.length >= createState.photoCap} onClick={() => inputRef.current?.click()} type="button">
+          <button className="btn-secondary" disabled={existingPhotoCount + items.length >= createState.photoCap} onClick={() => inputRef.current?.click()} type="button">
             Choose photos
           </button>
           <input
@@ -248,11 +288,11 @@ export function CreateMarketListingForm({ createState }: { createState: MarketCr
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
 
       <div className="flex justify-end gap-3">
-        <Link className="btn-secondary" href="/market">
+        <Link className="btn-secondary" href={mode === "edit" && initialListing ? `/market/${initialListing.slug}` : "/market"}>
           Cancel
         </Link>
         <button className="btn-primary" disabled={isSubmitting || title.trim().length < 2 || description.trim().length < 5} type="submit">
-          {isSubmitting ? "Creating..." : "Create listing"}
+          {isSubmitting ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save listing" : "Create listing"}
         </button>
       </div>
     </form>

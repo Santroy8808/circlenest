@@ -11,6 +11,7 @@ import {
   createMarketPhotoUploadIntentSchema,
   marketCategoryLabels,
   PROFESSIONAL_MARKET_PHOTO_CAP,
+  updateMarketListingSchema,
   type MarketListingCardView,
   type MarketListingDetailView
 } from "@/modules/market/types";
@@ -412,6 +413,10 @@ export async function createMarketListing(userId: string, input: unknown) {
       description: parsed.data.description,
       category: parsed.data.category,
       location: parsed.data.location || null,
+      contactEmail: parsed.data.contactEmail || null,
+      contactPhone: parsed.data.contactPhone || null,
+      contactNotes: parsed.data.contactNotes || null,
+      allowMessages: parsed.data.allowMessages,
       priceCents: parsed.data.priceCents ?? null,
       expiresAt: cappedListingWindow ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
       photos: {
@@ -430,6 +435,113 @@ export async function createMarketListing(userId: string, input: unknown) {
   });
 
   return { ok: true as const, listing };
+}
+
+async function assertMarketPhotoOwnership(userId: string, photoMediaAssetIds: string[]) {
+  if (!photoMediaAssetIds.length) return { ok: true as const, photos: [] as Array<{ id: string }> };
+
+  const photos = await prisma.mediaAsset.findMany({
+    where: {
+      id: { in: photoMediaAssetIds },
+      ownerUserId: userId,
+      mimeType: {
+        startsWith: "image/"
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (photos.length !== photoMediaAssetIds.length) {
+    return { ok: false as const, error: "One or more listing photos could not be found." };
+  }
+
+  return { ok: true as const, photos };
+}
+
+export async function updateMarketListing(viewerUserId: string, listingIdOrSlug: string, input: unknown) {
+  const parsed = updateMarketListingSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid listing." };
+  }
+
+  const listing = await prisma.marketListing.findFirst({
+    where: {
+      OR: [{ id: listingIdOrSlug }, { slug: listingIdOrSlug }],
+      status: {
+        not: MarketListingStatus.ARCHIVED
+      }
+    },
+    include: {
+      photos: {
+        orderBy: {
+          sortOrder: "asc"
+        }
+      }
+    }
+  });
+
+  if (!listing) {
+    return { ok: false as const, error: "Listing not found." };
+  }
+
+  const role = await getViewerRole(viewerUserId);
+  const canManage = isAdminRole(role) || listing.sellerUserId === viewerUserId;
+
+  if (!canManage) {
+    return { ok: false as const, error: "You cannot edit this listing." };
+  }
+
+  const state = await getMarketCreateState(listing.sellerUserId);
+  const requestedPhotoIds = parsed.data.photoMediaAssetIds ?? [];
+  const existingPhotoIds = new Set(listing.photos.map((photo) => photo.mediaAssetId));
+  const newPhotoIds = requestedPhotoIds.filter((mediaAssetId) => !existingPhotoIds.has(mediaAssetId));
+
+  if (newPhotoIds.length > 0 && listing.photos.length + newPhotoIds.length > state.photoCap) {
+    return { ok: false as const, error: `This tier supports ${state.photoCap} photos per listing.` };
+  }
+
+  const photoOwnership = await assertMarketPhotoOwnership(listing.sellerUserId, newPhotoIds);
+
+  if (!photoOwnership.ok) {
+    return photoOwnership;
+  }
+
+  const maxSortOrder = listing.photos.reduce((max, photo) => Math.max(max, photo.sortOrder), -1);
+  const updated = await prisma.marketListing.update({
+    where: {
+      id: listing.id
+    },
+    data: {
+      title: parsed.data.title,
+      description: parsed.data.description,
+      category: parsed.data.category,
+      location: parsed.data.location || null,
+      contactEmail: parsed.data.contactEmail || null,
+      contactPhone: parsed.data.contactPhone || null,
+      contactNotes: parsed.data.contactNotes || null,
+      allowMessages: parsed.data.allowMessages ?? true,
+      priceCents: parsed.data.priceCents ?? null,
+      photos: newPhotoIds.length
+        ? {
+            create: newPhotoIds.map((mediaAssetId, index) => ({
+              mediaAssetId,
+              sortOrder: maxSortOrder + index + 1
+            }))
+          }
+        : undefined
+    }
+  });
+
+  await diagnostics.info(MODULE_KEY, "Market listing updated.", {
+    userId: viewerUserId,
+    listingId: listing.id,
+    category: updated.category
+  });
+
+  return { ok: true as const, listing: updated };
 }
 
 export async function getMarketListingDetail(viewerUserId: string, listingIdOrSlug: string) {
@@ -466,6 +578,10 @@ export async function getMarketListingDetail(viewerUserId: string, listingIdOrSl
   const detail: MarketListingDetailView = {
     ...toMarketCardView(listing),
     description: listing.description,
+    contactEmail: listing.contactEmail,
+    contactPhone: listing.contactPhone,
+    contactNotes: listing.contactNotes,
+    allowMessages: listing.allowMessages,
     photos: listing.photos.map((photo) => ({
       id: photo.id,
       publicUrl: mediaAssetUrl(photo.mediaAsset),

@@ -1829,6 +1829,10 @@ model MarketListing {
   description  String
   category     MarketListingCategory
   location     String?
+  contactEmail String?
+  contactPhone String?
+  contactNotes String?
+  allowMessages Boolean               @default(true)
   priceCents   Int?
   currency     String                @default("USD")
   status       MarketListingStatus   @default(ACTIVE)

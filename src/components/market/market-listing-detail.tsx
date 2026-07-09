@@ -2,6 +2,8 @@ import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { MarketSellerMessageButton } from "@/components/market/market-seller-message-button";
+import { MarkdownRichText } from "@/components/rich-text/markdown-rich-text";
 import type { MarketListingDetailView } from "@/modules/market/types";
 
 function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "currency">) {
@@ -39,11 +41,18 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
               <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
               <p className="mt-3 text-[var(--muted)]">{listing.location || "Location TBD"}</p>
             </div>
-            <Link className="btn-secondary" href="/market">
-              Back to Market
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {listing.viewerCanManage ? (
+                <Link className="btn-secondary" href={`/market/${listing.slug}/edit`}>
+                  Edit listing
+                </Link>
+              ) : null}
+              <Link className="btn-secondary" href="/market">
+                Back to Market
+              </Link>
+            </div>
           </div>
-          <p className="mt-6 whitespace-pre-wrap leading-7 text-[var(--muted)]">{listing.description}</p>
+          <MarkdownRichText className="market-listing-description mt-6" value={listing.description} />
         </div>
       </section>
 
@@ -76,9 +85,23 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
           <Link className="profile-inline-link mt-1 block text-sm" href={`/profile/${listing.seller.username}`}>
             @{listing.seller.username}
           </Link>
-          <Link className="btn-secondary mt-4 inline-block" href="/mail">
-            Open Mail
-          </Link>
+          <div className="market-contact-card mt-4">
+            {listing.contactEmail ? (
+              <a className="market-contact-line" href={`mailto:${listing.contactEmail}?subject=${encodeURIComponent(`Theta-Space Market: ${listing.title}`)}`}>
+                Email: {listing.contactEmail}
+              </a>
+            ) : null}
+            {listing.contactPhone ? <p className="market-contact-line">Phone: {listing.contactPhone}</p> : null}
+            {listing.contactNotes ? <p className="market-contact-line">{listing.contactNotes}</p> : null}
+            {!listing.contactEmail && !listing.contactPhone && !listing.contactNotes ? (
+              <p className="market-contact-line">No public contact info listed.</p>
+            ) : null}
+          </div>
+          {listing.allowMessages ? (
+            <div className="mt-4">
+              <MarketSellerMessageButton sellerUserId={listing.seller.id} />
+            </div>
+          ) : null}
         </article>
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>

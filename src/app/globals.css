@@ -6972,6 +6972,88 @@ html.theta-theme-light .chat-message::before {
   width: 100%;
 }
 
+.market-listing-form .form-field {
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 9px 12px;
+}
+
+.market-listing-form .form-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+}
+
+.market-listing-fields {
+  align-items: end;
+}
+
+.market-message-toggle {
+  align-items: center;
+  border: 1px solid rgba(214, 178, 74, 0.22);
+  border-radius: 10px;
+  color: var(--muted);
+  display: inline-flex;
+  gap: 10px;
+  line-height: 1.45;
+  padding: 10px 12px;
+  width: fit-content;
+}
+
+.market-message-toggle input {
+  accent-color: var(--gold);
+}
+
+.markdown-rich-editor {
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.markdown-rich-editor-input {
+  border: 0;
+  border-radius: 0;
+  min-height: 136px;
+  padding: 12px 14px;
+}
+
+.markdown-rich-editor-toolbar {
+  border-top: 1px solid rgba(214, 178, 74, 0.18);
+  padding: 8px 10px;
+}
+
+.markdown-rich-editor-toolbar .feed-format-tools {
+  gap: 8px;
+}
+
+.markdown-rich-editor-toolbar .feed-format-tools button {
+  min-height: 36px;
+  padding: 8px 13px;
+}
+
+.market-photo-panel {
+  background: rgba(8, 12, 20, 0.18);
+}
+
+.market-listing-description {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.market-contact-card {
+  border: 1px solid rgba(214, 178, 74, 0.2);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.market-contact-line {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .public-storefront-surface {
   min-height: 100dvh;
   overflow: visible;
