@@ -449,11 +449,28 @@ a {
   border: 1px solid var(--control-border);
   border-radius: 0.375rem;
   color: var(--text);
+  color-scheme: dark;
   font: inherit;
   min-height: 44px;
   min-width: 0;
   padding: 0.55rem 0.65rem;
   width: 100%;
+}
+
+.account-actor-switcher select:focus-visible {
+  border-color: var(--gold);
+  outline: 2px solid rgba(255, 216, 95, 0.36);
+  outline-offset: 2px;
+}
+
+.account-actor-switcher select option {
+  background: #111824;
+  color: #dbe2ee;
+}
+
+.account-actor-switcher select option:checked {
+  background: #172133;
+  color: #ffd85f;
 }
 
 .control-panel-nav {
@@ -5559,6 +5576,21 @@ html.theta-theme-light .account-actor-switcher select {
   background: rgba(255, 255, 250, 0.9);
   border-color: var(--control-border);
   color: var(--text);
+  color-scheme: light;
+}
+
+html.theta-theme-light .account-actor-switcher select:focus-visible {
+  outline-color: rgba(128, 94, 21, 0.34);
+}
+
+html.theta-theme-light .account-actor-switcher select option {
+  background: #fffaf0;
+  color: #18202b;
+}
+
+html.theta-theme-light .account-actor-switcher select option:checked {
+  background: #f0e5cc;
+  color: #805e15;
 }
 
 html.theta-theme-light .city-location-suggestions {
