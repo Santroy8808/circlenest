@@ -105,7 +105,9 @@ export async function getPlatformHealth(): Promise<HealthCheckResult[]> {
 export async function getPlatformHealthReport(): Promise<PlatformHealthReport> {
   const checks = await getPlatformHealthChecks();
   const criticalFailure = checks.some((check) => check.critical && check.status !== "healthy");
-  const degraded = checks.some((check) => check.status === "degraded" || check.status === "unknown");
+  const degraded = checks.some(
+    (check) => !check.critical && (check.status === "degraded" || check.status === "offline")
+  );
 
   return {
     ok: !criticalFailure,
