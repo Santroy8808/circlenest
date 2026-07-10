@@ -1,45 +1,64 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { MediaVisibility, UploadIntentStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { prisma } from "@/lib/platform/db";
 import { getR2Client, readR2Config } from "@/lib/platform/r2";
-import { MAX_CHAT_ATTACHMENT_BYTES } from "@/modules/chat-messages/types";
-import { MAX_IMAGE_UPLOAD_BYTES } from "@/modules/gallery-media-storage/types";
-import { MAX_MAIL_ATTACHMENT_BYTES } from "@/modules/mail/types";
-import { MAX_MARKET_PHOTO_BYTES } from "@/modules/market/types";
-import { MAX_RESUME_UPLOAD_BYTES } from "@/modules/profile-resume/types";
+import { getUploadIntentPolicy, uploadIntentMetadata } from "@/modules/media/upload-intent.service";
 
-function authorizedUploadTarget(storageKey: string, userId: string, requestedAccess: string) {
-  if (storageKey.startsWith(`users/${userId}/my-pics/`)) {
-    if (requestedAccess !== "public" && requestedAccess !== "private") return { ok: false as const };
-    return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true, access: requestedAccess };
+function requestedVisibility(requestedAccess: string) {
+  if (requestedAccess === "public") return MediaVisibility.PUBLIC;
+  if (requestedAccess === "private") return MediaVisibility.PRIVATE;
+  return null;
+}
+
+function normalizeMimeType(value: string) {
+  return value.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
+async function authorizedUploadTarget(storageKey: string, userId: string, requestedAccess: string, file: File) {
+  const visibility = requestedVisibility(requestedAccess);
+  if (!visibility) return { ok: false as const, status: 400, error: "Invalid upload access." };
+
+  const intent = await prisma.uploadIntent.findFirst({
+    where: {
+      ownerUserId: userId,
+      storageKey,
+      status: UploadIntentStatus.PENDING,
+      expiresAt: { gt: new Date() }
+    },
+    select: {
+      id: true,
+      ownerUserId: true,
+      purpose: true,
+      declaredChecksumSha256: true,
+      declaredMimeType: true,
+      declaredSizeBytes: true,
+      visibility: true
+    }
+  });
+
+  if (!intent) return { ok: false as const, status: 404, error: "Upload intent was not found or has expired." };
+  if (intent.visibility !== visibility) return { ok: false as const, status: 400, error: "Upload access does not match the prepared intent." };
+
+  const policy = getUploadIntentPolicy(intent.purpose);
+  const mimeType = normalizeMimeType(file.type);
+  if (!policy.allowedMimeTypes.includes(mimeType) || mimeType !== intent.declaredMimeType) {
+    return { ok: false as const, status: 400, error: "File type does not match the prepared upload." };
   }
 
-  if (storageKey.startsWith(`users/${userId}/stream-images/`)) {
-    return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true, access: "private" as const };
+  const declaredSizeBytes = Number(intent.declaredSizeBytes);
+  if (file.size <= 0 || file.size > policy.maxSizeBytes || file.size !== declaredSizeBytes) {
+    return { ok: false as const, status: 400, error: "File size does not match the prepared upload." };
   }
 
-  if (storageKey.startsWith(`users/${userId}/ad-creatives/`)) {
-    return { ok: true as const, maxBytes: MAX_IMAGE_UPLOAD_BYTES, imageOnly: true, access: "public" as const };
-  }
-
-  if (storageKey.startsWith(`users/${userId}/chat/`)) {
-    return { ok: true as const, maxBytes: MAX_CHAT_ATTACHMENT_BYTES, imageOnly: false, access: "private" as const };
-  }
-
-  if (storageKey.startsWith(`users/${userId}/mail/`)) {
-    return { ok: true as const, maxBytes: MAX_MAIL_ATTACHMENT_BYTES, imageOnly: false, access: "private" as const };
-  }
-
-  if (storageKey.startsWith(`users/${userId}/resume/`)) {
-    return { ok: true as const, maxBytes: MAX_RESUME_UPLOAD_BYTES, imageOnly: false, access: "private" as const };
-  }
-
-  if (storageKey.startsWith(`market/${userId}/`)) {
-    return { ok: true as const, maxBytes: MAX_MARKET_PHOTO_BYTES, imageOnly: true, access: "public" as const };
-  }
-
-  return { ok: false as const };
+  return {
+    ok: true as const,
+    access: visibility === MediaVisibility.PUBLIC ? "public" as const : "private" as const,
+    mimeType,
+    metadata: uploadIntentMetadata(intent)
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -67,18 +86,10 @@ export async function POST(request: NextRequest) {
     }
 
     const actor = await getActiveAccountActor(session.user.id);
-    const target = authorizedUploadTarget(storageKey, actor.actorUserId, requestedAccess);
+    const target = await authorizedUploadTarget(storageKey, actor.actorUserId, requestedAccess, file);
 
     if (!target.ok) {
-      return NextResponse.json({ error: "Invalid upload target." }, { status: 400 });
-    }
-
-    if (target.imageOnly && !/^image\/(jpeg|png|gif|webp)$/.test(file.type)) {
-      return NextResponse.json({ error: "Only JPG, PNG, GIF, or WebP images can be uploaded." }, { status: 400 });
-    }
-
-    if (file.size <= 0 || file.size > target.maxBytes) {
-      return NextResponse.json({ error: `Upload must be ${Math.round(target.maxBytes / (1024 * 1024))}MB or smaller.` }, { status: 400 });
+      return NextResponse.json({ error: target.error }, { status: target.status });
     }
 
     const r2 = readR2Config();
@@ -93,7 +104,8 @@ export async function POST(request: NextRequest) {
         Key: storageKey,
         Body: Buffer.from(await file.arrayBuffer()),
         ContentLength: file.size,
-        ContentType: file.type
+        ContentType: target.mimeType,
+        Metadata: target.metadata
       })
     );
 

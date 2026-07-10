@@ -376,7 +376,14 @@ export function HomeStreamWorkspace({
   latestAlert
 }: HomeStreamWorkspaceProps) {
   const [commOpen, setCommOpen] = useState(false);
+  const [bannerFailed, setBannerFailed] = useState(false);
   const [showBannerAlert, setShowBannerAlert] = useState(Boolean(latestAlert));
+  const showBannerImage = Boolean(bannerUrl && !bannerFailed);
+  const showFrontStrip = showBannerImage || Boolean(latestAlert && showBannerAlert);
+
+  useEffect(() => {
+    setBannerFailed(false);
+  }, [bannerUrl]);
 
   useEffect(() => {
     setShowBannerAlert(Boolean(latestAlert));
@@ -416,18 +423,24 @@ export function HomeStreamWorkspace({
   return (
     <div className={commOpen ? "home-comm-workspace is-comm-open" : "home-comm-workspace"}>
       <div className="home-comm-main">
-        <section
-          className={["home-front-strip surface rounded-md", showBannerAlert && latestAlert ? "is-announcement-visible" : ""].filter(Boolean).join(" ")}
-          style={bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 11, 16, 0.86), rgba(8, 11, 16, 0.42)), url(${bannerUrl})` } : undefined}
-        >
-          {latestAlert && showBannerAlert ? (
-            <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
-              <strong>{latestAlert.title}</strong>
-              {latestAlert.body ? <span>{latestAlert.body}</span> : null}
-            </a>
-          ) : null}
-        </section>
+        {showFrontStrip ? (
+          <section
+            className={["home-front-strip surface rounded-md", showBannerAlert && latestAlert ? "is-announcement-visible" : ""].filter(Boolean).join(" ")}
+          >
+            {showBannerImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt="" className="home-front-strip-image" onError={() => setBannerFailed(true)} src={bannerUrl ?? ""} />
+            ) : null}
+            {showBannerImage ? <span className="home-front-strip-scrim" aria-hidden="true" /> : null}
+            {latestAlert && showBannerAlert ? (
+              <a className="home-login-alert" href={latestAlert.href ?? "/alerts"}>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">System notice</span>
+                <strong>{latestAlert.title}</strong>
+                {latestAlert.body ? <span>{latestAlert.body}</span> : null}
+              </a>
+            ) : null}
+          </section>
+        ) : null}
         <div className="home-front-compose-row">
           <button className="home-front-compose-trigger" data-tooltip="Create a stream post." onClick={openComposer} type="button">
             <span className="home-front-avatar">

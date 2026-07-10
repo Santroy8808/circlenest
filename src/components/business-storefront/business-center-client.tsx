@@ -109,7 +109,11 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         storageKey: intent.storageKey,
         uploadHeaders: intent.uploadHeaders,
         file,
-        onProgress: (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" })
+        onProgress: (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" }),
+        proxyFallback: {
+          url: "/api/media/proxy-upload",
+          access: "public"
+        }
       });
 
       const completeResponse = await fetch("/api/media/complete-upload", {

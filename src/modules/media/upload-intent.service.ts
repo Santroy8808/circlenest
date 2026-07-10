@@ -186,7 +186,7 @@ function ownerBinding(ownerUserId: string) {
   return createHash("sha256").update(`theta-upload-owner\0${ownerUserId}`).digest("hex");
 }
 
-function uploadIntentMetadata(intent: Pick<UploadIntent, "id" | "ownerUserId" | "purpose" | "declaredChecksumSha256">) {
+export function uploadIntentMetadata(intent: Pick<UploadIntent, "id" | "ownerUserId" | "purpose" | "declaredChecksumSha256">) {
   return {
     "theta-intent-id": intent.id,
     "theta-owner-binding": ownerBinding(intent.ownerUserId),

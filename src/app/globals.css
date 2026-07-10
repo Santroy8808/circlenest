@@ -681,8 +681,6 @@ a {
   background:
     radial-gradient(circle at 82% 10%, rgba(255, 216, 95, 0.14), transparent 16rem),
     linear-gradient(135deg, rgba(23, 33, 51, 0.9), rgba(8, 11, 16, 0.72));
-  background-position: center;
-  background-size: cover;
   display: flex;
   justify-content: center;
   margin-inline: auto;
@@ -691,6 +689,24 @@ a {
   overflow: hidden;
   padding: clamp(16px, 2.2vw, 24px);
   position: relative;
+}
+
+.home-front-strip-image,
+.home-front-strip-scrim {
+  inset: 0;
+  position: absolute;
+}
+
+.home-front-strip-image {
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+}
+
+.home-front-strip-scrim {
+  background: linear-gradient(90deg, rgba(8, 11, 16, 0.86), rgba(8, 11, 16, 0.42));
+  pointer-events: none;
 }
 
 .home-front-compose-row {
@@ -812,6 +828,7 @@ a {
   position: relative;
   text-decoration: none;
   width: min(100%, 760px);
+  z-index: 1;
 }
 
 .home-login-alert::after {

@@ -51,7 +51,7 @@ const peopleSection: NavSection = {
 
 const exploreSection: NavSection = {
   href: "/market",
-  label: "Explore",
+  label: "Market",
   items: [
     { label: "The Market", href: "/market" },
     { label: "Events", href: "/events" },
