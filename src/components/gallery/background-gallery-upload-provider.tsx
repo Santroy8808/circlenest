@@ -132,6 +132,23 @@ async function createThumbnailForUpload(file: File) {
   }
 }
 
+async function readImageDimensions(file: File) {
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return null;
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+
+    return {
+      width: image.naturalWidth,
+      height: image.naturalHeight
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 async function createUploadNotification(input: { uploaded: number; failed: number }) {
   await fetch("/api/media/upload-complete-notification", {
     method: "POST",
@@ -221,6 +238,7 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
             try {
               updateItem(item.id, { status: "uploading", progress: 1, error: undefined });
               const uploadFile = await optimizeImageForUpload(item.file);
+              const uploadDimensions = await readImageDimensions(uploadFile).catch(() => null);
               let thumbnailIntentId: string | undefined;
               let thumbnailStorageKey: string | undefined;
               const intentResponse = await fetch("/api/media/upload-intent", {
@@ -307,6 +325,8 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
                   fileName: uploadFile.name,
                   mimeType: uploadFile.type,
                   sizeBytes: uploadFile.size,
+                  width: uploadDimensions?.width ?? null,
+                  height: uploadDimensions?.height ?? null,
                   visibility: settings.visibility,
                   commentsEnabled: settings.commentsEnabled,
                   source: "GALLERY",

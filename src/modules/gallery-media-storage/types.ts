@@ -26,6 +26,8 @@ export const completeUploadSchema = createUploadIntentSchema
     thumbnailStorageKey: z.string().trim().min(1).max(600).optional(),
     caption: z.string().max(500).optional().or(z.literal("")),
     commentsEnabled: z.boolean().default(false),
+    width: z.number().int().positive().max(50000).optional().nullable(),
+    height: z.number().int().positive().max(50000).optional().nullable(),
     tags: z.array(z.string().min(1).max(40)).max(20).default([])
   })
   .superRefine((value, context) => {
@@ -76,6 +78,8 @@ export type GalleryAssetView = {
   originalName: string | null;
   mimeType: string;
   sizeBytes: string;
+  width?: number | null;
+  height?: number | null;
   visibility: MediaVisibility;
   caption?: string | null;
   commentsEnabled: boolean;

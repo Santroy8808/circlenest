@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { GalleryAssetInfo } from "@/components/gallery/gallery-asset-info";
 import { GalleryAssetActions } from "@/components/gallery/gallery-asset-actions";
-import { GalleryAssetEngagement } from "@/components/gallery/gallery-asset-engagement";
+import { GalleryAssetEngagement, GalleryAssetVisibilityControls } from "@/components/gallery/gallery-asset-engagement";
 import { GalleryAssetTags } from "@/components/gallery/gallery-asset-tags";
+import { GalleryProfileBanner } from "@/components/gallery/gallery-profile-banner";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
@@ -35,18 +37,15 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
 
   return (
     <AppShell>
-      <section className="surface rounded-md p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Pics</p>
-            <h1 className="mt-3 text-3xl font-semibold">{asset.originalName ?? "Photo"}</h1>
-            <p className="mt-2 text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>
-          </div>
+      <GalleryProfileBanner
+        action={
           <Link className="btn-secondary" href="/profile/gallery">
             Back to gallery
           </Link>
-        </div>
-      </section>
+        }
+        bannerUrl={currentActorProfile?.profile?.bannerUrl}
+        subtitle="Photo viewer"
+      />
 
       <div className="gallery-detail-layout mt-5">
         <section className="surface gallery-viewer rounded-md p-4">
@@ -70,9 +69,24 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
           <img alt={asset.originalName ?? "Gallery photo"} className="gallery-detail-image rounded-md" src={imageUrl} />
         </section>
 
-        <div className="gallery-detail-sidebar grid content-start gap-5">
-          <GalleryAssetActions mediaAssetId={asset.id} />
-          <GalleryAssetTags asset={asset} />
+        <aside className="gallery-detail-sidebar grid content-start gap-5">
+          <details className="gallery-photo-options surface rounded-md">
+            <summary className="gallery-photo-options-summary">
+              <span>
+                <span className="gallery-photo-options-kicker">Info & controls</span>
+                <span className="gallery-photo-options-label">Photo details, tags, visibility, avatar/banner, delete</span>
+              </span>
+              <span aria-hidden="true" className="gallery-photo-options-dots">
+                ...
+              </span>
+            </summary>
+            <div className="gallery-photo-options-content">
+              <GalleryAssetInfo asset={asset} imageUrl={imageUrl} />
+              <GalleryAssetActions mediaAssetId={asset.id} />
+              <GalleryAssetTags asset={asset} />
+              <GalleryAssetVisibilityControls asset={asset} />
+            </div>
+          </details>
           <GalleryAssetEngagement
             asset={asset}
             currentUser={{
@@ -83,24 +97,7 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
             }}
             initialComments={comments}
           />
-          <section className="surface rounded-md p-5">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Details</p>
-            <dl className="mt-4 grid gap-3 text-sm">
-              <div>
-                <dt className="text-[var(--muted)]">Visibility</dt>
-                <dd>{asset.visibility}</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted)]">File type</dt>
-                <dd>{asset.mimeType}</dd>
-              </div>
-              <div>
-                <dt className="text-[var(--muted)]">Tags and albums</dt>
-                <dd>{asset.collections.length ? asset.collections.map((item) => item.name).join(", ") : "None yet"}</dd>
-              </div>
-            </dl>
-          </section>
-        </div>
+        </aside>
       </div>
     </AppShell>
   );

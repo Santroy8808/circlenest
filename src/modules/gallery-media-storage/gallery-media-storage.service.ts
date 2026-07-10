@@ -116,6 +116,8 @@ class GalleryUploadCompletionError extends Error {
 type GalleryAssetMetadata = {
   caption?: string | null;
   commentsEnabled?: boolean;
+  width?: number | null;
+  height?: number | null;
   hiddenFromGalleryByDefault?: boolean;
   retentionPolicy?: { compressAfterDays: number; purgeUnviewedAfterDays: number } | null;
   source?: UploadSource;
@@ -208,6 +210,8 @@ function toGalleryAssetView(
     originalName: asset.originalName,
     mimeType: asset.mimeType,
     sizeBytes: asset.sizeBytes.toString(),
+    width: typeof metadata?.width === "number" ? metadata.width : null,
+    height: typeof metadata?.height === "number" ? metadata.height : null,
     visibility: asset.visibility,
     caption: metadata?.caption,
     commentsEnabled: Boolean(metadata?.commentsEnabled),
@@ -462,6 +466,8 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
             metadata: {
               caption: parsed.data.caption || null,
               commentsEnabled: intent.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled,
+              width: parsed.data.width ?? null,
+              height: parsed.data.height ?? null,
               hiddenFromGalleryByDefault: systemSource,
               retentionPolicy: systemSource
                 ? { compressAfterDays: 14, purgeUnviewedAfterDays: 14 }

@@ -153,6 +153,57 @@ function accessToSettings(access: GalleryAccess) {
   return { visibility: MediaVisibility.PRIVATE, commentsEnabled: false };
 }
 
+export function GalleryAssetVisibilityControls({ asset }: { asset: GalleryAssetView }) {
+  const router = useRouter();
+  const [access, setAccess] = useState<GalleryAccess>(() => accessFromAsset(asset));
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function saveSettings(nextAccess: GalleryAccess) {
+    setAccess(nextAccess);
+    setError("");
+    setMessage("");
+    const nextSettings = accessToSettings(nextAccess);
+
+    startTransition(async () => {
+      const response = await fetch(`/api/media/assets/${asset.id}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextSettings)
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setError(payload.error ?? "Could not save photo settings.");
+        setAccess(accessFromAsset(asset));
+        return;
+      }
+
+      setMessage("Photo visibility saved.");
+      router.refresh();
+    });
+  }
+
+  return (
+    <section className="surface rounded-md p-5">
+      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Visibility and comments</p>
+      <label className="mt-4 grid gap-2">
+        <span className="text-sm text-[var(--muted)]">Who can view this photo?</span>
+        <select className="form-field" disabled={isPending} onChange={(event) => saveSettings(event.target.value as GalleryAccess)} value={access}>
+          <option value="PRIVATE">Private - only me, comments off</option>
+          <option value="MEMBERS_NO_COMMENTS">Members can view, comments off</option>
+          <option value="MEMBERS_COMMENTS">Members can view and comment</option>
+          <option value="PUBLIC_NO_COMMENTS">Public can view, comments off</option>
+          <option value="PUBLIC_COMMENTS">Public can view, members can comment</option>
+        </select>
+      </label>
+      {message ? <p className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
+      {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+    </section>
+  );
+}
+
 export function GalleryAssetEngagement({
   asset,
   currentUser,
@@ -163,7 +214,6 @@ export function GalleryAssetEngagement({
   initialComments: GalleryAssetCommentView[];
 }) {
   const router = useRouter();
-  const [access, setAccess] = useState<GalleryAccess>(() => accessFromAsset(asset));
   const [comments, setComments] = useState(initialComments);
   const [assetReactions, setAssetReactions] = useState<GalleryReactionState>({
     counts: asset.reactions,
@@ -173,7 +223,6 @@ export function GalleryAssetEngagement({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const settings = accessToSettings(access);
 
   async function reactToPhoto(reactionType: FeedReactionType) {
     setAssetReactions((current) => nextReactionState(current, reactionType, currentUser));
@@ -230,31 +279,6 @@ export function GalleryAssetEngagement({
     router.refresh();
   }
 
-  function saveSettings(nextAccess: GalleryAccess) {
-    setAccess(nextAccess);
-    setError("");
-    setMessage("");
-    const nextSettings = accessToSettings(nextAccess);
-
-    startTransition(async () => {
-      const response = await fetch(`/api/media/assets/${asset.id}/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextSettings)
-      });
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        setError(payload.error ?? "Could not save photo settings.");
-        setAccess(accessFromAsset(asset));
-        return;
-      }
-
-      setMessage("Photo visibility saved.");
-      router.refresh();
-    });
-  }
-
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -281,17 +305,10 @@ export function GalleryAssetEngagement({
 
   return (
     <section className="gallery-engagement surface rounded-md p-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Visibility and comments</p>
-      <label className="mt-4 grid gap-2">
-        <span className="text-sm text-[var(--muted)]">Who can view this photo?</span>
-        <select className="form-field" disabled={isPending} onChange={(event) => saveSettings(event.target.value as GalleryAccess)} value={access}>
-          <option value="PRIVATE">Private - only me, comments off</option>
-          <option value="MEMBERS_NO_COMMENTS">Members can view, comments off</option>
-          <option value="MEMBERS_COMMENTS">Members can view and comment</option>
-          <option value="PUBLIC_NO_COMMENTS">Public can view, comments off</option>
-          <option value="PUBLIC_COMMENTS">Public can view, members can comment</option>
-        </select>
-      </label>
+      <div className="gallery-engagement-heading">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Comments</p>
+        <span className="text-xs text-[var(--muted)]">{comments.length} thread item{comments.length === 1 ? "" : "s"}</span>
+      </div>
 
       <div className="gallery-photo-reactions mt-5">
         <GalleryReactionControls currentUser={currentUser} onReact={reactToPhoto} state={assetReactions} />
@@ -324,7 +341,7 @@ export function GalleryAssetEngagement({
           )}
         </div>
 
-        {settings.commentsEnabled ? (
+        {asset.commentsEnabled ? (
           <form className="grid gap-3" onSubmit={submitComment}>
             <textarea
               className="form-field min-h-20 resize-y"

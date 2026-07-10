@@ -422,7 +422,6 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                     src={assetImageUrl(asset)}
                   />
                   <div className="gallery-tile-meta">
-                    <p className="truncate font-semibold">{asset.originalName ?? "Photo"}</p>
                     <p className="text-xs text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>
                     {asset.tags.length > 0 ? <p className="mt-1 truncate text-xs text-[var(--gold)]">{asset.tags.join(", ")}</p> : null}
                   </div>
