@@ -34,7 +34,7 @@ export function BusinessCenterHub({ adsManager, businessCenter }: { adsManager: 
     {
       title: "Metrics",
       eyebrow: "Measure",
-      description: "Filter campaign performance by timeframe, placement, status, location, interest audience, and subscriber audience.",
+      description: "Filter campaign performance by timeframe, placement, status, city, interest audience, and subscriber audience.",
       href: "/business-center/metrics",
       meta: "Hourly, daily, weekly, monthly"
     },

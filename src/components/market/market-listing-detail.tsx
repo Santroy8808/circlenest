@@ -39,7 +39,7 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
                 <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
               </div>
               <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
-              <p className="mt-3 text-[var(--muted)]">{listing.location || "Location TBD"}</p>
+              <p className="mt-3 text-[var(--muted)]">{listing.location || "City TBD"}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {listing.viewerCanManage ? (

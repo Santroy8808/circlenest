@@ -3,8 +3,9 @@
 import { MarketListingCategory } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
 
 type UploadItem = {
@@ -224,10 +225,13 @@ export function CreateMarketListingForm({
             ))}
           </select>
         </label>
-        <label className="grid gap-2">
-          <span className="form-label">Location</span>
-          <input className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Austin, TX / Online / Local pickup" value={location} />
-        </label>
+        <CityLocationAutocomplete
+          helperText="Use the city for pickup/service area. Do not enter a street address."
+          label="City"
+          onChange={setLocation}
+          placeholder="Start typing a city..."
+          value={location}
+        />
       </div>
 
       <div className="market-listing-fields grid gap-3 md:grid-cols-3">

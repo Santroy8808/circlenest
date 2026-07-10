@@ -154,7 +154,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{event.status}</p>
             <h1 className="mt-3 text-4xl font-semibold">{event.title}</h1>
             <p className="mt-3 text-[var(--muted)]">{eventTimeLabel(event.startsAt, event.endsAt)}</p>
-            <p className="mt-2 text-[var(--muted)]">{event.locationName || "Location TBD"}</p>
+            <p className="mt-2 text-[var(--muted)]">{event.locationName || "City TBD"}</p>
           </div>
           <Link className="btn-secondary" href="/events">
             Back to events

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AdPlacement } from "@prisma/client";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { adPlacementOptions, type AdsManagerView } from "@/modules/ads-credits/types";
 
 type Timeframe = "hourly" | "daily" | "weekly" | "monthly";
@@ -149,10 +150,13 @@ export function BusinessAdMetrics({ adsManager }: { adsManager: AdsManagerView }
               <option value="ARCHIVED">Archived</option>
             </select>
           </label>
-          <label>
-            <span className="form-label">Location</span>
-            <input className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Target or viewer location" value={location} />
-          </label>
+          <CityLocationAutocomplete
+            helperText="Optional city filter for campaign target or viewer city."
+            label="City"
+            onChange={setLocation}
+            placeholder="Start typing a city..."
+            value={location}
+          />
           <label>
             <span className="form-label">Interest</span>
             <select className="form-field" onChange={(event) => setInterest(event.target.value)} value={interest}>

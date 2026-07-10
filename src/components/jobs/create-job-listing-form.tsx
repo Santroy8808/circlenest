@@ -3,6 +3,7 @@
 import { JobCategory, JobEmploymentType } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { employmentTypeOptions, jobCategoryOptions } from "@/modules/jobs/types";
 
 export function CreateJobListingForm({ viewerCanCreate }: { viewerCanCreate: boolean }) {
@@ -103,7 +104,14 @@ export function CreateJobListingForm({ viewerCanCreate }: { viewerCanCreate: boo
         </select>
       </div>
       <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-        <input className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Location" value={location} />
+        <CityLocationAutocomplete
+          disabled={remote}
+          helperText={remote ? "Remote is selected, so no city is needed." : "Use city-level location only. Do not enter a street address."}
+          label="City"
+          onChange={setLocation}
+          placeholder="Start typing a city..."
+          value={location}
+        />
         <label className="flex items-center gap-3 rounded-md border border-[var(--line)] px-4 text-sm text-[var(--muted)]">
           <input checked={remote} onChange={(event) => setRemote(event.target.checked)} type="checkbox" />
           Remote

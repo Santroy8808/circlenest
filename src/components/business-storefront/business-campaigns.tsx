@@ -63,7 +63,7 @@ export function BusinessCampaigns({ adsManager }: { adsManager: AdsManagerView }
                     </span>
                     <span className="pill rounded-full px-3 py-1">{campaign.remainingCredits} left</span>
                     {campaign.endsAt ? <span className="pill rounded-full px-3 py-1">Ends {new Date(campaign.endsAt).toLocaleDateString()}</span> : null}
-                    {campaign.targetLocation ? <span className="pill rounded-full px-3 py-1">Location: {campaign.targetLocation}</span> : null}
+                    {campaign.targetLocation ? <span className="pill rounded-full px-3 py-1">City: {campaign.targetLocation}</span> : null}
                     <span className="pill rounded-full px-3 py-1">
                       {campaign.targetInterestLabels.length > 0 ? campaign.targetInterestLabels.join(", ") : "Broad interests"}
                     </span>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 
 export function CreateEventForm() {
   const [title, setTitle] = useState("");
@@ -90,13 +91,16 @@ export function CreateEventForm() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        <CityLocationAutocomplete
+          helperText="Choose the event city. Do not enter a street address."
+          label="City"
+          onChange={setLocationName}
+          placeholder="Start typing a city..."
+          value={locationName}
+        />
         <label className="grid gap-2">
-          <span className="form-label">Location name</span>
-          <input className="form-field" onChange={(event) => setLocationName(event.target.value)} value={locationName} />
-        </label>
-        <label className="grid gap-2">
-          <span className="form-label">Address or access notes</span>
-          <input className="form-field" onChange={(event) => setAddress(event.target.value)} value={address} />
+          <span className="form-label">Venue or access notes</span>
+          <input className="form-field" onChange={(event) => setAddress(event.target.value)} placeholder="Optional. Avoid street addresses." value={address} />
         </label>
       </div>
 

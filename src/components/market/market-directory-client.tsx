@@ -108,7 +108,7 @@ export function MarketDirectoryClient({
                   </Link>
                 </p>
                 <div className="listing-square-facts">
-                  <span>{listing.location || "Location TBD"}</span>
+                  <span>{listing.location || "City TBD"}</span>
                   <strong>{priceLabel(listing)}</strong>
                 </div>
                 <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />

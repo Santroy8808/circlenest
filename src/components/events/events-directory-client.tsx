@@ -74,7 +74,7 @@ export function EventsDirectoryClient({
               </div>
               <p className="mt-4 line-clamp-2 leading-7 text-[var(--muted)]">{event.summary || "No summary yet."}</p>
               <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[var(--gold)]">
-                {event.locationName || "Location TBD"} - {event.attendeeCount} RSVP
+                {event.locationName || "City TBD"} - {event.attendeeCount} RSVP
               </p>
             </Link>
           ))}

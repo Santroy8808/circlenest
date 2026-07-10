@@ -12,7 +12,7 @@ export function JobListingDetail({ job }: { job: JobListingDetailView }) {
             <h1 className="mt-3 text-4xl font-semibold">{job.title}</h1>
             <p className="mt-3 text-[var(--muted)]">{job.companyName || job.employer.displayName}</p>
             <p className="mt-2 text-[var(--muted)]">
-              {job.remote ? "Remote" : job.location || "Location TBD"} - {job.employmentTypeLabel}
+              {job.remote ? "Remote" : job.location || "City TBD"} - {job.employmentTypeLabel}
             </p>
           </div>
           <Link className="btn-secondary" href="/jobs">

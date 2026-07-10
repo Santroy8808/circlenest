@@ -4,6 +4,7 @@ import { BusinessProfileKind, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { inlineImageToken, StorefrontDescriptionContent } from "@/components/business-storefront/storefront-description-content";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { BusinessCenterView, BusinessProfileView } from "@/modules/business-storefront/types";
 
@@ -500,10 +501,13 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         </section>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="form-label">Location</span>
-            <input className="form-field" onChange={(event) => update("location", event.target.value)} value={form.location} />
-          </label>
+          <CityLocationAutocomplete
+            helperText="Public storefront location is city-level only. Do not enter a street address."
+            label="City"
+            onChange={(value) => update("location", value)}
+            placeholder="Start typing a city..."
+            value={form.location}
+          />
           <label className="grid gap-2">
             <span className="form-label">Public email</span>
             <input className="form-field" onChange={(event) => update("publicEmail", event.target.value)} value={form.publicEmail} />

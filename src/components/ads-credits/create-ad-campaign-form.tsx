@@ -4,6 +4,7 @@ import { AdDestinationKind, AdPlacement, InterestCategory, MediaVisibility } fro
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   adAgeRangeOptions,
@@ -104,7 +105,7 @@ const wizardSteps: Array<{ key: WizardStepKey; label: string; title: string; hel
     key: "audience",
     label: "Audience",
     title: "Choose the target audience",
-    helper: "Leave targeting broad, or narrow delivery by location, interests, and subscriber group."
+    helper: "Leave targeting broad, or narrow delivery by city, interests, and subscriber group."
   },
   {
     key: "budget",
@@ -872,16 +873,15 @@ export function CreateAdCampaignForm({
 
         {currentStep.key === "audience" ? (
           <div className="ad-wizard-audience-grid">
-            <label className="ad-wizard-target-card">
-              <span className="form-label">Location</span>
-              <input
-                className="form-field"
-                onChange={(event) => setTargetLocation(event.target.value)}
-                placeholder="Optional city, state, region, or leave blank"
+            <section className="ad-wizard-target-card">
+              <CityLocationAutocomplete
+                helperText="Optional city-level targeting. Leave blank for broader delivery; do not enter street addresses."
+                label="City"
+                onChange={setTargetLocation}
+                placeholder="Start typing a city..."
                 value={targetLocation}
               />
-              <small>Use city, state, region, or country. Leave blank for broader delivery.</small>
-            </label>
+            </section>
 
             <section className="ad-wizard-target-card">
               <span className="form-label">Age ranges</span>

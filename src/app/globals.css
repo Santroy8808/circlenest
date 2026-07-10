@@ -1389,6 +1389,62 @@ a {
   border-color: rgba(214, 178, 74, 0.72);
 }
 
+.city-location-autocomplete {
+  position: relative;
+}
+
+.city-location-status {
+  color: var(--muted);
+  font-size: 0.78rem;
+  pointer-events: none;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.city-location-suggestions {
+  background: rgba(11, 16, 26, 0.98);
+  border: 1px solid rgba(214, 178, 74, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  display: grid;
+  gap: 4px;
+  left: 0;
+  margin-top: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 40;
+}
+
+.city-location-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.city-location-option small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.city-location-option:hover,
+.city-location-option.is-active {
+  background: rgba(214, 178, 74, 0.14);
+}
+
 .btn-primary,
 .btn-secondary {
   border-radius: 999px;
@@ -5503,6 +5559,17 @@ html.theta-theme-light .account-actor-switcher select {
   background: rgba(255, 255, 250, 0.9);
   border-color: var(--control-border);
   color: var(--text);
+}
+
+html.theta-theme-light .city-location-suggestions {
+  background: rgba(255, 255, 250, 0.98);
+  border-color: rgba(156, 118, 34, 0.26);
+  box-shadow: 0 18px 40px rgba(104, 76, 22, 0.16);
+}
+
+html.theta-theme-light .city-location-option:hover,
+html.theta-theme-light .city-location-option.is-active {
+  background: rgba(156, 118, 34, 0.12);
 }
 
 html.theta-theme-light .desktop-command-search-button,

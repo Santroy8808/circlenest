@@ -168,7 +168,7 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
                     <div className="listing-square-meta">
                       <p className="listing-square-kicker">{listing.categoryLabel}</p>
                       <h2>{listing.title}</h2>
-                      <p className="listing-square-subtitle">{listing.location || "Location TBD"}</p>
+                      <p className="listing-square-subtitle">{listing.location || "City TBD"}</p>
                       <div className="listing-square-facts">
                         <span>{new Date(listing.createdAt).toLocaleDateString()}</span>
                         <strong>{priceLabel(listing)}</strong>

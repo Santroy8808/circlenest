@@ -73,7 +73,7 @@ export function JobsBoardClient({
               </div>
               <span className="listing-square-top-badge">{job.employmentTypeLabel}</span>
               <div className="listing-square-meta">
-                <p className="listing-square-kicker">{job.remote ? "Remote" : job.location || "Location TBD"}</p>
+                <p className="listing-square-kicker">{job.remote ? "Remote" : job.location || "City TBD"}</p>
                 <h2>{job.title}</h2>
                 <p className="listing-square-subtitle">{job.companyName || job.employer.displayName}</p>
                 <div className="listing-square-facts">
