@@ -1,7 +1,7 @@
-import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest } from "next/server";
 import { MembershipTier, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { signMobileAuthPayload, verifyMobileAuthSignature } from "@/modules/auth-security/mobile-secret";
 
 type MobileTokenPayload = {
   userId: string;
@@ -21,16 +21,12 @@ export type MobileSession = {
   };
 };
 
-function secret() {
-  return process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "theta-space-local-mobile-secret";
-}
-
 function base64Url(input: Buffer | string) {
   return Buffer.from(input).toString("base64url");
 }
 
 function sign(value: string) {
-  return createHmac("sha256", secret()).update(value).digest("base64url");
+  return signMobileAuthPayload(value);
 }
 
 export function createMobileToken(input: { userId: string; sessionVersion: number }) {
@@ -50,21 +46,27 @@ function readBearerToken(request: NextRequest) {
 }
 
 function verifyMobileToken(token: string): MobileTokenPayload | null {
-  const [encodedPayload, signature] = token.split(".");
+  if (token.length > 2_048) return null;
+
+  const segments = token.split(".");
+  if (segments.length !== 2) return null;
+
+  const [encodedPayload, signature] = segments;
 
   if (!encodedPayload || !signature) return null;
-
-  const expected = sign(encodedPayload);
-  const providedBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-
-  if (providedBuffer.length !== expectedBuffer.length || !timingSafeEqual(providedBuffer, expectedBuffer)) {
-    return null;
-  }
+  if (!verifyMobileAuthSignature(encodedPayload, signature)) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as MobileTokenPayload;
-    if (!payload.userId || !payload.sessionVersion || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (
+      !payload.userId ||
+      !Number.isInteger(payload.sessionVersion) ||
+      payload.sessionVersion < 0 ||
+      !Number.isInteger(payload.exp) ||
+      payload.exp < Math.floor(Date.now() / 1000)
+    ) {
+      return null;
+    }
     return payload;
   } catch {
     return null;

@@ -2,19 +2,33 @@ import { constants, createPublicKey, publicEncrypt, randomBytes } from "crypto";
 import {
   ChatAttachmentKind,
   ChatThreadType,
+  MediaAssetStatus,
   MediaVisibility,
   ProfileVisibility,
   Prisma,
   SocialRelationshipType
 } from "@prisma/client";
-import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
+  type ChatAccessContext,
+  hasBlockedRelationshipWithin,
+  resolveChatAccessContext,
+  scopeChatThreadWhere,
+  visibleChatMessageWhere,
+  visibleChatParticipantWhere
+} from "@/modules/chat-messages/chat-access-policy";
+import {
+  chatMessagePageSchema,
   completeChatUploadSchema,
   createChatUploadIntentSchema,
   createDirectChatThreadSchema,
   createGroupChatThreadSchema,
+  MAX_CHAT_ATTACHMENT_BYTES,
+  MAX_CHAT_ATTACHMENTS_PER_MESSAGE,
+  MAX_CHAT_MESSAGE_CHARACTERS,
+  MAX_CHAT_TOTAL_ATTACHMENT_BYTES,
   sendChatMessageSchema,
   type ChatAttachmentView,
   type ChatMessageView,
@@ -26,6 +40,18 @@ import {
 const MODULE_KEY = "chat-messages";
 const CHAT_DB_TIMEOUT_MS = 2500;
 const DESKTOP_BRIDGE_DEVICE_ID = "theta-space-desktop-bridge";
+
+function chatAttachmentInclude() {
+  return {
+    include: {
+      mediaAsset: true
+    },
+    orderBy: {
+      createdAt: "asc" as const
+    },
+    take: MAX_CHAT_ATTACHMENTS_PER_MESSAGE
+  };
+}
 
 function withChatDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -51,15 +77,8 @@ function attachmentKindForFile(fileName: string, mimeType: string) {
     : ChatAttachmentKind.FILE;
 }
 
-function readThumbnailUrl(metadata: Prisma.JsonValue | null | undefined) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-
-  const value = (metadata as Record<string, unknown>).thumbnailUrl;
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
-  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+function mediaAssetUrl(mediaAsset?: { id: string } | null) {
+  return mediaAsset ? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
 function chatThreadHref(threadId: string) {
@@ -141,20 +160,21 @@ function toAttachmentView(
     fileName: attachment.fileName,
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes.toString(),
-    publicUrl: attachment.publicUrl ?? mediaAssetUrl(attachment.mediaAsset),
-    thumbnailUrl: readThumbnailUrl(attachment.mediaAsset?.metadata),
+    publicUrl: mediaAssetUrl(attachment.mediaAsset),
+    thumbnailUrl:
+      attachment.kind === ChatAttachmentKind.IMAGE ? mediaAssetUrl(attachment.mediaAsset) : null,
     mediaAssetId: attachment.mediaAssetId
   };
 }
 
-function toMessageView(
-  message: Prisma.ChatMessageGetPayload<{
-    include: {
-      sender: { include: { profile: true } };
-      attachments: { include: { mediaAsset: true } };
-    };
-  }>
-): ChatMessageView {
+type ChatMessageRecord = Prisma.ChatMessageGetPayload<{
+  include: {
+    sender: { include: { profile: true } };
+    attachments: { include: { mediaAsset: true } };
+  };
+}>;
+
+function toMessageView(message: ChatMessageRecord): ChatMessageView {
   return {
     id: message.id,
     body: message.body,
@@ -191,11 +211,12 @@ function titleForThread(
 
 function threadUnreadForUser(
   currentUserId: string,
-  thread: Prisma.ChatThreadGetPayload<{ include: { participants: true } }>
+  participants: Array<{ userId: string; lastReadAt: Date | null }>,
+  latestVisibleMessageAt: Date | null
 ) {
-  if (!thread.lastMessageAt) return false;
-  const participant = thread.participants.find((item) => item.userId === currentUserId);
-  return Boolean(participant && (!participant.lastReadAt || participant.lastReadAt < thread.lastMessageAt));
+  if (!latestVisibleMessageAt) return false;
+  const participant = participants.find((item) => item.userId === currentUserId);
+  return Boolean(participant && (!participant.lastReadAt || participant.lastReadAt < latestVisibleMessageAt));
 }
 
 function toThreadView(
@@ -212,16 +233,18 @@ function toThreadView(
     };
   }>
 ): ChatThreadView {
+  const latestVisibleMessage = thread.messages[0] ?? null;
+
   return {
     id: thread.id,
     type: thread.type,
     title: titleForThread(currentUserId, thread),
     createdAt: thread.createdAt.toISOString(),
     updatedAt: thread.updatedAt.toISOString(),
-    lastMessageAt: thread.lastMessageAt?.toISOString(),
-    unread: threadUnreadForUser(currentUserId, thread),
+    lastMessageAt: latestVisibleMessage?.createdAt.toISOString() ?? null,
+    unread: threadUnreadForUser(currentUserId, thread.participants, latestVisibleMessage?.createdAt ?? null),
     participants: thread.participants.map((participant) => toPersonView(participant.user)),
-    lastMessage: thread.messages[0] ? toMessageView(thread.messages[0]) : null
+    lastMessage: latestVisibleMessage ? toMessageView(latestVisibleMessage) : null
   };
 }
 
@@ -237,43 +260,102 @@ function toThreadDetailView(
         };
       };
     };
-  }>
+  }>,
+  options: {
+    messagesAscending?: boolean;
+    latestVisibleMessage?: ChatMessageRecord | null;
+  } = {}
 ): ChatThreadDetailView {
+  const messages = options.messagesAscending ? [...thread.messages] : [...thread.messages].reverse();
+  const latestVisibleMessage = options.latestVisibleMessage === undefined ? thread.messages[0] ?? null : options.latestVisibleMessage;
+  const threadForSummary = {
+    ...thread,
+    messages: latestVisibleMessage ? [latestVisibleMessage] : []
+  };
+  const oldestMessage = messages[0];
+  const newestMessage = messages[messages.length - 1];
+
   return {
-    ...toThreadView(currentUserId, thread),
-    messages: [...thread.messages].reverse().map((message) => ({
+    ...toThreadView(currentUserId, threadForSummary),
+    messages: messages.map((message) => ({
       ...toMessageView(message),
       deliveryState: messageDeliveryState(currentUserId, message, thread.participants)
-    }))
+    })),
+    messagePage: {
+      oldestMessageId: oldestMessage?.id,
+      oldestCreatedAt: oldestMessage?.createdAt.toISOString(),
+      newestMessageId: newestMessage?.id,
+      newestCreatedAt: newestMessage?.createdAt.toISOString()
+    }
   };
 }
 
-async function assertParticipant(userId: string, threadId: string) {
-  const participant = await prisma.chatParticipant.findUnique({
-    where: {
-      threadId_userId: {
-        threadId,
-        userId
-      }
-    }
-  });
+async function buildChatMessagePageQuery(context: ChatAccessContext, threadId: string, input?: unknown) {
+  const parsed = chatMessagePageSchema.safeParse(input);
 
-  return Boolean(participant && !participant.archivedAt);
-}
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid message cursor." };
+  }
 
-async function isBlockedBetween(firstUserId: string, secondUserId: string) {
-  const relationship = await prisma.socialRelationship.findFirst({
-    where: {
-      type: SocialRelationshipType.BLOCK,
-      OR: [
-        { fromUserId: firstUserId, toUserId: secondUserId },
-        { fromUserId: secondUserId, toUserId: firstUserId }
-      ]
-    },
-    select: { id: true }
-  });
+  const afterRequested = Boolean(parsed.data.afterMessageId || parsed.data.afterCreatedAt);
+  const beforeRequested = Boolean(parsed.data.beforeMessageId || parsed.data.beforeCreatedAt);
+  const cursorMessageId = parsed.data.afterMessageId ?? parsed.data.beforeMessageId;
+  const cursorMessage = cursorMessageId
+    ? await prisma.chatMessage.findFirst({
+        where: {
+          id: cursorMessageId,
+          threadId,
+          thread: {
+            is: scopeChatThreadWhere(context, "read", { id: threadId })
+          }
+        },
+        select: {
+          id: true,
+          createdAt: true
+        }
+      })
+    : null;
 
-  return Boolean(relationship);
+  if (cursorMessageId && !cursorMessage) {
+    return { ok: false as const, error: "Message cursor not found." };
+  }
+
+  const boundaryAt = cursorMessage?.createdAt ?? parsed.data.afterCreatedAt ?? parsed.data.beforeCreatedAt;
+  const boundaryId = cursorMessage?.id;
+  let where: Prisma.ChatMessageWhereInput = {};
+
+  if (afterRequested && boundaryAt) {
+    where = boundaryId
+      ? {
+          OR: [
+            { createdAt: { gt: boundaryAt } },
+            { createdAt: boundaryAt, id: { gt: boundaryId } }
+          ]
+        }
+      : { createdAt: { gt: boundaryAt } };
+  } else if (beforeRequested && boundaryAt) {
+    where = boundaryId
+      ? {
+          OR: [
+            { createdAt: { lt: boundaryAt } },
+            { createdAt: boundaryAt, id: { lt: boundaryId } }
+          ]
+        }
+      : { createdAt: { lt: boundaryAt } };
+  }
+
+  const ascending = afterRequested;
+
+  return {
+    ok: true as const,
+    where,
+    orderBy: [
+      { createdAt: ascending ? ("asc" as const) : ("desc" as const) },
+      { id: ascending ? ("asc" as const) : ("desc" as const) }
+    ],
+    take: parsed.data.limit,
+    ascending
+  };
 }
 
 function encryptForMobileDevice(publicKey: string, body: string) {
@@ -329,7 +411,7 @@ function mobileBridgeBody(message: Prisma.ChatMessageGetPayload<{ include: { att
   if (body) parts.push(body);
 
   for (const attachment of message.attachments) {
-    const publicUrl = attachment.publicUrl ?? mediaAssetUrl(attachment.mediaAsset);
+    const publicUrl = mediaAssetUrl(attachment.mediaAsset);
     if (publicUrl) {
       parts.push(`${attachment.kind === ChatAttachmentKind.IMAGE ? "[photo]" : "[file]"} ${attachment.fileName}: ${publicUrl}`);
     } else {
@@ -349,8 +431,14 @@ async function mirrorDesktopMessageToThetaComm(
     };
   }>
 ) {
-  const thread = await prisma.chatThread.findUnique({
-    where: { id: threadId },
+  const context = await resolveChatAccessContext(senderUserId);
+  if (!context.userId) return;
+
+  const thread = await prisma.chatThread.findFirst({
+    where: scopeChatThreadWhere(context, "interact", {
+      id: threadId,
+      type: ChatThreadType.DIRECT
+    }),
     include: {
       participants: {
         where: { archivedAt: null },
@@ -359,12 +447,12 @@ async function mirrorDesktopMessageToThetaComm(
     }
   });
 
-  if (!thread || thread.type !== ChatThreadType.DIRECT) return;
+  if (!thread) return;
 
   const participantUserIds = thread.participants.map((participant) => participant.userId);
   if (participantUserIds.length !== 2) return;
 
-  const body = mobileBridgeBody(message);
+  const body = mobileBridgeBody(message).slice(0, MAX_CHAT_MESSAGE_CHARACTERS);
   if (!body) return;
 
   const devices = await prisma.userDevice.findMany({
@@ -447,9 +535,12 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
   body?: string;
 }) {
   const participantUserIds = Array.from(new Set([input.senderUserId, ...input.participantUserIds])).filter(Boolean).sort();
-  const body = input.body?.trim();
+  const body = input.body?.trim().slice(0, MAX_CHAT_MESSAGE_CHARACTERS);
 
   if (participantUserIds.length !== 2 || !body) return;
+
+  const context = await resolveChatAccessContext(input.senderUserId);
+  if (!context.userId) return;
 
   const targetUserId = participantUserIds.find((userId) => userId !== input.senderUserId);
   if (!targetUserId) return;
@@ -462,7 +553,7 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
     select: { id: true }
   });
 
-  if (!target || (await isBlockedBetween(input.senderUserId, target.id))) return;
+  if (!target || context.blockedUserIds.includes(target.id)) return;
 
   const candidates = await prisma.chatThread.findMany({
     where: {
@@ -509,7 +600,7 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
       },
       include: {
         sender: { include: { profile: true } },
-        attachments: { include: { mediaAsset: true } }
+        attachments: chatAttachmentInclude()
       }
     });
 
@@ -550,18 +641,15 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
 }
 
 export async function listChatThreads(userId: string): Promise<ChatThreadView[]> {
+  const context = await resolveChatAccessContext(userId);
+  if (!context.userId) return [];
+
   const threads = await withChatDbTimeout(
     prisma.chatThread.findMany({
-      where: {
-        participants: {
-          some: {
-            userId,
-            archivedAt: null
-          }
-        }
-      },
+      where: scopeChatThreadWhere(context, "read", {}),
       include: {
         participants: {
+          where: visibleChatParticipantWhere(context),
           include: {
             user: {
               include: {
@@ -571,7 +659,7 @@ export async function listChatThreads(userId: string): Promise<ChatThreadView[]>
           }
         },
         messages: {
-          where: { deletedAt: null },
+          where: visibleChatMessageWhere(context),
           orderBy: { createdAt: "desc" },
           take: 1,
           include: {
@@ -580,11 +668,7 @@ export async function listChatThreads(userId: string): Promise<ChatThreadView[]>
                 profile: true
               }
             },
-            attachments: {
-              include: {
-                mediaAsset: true
-              }
-            }
+            attachments: chatAttachmentInclude()
           }
         }
       },
@@ -594,7 +678,9 @@ export async function listChatThreads(userId: string): Promise<ChatThreadView[]>
     "chat thread lookup"
   );
 
-  const views = threads.map((thread) => toThreadView(userId, thread));
+  const views = threads
+    .map((thread) => toThreadView(userId, thread))
+    .sort((left, right) => (right.lastMessageAt ?? right.createdAt).localeCompare(left.lastMessageAt ?? left.createdAt));
   const directThreadsByPeer = new Map<string, ChatThreadView>();
   const deduped: ChatThreadView[] = [];
 
@@ -637,48 +723,78 @@ export async function safeListChatThreads(userId: string): Promise<ChatThreadVie
   }
 }
 
-export async function getChatThread(userId: string, threadId: string) {
-  if (!(await assertParticipant(userId, threadId))) {
+export async function getChatThread(userId: string, threadId: string, page?: unknown) {
+  const context = await resolveChatAccessContext(userId);
+
+  if (!context.userId) {
     return { ok: false as const, error: "Chat not found." };
   }
 
-  const thread = await prisma.chatThread.findUnique({
-    where: { id: threadId },
-    include: {
-      participants: {
-        include: {
-          user: {
-            include: {
-              profile: true
-            }
-          }
-        }
-      },
-      messages: {
-        where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        take: 60,
-        include: {
-          sender: {
-            include: {
-              profile: true
+  const pageQuery = await buildChatMessagePageQuery(context, threadId, page);
+
+  if (!pageQuery.ok) {
+    return pageQuery;
+  }
+
+  const [thread, latestVisibleMessage] = await Promise.all([
+    prisma.chatThread.findFirst({
+      where: scopeChatThreadWhere(context, "read", { id: threadId }),
+      include: {
+        participants: {
+          where: visibleChatParticipantWhere(context),
+          include: {
+            user: {
+              include: {
+                profile: true
+              }
             }
           },
-          attachments: {
-            include: {
-              mediaAsset: true
-            }
+        },
+        messages: {
+          where: visibleChatMessageWhere(context, pageQuery.where),
+          orderBy: pageQuery.orderBy,
+          take: pageQuery.take,
+          include: {
+            sender: {
+              include: {
+                profile: true
+              }
+            },
+            attachments: chatAttachmentInclude()
           }
         }
       }
-    }
-  });
+    }),
+    prisma.chatMessage.findFirst({
+      where: visibleChatMessageWhere(context, {
+        threadId,
+        thread: {
+          is: scopeChatThreadWhere(context, "read", { id: threadId })
+        }
+      }),
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      include: {
+        sender: {
+          include: {
+            profile: true
+          }
+        },
+        attachments: chatAttachmentInclude()
+      }
+    })
+  ]);
 
   if (!thread) {
     return { ok: false as const, error: "Chat not found." };
   }
 
-  return { ok: true as const, thread: toThreadDetailView(userId, thread) };
+  return {
+    ok: true as const,
+    thread: toThreadDetailView(userId, thread, {
+      messagesAscending: pageQuery.ascending,
+      latestVisibleMessage
+    })
+  };
 }
 
 export async function findOrCreateDirectChatThread(currentUserId: string, input: unknown) {
@@ -692,19 +808,22 @@ export async function findOrCreateDirectChatThread(currentUserId: string, input:
     return { ok: false as const, error: "Pick someone else to chat with." };
   }
 
-  const target = await prisma.user.findFirst({
-    where: {
-      id: parsed.data.targetUserId,
-      deactivatedAt: null
-    },
-    select: { id: true }
-  });
+  const [context, target] = await Promise.all([
+    resolveChatAccessContext(currentUserId),
+    prisma.user.findFirst({
+      where: {
+        id: parsed.data.targetUserId,
+        deactivatedAt: null
+      },
+      select: { id: true }
+    })
+  ]);
 
-  if (!target) {
+  if (!context.userId || !target) {
     return { ok: false as const, error: "That member was not found." };
   }
 
-  if (await isBlockedBetween(currentUserId, target.id)) {
+  if (context.blockedUserIds.includes(target.id)) {
     return { ok: false as const, error: "Chat is blocked between these members." };
   }
 
@@ -783,11 +902,7 @@ export async function findOrCreateDirectChatThread(currentUserId: string, input:
               profile: true
             }
           },
-          attachments: {
-            include: {
-              mediaAsset: true
-            }
-          }
+          attachments: chatAttachmentInclude()
         }
       }
     }
@@ -815,16 +930,24 @@ export async function createGroupChatThread(currentUserId: string, input: unknow
     return { ok: false as const, error: "Add at least one other member." };
   }
 
-  const users = await prisma.user.findMany({
-    where: {
-      id: { in: participantUserIds },
-      deactivatedAt: null
-    },
-    select: { id: true }
-  });
+  const [context, users, hasBlockedPair] = await Promise.all([
+    resolveChatAccessContext(currentUserId),
+    prisma.user.findMany({
+      where: {
+        id: { in: participantUserIds },
+        deactivatedAt: null
+      },
+      select: { id: true }
+    }),
+    hasBlockedRelationshipWithin(participantUserIds)
+  ]);
 
-  if (users.length !== participantUserIds.length) {
+  if (!context.userId || users.length !== participantUserIds.length) {
     return { ok: false as const, error: "One or more members could not be found." };
+  }
+
+  if (hasBlockedPair) {
+    return { ok: false as const, error: "A group chat cannot include members who have blocked one another." };
   }
 
   const thread = await prisma.chatThread.create({
@@ -856,11 +979,7 @@ export async function createGroupChatThread(currentUserId: string, input: unknow
               profile: true
             }
           },
-          attachments: {
-            include: {
-              mediaAsset: true
-            }
-          }
+          attachments: chatAttachmentInclude()
         }
       }
     }
@@ -882,22 +1001,32 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid message." };
   }
 
-  if (!(await assertParticipant(senderUserId, parsed.data.threadId))) {
+  const context = await resolveChatAccessContext(senderUserId);
+
+  if (!context.userId) {
     return { ok: false as const, error: "Chat not found." };
   }
 
-  const mediaAssetIds = parsed.data.attachments.map((attachment) => attachment.mediaAssetId).filter(Boolean) as string[];
+  const mediaAssetIds = [...new Set(parsed.data.attachments.map((attachment) => attachment.mediaAssetId))];
+  if (mediaAssetIds.length !== parsed.data.attachments.length) {
+    return { ok: false as const, error: "Choose each attachment only once." };
+  }
   const mediaAssets = mediaAssetIds.length
     ? await prisma.mediaAsset.findMany({
         where: {
           id: { in: mediaAssetIds },
-          ownerUserId: senderUserId
+          ownerUserId: senderUserId,
+          status: MediaAssetStatus.READY,
+          visibility: MediaVisibility.PRIVATE,
+          sizeBytes: { lte: BigInt(MAX_CHAT_ATTACHMENT_BYTES) }
         },
         select: {
           id: true,
           storageKey: true,
           publicUrl: true,
-          mimeType: true
+          mimeType: true,
+          sizeBytes: true,
+          originalName: true
         }
       })
     : [];
@@ -907,7 +1036,18 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     return { ok: false as const, error: "One or more attachments could not be used." };
   }
 
+  if (mediaAssets.reduce((total, asset) => total + Number(asset.sizeBytes), 0) > MAX_CHAT_TOTAL_ATTACHMENT_BYTES) {
+    return { ok: false as const, error: "Chat attachments may total up to 40 MB per message." };
+  }
+
   const message = await prisma.$transaction(async (tx) => {
+    const authorizedThread = await tx.chatThread.findFirst({
+      where: scopeChatThreadWhere(context, "interact", { id: parsed.data.threadId }),
+      select: { id: true }
+    });
+
+    if (!authorizedThread) return null;
+
     const created = await tx.chatMessage.create({
       data: {
         threadId: parsed.data.threadId,
@@ -915,15 +1055,16 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
         body: parsed.data.body?.trim() || null,
         attachments: {
           create: parsed.data.attachments.map((attachment) => {
-            const mediaAsset = attachment.mediaAssetId ? mediaAssetMap.get(attachment.mediaAssetId) : undefined;
+            const mediaAsset = mediaAssetMap.get(attachment.mediaAssetId);
+            if (!mediaAsset) throw new Error("Validated chat attachment was not found.");
             return {
-              mediaAssetId: attachment.mediaAssetId || undefined,
-              kind: attachmentKindForFile(attachment.fileName, mediaAsset?.mimeType ?? attachment.mimeType),
-              fileName: attachment.fileName,
-              mimeType: mediaAsset?.mimeType ?? attachment.mimeType,
-              sizeBytes: BigInt(attachment.sizeBytes),
-              storageKey: mediaAsset?.storageKey ?? (attachment.storageKey || null),
-              publicUrl: mediaAsset?.publicUrl ?? (attachment.publicUrl || null)
+              mediaAssetId: mediaAsset.id,
+              kind: attachmentKindForFile(mediaAsset.originalName ?? "attachment", mediaAsset.mimeType),
+              fileName: mediaAsset.originalName ?? "attachment",
+              mimeType: mediaAsset.mimeType,
+              sizeBytes: mediaAsset.sizeBytes,
+              storageKey: mediaAsset.storageKey,
+              publicUrl: null
             };
           })
         }
@@ -934,11 +1075,7 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
             profile: true
           }
         },
-        attachments: {
-          include: {
-            mediaAsset: true
-          }
-        }
+        attachments: chatAttachmentInclude()
       }
     });
 
@@ -963,6 +1100,10 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
 
     return created;
   });
+
+  if (!message) {
+    return { ok: false as const, error: "Chat not found or messaging is blocked." };
+  }
 
   const participants = await prisma.chatParticipant.findMany({
     where: {
@@ -1006,15 +1147,19 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
 }
 
 export async function markChatThreadRead(userId: string, threadId: string) {
-  if (!(await assertParticipant(userId, threadId))) {
+  const context = await resolveChatAccessContext(userId);
+
+  if (!context.userId) {
     return { ok: false as const, error: "Chat not found." };
   }
 
-  await prisma.chatParticipant.update({
+  const updated = await prisma.chatParticipant.updateMany({
     where: {
-      threadId_userId: {
-        threadId,
-        userId
+      threadId,
+      userId,
+      archivedAt: null,
+      thread: {
+        is: scopeChatThreadWhere(context, "read", { id: threadId })
       }
     },
     data: {
@@ -1022,10 +1167,17 @@ export async function markChatThreadRead(userId: string, threadId: string) {
     }
   });
 
+  if (updated.count === 0) {
+    return { ok: false as const, error: "Chat not found." };
+  }
+
   return { ok: true as const };
 }
 
 export async function searchChatContacts(userId: string, query: string, filter?: string | null): Promise<ChatPersonView[]> {
+  const context = await resolveChatAccessContext(userId);
+  if (!context.userId) return [];
+
   const cleanQuery = query.trim();
   const contactFilter = normalizedContactFilter(filter);
   const relationshipTypes =
@@ -1049,8 +1201,8 @@ export async function searchChatContacts(userId: string, query: string, filter?:
     const users = await prisma.user.findMany({
       where:
         contactFilter === "MEMBERS"
-          ? { id: { not: userId }, deactivatedAt: null, ...visibleMemberScope }
-          : { id: { in: relationshipUserIds }, deactivatedAt: null },
+          ? { AND: [{ id: { not: userId } }, context.visibleUserWhere, visibleMemberScope] }
+          : { AND: [{ id: { in: relationshipUserIds } }, context.visibleUserWhere] },
       include: { profile: true },
       orderBy: { updatedAt: "desc" },
       take: 12
@@ -1063,8 +1215,8 @@ export async function searchChatContacts(userId: string, query: string, filter?:
     prisma.user.findMany({
       where: {
         id: { not: userId },
-        deactivatedAt: null,
         AND: [
+          context.visibleUserWhere,
           contactFilter === "MEMBERS"
             ? visibleMemberScope
             : contactFilter === "ALL"
@@ -1121,14 +1273,15 @@ export async function createChatUploadIntent(userId: string, input: unknown) {
     const uploadUrl = await createPresignedR2PutUrl({
       storageKey,
       mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes
+      sizeBytes: parsed.data.sizeBytes,
+      access: "private"
     });
 
     return {
       ok: true as const,
       uploadUrl,
       storageKey,
-      publicUrl: getR2PublicUrl(storageKey),
+      publicUrl: null,
       expiresInSeconds: 300
     };
   } catch (error) {
@@ -1160,6 +1313,7 @@ export async function completeChatUpload(userId: string, input: unknown) {
     storageKey: parsed.data.storageKey,
     expectedMimeType: parsed.data.mimeType,
     expectedSizeBytes: parsed.data.sizeBytes,
+    access: "private",
     label: "Chat attachment upload"
   });
 
@@ -1171,6 +1325,7 @@ export async function completeChatUpload(userId: string, input: unknown) {
     const uploadedThumbnail = await verifyR2Object({
       storageKey: parsed.data.thumbnailStorageKey,
       expectedMimeType: "image/jpeg",
+      access: "private",
       label: "Chat thumbnail upload"
     });
 
@@ -1179,8 +1334,8 @@ export async function completeChatUpload(userId: string, input: unknown) {
     }
   }
 
-  const publicUrl = getR2PublicUrl(parsed.data.storageKey);
-  const thumbnailUrl = parsed.data.thumbnailStorageKey ? getR2PublicUrl(parsed.data.thumbnailStorageKey) : null;
+  const publicUrl = null;
+  const thumbnailUrl = null;
   const asset = await prisma.mediaAsset.create({
     data: {
       ownerUserId: userId,
@@ -1189,7 +1344,7 @@ export async function completeChatUpload(userId: string, input: unknown) {
       mimeType: parsed.data.mimeType,
       sizeBytes: BigInt(parsed.data.sizeBytes),
       originalName: parsed.data.fileName,
-      visibility: MediaVisibility.MEMBERS,
+      visibility: MediaVisibility.PRIVATE,
       metadata: {
         module: MODULE_KEY,
         attachmentKind: attachmentKindForFile(parsed.data.fileName, parsed.data.mimeType),
@@ -1214,8 +1369,8 @@ export async function completeChatUpload(userId: string, input: unknown) {
       mimeType: asset.mimeType,
       sizeBytes: Number(asset.sizeBytes),
       storageKey: asset.storageKey,
-      publicUrl: asset.publicUrl,
-      thumbnailUrl
+      publicUrl: `/api/media/assets/${asset.id}`,
+      thumbnailUrl: `/api/media/assets/${asset.id}`
     }
   };
 }
@@ -1224,29 +1379,40 @@ export async function countUnreadChatThreads(userId?: string) {
   if (!userId) return 0;
 
   try {
+    const context = await resolveChatAccessContext(userId);
+    if (!context.userId) return 0;
+
     const participants = await withChatDbTimeout(
       prisma.chatParticipant.findMany({
         where: {
           userId,
           archivedAt: null,
           thread: {
-            lastMessageAt: { not: null },
+            is: scopeChatThreadWhere(context, "read", {
             messages: {
               some: {
-                senderUserId: { not: userId },
-                deletedAt: null
+                  AND: [
+                    visibleChatMessageWhere(context),
+                    { senderUserId: { not: userId } }
+                  ]
+                }
               }
-            }
+            })
           }
         },
         include: {
           thread: {
             select: {
               type: true,
-              lastMessageAt: true,
               participants: {
-                where: { archivedAt: null },
+                where: visibleChatParticipantWhere(context),
                 select: { userId: true }
+              },
+              messages: {
+                where: visibleChatMessageWhere(context),
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                take: 1,
+                select: { createdAt: true }
               }
             }
           }
@@ -1259,7 +1425,7 @@ export async function countUnreadChatThreads(userId?: string) {
     const unreadKeys = new Set<string>();
 
     participants.forEach((participant) => {
-      const lastMessageAt = participant.thread.lastMessageAt;
+      const lastMessageAt = participant.thread.messages[0]?.createdAt ?? null;
       const unread = Boolean(lastMessageAt && (!participant.lastReadAt || participant.lastReadAt < lastMessageAt));
 
       if (!unread) return;

@@ -1,9 +1,16 @@
-import { MembershipTier, Prisma, StripeCheckoutKind } from "@prisma/client";
+import { BillingCheckoutIntentStatus, MembershipTier, Prisma, StripeCheckoutKind } from "@prisma/client";
 import type Stripe from "stripe";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { getStripeClient, getStripeRuntimeConfig } from "@/lib/platform/stripe";
+import {
+  attachCheckoutSession,
+  completeCheckoutIntent,
+  getOrCreateCheckoutIntent,
+  resolveCheckoutOrigin,
+  reusableCheckoutSessionUrl
+} from "@/modules/billing/checkout-intents.service";
 
 const MODULE_KEY = "stripe-credit-checkout";
 
@@ -100,6 +107,7 @@ export async function createCreditCheckoutSession(input: {
   userId: string;
   packageKey: string;
   origin: string;
+  idempotencyKey?: string;
 }) {
   await ensureDefaultStripeCreditPackages();
 
@@ -142,7 +150,23 @@ export async function createCreditCheckoutSession(input: {
     return { ok: false as const, error: "User was not found." };
   }
 
+  const intentResult = await getOrCreateCheckoutIntent({
+    userId: user.id,
+    idempotencyKey: input.idempotencyKey,
+    kind: StripeCheckoutKind.CREDIT_PURCHASE,
+    creditPackageKey: packageRule.key,
+    creditAmountSnapshot: packageRule.creditAmount,
+    stripePriceIdSnapshot: packageRule.stripePriceId,
+    amountCentsSnapshot: packageRule.priceCents,
+    currencySnapshot: config.currency
+  });
+
+  if (!intentResult.ok) return intentResult;
+
   const stripe = await getStripeClient();
+  const reusableUrl = await reusableCheckoutSessionUrl(intentResult.intent, stripe);
+  if (reusableUrl) return { ok: true as const, url: reusableUrl, reused: true };
+
   const customerId =
     membership.stripeCustomerId ??
     (
@@ -152,6 +176,8 @@ export async function createCreditCheckoutSession(input: {
         metadata: {
           userId: user.id
         }
+      }, {
+        idempotencyKey: `theta-customer-${user.id}`
       })
     ).id;
 
@@ -162,28 +188,36 @@ export async function createCreditCheckoutSession(input: {
     });
   }
 
-  const origin = new URL(input.origin).origin;
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer: customerId,
-    line_items: [{ price: packageRule.stripePriceId, quantity: 1 }],
-    success_url: `${origin}/ads?credits=success`,
-    cancel_url: `${origin}/ads?credits=cancel`,
-    metadata: {
-      checkoutKind: StripeCheckoutKind.CREDIT_PURCHASE,
-      userId: user.id,
-      creditPackageKey: packageRule.key,
-      creditAmount: String(packageRule.creditAmount)
-    },
-    payment_intent_data: {
+  const origin = resolveCheckoutOrigin(input.origin);
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      customer: customerId,
+      line_items: [{ price: intentResult.intent.stripePriceIdSnapshot, quantity: 1 }],
+      success_url: `${origin}/ads?credits=success`,
+      cancel_url: `${origin}/ads?credits=cancel`,
       metadata: {
+        checkoutIntentId: intentResult.intent.id,
         checkoutKind: StripeCheckoutKind.CREDIT_PURCHASE,
         userId: user.id,
         creditPackageKey: packageRule.key,
         creditAmount: String(packageRule.creditAmount)
+      },
+      payment_intent_data: {
+        metadata: {
+          checkoutIntentId: intentResult.intent.id,
+          checkoutKind: StripeCheckoutKind.CREDIT_PURCHASE,
+          userId: user.id,
+          creditPackageKey: packageRule.key
+        }
       }
+    },
+    {
+      idempotencyKey: intentResult.stripeIdempotencyKey
     }
-  });
+  );
+
+  await attachCheckoutSession(intentResult.intent.id, session);
 
   await diagnostics.info(MODULE_KEY, "Stripe credit checkout session created.", {
     userId: user.id,
@@ -196,6 +230,53 @@ export async function createCreditCheckoutSession(input: {
   return { ok: true as const, url: session.url };
 }
 
+async function backfillLegacyCreditCheckoutIntent(session: Stripe.Checkout.Session) {
+  const existing = await prisma.billingCheckoutIntent.findUnique({
+    where: { stripeCheckoutSessionId: session.id }
+  });
+  if (existing) return existing;
+
+  const userId = session.metadata?.userId;
+  const creditPackageKey = session.metadata?.creditPackageKey;
+  const creditAmount = Number(session.metadata?.creditAmount);
+  if (!userId || !creditPackageKey || !Number.isInteger(creditAmount) || creditAmount <= 0) return null;
+
+  const [packageRule, user, config] = await Promise.all([
+    prisma.stripeCreditPackage.findUnique({ where: { key: creditPackageKey } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { id: true } }),
+    getStripeRuntimeConfig()
+  ]);
+  if (
+    !packageRule ||
+    !user ||
+    packageRule.creditAmount !== creditAmount ||
+    session.amount_total !== packageRule.priceCents ||
+    session.currency?.toUpperCase() !== config.currency.toUpperCase() ||
+    !packageRule.stripePriceId
+  ) {
+    return null;
+  }
+
+  return prisma.billingCheckoutIntent.upsert({
+    where: { idempotencyKey: `legacy:${session.id}` },
+    update: {},
+    create: {
+      idempotencyKey: `legacy:${session.id}`,
+      userId,
+      kind: StripeCheckoutKind.CREDIT_PURCHASE,
+      creditPackageKey,
+      creditAmountSnapshot: creditAmount,
+      stripePriceIdSnapshot: packageRule.stripePriceId,
+      amountCentsSnapshot: packageRule.priceCents,
+      currencySnapshot: config.currency.toUpperCase(),
+      stripeCheckoutSessionId: session.id,
+      status: BillingCheckoutIntentStatus.SESSION_CREATED,
+      sessionCreatedAt: new Date(session.created * 1000),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+    }
+  });
+}
+
 export async function fulfillCreditCheckoutSession(session: Stripe.Checkout.Session) {
   if (session.payment_status !== "paid") {
     await diagnostics.warn(MODULE_KEY, "Credit checkout fulfillment skipped because payment is not paid.", {
@@ -205,13 +286,35 @@ export async function fulfillCreditCheckoutSession(session: Stripe.Checkout.Sess
     return { ok: true as const, skipped: true };
   }
 
-  const userId = session.metadata?.userId;
-  const creditPackageKey = session.metadata?.creditPackageKey;
-  const creditAmount = Number(session.metadata?.creditAmount);
-
-  if (!userId || !creditPackageKey || !Number.isInteger(creditAmount) || creditAmount <= 0) {
-    return { ok: false as const, error: "Stripe checkout session is missing credit metadata." };
+  const checkoutIntentId = session.metadata?.checkoutIntentId;
+  const intent = checkoutIntentId
+    ? await prisma.billingCheckoutIntent.findUnique({ where: { id: checkoutIntentId } })
+    : await backfillLegacyCreditCheckoutIntent(session);
+  if (
+    !intent ||
+    intent.kind !== StripeCheckoutKind.CREDIT_PURCHASE ||
+    intent.stripeCheckoutSessionId !== session.id ||
+    !intent.userId ||
+    !intent.creditPackageKey ||
+    !intent.creditAmountSnapshot
+  ) {
+    return { ok: false as const, error: "Stripe checkout session does not match its server intent." };
   }
+
+  if (intent.status === BillingCheckoutIntentStatus.COMPLETED) {
+    return { ok: true as const, skipped: true };
+  }
+
+  if (
+    session.amount_total !== intent.amountCentsSnapshot ||
+    session.currency?.toUpperCase() !== intent.currencySnapshot
+  ) {
+    return { ok: false as const, error: "Stripe checkout amount does not match its server snapshot." };
+  }
+
+  const userId = intent.userId;
+  const creditPackageKey = intent.creditPackageKey;
+  const creditAmount = intent.creditAmountSnapshot;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -224,6 +327,9 @@ export async function fulfillCreditCheckoutSession(session: Stripe.Checkout.Sess
           creditsGranted: creditAmount
         }
       });
+
+      const completed = await completeCheckoutIntent(tx, intent.id);
+      if (!completed) throw new Error("Checkout intent could not be completed atomically.");
 
       await tx.membership.upsert({
         where: { userId },

@@ -1,8 +1,21 @@
-import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, SocialRelationshipType } from "@prisma/client";
+import {
+  FamilyRelationshipRequestStatus,
+  FriendRelationshipRequestStatus,
+  Prisma,
+  ProfileVisibility,
+  SocialRelationshipType
+} from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
+import { cuidIdSchema } from "@/lib/platform/validation";
 import { resolvePreferredThumbnailUrls } from "@/modules/media/media-thumbnails";
+import {
+  ensureFamilyRequestNotification,
+  ensureFriendRequestNotification,
+  notifyFamilyRequestOutcome,
+  notifyFriendRequestOutcome
+} from "@/modules/notifications-alerts/notifications-alerts.service";
 import {
   familyRelationshipRequestSchema,
   familyRelationshipResponseSchema,
@@ -16,6 +29,7 @@ import {
 
 const MODULE_KEY = "social-graph";
 const SOCIAL_DB_TIMEOUT_MS = 2500;
+const SOCIAL_TRANSACTION_RETRIES = 3;
 const PEOPLE_RELATIONSHIP_TYPES: SocialRelationshipType[] = [
   SocialRelationshipType.FRIEND,
   SocialRelationshipType.FAMILY,
@@ -36,7 +50,9 @@ function reciprocalFamilyLabel(label: string) {
   const reciprocalMap: Record<string, string> = {
     Spouse: "Spouse",
     Parent: "Child",
+    Progeny: "Parent",
     Child: "Parent",
+    Family: "Family",
     Sibling: "Sibling",
     Grandparent: "Grandchild",
     Grandchild: "Grandparent",
@@ -50,6 +66,81 @@ function reciprocalFamilyLabel(label: string) {
   return reciprocalMap[label] ?? "Family";
 }
 
+type SocialDbClient = typeof prisma | Prisma.TransactionClient;
+
+async function serializableSocialTransaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) {
+  for (let attempt = 1; attempt <= SOCIAL_TRANSACTION_RETRIES; attempt += 1) {
+    try {
+      return await prisma.$transaction(callback, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      });
+    } catch (error) {
+      const retryable = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+      if (!retryable || attempt === SOCIAL_TRANSACTION_RETRIES) throw error;
+    }
+  }
+
+  throw new Error("Social transaction retry limit reached.");
+}
+
+async function hasBlockBetween(firstUserId: string, secondUserId: string, client: SocialDbClient = prisma) {
+  return Boolean(
+    await client.socialRelationship.findFirst({
+      where: {
+        type: SocialRelationshipType.BLOCK,
+        OR: [
+          { fromUserId: firstUserId, toUserId: secondUserId },
+          { fromUserId: secondUserId, toUserId: firstUserId }
+        ]
+      },
+      select: { id: true }
+    })
+  );
+}
+
+function unblockedUserWhere(viewerUserId: string): Prisma.UserWhereInput {
+  return {
+    deactivatedAt: null,
+    socialRelationshipsFrom: {
+      none: {
+        toUserId: viewerUserId,
+        type: SocialRelationshipType.BLOCK
+      }
+    },
+    socialRelationshipsTo: {
+      none: {
+        fromUserId: viewerUserId,
+        type: SocialRelationshipType.BLOCK
+      }
+    }
+  };
+}
+
+function relationshipTypeScope(
+  userId: string,
+  types: SocialRelationshipType[]
+): Prisma.SocialRelationshipWhereInput {
+  return {
+    OR: types.map((type) =>
+      type === SocialRelationshipType.FRIEND || type === SocialRelationshipType.FAMILY
+        ? {
+            type,
+            toUser: {
+              is: {
+                socialRelationshipsFrom: {
+                  some: {
+                    toUserId: userId,
+                    type
+                  }
+                }
+              }
+            }
+          }
+        : { type }
+    )
+  };
+}
+
 export async function setSocialRelationship(fromUserId: string, input: unknown) {
   const parsed = setRelationshipSchema.safeParse(input);
 
@@ -61,38 +152,124 @@ export async function setSocialRelationship(fromUserId: string, input: unknown) 
     return { ok: false as const, error: "You cannot create a relationship to yourself." };
   }
 
-  if (parsed.data.type === SocialRelationshipType.FRIEND) {
-    return { ok: false as const, error: "Friend requests must be approved first." };
+  if (
+    parsed.data.type === SocialRelationshipType.FRIEND ||
+    parsed.data.type === SocialRelationshipType.FAMILY
+  ) {
+    return { ok: false as const, error: "Friend and family relationships must be approved first." };
   }
 
-  const existingRelationship = await prisma.socialRelationship.findUnique({
-    where: {
-      fromUserId_toUserId_type: {
-        fromUserId,
-        toUserId: parsed.data.toUserId,
-        type: parsed.data.type
-      }
-    },
-    select: { id: true }
-  });
-  const relationship = await prisma.socialRelationship.upsert({
-    where: {
-      fromUserId_toUserId_type: {
-        fromUserId,
-        toUserId: parsed.data.toUserId,
-        type: parsed.data.type
-      }
-    },
-    update: {
-      note: parsed.data.note || null
-    },
-    create: {
-      fromUserId,
-      toUserId: parsed.data.toUserId,
-      type: parsed.data.type,
-      note: parsed.data.note || null
+  const result = await serializableSocialTransaction(async (tx) => {
+    const [source, target] = await Promise.all([
+      tx.user.findFirst({
+        where: { id: fromUserId, deactivatedAt: null },
+        select: { id: true }
+      }),
+      tx.user.findFirst({
+        where: { id: parsed.data.toUserId, deactivatedAt: null },
+        select: { id: true }
+      })
+    ]);
+
+    if (!source || !target) {
+      return { ok: false as const, error: "That member was not found." };
     }
+
+    if (
+      parsed.data.type !== SocialRelationshipType.BLOCK &&
+      (await hasBlockBetween(source.id, target.id, tx))
+    ) {
+      return { ok: false as const, error: "That relationship is not available." };
+    }
+
+    const saved = await tx.socialRelationship.upsert({
+      where: {
+        fromUserId_toUserId_type: {
+          fromUserId,
+          toUserId: target.id,
+          type: parsed.data.type
+        }
+      },
+      update: {
+        note: parsed.data.note || null
+      },
+      create: {
+        fromUserId,
+        toUserId: target.id,
+        type: parsed.data.type,
+        note: parsed.data.note || null
+      }
+    });
+
+    if (parsed.data.type === SocialRelationshipType.BLOCK) {
+      const now = new Date();
+      const pairWhere = {
+        OR: [
+          { requesterUserId: source.id, targetUserId: target.id },
+          { requesterUserId: target.id, targetUserId: source.id }
+        ]
+      };
+      const [friendRequests, familyRequests] = await Promise.all([
+        tx.friendRelationshipRequest.findMany({
+          where: {
+            status: FriendRelationshipRequestStatus.PENDING,
+            ...pairWhere
+          },
+          select: { notificationId: true, alertId: true }
+        }),
+        tx.familyRelationshipRequest.findMany({
+          where: {
+            status: FamilyRelationshipRequestStatus.PENDING,
+            ...pairWhere
+          },
+          select: { notificationId: true, alertId: true }
+        })
+      ]);
+
+      await tx.socialRelationship.deleteMany({
+        where: {
+          type: { not: SocialRelationshipType.BLOCK },
+          OR: [
+            { fromUserId: source.id, toUserId: target.id },
+            { fromUserId: target.id, toUserId: source.id }
+          ]
+        }
+      });
+      await tx.friendRelationshipRequest.updateMany({
+        where: {
+          status: FriendRelationshipRequestStatus.PENDING,
+          ...pairWhere
+        },
+        data: { status: FriendRelationshipRequestStatus.CANCELED, respondedAt: now }
+      });
+      await tx.familyRelationshipRequest.updateMany({
+        where: {
+          status: FamilyRelationshipRequestStatus.PENDING,
+          ...pairWhere
+        },
+        data: { status: FamilyRelationshipRequestStatus.CANCELED, respondedAt: now }
+      });
+
+      const notificationIds = [...friendRequests, ...familyRequests]
+        .map((request) => request.notificationId)
+        .filter((id): id is string => Boolean(id));
+      const alertIds = [...friendRequests, ...familyRequests]
+        .map((request) => request.alertId)
+        .filter((id): id is string => Boolean(id));
+
+      if (notificationIds.length > 0) {
+        await tx.notification.deleteMany({ where: { id: { in: notificationIds } } });
+      }
+
+      if (alertIds.length > 0) {
+        await tx.alert.deleteMany({ where: { id: { in: alertIds } } });
+      }
+    }
+
+    return { ok: true as const, relationship: saved };
   });
+
+  if (!result.ok) return result;
 
   await diagnostics.info(MODULE_KEY, "Social relationship set.", {
     fromUserId,
@@ -100,7 +277,7 @@ export async function setSocialRelationship(fromUserId: string, input: unknown) 
     type: parsed.data.type
   });
 
-  return { ok: true as const, relationship };
+  return { ok: true as const, relationship: result.relationship };
 }
 
 export async function requestFriendRelationship(requesterUserId: string, input: unknown) {
@@ -114,231 +291,238 @@ export async function requestFriendRelationship(requesterUserId: string, input: 
     return { ok: false as const, error: "You cannot send a friend request to yourself." };
   }
 
-  const [requester, target, existingFriend, pendingSent, pendingReceived] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: requesterUserId },
-      include: { profile: true }
-    }),
-    prisma.user.findUnique({
-      where: { id: parsed.data.targetUserId },
-      include: { profile: true }
-    }),
-    prisma.socialRelationship.findFirst({
-      where: {
-        fromUserId: requesterUserId,
-        toUserId: parsed.data.targetUserId,
-        type: SocialRelationshipType.FRIEND
-      }
-    }),
-    prisma.friendRelationshipRequest.findFirst({
-      where: {
-        requesterUserId,
-        targetUserId: parsed.data.targetUserId,
-        status: FriendRelationshipRequestStatus.PENDING
-      }
-    }),
-    prisma.friendRelationshipRequest.findFirst({
-      where: {
-        requesterUserId: parsed.data.targetUserId,
-        targetUserId: requesterUserId,
-        status: FriendRelationshipRequestStatus.PENDING
-      }
-    })
-  ]);
+  const result = await serializableSocialTransaction(async (tx) => {
+    const [requester, target, friendEdges, pendingSent, pendingReceived, blocked] = await Promise.all([
+      tx.user.findFirst({
+        where: { id: requesterUserId, deactivatedAt: null },
+        select: { id: true }
+      }),
+      tx.user.findFirst({
+        where: { id: parsed.data.targetUserId, deactivatedAt: null },
+        include: { profile: true }
+      }),
+      tx.socialRelationship.findMany({
+        where: {
+          type: SocialRelationshipType.FRIEND,
+          OR: [
+            { fromUserId: requesterUserId, toUserId: parsed.data.targetUserId },
+            { fromUserId: parsed.data.targetUserId, toUserId: requesterUserId }
+          ]
+        },
+        select: { fromUserId: true, toUserId: true }
+      }),
+      tx.friendRelationshipRequest.findFirst({
+        where: {
+          requesterUserId,
+          targetUserId: parsed.data.targetUserId,
+          status: FriendRelationshipRequestStatus.PENDING
+        },
+        select: { id: true }
+      }),
+      tx.friendRelationshipRequest.findFirst({
+        where: {
+          requesterUserId: parsed.data.targetUserId,
+          targetUserId: requesterUserId,
+          status: FriendRelationshipRequestStatus.PENDING
+        },
+        select: { id: true }
+      }),
+      hasBlockBetween(requesterUserId, parsed.data.targetUserId, tx)
+    ]);
 
-  if (!requester || !target || target.deactivatedAt) {
-    return { ok: false as const, error: "That member was not found." };
-  }
-
-  if (existingFriend) {
-    return { ok: false as const, error: "That member is already in your friends list." };
-  }
-
-  if (pendingSent) {
-    return { ok: false as const, error: "A friend request is already pending." };
-  }
-
-  if (pendingReceived) {
-    return { ok: false as const, error: "That member already sent you a friend request. Open Notifications to approve it." };
-  }
-
-  const requesterName = requester.profile?.displayName ?? requester.username;
-  const targetName = target.profile?.displayName ?? target.username;
-  const request = await prisma.friendRelationshipRequest.create({
-    data: {
-      requesterUserId,
-      targetUserId: target.id,
-      message: parsed.data.message || null
+    if (!requester || !target) {
+      return { ok: false as const, error: "That member was not found." };
     }
-  });
 
-  const notification = await prisma.notification.create({
-    data: {
-      userId: target.id,
-      title: "Friend request approval needed",
-      body: `${requesterName} wants to add you as a friend on Theta-Space.`,
-      href: `/notifications?friendRequestId=${request.id}`
+    if (blocked) {
+      return { ok: false as const, error: "That friend request is not available." };
     }
+
+    const reciprocalFriend =
+      friendEdges.some(
+        (edge) => edge.fromUserId === requester.id && edge.toUserId === target.id
+      ) &&
+      friendEdges.some(
+        (edge) => edge.fromUserId === target.id && edge.toUserId === requester.id
+      );
+
+    if (reciprocalFriend) {
+      return { ok: false as const, error: "That member is already in your friends list." };
+    }
+
+    if (pendingSent) {
+      return { ok: false as const, error: "A friend request is already pending." };
+    }
+
+    if (pendingReceived) {
+      return {
+        ok: false as const,
+        error: "That member already sent you a friend request. Open Notifications to approve it."
+      };
+    }
+
+    if (friendEdges.length > 0) {
+      await tx.socialRelationship.deleteMany({
+        where: {
+          type: SocialRelationshipType.FRIEND,
+          OR: [
+            { fromUserId: requester.id, toUserId: target.id },
+            { fromUserId: target.id, toUserId: requester.id }
+          ]
+        }
+      });
+    }
+
+    const targetName = target.profile?.displayName ?? target.username;
+    const request = await tx.friendRelationshipRequest.create({
+      data: {
+        requesterUserId: requester.id,
+        targetUserId: target.id,
+        message: parsed.data.message || null
+      }
+    });
+
+    await ensureFriendRequestNotification(request.id, tx);
+
+    return {
+      ok: true as const,
+      request: { id: request.id, targetName },
+      targetUserId: target.id
+    };
   });
 
-  await prisma.friendRelationshipRequest.update({
-    where: { id: request.id },
-    data: { notificationId: notification.id }
-  });
+  if (!result.ok) return result;
 
   await diagnostics.info(MODULE_KEY, "Friend relationship request created.", {
     requesterUserId,
-    targetUserId: target.id
+    targetUserId: result.targetUserId
   });
 
   return {
     ok: true as const,
-    request: {
-      id: request.id,
-      targetName
-    }
+    request: result.request
   };
 }
 
 export async function respondToFriendRelationshipRequest(targetUserId: string, requestId: string, input: unknown) {
   const parsed = friendRelationshipResponseSchema.safeParse(input);
+  const parsedRequestId = cuidIdSchema.safeParse(requestId);
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid response." };
   }
 
-  const request = await prisma.friendRelationshipRequest.findFirst({
-    where: {
-      id: requestId,
-      targetUserId,
-      status: FriendRelationshipRequestStatus.PENDING
-    },
-    include: {
-      requester: { include: { profile: true } },
-      target: { include: { profile: true } }
-    }
-  });
-
-  if (!request) {
+  if (!parsedRequestId.success) {
     return { ok: false as const, error: "That friend request was not found or is no longer pending." };
   }
 
-  const now = new Date();
-
-  if (parsed.data.action === "deny") {
-    await prisma.$transaction([
-      prisma.friendRelationshipRequest.update({
-        where: { id: request.id },
-        data: {
-          status: FriendRelationshipRequestStatus.DENIED,
-          respondedAt: now
-        }
-      }),
-      ...(request.notificationId
-        ? [
-            prisma.notification.updateMany({
-              where: { id: request.notificationId, userId: targetUserId },
-              data: {
-                readAt: now,
-                body: `Denied friend request from ${request.requester.profile?.displayName ?? request.requester.username}.`
-              }
-            })
-          ]
-        : []),
-      ...(request.alertId
-        ? [
-            prisma.alert.updateMany({
-              where: { id: request.alertId, userId: targetUserId },
-              data: { readAt: now }
-            })
-          ]
-        : []),
-      prisma.notification.create({
-        data: {
-          userId: request.requesterUserId,
-          title: "Friend request denied",
-          body: `${request.target.profile?.displayName ?? request.target.username} did not approve the friend request.`,
-          href: `/profile/${request.target.username}`
-        }
-      })
-    ]);
-
-    return { ok: true as const, status: FriendRelationshipRequestStatus.DENIED };
-  }
-
-  await prisma.$transaction([
-    prisma.socialRelationship.upsert({
+  const result = await serializableSocialTransaction(async (tx) => {
+    const request = await tx.friendRelationshipRequest.findFirst({
       where: {
-        fromUserId_toUserId_type: {
+        id: parsedRequestId.data,
+        targetUserId,
+        status: FriendRelationshipRequestStatus.PENDING
+      },
+      include: {
+        requester: { select: { deactivatedAt: true } },
+        target: { select: { deactivatedAt: true } }
+      }
+    });
+
+    if (!request) {
+      return { ok: false as const, error: "That friend request was not found or is no longer pending." };
+    }
+
+    const now = new Date();
+
+    const blocked = await hasBlockBetween(request.requesterUserId, request.targetUserId, tx);
+
+    if (
+      blocked ||
+      (parsed.data.action === "approve" && (request.requester.deactivatedAt || request.target.deactivatedAt))
+    ) {
+        await tx.friendRelationshipRequest.updateMany({
+          where: { id: request.id, targetUserId, status: FriendRelationshipRequestStatus.PENDING },
+          data: { status: FriendRelationshipRequestStatus.CANCELED, respondedAt: now }
+        });
+
+        if (request.notificationId) {
+          await tx.notification.deleteMany({ where: { id: request.notificationId, userId: targetUserId } });
+        }
+
+        if (request.alertId) {
+          await tx.alert.deleteMany({ where: { id: request.alertId, userId: targetUserId } });
+        }
+
+        return { ok: false as const, error: "That friend request is no longer available." };
+    }
+
+    const nextStatus =
+      parsed.data.action === "approve"
+        ? FriendRelationshipRequestStatus.APPROVED
+        : FriendRelationshipRequestStatus.DENIED;
+    const claimed = await tx.friendRelationshipRequest.updateMany({
+      where: { id: request.id, targetUserId, status: FriendRelationshipRequestStatus.PENDING },
+      data: { status: nextStatus, respondedAt: now }
+    });
+
+    if (claimed.count === 0) {
+      return { ok: false as const, error: "That friend request was not found or is no longer pending." };
+    }
+
+    if (parsed.data.action === "approve") {
+      await tx.socialRelationship.upsert({
+        where: {
+          fromUserId_toUserId_type: {
+            fromUserId: request.requesterUserId,
+            toUserId: request.targetUserId,
+            type: SocialRelationshipType.FRIEND
+          }
+        },
+        update: {},
+        create: {
           fromUserId: request.requesterUserId,
           toUserId: request.targetUserId,
           type: SocialRelationshipType.FRIEND
         }
-      },
-      update: {},
-      create: {
-        fromUserId: request.requesterUserId,
-        toUserId: request.targetUserId,
-        type: SocialRelationshipType.FRIEND
-      }
-    }),
-    prisma.socialRelationship.upsert({
-      where: {
-        fromUserId_toUserId_type: {
+      });
+      await tx.socialRelationship.upsert({
+        where: {
+          fromUserId_toUserId_type: {
+            fromUserId: request.targetUserId,
+            toUserId: request.requesterUserId,
+            type: SocialRelationshipType.FRIEND
+          }
+        },
+        update: {},
+        create: {
           fromUserId: request.targetUserId,
           toUserId: request.requesterUserId,
           type: SocialRelationshipType.FRIEND
         }
-      },
-      update: {},
-      create: {
-        fromUserId: request.targetUserId,
-        toUserId: request.requesterUserId,
-        type: SocialRelationshipType.FRIEND
-      }
-    }),
-    prisma.friendRelationshipRequest.update({
-      where: { id: request.id },
-      data: {
-        status: FriendRelationshipRequestStatus.APPROVED,
-        respondedAt: now
-      }
-    }),
-    ...(request.notificationId
-      ? [
-          prisma.notification.updateMany({
-            where: { id: request.notificationId, userId: targetUserId },
-            data: {
-              readAt: now,
-              body: `Approved friend request from ${request.requester.profile?.displayName ?? request.requester.username}.`
-            }
-          })
-        ]
-      : []),
-    ...(request.alertId
-      ? [
-          prisma.alert.updateMany({
-            where: { id: request.alertId, userId: targetUserId },
-            data: { readAt: now }
-          })
-        ]
-      : []),
-    prisma.notification.create({
-      data: {
-        userId: request.requesterUserId,
-        title: "Friend request approved",
-        body: `${request.target.profile?.displayName ?? request.target.username} approved your friend request.`,
-        href: `/profile/${request.target.username}`
-      }
-    })
-  ]);
+      });
+    }
 
-  await diagnostics.info(MODULE_KEY, "Friend relationship request approved.", {
-    requesterUserId: request.requesterUserId,
-    targetUserId: request.targetUserId
+    await notifyFriendRequestOutcome(request.id, tx);
+
+    return {
+      ok: true as const,
+      status: nextStatus,
+      requesterUserId: request.requesterUserId,
+      requestTargetUserId: request.targetUserId
+    };
   });
 
-  return { ok: true as const, status: FriendRelationshipRequestStatus.APPROVED };
+  if (!result.ok) return result;
+
+  if (result.status === FriendRelationshipRequestStatus.APPROVED) {
+    await diagnostics.info(MODULE_KEY, "Friend relationship request approved.", {
+      requesterUserId: result.requesterUserId,
+      targetUserId: result.requestTargetUserId
+    });
+  }
+
+  return { ok: true as const, status: result.status };
 }
 
 export async function requestFamilyRelationship(requesterUserId: string, input: unknown) {
@@ -352,227 +536,242 @@ export async function requestFamilyRelationship(requesterUserId: string, input: 
     return { ok: false as const, error: "You cannot tag yourself as family." };
   }
 
-  const [requester, target, existingFamily, pendingRequest] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: requesterUserId },
-      include: { profile: true }
-    }),
-    prisma.user.findUnique({
-      where: { id: parsed.data.targetUserId },
-      include: { profile: true }
-    }),
-    prisma.socialRelationship.findFirst({
-      where: {
-        fromUserId: requesterUserId,
-        toUserId: parsed.data.targetUserId,
-        type: SocialRelationshipType.FAMILY
-      }
-    }),
-    prisma.familyRelationshipRequest.findFirst({
-      where: {
-        requesterUserId,
-        targetUserId: parsed.data.targetUserId,
-        status: FamilyRelationshipRequestStatus.PENDING
-      }
-    })
-  ]);
+  const result = await serializableSocialTransaction(async (tx) => {
+    const [requester, target, familyEdges, pendingRequest, pendingReverse, blocked] = await Promise.all([
+      tx.user.findFirst({
+        where: { id: requesterUserId, deactivatedAt: null },
+        select: { id: true }
+      }),
+      tx.user.findFirst({
+        where: { id: parsed.data.targetUserId, deactivatedAt: null },
+        include: { profile: true }
+      }),
+      tx.socialRelationship.findMany({
+        where: {
+          type: SocialRelationshipType.FAMILY,
+          OR: [
+            { fromUserId: requesterUserId, toUserId: parsed.data.targetUserId },
+            { fromUserId: parsed.data.targetUserId, toUserId: requesterUserId }
+          ]
+        },
+        select: { fromUserId: true, toUserId: true }
+      }),
+      tx.familyRelationshipRequest.findFirst({
+        where: {
+          requesterUserId,
+          targetUserId: parsed.data.targetUserId,
+          status: FamilyRelationshipRequestStatus.PENDING
+        },
+        select: { id: true }
+      }),
+      tx.familyRelationshipRequest.findFirst({
+        where: {
+          requesterUserId: parsed.data.targetUserId,
+          targetUserId: requesterUserId,
+          status: FamilyRelationshipRequestStatus.PENDING
+        },
+        select: { id: true }
+      }),
+      hasBlockBetween(requesterUserId, parsed.data.targetUserId, tx)
+    ]);
 
-  if (!requester || !target || target.deactivatedAt) {
-    return { ok: false as const, error: "That member was not found." };
-  }
-
-  if (existingFamily) {
-    return { ok: false as const, error: "That member is already tagged as family." };
-  }
-
-  if (pendingRequest) {
-    return { ok: false as const, error: "A family approval request is already pending." };
-  }
-
-  const requesterName = requester.profile?.displayName ?? requester.username;
-  const targetName = target.profile?.displayName ?? target.username;
-  const request = await prisma.familyRelationshipRequest.create({
-    data: {
-      requesterUserId,
-      targetUserId: target.id,
-      relationshipLabel: parsed.data.relationshipLabel,
-      reciprocalLabel: reciprocalFamilyLabel(parsed.data.relationshipLabel),
-      message: parsed.data.message || null
+    if (!requester || !target) {
+      return { ok: false as const, error: "That member was not found." };
     }
-  });
 
-  const notification = await prisma.notification.create({
-    data: {
-      userId: target.id,
-      title: "Family tag approval needed",
-      body: `${requesterName} wants to list you as ${parsed.data.relationshipLabel} on their profile. Approve only if this is correct.`,
-      href: `/notifications?familyRequestId=${request.id}`
+    if (blocked) {
+      return { ok: false as const, error: "That family request is not available." };
     }
+
+    const reciprocalFamily =
+      familyEdges.some(
+        (edge) => edge.fromUserId === requester.id && edge.toUserId === target.id
+      ) &&
+      familyEdges.some(
+        (edge) => edge.fromUserId === target.id && edge.toUserId === requester.id
+      );
+
+    if (reciprocalFamily) {
+      return { ok: false as const, error: "That member is already tagged as family." };
+    }
+
+    if (pendingRequest || pendingReverse) {
+      return { ok: false as const, error: "A family approval request is already pending." };
+    }
+
+    if (familyEdges.length > 0) {
+      await tx.socialRelationship.deleteMany({
+        where: {
+          type: SocialRelationshipType.FAMILY,
+          OR: [
+            { fromUserId: requester.id, toUserId: target.id },
+            { fromUserId: target.id, toUserId: requester.id }
+          ]
+        }
+      });
+    }
+
+    const targetName = target.profile?.displayName ?? target.username;
+    const request = await tx.familyRelationshipRequest.create({
+      data: {
+        requesterUserId: requester.id,
+        targetUserId: target.id,
+        relationshipLabel: parsed.data.relationshipLabel,
+        reciprocalLabel: reciprocalFamilyLabel(parsed.data.relationshipLabel),
+        message: parsed.data.message || null
+      }
+    });
+
+    await ensureFamilyRequestNotification(request.id, tx);
+
+    return {
+      ok: true as const,
+      request: {
+        id: request.id,
+        targetName,
+        relationshipLabel: parsed.data.relationshipLabel
+      },
+      targetUserId: target.id
+    };
   });
 
-  await prisma.familyRelationshipRequest.update({
-    where: { id: request.id },
-    data: { notificationId: notification.id }
-  });
+  if (!result.ok) return result;
 
   await diagnostics.info(MODULE_KEY, "Family relationship request created.", {
     requesterUserId,
-    targetUserId: target.id,
+    targetUserId: result.targetUserId,
     relationshipLabel: parsed.data.relationshipLabel
   });
 
   return {
     ok: true as const,
-    request: {
-      id: request.id,
-      targetName,
-      relationshipLabel: parsed.data.relationshipLabel
-    }
+    request: result.request
   };
 }
 
 export async function respondToFamilyRelationshipRequest(targetUserId: string, requestId: string, input: unknown) {
   const parsed = familyRelationshipResponseSchema.safeParse(input);
+  const parsedRequestId = cuidIdSchema.safeParse(requestId);
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid response." };
   }
 
-  const request = await prisma.familyRelationshipRequest.findFirst({
-    where: {
-      id: requestId,
-      targetUserId,
-      status: FamilyRelationshipRequestStatus.PENDING
-    },
-    include: {
-      requester: { include: { profile: true } },
-      target: { include: { profile: true } }
-    }
-  });
-
-  if (!request) {
+  if (!parsedRequestId.success) {
     return { ok: false as const, error: "That family request was not found or is no longer pending." };
   }
 
-  const now = new Date();
-
-  if (parsed.data.action === "deny") {
-    await prisma.$transaction([
-      prisma.familyRelationshipRequest.update({
-        where: { id: request.id },
-        data: {
-          status: FamilyRelationshipRequestStatus.DENIED,
-          respondedAt: now
-        }
-      }),
-      ...(request.notificationId
-        ? [
-            prisma.notification.updateMany({
-              where: { id: request.notificationId, userId: targetUserId },
-              data: {
-                readAt: now,
-                body: `Denied family tag request from ${request.requester.profile?.displayName ?? request.requester.username}.`
-              }
-            })
-          ]
-        : []),
-      ...(request.alertId
-        ? [
-            prisma.alert.updateMany({
-              where: { id: request.alertId, userId: targetUserId },
-              data: { readAt: now }
-            })
-          ]
-        : []),
-      prisma.notification.create({
-        data: {
-          userId: request.requesterUserId,
-          title: "Family tag request denied",
-          body: `${request.target.profile?.displayName ?? request.target.username} did not approve the family tag request.`,
-          href: `/profile/${request.target.username}`
-        }
-      })
-    ]);
-
-    return { ok: true as const, status: FamilyRelationshipRequestStatus.DENIED };
-  }
-
-  await prisma.$transaction([
-    prisma.socialRelationship.upsert({
+  const result = await serializableSocialTransaction(async (tx) => {
+    const request = await tx.familyRelationshipRequest.findFirst({
       where: {
-        fromUserId_toUserId_type: {
+        id: parsedRequestId.data,
+        targetUserId,
+        status: FamilyRelationshipRequestStatus.PENDING
+      },
+      include: {
+        requester: { select: { deactivatedAt: true } },
+        target: { select: { deactivatedAt: true } }
+      }
+    });
+
+    if (!request) {
+      return { ok: false as const, error: "That family request was not found or is no longer pending." };
+    }
+
+    const now = new Date();
+
+    const blocked = await hasBlockBetween(request.requesterUserId, request.targetUserId, tx);
+
+    if (
+      blocked ||
+      (parsed.data.action === "approve" && (request.requester.deactivatedAt || request.target.deactivatedAt))
+    ) {
+        await tx.familyRelationshipRequest.updateMany({
+          where: { id: request.id, targetUserId, status: FamilyRelationshipRequestStatus.PENDING },
+          data: { status: FamilyRelationshipRequestStatus.CANCELED, respondedAt: now }
+        });
+
+        if (request.notificationId) {
+          await tx.notification.deleteMany({ where: { id: request.notificationId, userId: targetUserId } });
+        }
+
+        if (request.alertId) {
+          await tx.alert.deleteMany({ where: { id: request.alertId, userId: targetUserId } });
+        }
+
+        return { ok: false as const, error: "That family request is no longer available." };
+    }
+
+    const nextStatus =
+      parsed.data.action === "approve"
+        ? FamilyRelationshipRequestStatus.APPROVED
+        : FamilyRelationshipRequestStatus.DENIED;
+    const claimed = await tx.familyRelationshipRequest.updateMany({
+      where: { id: request.id, targetUserId, status: FamilyRelationshipRequestStatus.PENDING },
+      data: { status: nextStatus, respondedAt: now }
+    });
+
+    if (claimed.count === 0) {
+      return { ok: false as const, error: "That family request was not found or is no longer pending." };
+    }
+
+    if (parsed.data.action === "approve") {
+      await tx.socialRelationship.upsert({
+        where: {
+          fromUserId_toUserId_type: {
+            fromUserId: request.requesterUserId,
+            toUserId: request.targetUserId,
+            type: SocialRelationshipType.FAMILY
+          }
+        },
+        update: { note: request.relationshipLabel },
+        create: {
           fromUserId: request.requesterUserId,
           toUserId: request.targetUserId,
-          type: SocialRelationshipType.FAMILY
+          type: SocialRelationshipType.FAMILY,
+          note: request.relationshipLabel
         }
-      },
-      update: { note: request.relationshipLabel },
-      create: {
-        fromUserId: request.requesterUserId,
-        toUserId: request.targetUserId,
-        type: SocialRelationshipType.FAMILY,
-        note: request.relationshipLabel
-      }
-    }),
-    prisma.socialRelationship.upsert({
-      where: {
-        fromUserId_toUserId_type: {
+      });
+      await tx.socialRelationship.upsert({
+        where: {
+          fromUserId_toUserId_type: {
+            fromUserId: request.targetUserId,
+            toUserId: request.requesterUserId,
+            type: SocialRelationshipType.FAMILY
+          }
+        },
+        update: { note: request.reciprocalLabel },
+        create: {
           fromUserId: request.targetUserId,
           toUserId: request.requesterUserId,
-          type: SocialRelationshipType.FAMILY
+          type: SocialRelationshipType.FAMILY,
+          note: request.reciprocalLabel
         }
-      },
-      update: { note: request.reciprocalLabel },
-      create: {
-        fromUserId: request.targetUserId,
-        toUserId: request.requesterUserId,
-        type: SocialRelationshipType.FAMILY,
-        note: request.reciprocalLabel
-      }
-    }),
-    prisma.familyRelationshipRequest.update({
-      where: { id: request.id },
-      data: {
-        status: FamilyRelationshipRequestStatus.APPROVED,
-        respondedAt: now
-      }
-    }),
-    ...(request.notificationId
-      ? [
-          prisma.notification.updateMany({
-            where: { id: request.notificationId, userId: targetUserId },
-            data: {
-              readAt: now,
-              body: `Approved family tag request from ${request.requester.profile?.displayName ?? request.requester.username}.`
-            }
-          })
-        ]
-      : []),
-    ...(request.alertId
-      ? [
-          prisma.alert.updateMany({
-            where: { id: request.alertId, userId: targetUserId },
-            data: { readAt: now }
-          })
-        ]
-      : []),
-    prisma.notification.create({
-      data: {
-        userId: request.requesterUserId,
-        title: "Family tag approved",
-        body: `${request.target.profile?.displayName ?? request.target.username} approved your family tag request.`,
-        href: `/profile/${request.requester.username}`
-      }
-    })
-  ]);
+      });
+    }
 
-  await diagnostics.info(MODULE_KEY, "Family relationship request approved.", {
-    requesterUserId: request.requesterUserId,
-    targetUserId: request.targetUserId,
-    relationshipLabel: request.relationshipLabel
+    await notifyFamilyRequestOutcome(request.id, tx);
+
+    return {
+      ok: true as const,
+      status: nextStatus,
+      requesterUserId: request.requesterUserId,
+      requestTargetUserId: request.targetUserId,
+      relationshipLabel: request.relationshipLabel
+    };
   });
 
-  return { ok: true as const, status: FamilyRelationshipRequestStatus.APPROVED };
+  if (!result.ok) return result;
+
+  if (result.status === FamilyRelationshipRequestStatus.APPROVED) {
+    await diagnostics.info(MODULE_KEY, "Family relationship request approved.", {
+      requesterUserId: result.requesterUserId,
+      targetUserId: result.requestTargetUserId,
+      relationshipLabel: result.relationshipLabel
+    });
+  }
+
+  return { ok: true as const, status: result.status };
 }
 
 export async function removeSocialRelationship(fromUserId: string, input: unknown) {
@@ -582,11 +781,126 @@ export async function removeSocialRelationship(fromUserId: string, input: unknow
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid relationship." };
   }
 
-  await prisma.socialRelationship.deleteMany({
-    where: {
-      fromUserId,
-      toUserId: parsed.data.toUserId,
-      type: parsed.data.type
+  await serializableSocialTransaction(async (tx) => {
+    const reciprocal =
+      parsed.data.type === SocialRelationshipType.FRIEND ||
+      parsed.data.type === SocialRelationshipType.FAMILY;
+
+    await tx.socialRelationship.deleteMany({
+      where: reciprocal
+        ? {
+            type: parsed.data.type,
+            OR: [
+              { fromUserId, toUserId: parsed.data.toUserId },
+              { fromUserId: parsed.data.toUserId, toUserId: fromUserId }
+            ]
+          }
+        : {
+            fromUserId,
+            toUserId: parsed.data.toUserId,
+            type: parsed.data.type
+          }
+    });
+
+    if (reciprocal) {
+      const now = new Date();
+      const pairWhere = {
+        OR: [
+          { requesterUserId: fromUserId, targetUserId: parsed.data.toUserId },
+          { requesterUserId: parsed.data.toUserId, targetUserId: fromUserId }
+        ]
+      };
+      const pendingRequests =
+        parsed.data.type === SocialRelationshipType.FRIEND
+          ? await tx.friendRelationshipRequest.findMany({
+              where: { status: FriendRelationshipRequestStatus.PENDING, ...pairWhere },
+              select: { notificationId: true, alertId: true }
+            })
+          : await tx.familyRelationshipRequest.findMany({
+              where: { status: FamilyRelationshipRequestStatus.PENDING, ...pairWhere },
+              select: { notificationId: true, alertId: true }
+            });
+
+      if (parsed.data.type === SocialRelationshipType.FRIEND) {
+        await tx.friendRelationshipRequest.updateMany({
+          where: { status: FriendRelationshipRequestStatus.PENDING, ...pairWhere },
+          data: { status: FriendRelationshipRequestStatus.CANCELED, respondedAt: now }
+        });
+      } else {
+        await tx.familyRelationshipRequest.updateMany({
+          where: { status: FamilyRelationshipRequestStatus.PENDING, ...pairWhere },
+          data: { status: FamilyRelationshipRequestStatus.CANCELED, respondedAt: now }
+        });
+      }
+
+      const notificationIds = pendingRequests
+        .map((request) => request.notificationId)
+        .filter((id): id is string => Boolean(id));
+      const alertIds = pendingRequests
+        .map((request) => request.alertId)
+        .filter((id): id is string => Boolean(id));
+
+      if (notificationIds.length > 0) {
+        await tx.notification.deleteMany({ where: { id: { in: notificationIds } } });
+      }
+
+      if (alertIds.length > 0) {
+        await tx.alert.deleteMany({ where: { id: { in: alertIds } } });
+      }
+    }
+
+    if (parsed.data.type === SocialRelationshipType.BLOCK) {
+      const now = new Date();
+      const pairWhere = {
+        OR: [
+          { requesterUserId: fromUserId, targetUserId: parsed.data.toUserId },
+          { requesterUserId: parsed.data.toUserId, targetUserId: fromUserId }
+        ]
+      };
+      const [friendRequests, familyRequests] = await Promise.all([
+        tx.friendRelationshipRequest.findMany({
+          where: { status: FriendRelationshipRequestStatus.PENDING, ...pairWhere },
+          select: { notificationId: true, alertId: true }
+        }),
+        tx.familyRelationshipRequest.findMany({
+          where: { status: FamilyRelationshipRequestStatus.PENDING, ...pairWhere },
+          select: { notificationId: true, alertId: true }
+        })
+      ]);
+
+      await tx.socialRelationship.deleteMany({
+        where: {
+          type: { not: SocialRelationshipType.BLOCK },
+          OR: [
+            { fromUserId, toUserId: parsed.data.toUserId },
+            { fromUserId: parsed.data.toUserId, toUserId: fromUserId }
+          ]
+        }
+      });
+
+      await tx.friendRelationshipRequest.updateMany({
+        where: { status: FriendRelationshipRequestStatus.PENDING, ...pairWhere },
+        data: { status: FriendRelationshipRequestStatus.CANCELED, respondedAt: now }
+      });
+      await tx.familyRelationshipRequest.updateMany({
+        where: { status: FamilyRelationshipRequestStatus.PENDING, ...pairWhere },
+        data: { status: FamilyRelationshipRequestStatus.CANCELED, respondedAt: now }
+      });
+
+      const notificationIds = [...friendRequests, ...familyRequests]
+        .map((request) => request.notificationId)
+        .filter((id): id is string => Boolean(id));
+      const alertIds = [...friendRequests, ...familyRequests]
+        .map((request) => request.alertId)
+        .filter((id): id is string => Boolean(id));
+
+      if (notificationIds.length > 0) {
+        await tx.notification.deleteMany({ where: { id: { in: notificationIds } } });
+      }
+
+      if (alertIds.length > 0) {
+        await tx.alert.deleteMany({ where: { id: { in: alertIds } } });
+      }
     }
   });
 
@@ -598,7 +912,13 @@ export async function listApprovedFamilyMembers(userId: string): Promise<FamilyM
     prisma.socialRelationship.findMany({
       where: {
         fromUserId: userId,
-        type: SocialRelationshipType.FAMILY
+        fromUser: {
+          is: { deactivatedAt: null }
+        },
+        toUser: {
+          is: unblockedUserWhere(userId)
+        },
+        AND: [relationshipTypeScope(userId, [SocialRelationshipType.FAMILY])]
       },
       include: {
         toUser: {
@@ -629,11 +949,20 @@ export async function listApprovedFamilyMembers(userId: string): Promise<FamilyM
 }
 
 export async function listPeopleCards(userId: string, type?: SocialRelationshipType): Promise<PeopleCardView[]> {
+  const requestedTypes = type ? (PEOPLE_RELATIONSHIP_TYPES.includes(type) ? [type] : []) : PEOPLE_RELATIONSHIP_TYPES;
+  if (requestedTypes.length === 0) return [];
+
   const relationships = await withSocialDbTimeout(
     prisma.socialRelationship.findMany({
       where: {
         fromUserId: userId,
-        type: type ? type : { in: PEOPLE_RELATIONSHIP_TYPES }
+        fromUser: {
+          is: { deactivatedAt: null }
+        },
+        toUser: {
+          is: unblockedUserWhere(userId)
+        },
+        AND: [relationshipTypeScope(userId, requestedTypes)]
       },
       include: {
         toUser: {
@@ -690,34 +1019,19 @@ export async function safeListPeopleCards(userId: string, type?: SocialRelations
 
 export async function browsePeopleCards(userId: string, rawQuery?: string | null): Promise<PeopleCardView[]> {
   const query = rawQuery?.trim() ?? "";
-  const [viewer, blockedRelationships] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true }
-    }),
-    prisma.socialRelationship.findMany({
-      where: {
-        type: SocialRelationshipType.BLOCK,
-        OR: [{ fromUserId: userId }, { toUserId: userId }]
-      },
-      select: {
-        fromUserId: true,
-        toUserId: true
-      }
-    })
-  ]);
-  const blockedUserIds = blockedRelationships.map((relationship) =>
-    relationship.fromUserId === userId ? relationship.toUserId : relationship.fromUserId
-  );
+  const viewer = await prisma.user.findFirst({
+    where: { id: userId, deactivatedAt: null },
+    select: { role: true }
+  });
+
+  if (!viewer) return [];
 
   const people = await withSocialDbTimeout(
     prisma.user.findMany({
       where: {
-        deactivatedAt: null,
-        id: {
-          notIn: [userId, ...blockedUserIds]
-        },
+        id: { not: userId },
         AND: [
+          unblockedUserWhere(userId),
           isAdminRole(viewer?.role)
             ? {}
             : {
@@ -772,7 +1086,8 @@ export async function browsePeopleCards(userId: string, rawQuery?: string | null
       },
       type: {
         in: PEOPLE_RELATIONSHIP_TYPES
-      }
+      },
+      AND: [relationshipTypeScope(userId, PEOPLE_RELATIONSHIP_TYPES)]
     },
     select: {
       toUserId: true,

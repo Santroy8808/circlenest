@@ -2,7 +2,9 @@ import { createHash, randomBytes } from "crypto";
 import { AccountPurpose, AuthSecurityEventType, AuditSeverity, MembershipTier, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
+import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
+import { hashPrivateSignal } from "@/lib/platform/private-signals";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/modules/auth-security/password";
 import {
@@ -22,8 +24,16 @@ import {
 import { recordSessionStart } from "@/modules/platform-activity/platform-activity.service";
 
 const MODULE_KEY = "auth-security";
-const ONE_HOUR_MS = 60 * 60 * 1000;
-const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+const ONE_MINUTE_MS = 60 * 1000;
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * ONE_MINUTE_MS;
+const PASSWORD_RESET_TTL_MS = 20 * ONE_MINUTE_MS;
+const GENERIC_PASSWORD_RESET_RESULT = Object.freeze({
+  ok: true as const,
+  error: undefined,
+  token: undefined
+});
+
+class TokenConsumptionConflict extends Error {}
 
 export function normalizeIdentifier(value: string) {
   return value.trim().toLowerCase();
@@ -41,12 +51,10 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function exposeDevToken() {
-  return process.env.NODE_ENV !== "production" || process.env.AUTH_DEV_EXPOSE_TOKENS === "true";
-}
-
 function publicBaseUrl() {
-  return (process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://theta-space.net").replace(/\/+$/, "");
+  const env = readPlatformEnv();
+  const origin = env.APP_ORIGIN || env.NEXTAUTH_URL || "http://localhost:3000";
+  return new URL(origin).origin;
 }
 
 function verificationEmailText(token: string) {
@@ -57,8 +65,6 @@ function verificationEmailText(token: string) {
     "",
     "Use this link to verify your email address:",
     verificationUrl,
-    "",
-    `Verification token: ${token}`,
     "",
     "If you did not create this account, you can ignore this email."
   ].join("\n");
@@ -74,8 +80,36 @@ async function sendEmailVerificationMessage(email: string, token: string) {
     html: [
       "<p>Welcome to Theta-Space.</p>",
       `<p><a href="${verificationUrl}">Verify your email address</a></p>`,
-      `<p><strong>Verification token:</strong> ${token}</p>`,
       "<p>If you did not create this account, you can ignore this email.</p>"
+    ].join("")
+  });
+}
+
+function passwordResetEmailText(token: string) {
+  const resetUrl = `${publicBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+  return [
+    "A password reset was requested for your Theta-Space account.",
+    "",
+    "Use this link within 20 minutes to choose a new password:",
+    resetUrl,
+    "",
+    "If you did not request this, you can ignore this email. Your password has not changed."
+  ].join("\n");
+}
+
+async function sendPasswordResetMessage(email: string, token: string) {
+  const resetUrl = `${publicBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+  await sendSmtpMail({
+    to: email,
+    subject: "Reset your Theta-Space password",
+    text: passwordResetEmailText(token),
+    html: [
+      "<p>A password reset was requested for your Theta-Space account.</p>",
+      `<p><a href="${resetUrl}">Choose a new password</a></p>`,
+      "<p>This link expires in 20 minutes.</p>",
+      "<p>If you did not request this, you can ignore this email. Your password has not changed.</p>"
     ].join("")
   });
 }
@@ -93,8 +127,8 @@ async function recordSecurityEvent(input: {
         type: input.type,
         userId: input.userId,
         identifier: input.identifier,
-        ipAddress: input.context?.ipAddress,
-        userAgent: input.context?.userAgent,
+        ipAddress: hashPrivateSignal(input.context?.ipAddress, "auth-security:ip"),
+        userAgent: hashPrivateSignal(input.context?.userAgent, "auth-security:user-agent"),
         metadata: input.metadata as Prisma.InputJsonObject | undefined
       }
     });
@@ -303,27 +337,25 @@ export async function createMemberAccount(
     });
 
     let verificationEmailSent = false;
-    let verificationEmailError: string | undefined;
 
     if (!options.preverified) {
-      const token = await createEmailVerificationToken(user.id, user.email, options.context);
-
-      if (token) {
-        try {
-          await sendEmailVerificationMessage(user.email, token);
-          verificationEmailSent = true;
-        } catch (error) {
-          verificationEmailError = error instanceof Error ? error.message : "Could not send verification email.";
-          await diagnostics.warn(MODULE_KEY, "Email verification SMTP send failed.", {
-            userId: user.id,
-            email: user.email,
-            error: verificationEmailError
-          });
-        }
+      try {
+        await issueAndSendEmailVerification(user.id, user.email, options.context);
+        verificationEmailSent = true;
+      } catch (error) {
+        await diagnostics.warn(MODULE_KEY, "Email verification delivery failed.", {
+          userId: user.id,
+          error: error instanceof Error ? error.message : "unknown"
+        });
       }
     }
 
-    return { ok: true as const, user: toAuthenticatedUser(user), verificationEmailSent, verificationEmailError };
+    return {
+      ok: true as const,
+      user: toAuthenticatedUser(user),
+      verificationEmailSent,
+      verificationEmailError: undefined
+    };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false as const, error: "That email or username is already in use." };
@@ -341,16 +373,25 @@ export async function createMemberAccount(
   }
 }
 
-export async function createEmailVerificationToken(userId: string, email: string, context?: RequestContext) {
+async function issueAndSendEmailVerification(userId: string, email: string, context?: RequestContext) {
   const token = createToken();
+  const issuedAt = new Date();
 
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId,
-      email: normalizeIdentifier(email),
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + ONE_DAY_MS)
-    }
+  const tokenRecord = await prisma.$transaction(async (tx) => {
+    await tx.emailVerificationToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: issuedAt }
+    });
+
+    return tx.emailVerificationToken.create({
+      data: {
+        userId,
+        email: normalizeIdentifier(email),
+        tokenHash: hashToken(token),
+        expiresAt: new Date(issuedAt.getTime() + EMAIL_VERIFICATION_TTL_MS)
+      },
+      select: { id: true }
+    });
   });
 
   await recordSecurityEvent({
@@ -360,7 +401,22 @@ export async function createEmailVerificationToken(userId: string, email: string
     context
   });
 
-  return token;
+  try {
+    await sendEmailVerificationMessage(email, token);
+  } catch (error) {
+    await prisma.emailVerificationToken
+      .updateMany({
+        where: { id: tokenRecord.id, usedAt: null },
+        data: { usedAt: new Date() }
+      })
+      .catch((invalidationError) =>
+        diagnostics.error(MODULE_KEY, "Could not invalidate an undelivered verification token.", {
+          userId,
+          error: invalidationError instanceof Error ? invalidationError.message : "unknown"
+        })
+      );
+    throw error;
+  }
 }
 
 export async function verifyEmailToken(input: unknown, context?: RequestContext) {
@@ -370,28 +426,67 @@ export async function verifyEmailToken(input: unknown, context?: RequestContext)
     return { ok: false as const, error: "Invalid verification token." };
   }
 
-  const tokenRecord = await prisma.emailVerificationToken.findFirst({
-    where: {
-      tokenHash: hashToken(parsed.data.token),
-      usedAt: null,
-      expiresAt: { gt: new Date() }
+  const now = new Date();
+  let tokenRecord: { id: string; userId: string; email: string } | null;
+
+  try {
+    tokenRecord = await prisma.$transaction(async (tx) => {
+      const record = await tx.emailVerificationToken.findUnique({
+        where: { tokenHash: hashToken(parsed.data.token) }
+      });
+
+      if (!record || record.usedAt || record.expiresAt <= now) {
+        return null;
+      }
+
+      const consumed = await tx.emailVerificationToken.updateMany({
+        where: {
+          id: record.id,
+          usedAt: null,
+          expiresAt: { gt: now }
+        },
+        data: { usedAt: now }
+      });
+
+      if (consumed.count !== 1) {
+        return null;
+      }
+
+      const verified = await tx.user.updateMany({
+        where: {
+          id: record.userId,
+          email: normalizeIdentifier(record.email),
+          deactivatedAt: null
+        },
+        data: { emailVerified: now }
+      });
+
+      if (verified.count !== 1) {
+        throw new TokenConsumptionConflict();
+      }
+
+      await tx.emailVerificationToken.updateMany({
+        where: {
+          userId: record.userId,
+          id: { not: record.id },
+          usedAt: null
+        },
+        data: { usedAt: now }
+      });
+
+      return { id: record.id, userId: record.userId, email: record.email };
+    });
+  } catch (error) {
+    if (error instanceof TokenConsumptionConflict) {
+      tokenRecord = null;
+    } else {
+      throw error;
     }
-  });
+  }
 
   if (!tokenRecord) {
     return { ok: false as const, error: "Verification token is invalid or expired." };
   }
-
-  await prisma.$transaction([
-    prisma.emailVerificationToken.update({
-      where: { id: tokenRecord.id },
-      data: { usedAt: new Date() }
-    }),
-    prisma.user.update({
-      where: { id: tokenRecord.userId },
-      data: { emailVerified: new Date() }
-    })
-  ]);
 
   await recordSecurityEvent({
     type: AuthSecurityEventType.EMAIL_VERIFIED,
@@ -407,46 +502,95 @@ export async function requestPasswordReset(input: unknown, context?: RequestCont
   const parsed = passwordResetRequestSchema.safeParse(input);
 
   if (!parsed.success) {
-    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid request." };
+    await recordSecurityEvent({
+      type: AuthSecurityEventType.PASSWORD_RESET_REQUESTED,
+      identifier: "invalid-reset-request",
+      context,
+      metadata: { matched: false }
+    });
+    return GENERIC_PASSWORD_RESET_RESULT;
   }
 
   const identifier = normalizeIdentifier(parsed.data.identifier);
   const username = normalizeUsername(parsed.data.identifier);
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [{ email: identifier }, { username }]
-    }
-  });
 
-  if (!user || user.deactivatedAt) {
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { username }]
+      },
+      select: {
+        id: true,
+        email: true,
+        deactivatedAt: true
+      }
+    });
+
+    if (!user || user.deactivatedAt) {
+      await recordSecurityEvent({
+        type: AuthSecurityEventType.PASSWORD_RESET_REQUESTED,
+        identifier,
+        context,
+        metadata: { matched: false }
+      });
+      return GENERIC_PASSWORD_RESET_RESULT;
+    }
+
+    const token = createToken();
+    const issuedAt = new Date();
+    const tokenRecord = await prisma.$transaction(async (tx) => {
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: issuedAt }
+      });
+
+      return tx.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashToken(token),
+          expiresAt: new Date(issuedAt.getTime() + PASSWORD_RESET_TTL_MS)
+        },
+        select: { id: true }
+      });
+    });
+
+    let delivered = false;
+
+    try {
+      await sendPasswordResetMessage(user.email, token);
+      delivered = true;
+    } catch (error) {
+      await prisma.passwordResetToken
+        .updateMany({
+          where: { id: tokenRecord.id, usedAt: null },
+          data: { usedAt: new Date() }
+        })
+        .catch((invalidationError) =>
+          diagnostics.error(MODULE_KEY, "Could not invalidate an undelivered password reset token.", {
+            userId: user.id,
+            error: invalidationError instanceof Error ? invalidationError.message : "unknown"
+          })
+        );
+      await diagnostics.warn(MODULE_KEY, "Password reset email delivery failed.", {
+        userId: user.id,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+    }
+
     await recordSecurityEvent({
       type: AuthSecurityEventType.PASSWORD_RESET_REQUESTED,
+      userId: user.id,
       identifier,
       context,
-      metadata: { matched: false }
+      metadata: { matched: true, delivered }
     });
-    return { ok: true as const };
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Password reset request processing failed.", {
+      error: error instanceof Error ? error.message : "unknown"
+    });
   }
 
-  const token = createToken();
-
-  await prisma.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + ONE_HOUR_MS)
-    }
-  });
-
-  await recordSecurityEvent({
-    type: AuthSecurityEventType.PASSWORD_RESET_REQUESTED,
-    userId: user.id,
-    identifier,
-    context,
-    metadata: { matched: true }
-  });
-
-  return { ok: true as const, token: exposeDevToken() ? token : undefined };
+  return GENERIC_PASSWORD_RESET_RESULT;
 }
 
 export async function confirmPasswordReset(input: unknown, context?: RequestContext) {
@@ -462,32 +606,73 @@ export async function confirmPasswordReset(input: unknown, context?: RequestCont
     return { ok: false as const, error: passwordPolicy.issues.join(" ") };
   }
 
-  const resetToken = await prisma.passwordResetToken.findFirst({
-    where: {
-      tokenHash: hashToken(parsed.data.token),
-      usedAt: null,
-      expiresAt: { gt: new Date() }
+  const passwordHash = await hashPassword(parsed.data.password);
+  const now = new Date();
+  let resetToken: { userId: string } | null;
+
+  try {
+    resetToken = await prisma.$transaction(async (tx) => {
+      const record = await tx.passwordResetToken.findUnique({
+        where: { tokenHash: hashToken(parsed.data.token) }
+      });
+
+      if (!record || record.usedAt || record.expiresAt <= now) {
+        return null;
+      }
+
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: {
+          id: record.id,
+          usedAt: null,
+          expiresAt: { gt: now }
+        },
+        data: { usedAt: now }
+      });
+
+      if (consumed.count !== 1) {
+        return null;
+      }
+
+      const passwordUpdated = await tx.user.updateMany({
+        where: {
+          id: record.userId,
+          deactivatedAt: null
+        },
+        data: {
+          passwordHash,
+          lastPasswordChangedAt: now,
+          failedLoginCount: 0,
+          sessionVersion: { increment: 1 },
+          sessionsRevokedAt: now
+        }
+      });
+
+      if (passwordUpdated.count !== 1) {
+        throw new TokenConsumptionConflict();
+      }
+
+      await tx.passwordResetToken.updateMany({
+        where: {
+          userId: record.userId,
+          id: { not: record.id },
+          usedAt: null
+        },
+        data: { usedAt: now }
+      });
+
+      return { userId: record.userId };
+    });
+  } catch (error) {
+    if (error instanceof TokenConsumptionConflict) {
+      resetToken = null;
+    } else {
+      throw error;
     }
-  });
+  }
 
   if (!resetToken) {
     return { ok: false as const, error: "Reset token is invalid or expired." };
   }
-
-  await prisma.$transaction([
-    prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { usedAt: new Date() }
-    }),
-    prisma.user.update({
-      where: { id: resetToken.userId },
-      data: {
-        passwordHash: await hashPassword(parsed.data.password),
-        lastPasswordChangedAt: new Date(),
-        sessionVersion: { increment: 1 }
-      }
-    })
-  ]);
 
   await recordSecurityEvent({
     type: AuthSecurityEventType.PASSWORD_RESET_COMPLETED,

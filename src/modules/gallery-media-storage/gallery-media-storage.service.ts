@@ -3,6 +3,7 @@ import { FeedReactionType, MediaAssetStatus, MediaCollectionType, MediaVisibilit
 import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { canAccessMedia, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
 import {
   completeUploadSchema,
   createGalleryAssetCommentSchema,
@@ -148,9 +149,12 @@ function toGalleryAssetView(
   }>
 ): GalleryAssetView {
   const metadata = asset.metadata as GalleryAssetMetadata | null;
-  const publicUrl = asset.publicUrl ?? getR2PublicUrl(asset.storageKey);
-  const thumbnailUrl =
-    metadata?.thumbnailUrl ?? (metadata?.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null);
+  const authorizedDeliveryUrl = mediaAssetDeliveryPath(asset.id);
+  const publiclyDeliverable = asset.visibility === MediaVisibility.PUBLIC;
+  const publicUrl = publiclyDeliverable ? asset.publicUrl ?? getR2PublicUrl(asset.storageKey) : authorizedDeliveryUrl;
+  const thumbnailUrl = publiclyDeliverable
+    ? metadata?.thumbnailUrl ?? (metadata?.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null)
+    : authorizedDeliveryUrl;
   const collections = asset.collections.map((item) => ({
     name: item.collection.name,
     type: item.collection.type
@@ -206,7 +210,10 @@ function toGalleryAssetCommentView(
 }
 
 function canViewAsset(userId: string, asset: { ownerUserId: string; visibility: MediaVisibility }) {
-  return asset.ownerUserId === userId || asset.visibility === MediaVisibility.MEMBERS || asset.visibility === MediaVisibility.PUBLIC;
+  return canAccessMedia({
+    viewerUserId: userId,
+    asset
+  });
 }
 
 function canCommentOnAsset(userId: string, asset: { ownerUserId: string; visibility: MediaVisibility; metadata: Prisma.JsonValue | null }) {
@@ -293,14 +300,15 @@ export async function createGalleryUploadIntent(userId: string, input: unknown) 
     const uploadUrl = await createPresignedR2PutUrl({
       storageKey,
       mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes
+      sizeBytes: parsed.data.sizeBytes,
+      access: parsed.data.visibility === MediaVisibility.PUBLIC ? "public" : "private"
     });
 
     return {
       ok: true as const,
       uploadUrl,
       storageKey,
-      publicUrl: getR2PublicUrl(storageKey),
+      publicUrl: parsed.data.visibility === MediaVisibility.PUBLIC ? getR2PublicUrl(storageKey) : null,
       expiresInSeconds: 300
     };
   } catch (error) {
@@ -333,6 +341,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     storageKey: parsed.data.storageKey,
     expectedMimeType: parsed.data.mimeType,
     expectedSizeBytes: parsed.data.sizeBytes,
+    access: parsed.data.visibility === MediaVisibility.PUBLIC ? "public" : "private",
     label: "Photo upload"
   });
 
@@ -344,6 +353,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     const uploadedThumbnail = await verifyR2Object({
       storageKey: parsed.data.thumbnailStorageKey,
       expectedMimeType: "image/jpeg",
+      access: parsed.data.visibility === MediaVisibility.PUBLIC ? "public" : "private",
       label: "Photo thumbnail upload"
     });
 
@@ -352,8 +362,9 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     }
   }
 
-  const publicUrl = getR2PublicUrl(parsed.data.storageKey);
-  const thumbnailUrl = parsed.data.thumbnailStorageKey ? getR2PublicUrl(parsed.data.thumbnailStorageKey) : null;
+  const publiclyDeliverable = parsed.data.visibility === MediaVisibility.PUBLIC;
+  const publicUrl = publiclyDeliverable ? getR2PublicUrl(parsed.data.storageKey) : null;
+  const thumbnailUrl = publiclyDeliverable && parsed.data.thumbnailStorageKey ? getR2PublicUrl(parsed.data.thumbnailStorageKey) : null;
   const systemSource = parsed.data.source !== "GALLERY";
   const metadata = {
     caption: parsed.data.caption || null,
@@ -711,7 +722,8 @@ export async function deleteGalleryAssets(userId: string, input: unknown) {
     select: {
       id: true,
       storageKey: true,
-      metadata: true
+      metadata: true,
+      visibility: true
     }
   });
 
@@ -734,7 +746,11 @@ export async function deleteGalleryAssets(userId: string, input: unknown) {
       const storageKeys = [asset.storageKey, metadata?.thumbnailStorageKey].filter((key): key is string => Boolean(key));
 
       try {
-        await Promise.all(storageKeys.map((storageKey) => deleteR2Object(storageKey)));
+        await Promise.all(
+          storageKeys.map((storageKey) =>
+            deleteR2Object(storageKey, asset.visibility === MediaVisibility.PUBLIC ? "public" : "private")
+          )
+        );
       } catch (error) {
         await diagnostics.error(MODULE_KEY, "Gallery object deletion failed after database delete.", {
           userId,

@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import { readPlatformEnv } from "@/lib/platform/env";
 
 type SendSmtpMailInput = {
@@ -7,6 +7,8 @@ type SendSmtpMailInput = {
   text: string;
   html?: string;
 };
+
+let smtpTransporter: Transporter | null = null;
 
 function requireSmtpEnv() {
   const env = readPlatformEnv();
@@ -20,23 +22,28 @@ function requireSmtpEnv() {
 
 export async function sendSmtpMail(input: SendSmtpMailInput) {
   const env = requireSmtpEnv();
-  const transporter = nodemailer.createTransport({
+  const transporter = smtpTransporter ?? nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_SECURE === "true",
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 50,
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 30000,
-    ignoreTLS: env.SMTP_IGNORE_TLS === "true",
+    ignoreTLS: false,
     requireTLS: env.SMTP_SECURE !== "true",
     tls: {
-      servername: env.SMTP_HOST
+      servername: env.SMTP_HOST,
+      minVersion: "TLSv1.2"
     },
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS
     }
   });
+  smtpTransporter = transporter;
 
   return transporter.sendMail({
     from: env.SMTP_FROM,

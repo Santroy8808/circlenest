@@ -43,9 +43,7 @@ export const updateResumeSchema = z.object({
   achievements: stringList,
   additionalNotes: optionalText,
   includeScientology: z.boolean().default(false),
-  visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS),
-  uploadedResumeUrl: urlText,
-  uploadedResumeName: shortText
+  visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS)
 });
 
 const resumeUploadBaseSchema = z.object({
@@ -69,5 +67,7 @@ export type ResumeUploadIntentInput = z.infer<typeof createResumeUploadIntentSch
 
 export type ResumeView = ResumeUpdateInput & {
   id: string;
+  uploadedResumeUrl: string;
+  uploadedResumeName: string;
   updatedAt: string;
 };

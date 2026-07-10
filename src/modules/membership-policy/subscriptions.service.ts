@@ -1,10 +1,24 @@
-import { MembershipSubscriptionStatus, MembershipTier, Prisma, StripeCheckoutKind } from "@prisma/client";
+import {
+  BillingCheckoutIntentStatus,
+  MembershipSubscriptionStatus,
+  MembershipTier,
+  Prisma,
+  StripeCheckoutKind
+} from "@prisma/client";
 import type Stripe from "stripe";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { getStripeClient, getStripeRuntimeConfig, getStripeWebhookSecret } from "@/lib/platform/stripe";
 import { fulfillCreditCheckoutSession } from "@/modules/billing/stripe-credit-checkout.service";
+import {
+  attachCheckoutSession,
+  completeCheckoutIntent,
+  getOrCreateCheckoutIntent,
+  resolveCheckoutOrigin,
+  reusableCheckoutSessionUrl
+} from "@/modules/billing/checkout-intents.service";
+import { processStripeWebhookEventOnce } from "@/modules/billing/stripe-webhook-events.service";
 import { getTierPolicy } from "@/modules/membership-policy/policy";
 import { ensureLaunchDefaults, stripePriceIdForTier } from "@/modules/membership-policy/launch-access.service";
 import { getPublicPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
@@ -114,6 +128,7 @@ export async function createSubscriptionCheckoutSession(input: {
   userId: string;
   targetTier: MembershipTier;
   origin: string;
+  idempotencyKey?: string;
 }) {
   if (input.targetTier === MembershipTier.FREE) {
     return { ok: false as const, error: "Free tier does not require checkout." };
@@ -161,6 +176,50 @@ export async function createSubscriptionCheckoutSession(input: {
   }
 
   const stripe = await getStripeClient();
+  if (membership.stripeSubscriptionId && membership.subscriptionStatus !== MembershipSubscriptionStatus.CANCELED) {
+    return { ok: false as const, error: "This account already has a Stripe subscription. Manage that subscription before starting another." };
+  }
+
+  const intentResult = await getOrCreateCheckoutIntent({
+    userId: user.id,
+    idempotencyKey: input.idempotencyKey,
+    kind: StripeCheckoutKind.SUBSCRIPTION,
+    targetTier: input.targetTier,
+    stripePriceIdSnapshot: targetPlan.stripePriceId,
+    amountCentsSnapshot: targetPlan.standardPriceCents,
+    currencySnapshot: stripeConfig.currency
+  });
+
+  if (!intentResult.ok) return intentResult;
+
+  const canonicalIntent = await prisma.billingCheckoutIntent.findFirst({
+    where: {
+      userId: user.id,
+      kind: StripeCheckoutKind.SUBSCRIPTION,
+      status: { in: [BillingCheckoutIntentStatus.PENDING, BillingCheckoutIntentStatus.SESSION_CREATED] },
+      expiresAt: { gt: new Date() }
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }]
+  });
+
+  if (canonicalIntent && canonicalIntent.id !== intentResult.intent.id) {
+    await prisma.billingCheckoutIntent.updateMany({
+      where: { id: intentResult.intent.id, status: BillingCheckoutIntentStatus.PENDING },
+      data: { status: BillingCheckoutIntentStatus.CANCELED, canceledAt: new Date() }
+    });
+
+    if (canonicalIntent.targetTier !== input.targetTier) {
+      return { ok: false as const, error: "Another subscription checkout is already in progress." };
+    }
+
+    const canonicalUrl = await reusableCheckoutSessionUrl(canonicalIntent, stripe);
+    if (canonicalUrl) return { ok: true as const, url: canonicalUrl, reused: true };
+    return { ok: false as const, error: "A subscription checkout is already being prepared. Try again shortly." };
+  }
+
+  const reusableUrl = await reusableCheckoutSessionUrl(intentResult.intent, stripe);
+  if (reusableUrl) return { ok: true as const, url: reusableUrl, reused: true };
+
   const customerId =
     membership.stripeCustomerId ??
     (
@@ -170,6 +229,8 @@ export async function createSubscriptionCheckoutSession(input: {
         metadata: {
           userId: user.id
         }
+      }, {
+        idempotencyKey: `theta-customer-${user.id}`
       })
     ).id;
 
@@ -182,24 +243,34 @@ export async function createSubscriptionCheckoutSession(input: {
     });
   }
 
-  const origin = new URL(input.origin).origin;
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: targetPlan.stripePriceId, quantity: 1 }],
-    success_url: `${origin}/settings/subscription?checkout=success`,
-    cancel_url: `${origin}/settings/subscription?checkout=cancel`,
-    metadata: {
-      userId: user.id,
-      targetTier: input.targetTier
-    },
-    subscription_data: {
+  const origin = resolveCheckoutOrigin(input.origin);
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: intentResult.intent.stripePriceIdSnapshot, quantity: 1 }],
+      success_url: `${origin}/settings/subscription?checkout=success`,
+      cancel_url: `${origin}/settings/subscription?checkout=cancel`,
       metadata: {
+        checkoutIntentId: intentResult.intent.id,
+        checkoutKind: StripeCheckoutKind.SUBSCRIPTION,
         userId: user.id,
         targetTier: input.targetTier
+      },
+      subscription_data: {
+        metadata: {
+          checkoutIntentId: intentResult.intent.id,
+          userId: user.id,
+          targetTier: input.targetTier
+        }
       }
+    },
+    {
+      idempotencyKey: intentResult.stripeIdempotencyKey
     }
-  });
+  );
+
+  await attachCheckoutSession(intentResult.intent.id, session);
 
   await diagnostics.info(MODULE_KEY, "Stripe checkout session created.", {
     userId: user.id,
@@ -215,46 +286,61 @@ async function applyStripeSubscription(input: {
   targetTier: MembershipTier;
   stripeCustomerId: string | null;
   subscription: Stripe.Subscription;
+  checkoutIntentId?: string;
 }) {
   const status = statusFromStripe(input.subscription.status);
   const targetPolicy = getTierPolicy(input.targetTier);
   const activeTier = canActivateStatus(status) ? input.targetTier : MembershipTier.FREE;
   const activePolicy = getTierPolicy(activeTier);
 
-  const membership = await prisma.membership.upsert({
-    where: { userId: input.userId },
-    update: {
-      tier: activeTier,
-      storageLimitBytes: BigInt(activePolicy.limits.storageLimitBytes),
-      stripeCustomerId: input.stripeCustomerId,
-      stripeSubscriptionId: input.subscription.id,
-      subscriptionStatus: status,
-      subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
-      subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
-    },
-    create: {
-      userId: input.userId,
-      tier: activeTier,
-      storageLimitBytes: BigInt(activePolicy.limits.storageLimitBytes),
-      stripeCustomerId: input.stripeCustomerId,
-      stripeSubscriptionId: input.subscription.id,
-      subscriptionStatus: status,
-      subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
-      subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
-    }
-  });
-
-  if (input.targetTier === MembershipTier.ORG && canActivateStatus(status)) {
-    await prisma.membershipTierUpgradeEligibility.updateMany({
-      where: {
-        userId: input.userId,
-        tier: MembershipTier.ORG
+  const membership = await prisma.$transaction(async (tx) => {
+    const updatedMembership = await tx.membership.upsert({
+      where: { userId: input.userId },
+      update: {
+        tier: activeTier,
+        storageLimitBytes: BigInt(activePolicy.limits.storageLimitBytes),
+        stripeCustomerId: input.stripeCustomerId,
+        stripeSubscriptionId: input.subscription.id,
+        subscriptionStatus: status,
+        subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
+        subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
       },
-      data: {
-        active: false
+      create: {
+        userId: input.userId,
+        tier: activeTier,
+        storageLimitBytes: BigInt(activePolicy.limits.storageLimitBytes),
+        stripeCustomerId: input.stripeCustomerId,
+        stripeSubscriptionId: input.subscription.id,
+        subscriptionStatus: status,
+        subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
+        subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
       }
     });
-  }
+
+    if (input.targetTier === MembershipTier.ORG && canActivateStatus(status)) {
+      await tx.membershipTierUpgradeEligibility.updateMany({
+        where: {
+          userId: input.userId,
+          tier: MembershipTier.ORG
+        },
+        data: {
+          active: false
+        }
+      });
+    }
+
+    if (input.checkoutIntentId) {
+      const completed = await completeCheckoutIntent(tx, input.checkoutIntentId, input.subscription.id);
+      if (!completed) {
+        const intent = await tx.billingCheckoutIntent.findUnique({ where: { id: input.checkoutIntentId } });
+        if (intent?.status !== BillingCheckoutIntentStatus.COMPLETED) {
+          throw new Error("Subscription checkout intent could not be completed atomically.");
+        }
+      }
+    }
+
+    return updatedMembership;
+  });
 
   await writeAuditLog({
     module: MODULE_KEY,
@@ -306,42 +392,118 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
   const stripe = await getStripeClient();
   const event = stripe.webhooks.constructEvent(rawBody, signature, await getStripeWebhookSecret());
 
-  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    if (session.metadata?.checkoutKind === StripeCheckoutKind.CREDIT_PURCHASE) {
-      const result = await fulfillCreditCheckoutSession(session);
-      return result.ok ? { ok: true as const, eventType: event.type } : result;
+  const processing = await processStripeWebhookEventOnce(event, async () => {
+    if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const intent = session.metadata?.checkoutIntentId
+        ? await prisma.billingCheckoutIntent.findUnique({ where: { id: session.metadata.checkoutIntentId } })
+        : await prisma.billingCheckoutIntent.findUnique({ where: { stripeCheckoutSessionId: session.id } });
+
+      if (intent) {
+        const failed = event.type === "checkout.session.async_payment_failed";
+        await prisma.billingCheckoutIntent.updateMany({
+          where: {
+            id: intent.id,
+            status: { in: [BillingCheckoutIntentStatus.PENDING, BillingCheckoutIntentStatus.SESSION_CREATED] }
+          },
+          data: failed
+            ? {
+                status: BillingCheckoutIntentStatus.FAILED,
+                failedAt: new Date(),
+                errorMessage: "Stripe reported that asynchronous payment failed."
+              }
+            : {
+                status: BillingCheckoutIntentStatus.EXPIRED
+              }
+        });
+      }
+      return;
     }
 
-    const userId = session.metadata?.userId;
-    const targetTier = Object.values(MembershipTier).find((tier) => tier === session.metadata?.targetTier);
-    const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.checkoutKind === StripeCheckoutKind.CREDIT_PURCHASE) {
+        const result = await fulfillCreditCheckoutSession(session);
+        if (!result.ok) throw new Error(result.error);
+        return;
+      }
 
-    if (userId && targetTier && subscriptionId) {
+      const checkoutIntentId = session.metadata?.checkoutIntentId;
+      const intent = checkoutIntentId
+        ? await prisma.billingCheckoutIntent.findUnique({ where: { id: checkoutIntentId } })
+        : null;
+      const legacyUserId = session.metadata?.userId;
+      const legacyTargetTier = Object.values(MembershipTier).find((tier) => tier === session.metadata?.targetTier);
+      const userId = intent?.userId ?? legacyUserId;
+      const targetTier = intent?.targetTier ?? legacyTargetTier;
+      const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+
+      if (!userId || !targetTier || !subscriptionId) {
+        throw new Error("Stripe subscription checkout is missing server identity data.");
+      }
+
+      if (intent) {
+        if (
+          intent.kind !== StripeCheckoutKind.SUBSCRIPTION ||
+          intent.stripeCheckoutSessionId !== session.id ||
+          intent.targetTier !== targetTier ||
+          session.amount_total !== intent.amountCentsSnapshot ||
+          session.currency?.toUpperCase() !== intent.currencySnapshot
+        ) {
+          throw new Error("Stripe subscription checkout does not match its server intent.");
+        }
+      }
+
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       await applyStripeSubscription({
         userId,
         targetTier,
         stripeCustomerId: typeof session.customer === "string" ? session.customer : session.customer?.id ?? null,
-        subscription
+        subscription,
+        checkoutIntentId: intent?.id
       });
     }
-  }
 
-  if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
-    const userId = await userIdForSubscription(subscription);
-    const targetTier = await tierForSubscription(subscription);
+    if (
+      event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted"
+    ) {
+      const subscription = event.data.object as Stripe.Subscription;
+      const userId = await userIdForSubscription(subscription);
+      const targetTier = await tierForSubscription(subscription);
 
-    if (userId) {
+      if (!userId) throw new Error("Stripe subscription event could not be matched to a user.");
+
+      const checkoutIntentId = subscription.metadata?.checkoutIntentId;
+      if (checkoutIntentId) {
+        const intent = await prisma.billingCheckoutIntent.findUnique({ where: { id: checkoutIntentId } });
+        if (
+          !intent ||
+          intent.kind !== StripeCheckoutKind.SUBSCRIPTION ||
+          intent.userId !== userId ||
+          intent.targetTier !== targetTier ||
+          !subscription.items.data.some((item) => item.price.id === intent.stripePriceIdSnapshot)
+        ) {
+          throw new Error("Stripe subscription does not match its server checkout intent.");
+        }
+      }
+
       await applyStripeSubscription({
         userId,
         targetTier,
         stripeCustomerId: typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id ?? null,
-        subscription
+        subscription,
+        checkoutIntentId
       });
     }
-  }
+  });
 
-  return { ok: true as const, eventType: event.type };
+  return {
+    ok: true as const,
+    eventType: event.type,
+    duplicate: "duplicate" in processing ? processing.duplicate : false,
+    inProgress: "inProgress" in processing ? processing.inProgress : false,
+    outOfOrder: "outOfOrder" in processing ? processing.outOfOrder : false
+  };
 }

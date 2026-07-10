@@ -1,4 +1,4 @@
-import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, ProfileVisibility, ScientologyVisibility, SocialRelationshipType } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, MediaAssetStatus, ProfileVisibility, ScientologyVisibility, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { setProfileMediaSchema, updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
@@ -6,9 +6,6 @@ import { listApprovedFamilyMembers } from "@/modules/social-graph/social-graph.s
 
 const MODULE_KEY = "profile-identity";
 const PROFILE_DB_TIMEOUT_MS = 2500;
-type ProfileMediaMetadata = {
-  thumbnailUrl?: string | null;
-};
 
 function withProfileDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -197,8 +194,6 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       tagline: parsed.data.tagline || null,
       bio: parsed.data.bio || null,
       location: parsed.data.location || null,
-      avatarUrl: parsed.data.avatarUrl || null,
-      bannerUrl: parsed.data.bannerUrl || null,
       visibility: parsed.data.visibility,
       allowProfilePosts: parsed.data.allowProfilePosts
     },
@@ -208,8 +203,6 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       tagline: parsed.data.tagline || null,
       bio: parsed.data.bio || null,
       location: parsed.data.location || null,
-      avatarUrl: parsed.data.avatarUrl || null,
-      bannerUrl: parsed.data.bannerUrl || null,
       visibility: parsed.data.visibility,
       allowProfilePosts: parsed.data.allowProfilePosts
     }
@@ -239,12 +232,11 @@ export async function setProfileMediaFromGallery(userId: string, input: unknown)
       where: {
         id: parsed.data.mediaAssetId,
         ownerUserId: userId,
-        mimeType: { startsWith: "image/" }
+        status: MediaAssetStatus.READY,
+        mimeType: { in: ["image/jpeg", "image/png", "image/webp"] }
       },
       select: {
-        id: true,
-        publicUrl: true,
-        metadata: true
+        id: true
       }
     })
   ]);
@@ -257,9 +249,7 @@ export async function setProfileMediaFromGallery(userId: string, input: unknown)
     return { ok: false as const, error: "That photo was not found in My Pics." };
   }
 
-  const metadata = asset.metadata as ProfileMediaMetadata | null;
-  const originalUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
-  const mediaUrl = parsed.data.target === "avatar" ? metadata?.thumbnailUrl ?? originalUrl : originalUrl;
+  const mediaUrl = `/api/media/assets/${asset.id}`;
   const profile = await prisma.profile.upsert({
     where: { userId },
     update: parsed.data.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },

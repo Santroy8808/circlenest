@@ -1,15 +1,14 @@
-import { createHash } from "crypto";
 import { PlatformActivityEventType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { hashPrivateSignal } from "@/lib/platform/private-signals";
 import { recordPlatformActivitySchema, type PlatformActivitySummary } from "@/modules/platform-activity/types";
 
 const MODULE_KEY = "platform-activity";
 const ACTIVITY_SCORE_HALF_LIFE_DAYS = 14;
 
-function hashSignal(value?: string | null) {
-  if (!value) return null;
-  return createHash("sha256").update(value).digest("hex").slice(0, 32);
+function hashSignal(value: string | null | undefined, domain: "ip" | "user-agent") {
+  return hashPrivateSignal(value, `platform-activity:${domain}`)?.slice(0, 32) ?? null;
 }
 
 function trimRoute(route?: string) {
@@ -112,8 +111,8 @@ export async function recordPlatformActivity(input: {
       targetType: data.targetType || null,
       targetId: data.targetId || null,
       metadata,
-      ipHash: hashSignal(input.ipAddress),
-      userAgentHash: hashSignal(input.userAgent)
+      ipHash: hashSignal(input.ipAddress, "ip"),
+      userAgentHash: hashSignal(input.userAgent, "user-agent")
     }
   });
   await updateUserApplicationUsageMetric({
@@ -137,8 +136,8 @@ export async function recordSessionStart(input: {
       eventType: PlatformActivityEventType.SESSION_START,
       module: "auth-security",
       action: "login",
-      ipHash: hashSignal(input.ipAddress),
-      userAgentHash: hashSignal(input.userAgent)
+      ipHash: hashSignal(input.ipAddress, "ip"),
+      userAgentHash: hashSignal(input.userAgent, "user-agent")
     }
   });
 }

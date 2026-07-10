@@ -4,7 +4,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { verifyPassword } from "@/modules/auth-security/password";
-import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, deleteR2Object, verifyR2Object } from "@/lib/platform/r2";
 import {
   completeGroupAssetUploadSchema,
   createGroupAssetCommentSchema,
@@ -151,7 +151,7 @@ async function hardDeleteGroupAssets(groupAssetIds: string[]) {
     assets.map(async (asset) => {
       const metadata = asset.mediaAsset.metadata as { thumbnailStorageKey?: string | null } | null;
       const storageKeys = [asset.mediaAsset.storageKey, metadata?.thumbnailStorageKey].filter((key): key is string => Boolean(key));
-      await Promise.all(storageKeys.map((storageKey) => deleteR2Object(storageKey).catch(() => null)));
+      await Promise.all(storageKeys.map((storageKey) => deleteR2Object(storageKey, "private").catch(() => null)));
     })
   );
 
@@ -348,14 +348,15 @@ export async function createGroupAssetUploadIntent(viewerUserId: string, groupId
     const uploadUrl = await createPresignedR2PutUrl({
       storageKey,
       mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes
+      sizeBytes: parsed.data.sizeBytes,
+      access: "private"
     });
 
     return {
       ok: true as const,
       uploadUrl,
       storageKey,
-      publicUrl: getR2PublicUrl(storageKey),
+      publicUrl: null,
       expiresInSeconds: 300
     };
   } catch (error) {
@@ -407,6 +408,7 @@ export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSl
     storageKey: parsed.data.storageKey,
     expectedMimeType: parsed.data.mimeType,
     expectedSizeBytes: parsed.data.sizeBytes,
+    access: "private",
     label: "Group media upload"
   });
 
@@ -418,11 +420,11 @@ export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSl
     data: {
       ownerUserId: viewerUserId,
       storageKey: parsed.data.storageKey,
-      publicUrl: getR2PublicUrl(parsed.data.storageKey),
+      publicUrl: null,
       mimeType: parsed.data.mimeType,
       sizeBytes: BigInt(parsed.data.sizeBytes),
       originalName: parsed.data.fileName,
-      visibility: MediaVisibility.MEMBERS,
+      visibility: MediaVisibility.PRIVATE,
       metadata: {
         groupId: context.group.id,
         kind: parsed.data.kind,

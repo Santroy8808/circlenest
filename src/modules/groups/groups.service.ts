@@ -4,6 +4,7 @@ import {
   GroupMemberRole,
   GroupVisibility,
   Prisma,
+  SocialRelationshipType,
   UserRole
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
@@ -12,18 +13,29 @@ import { isAdminRole } from "@/lib/platform/roles";
 import { resolvePreferredThumbnailUrls } from "@/modules/media/media-thumbnails";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
+  MAX_GROUP_PARTICIPANTS,
+  addGroupMemberSchema,
   createGroupSchema,
+  groupDirectoryPageSchema,
   groupDirectoryModeSchema,
+  groupMemberPageSchema,
   joinGroupSchema,
   pinGroupSchema,
+  removeGroupMemberSchema,
+  updateGroupMemberRoleSchema,
   type GroupCardView,
+  type GroupDirectoryPageView,
   type GroupDirectoryMode,
+  type GroupMemberPageView,
   type GroupMemberView,
   type GroupProfileView
 } from "@/modules/groups/types";
 
 const MODULE_KEY = "groups";
 const GROUP_DB_TIMEOUT_MS = 2500;
+const GROUP_TRANSACTION_RETRIES = 3;
+
+type GroupDbClient = typeof prisma | Prisma.TransactionClient;
 
 function withGroupDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -122,21 +134,108 @@ function canViewPrivateGroup(input: {
 
 async function getViewerRole(userId: string) {
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: userId, deactivatedAt: null },
     select: { role: true }
   });
 
-  return user?.role ?? UserRole.MEMBER;
+  return user?.role ?? null;
 }
 
-export async function listGroups(input: {
+function activeUnblockedUserWhere(viewerUserId: string): Prisma.UserWhereInput {
+  return {
+    deactivatedAt: null,
+    socialRelationshipsFrom: {
+      none: {
+        toUserId: viewerUserId,
+        type: SocialRelationshipType.BLOCK
+      }
+    },
+    socialRelationshipsTo: {
+      none: {
+        fromUserId: viewerUserId,
+        type: SocialRelationshipType.BLOCK
+      }
+    }
+  };
+}
+
+async function hasBlockBetween(firstUserId: string, secondUserId: string, client: GroupDbClient = prisma) {
+  return Boolean(
+    await client.socialRelationship.findFirst({
+      where: {
+        type: SocialRelationshipType.BLOCK,
+        OR: [
+          { fromUserId: firstUserId, toUserId: secondUserId },
+          { fromUserId: secondUserId, toUserId: firstUserId }
+        ]
+      },
+      select: { id: true }
+    })
+  );
+}
+
+async function runGroupTransaction<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>) {
+  for (let attempt = 1; attempt <= GROUP_TRANSACTION_RETRIES; attempt += 1) {
+    try {
+      return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      const retryable = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+      if (!retryable || attempt === GROUP_TRANSACTION_RETRIES) throw error;
+    }
+  }
+
+  throw new Error("Group transaction retry limit reached.");
+}
+
+async function findGroupForManagement(client: GroupDbClient, groupIdOrSlug: string) {
+  return client.group.findFirst({
+    where: {
+      archivedAt: null,
+      OR: [{ id: groupIdOrSlug }, { slug: groupIdOrSlug }]
+    },
+    select: {
+      id: true,
+      createdByUserId: true,
+      members: {
+        select: { userId: true, role: true }
+      }
+    }
+  });
+}
+
+function viewerCanModerate(
+  viewerUserId: string,
+  viewerRole: UserRole | null,
+  group: { members: Array<{ userId: string; role: GroupMemberRole }> }
+) {
+  const membership = group.members.find((member) => member.userId === viewerUserId);
+  return (
+    isAdminRole(viewerRole) ||
+    membership?.role === GroupMemberRole.OWNER ||
+    membership?.role === GroupMemberRole.MODERATOR
+  );
+}
+
+export async function listGroupsPage(input: {
   viewerUserId: string;
   mode?: string | null;
   query?: string | null;
-}): Promise<GroupCardView[]> {
+  cursor?: string | null;
+  limit?: number | null;
+}): Promise<GroupDirectoryPageView> {
   const mode = groupDirectoryModeSchema.catch("joined").parse(input.mode ?? "joined") as GroupDirectoryMode;
-  const cleanQuery = input.query?.trim();
+  const page = groupDirectoryPageSchema.parse({
+    cursor: input.cursor,
+    limit: input.limit ?? undefined,
+    query: input.query
+  });
+  const cleanQuery = page.query || undefined;
   const viewerRole = await getViewerRole(input.viewerUserId);
+
+  if (!viewerRole) {
+    return { groups: [], nextCursor: null };
+  }
+
   const queryFilter = cleanQuery
     ? {
         OR: [
@@ -157,7 +256,7 @@ export async function listGroups(input: {
             }
           }
         }
-      : mode === "discover" || cleanQuery
+      : mode === "discover"
         ? isAdminRole(viewerRole)
           ? {}
           : { visibility: GroupVisibility.PUBLIC }
@@ -189,17 +288,33 @@ export async function listGroups(input: {
           }
         }
       },
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      take: 60
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
+      take: page.limit + 1
     }),
     "group directory lookup"
   );
-  const thumbnailUrls = await resolvePreferredThumbnailUrls(groups.flatMap((group) => [group.avatarUrl, group.bannerUrl]));
+  const hasMore = groups.length > page.limit;
+  const visibleGroups = groups.slice(0, page.limit);
+  const thumbnailUrls = await resolvePreferredThumbnailUrls(
+    visibleGroups.flatMap((group) => [group.avatarUrl, group.bannerUrl])
+  );
 
-  return groups
+  return {
+    groups: visibleGroups
     .filter((group) => canViewPrivateGroup({ viewerUserId: input.viewerUserId, viewerRole, group }))
-    .map((group) => toGroupCardView(input.viewerUserId, group, thumbnailUrls))
-    .sort((first, second) => Number(second.isPinned) - Number(first.isPinned));
+      .map((group) => toGroupCardView(input.viewerUserId, group, thumbnailUrls)),
+    nextCursor: hasMore ? visibleGroups.at(-1)?.id ?? null : null
+  };
+}
+
+export async function listGroups(input: {
+  viewerUserId: string;
+  mode?: string | null;
+  query?: string | null;
+}): Promise<GroupCardView[]> {
+  const page = await listGroupsPage(input);
+  return page.groups;
 }
 
 export async function safeListGroups(input: { viewerUserId: string; mode?: string | null; query?: string | null }) {
@@ -286,6 +401,11 @@ export async function getGroupProfile(viewerUserId: string, groupIdOrSlug: strin
         }
       },
       members: {
+        where: {
+          user: {
+            is: activeUnblockedUserWhere(viewerUserId)
+          }
+        },
         include: {
           user: {
             include: {
@@ -366,40 +486,270 @@ export async function joinGroup(viewerUserId: string, groupIdOrSlug: string, inp
     return { ok: true as const, status: "already-member" };
   }
 
-  if (profile.group.joinPolicy === GroupJoinPolicy.OPEN) {
-    await prisma.groupMember.create({
+  return runGroupTransaction(async (tx) => {
+    const [viewer, group, existingMember, memberCount] = await Promise.all([
+      tx.user.findFirst({
+        where: { id: viewerUserId, deactivatedAt: null },
+        select: { id: true }
+      }),
+      findGroupForManagement(tx, profile.group.id),
+      tx.groupMember.findUnique({
+        where: { groupId_userId: { groupId: profile.group.id, userId: viewerUserId } },
+        select: { id: true }
+      }),
+      tx.groupMember.count({ where: { groupId: profile.group.id } })
+    ]);
+
+    if (!viewer || !group) {
+      return { ok: false as const, error: "Group not found." };
+    }
+
+    if (existingMember) {
+      return { ok: true as const, status: "already-member" };
+    }
+
+    if (group.createdByUserId && (await hasBlockBetween(viewerUserId, group.createdByUserId, tx))) {
+      return { ok: false as const, error: "Group not found." };
+    }
+
+    if (profile.group.joinPolicy === GroupJoinPolicy.OPEN) {
+      if (memberCount >= MAX_GROUP_PARTICIPANTS) {
+        return { ok: false as const, error: "This group has reached its member limit." };
+      }
+
+      await tx.groupMember.create({
+        data: {
+          groupId: profile.group.id,
+          userId: viewerUserId,
+          role: GroupMemberRole.MEMBER
+        }
+      });
+
+      return { ok: true as const, status: "joined" };
+    }
+
+    const existingPending = await tx.groupJoinRequest.findFirst({
+      where: {
+        groupId: profile.group.id,
+        requesterUserId: viewerUserId,
+        status: GroupJoinRequestStatus.PENDING
+      },
+      select: { id: true }
+    });
+
+    if (existingPending) {
+      return { ok: true as const, status: "pending" };
+    }
+
+    await tx.groupJoinRequest.create({
       data: {
         groupId: profile.group.id,
-        userId: viewerUserId,
-        role: GroupMemberRole.MEMBER
+        requesterUserId: viewerUserId,
+        note: parsed.data.note || null
       }
     });
 
-    return { ok: true as const, status: "joined" };
-  }
-
-  const existingPending = await prisma.groupJoinRequest.findFirst({
-    where: {
-      groupId: profile.group.id,
-      requesterUserId: viewerUserId,
-      status: GroupJoinRequestStatus.PENDING
-    },
-    select: { id: true }
-  });
-
-  if (existingPending) {
     return { ok: true as const, status: "pending" };
-  }
+  });
+}
 
-  await prisma.groupJoinRequest.create({
-    data: {
-      groupId: profile.group.id,
-      requesterUserId: viewerUserId,
-      note: parsed.data.note || null
-    }
+export async function listGroupMembers(
+  viewerUserId: string,
+  groupIdOrSlug: string,
+  input: { cursor?: string | null; limit?: number | null } = {}
+): Promise<{ ok: true; page: GroupMemberPageView } | { ok: false; error: string }> {
+  const page = groupMemberPageSchema.parse({
+    cursor: input.cursor,
+    limit: input.limit ?? undefined
+  });
+  const viewerRole = await getViewerRole(viewerUserId);
+  const group = await prisma.group.findFirst({
+    where: {
+      archivedAt: null,
+      OR: [{ id: groupIdOrSlug }, { slug: groupIdOrSlug }]
+    },
+    include: { members: true }
   });
 
-  return { ok: true as const, status: "pending" };
+  if (!viewerRole || !group || !canViewPrivateGroup({ viewerUserId, viewerRole, group })) {
+    return { ok: false, error: "Group not found." };
+  }
+
+  const members = await prisma.groupMember.findMany({
+    where: {
+      groupId: group.id,
+      user: {
+        is: activeUnblockedUserWhere(viewerUserId)
+      }
+    },
+    include: {
+      user: {
+        include: { profile: true }
+      }
+    },
+    orderBy: [{ role: "desc" }, { createdAt: "asc" }, { id: "asc" }],
+    ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
+    take: page.limit + 1
+  });
+  const hasMore = members.length > page.limit;
+  const visibleMembers = members.slice(0, page.limit);
+
+  return {
+    ok: true,
+    page: {
+      members: visibleMembers.map(toGroupMemberView),
+      nextCursor: hasMore ? visibleMembers.at(-1)?.id ?? null : null
+    }
+  };
+}
+
+export async function addGroupMember(viewerUserId: string, groupIdOrSlug: string, input: unknown) {
+  const parsed = addGroupMemberSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Choose a member to add." };
+  }
+
+  const viewerRole = await getViewerRole(viewerUserId);
+  if (!viewerRole) return { ok: false as const, error: "Group not found." };
+
+  return runGroupTransaction(async (tx) => {
+    const group = await findGroupForManagement(tx, groupIdOrSlug);
+    if (!group || !viewerCanModerate(viewerUserId, viewerRole, group)) {
+      return { ok: false as const, error: "Group not found." };
+    }
+
+    const target = await tx.user.findFirst({
+      where: {
+        ...activeUnblockedUserWhere(viewerUserId),
+        ...(parsed.data.userId
+          ? { id: parsed.data.userId }
+          : { username: { equals: parsed.data.username, mode: "insensitive" } })
+      },
+      select: { id: true, username: true }
+    });
+
+    if (!target || (await hasBlockBetween(viewerUserId, target.id, tx))) {
+      return { ok: false as const, error: "That member is not available." };
+    }
+
+    const existingMember = group.members.find((member) => member.userId === target.id);
+    if (existingMember) {
+      return { ok: true as const, status: "already-member", memberId: target.id };
+    }
+
+    if (group.members.length >= MAX_GROUP_PARTICIPANTS) {
+      return { ok: false as const, error: "This group has reached its member limit." };
+    }
+
+    await tx.groupMember.create({
+      data: { groupId: group.id, userId: target.id, role: GroupMemberRole.MEMBER }
+    });
+    await tx.groupJoinRequest.updateMany({
+      where: {
+        groupId: group.id,
+        requesterUserId: target.id,
+        status: GroupJoinRequestStatus.PENDING
+      },
+      data: {
+        status: GroupJoinRequestStatus.APPROVED,
+        reviewedByUserId: viewerUserId,
+        reviewedAt: new Date()
+      }
+    });
+
+    return { ok: true as const, status: "added", memberId: target.id };
+  });
+}
+
+export const inviteGroupMember = addGroupMember;
+
+export async function updateGroupMemberRole(viewerUserId: string, groupIdOrSlug: string, input: unknown) {
+  const parsed = updateGroupMemberRoleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: "Invalid role change." };
+
+  const viewerRole = await getViewerRole(viewerUserId);
+  if (!viewerRole) return { ok: false as const, error: "Group not found." };
+
+  return runGroupTransaction(async (tx) => {
+    const group = await findGroupForManagement(tx, groupIdOrSlug);
+    const viewerMember = group?.members.find((member) => member.userId === viewerUserId);
+    if (!group || (!isAdminRole(viewerRole) && viewerMember?.role !== GroupMemberRole.OWNER)) {
+      return { ok: false as const, error: "Group not found." };
+    }
+
+    const target = group.members.find((member) => member.userId === parsed.data.targetUserId);
+    if (!target || target.role === GroupMemberRole.OWNER) {
+      return { ok: false as const, error: "That member's role cannot be changed." };
+    }
+
+    await tx.groupMember.update({
+      where: { groupId_userId: { groupId: group.id, userId: target.userId } },
+      data: { role: parsed.data.role }
+    });
+    return { ok: true as const };
+  });
+}
+
+export async function removeGroupMember(viewerUserId: string, groupIdOrSlug: string, input: unknown) {
+  const parsed = removeGroupMemberSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: "Invalid member removal." };
+
+  const viewerRole = await getViewerRole(viewerUserId);
+  if (!viewerRole) return { ok: false as const, error: "Group not found." };
+
+  return runGroupTransaction(async (tx) => {
+    const group = await findGroupForManagement(tx, groupIdOrSlug);
+    if (!group || !viewerCanModerate(viewerUserId, viewerRole, group)) {
+      return { ok: false as const, error: "Group not found." };
+    }
+
+    const viewerMember = group.members.find((member) => member.userId === viewerUserId);
+    const target = group.members.find((member) => member.userId === parsed.data.targetUserId);
+    if (
+      !target ||
+      target.role === GroupMemberRole.OWNER ||
+      (!isAdminRole(viewerRole) &&
+        viewerMember?.role === GroupMemberRole.MODERATOR &&
+        target.role !== GroupMemberRole.MEMBER)
+    ) {
+      return { ok: false as const, error: "That member cannot be removed." };
+    }
+
+    await tx.groupMember.delete({
+      where: { groupId_userId: { groupId: group.id, userId: target.userId } }
+    });
+    await tx.groupUserPin.deleteMany({ where: { groupId: group.id, userId: target.userId } });
+    return { ok: true as const };
+  });
+}
+
+export async function leaveGroup(viewerUserId: string, groupIdOrSlug: string) {
+  return runGroupTransaction(async (tx) => {
+    const group = await findGroupForManagement(tx, groupIdOrSlug);
+    const membership = group?.members.find((member) => member.userId === viewerUserId);
+    if (!group || !membership) return { ok: false as const, error: "Group not found." };
+
+    const replacementOwner = group.members.find(
+      (member) => member.userId !== viewerUserId && member.role === GroupMemberRole.OWNER
+    );
+    if (membership.role === GroupMemberRole.OWNER && !replacementOwner) {
+      return { ok: false as const, error: "Assign another owner before leaving this group." };
+    }
+
+    await tx.groupMember.delete({
+      where: { groupId_userId: { groupId: group.id, userId: viewerUserId } }
+    });
+    await tx.groupUserPin.deleteMany({ where: { groupId: group.id, userId: viewerUserId } });
+    if (group.createdByUserId === viewerUserId && replacementOwner) {
+      await tx.group.update({
+        where: { id: group.id },
+        data: { createdByUserId: replacementOwner.userId }
+      });
+    }
+
+    return { ok: true as const };
+  });
 }
 
 export async function pinGroup(viewerUserId: string, groupIdOrSlug: string, input: unknown) {

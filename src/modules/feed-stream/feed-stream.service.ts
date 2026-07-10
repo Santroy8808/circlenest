@@ -1,14 +1,28 @@
-import { FeedReactionType, FeedVisibility, MembershipTier, Prisma, SocialRelationshipType } from "@prisma/client";
+import { FeedReactionType, FeedVisibility, MediaAssetStatus, MembershipTier, Prisma, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { getR2PublicUrl } from "@/lib/platform/r2";
 import {
   attachFeedCommentHashtags,
   attachFeedPostHashtags,
   recordCommentReactionSignals,
   recordPostCommentSignal,
-  recordPostReactionSignals
+  recordPostReactionSignals,
+  recordPostShareSignal
 } from "@/modules/feed-stream/hashtag-signals.service";
+import {
+  type FeedPostPolicyAction,
+  type FeedViewerPolicy,
+  resolveFeedViewerPolicy,
+  scopeFeedPostWhere
+} from "@/modules/feed-stream/feed-viewer-policy";
+import {
+  DEFAULT_FEED_COMMENT_PAGE_LIMIT,
+  type FeedPage,
+  type FeedPageRequest,
+  feedDescendingCursorWhere,
+  parseFeedPageRequest,
+  takeFeedPage
+} from "@/modules/feed-stream/feed-pagination";
 import {
   createFeedCommentSchema,
   createFeedPostSchema,
@@ -18,10 +32,16 @@ import {
   reactToFeedCommentSchema,
   reactToFeedPostSchema
 } from "@/modules/feed-stream/types";
+import {
+  notifyFeedCommentCreated,
+  notifyFeedCommentReaction,
+  notifyFeedPostReaction
+} from "@/modules/notifications-alerts/notifications-alerts.service";
 
 const MODULE_KEY = "feed-stream";
 const FEED_DB_TIMEOUT_MS = 2500;
-const FEED_THREAD_REPLY_DEPTH = 8;
+const FEED_PINNED_ANNOUNCEMENT_LIMIT = 5;
+const FEED_THREAD_REPLY_PREVIEW_LIMIT = 3;
 
 function withFeedDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -97,40 +117,21 @@ function toFeedAuthorView(user: {
   } as const;
 }
 
-type FeedMediaMetadata = {
-  thumbnailStorageKey?: string | null;
-  thumbnailUrl?: string | null;
-};
-
 type FeedMediaAssetRecord = {
   id: string;
-  storageKey: string;
-  publicUrl: string | null;
   mimeType: string;
   originalName: string | null;
-  metadata: Prisma.JsonValue | null;
 };
 
-function readFeedMediaMetadata(value: Prisma.JsonValue | null): FeedMediaMetadata {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return value as FeedMediaMetadata;
-}
-
-function toFeedMediaView(mediaAsset: FeedMediaAssetRecord | null, allowDirectPublicMedia: boolean) {
+function toFeedMediaView(mediaAsset: FeedMediaAssetRecord | null) {
   if (!mediaAsset) return null;
 
   const protectedUrl = `/api/media/assets/${mediaAsset.id}`;
-  const directPublicUrl = mediaAsset.publicUrl ?? getR2PublicUrl(mediaAsset.storageKey);
-  const mediaUrl = allowDirectPublicMedia && directPublicUrl ? directPublicUrl : protectedUrl;
-  const metadata = readFeedMediaMetadata(mediaAsset.metadata);
-  const directThumbnailUrl =
-    metadata.thumbnailUrl ?? (metadata.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null);
-  const thumbnailUrl = allowDirectPublicMedia && directThumbnailUrl ? directThumbnailUrl : mediaUrl;
 
   return {
     id: mediaAsset.id,
-    publicUrl: mediaUrl,
-    thumbnailUrl,
+    publicUrl: protectedUrl,
+    thumbnailUrl: protectedUrl,
     mimeType: mediaAsset.mimeType,
     originalName: mediaAsset.originalName
   };
@@ -180,8 +181,23 @@ type FeedPostRecord = {
   comments: FeedCommentRecord[];
 };
 
-function feedReactionInclude() {
+export type FeedPostPage = FeedPage<FeedPostView> & {
+  pinnedItems: FeedPostView[];
+};
+
+export type FeedPostThreadPage = {
+  post: FeedPostView | null;
+  nextCursor: FeedPage<FeedCommentView>["nextCursor"];
+  hasMore: boolean;
+};
+
+function feedReactionInclude(policy: FeedViewerPolicy) {
   return {
+    where: {
+      user: {
+        is: policy.actorWhere
+      }
+    },
     include: {
       user: {
         include: {
@@ -193,7 +209,7 @@ function feedReactionInclude() {
   };
 }
 
-function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
+function feedCommentBaseInclude(policy: FeedViewerPolicy): Prisma.FeedCommentInclude {
   return {
     author: {
       include: {
@@ -204,42 +220,55 @@ function feedThreadCommentInclude(depth: number): Prisma.FeedCommentInclude {
     mediaAsset: {
       select: {
         id: true,
-        storageKey: true,
-        publicUrl: true,
         mimeType: true,
-        originalName: true,
-        metadata: true
+        originalName: true
       }
     },
-    reactions: feedReactionInclude(),
+    reactions: feedReactionInclude(policy),
     _count: {
       select: {
         replies: {
-          where: { deletedAt: null }
-        }
-      }
-    },
-    ...(depth > 0
-      ? {
-          replies: {
-            where: { deletedAt: null },
-            include: feedThreadCommentInclude(depth - 1),
-            orderBy: { createdAt: "asc" as const }
+          where: {
+            deletedAt: null,
+            author: {
+              is: policy.actorWhere
+            }
           }
         }
-      : {})
+      }
+    }
   };
 }
 
-function toFeedCommentView(comment: FeedCommentRecord, allowDirectPublicMedia: boolean): FeedCommentView {
-  const replies = comment.replies?.map((reply) => toFeedCommentView(reply, allowDirectPublicMedia));
+function feedCommentInclude(policy: FeedViewerPolicy, replyPreviewLimit = 0): Prisma.FeedCommentInclude {
+  const baseInclude = feedCommentBaseInclude(policy);
+  if (replyPreviewLimit <= 0) return baseInclude;
+
+  return {
+    ...baseInclude,
+    replies: {
+      where: {
+        deletedAt: null,
+        author: {
+          is: policy.actorWhere
+        }
+      },
+      include: feedCommentBaseInclude(policy),
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: replyPreviewLimit
+    }
+  };
+}
+
+function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
+  const replies = comment.replies?.map((reply) => toFeedCommentView(reply));
 
   return {
     id: comment.id,
     body: comment.body,
     createdAt: comment.createdAt.toISOString(),
     author: toFeedAuthorView(comment.author),
-    media: toFeedMediaView(comment.mediaAsset, allowDirectPublicMedia),
+    media: toFeedMediaView(comment.mediaAsset),
     reactions: countReactions(comment.reactions),
     reactionReactors: reactionReactors(comment.reactions),
     replyCount: comment._count?.replies ?? replies?.length ?? 0,
@@ -248,8 +277,6 @@ function toFeedCommentView(comment: FeedCommentRecord, allowDirectPublicMedia: b
 }
 
 function toFeedPostView(post: FeedPostRecord): FeedPostView {
-  const allowDirectPublicMedia = post.visibility === FeedVisibility.MEMBERS;
-
   return {
     id: post.id,
     body: post.body,
@@ -257,15 +284,15 @@ function toFeedPostView(post: FeedPostRecord): FeedPostView {
     isAdminAnnouncement: post.isAdminAnnouncement,
     pinnedUntil: post.pinnedUntil?.toISOString() ?? null,
     createdAt: post.createdAt.toISOString(),
-    media: toFeedMediaView(post.mediaAsset, allowDirectPublicMedia),
+    media: toFeedMediaView(post.mediaAsset),
     author: toFeedAuthorView(post.author),
     reactions: countReactions(post.reactions),
     reactionReactors: reactionReactors(post.reactions),
-    comments: post.comments.map((comment) => toFeedCommentView(comment, allowDirectPublicMedia))
+    comments: post.comments.map((comment) => toFeedCommentView(comment))
   };
 }
 
-function feedPostInclude() {
+function feedPostInclude(policy: FeedViewerPolicy) {
   return {
     author: {
       include: {
@@ -276,18 +303,18 @@ function feedPostInclude() {
     mediaAsset: {
       select: {
         id: true,
-        storageKey: true,
-        publicUrl: true,
         mimeType: true,
-        originalName: true,
-        metadata: true
+        originalName: true
       }
     },
-    reactions: feedReactionInclude(),
+    reactions: feedReactionInclude(policy),
     comments: {
       where: {
         parentCommentId: null,
-        deletedAt: null
+        deletedAt: null,
+        author: {
+          is: policy.actorWhere
+        }
       },
       include: {
         author: {
@@ -299,95 +326,114 @@ function feedPostInclude() {
         mediaAsset: {
           select: {
             id: true,
-            storageKey: true,
-            publicUrl: true,
             mimeType: true,
-            originalName: true,
-            metadata: true
+            originalName: true
           }
         },
-        reactions: feedReactionInclude(),
+        reactions: feedReactionInclude(policy),
         _count: {
           select: {
             replies: {
-              where: { deletedAt: null }
+              where: {
+                deletedAt: null,
+                author: {
+                  is: policy.actorWhere
+                }
+              }
             }
           }
         }
       },
-      orderBy: { createdAt: "asc" as const },
+      orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
       take: 3
     }
   };
 }
 
-async function fetchFeedPosts(take: number, viewerUserId?: string) {
-  const pinned = viewerUserId
-    ? await prisma.feedPost.findMany({
-        where: {
-          visibility: {
-            in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
-          },
+function fetchFeedPostPreview(postId: string, policy: FeedViewerPolicy) {
+  return prisma.feedPost.findFirst({
+    where: scopeFeedPostWhere(policy, "view", { id: postId }),
+    include: feedPostInclude(policy)
+  });
+}
+
+async function fetchFeedPostPage(input: FeedPageRequest | undefined, policy: FeedViewerPolicy) {
+  const page = parseFeedPageRequest(input);
+  if (!policy.viewerUserId) return { pinned: [], normal: [], page };
+
+  const pinnedPromise = page.cursor
+    ? Promise.resolve([])
+    : prisma.feedPost.findMany({
+        where: scopeFeedPostWhere(policy, "view", {
           targetProfileUserId: null,
           isAdminAnnouncement: true,
           dismissals: {
             none: {
-              userId: viewerUserId
+              userId: policy.viewerUserId
             }
           }
-        },
-        include: feedPostInclude(),
-        orderBy: { createdAt: "desc" },
-        take: 5
-      })
-    : [];
-  const normalTake = Math.max(take - pinned.length, 0);
-  const normal = await prisma.feedPost.findMany({
-    where: {
-      visibility: {
-        in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
-      },
+        }),
+        include: feedPostInclude(policy),
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: FEED_PINNED_ANNOUNCEMENT_LIMIT
+      });
+  const normalPromise = prisma.feedPost.findMany({
+    where: scopeFeedPostWhere(policy, "view", {
       targetProfileUserId: null,
-      isAdminAnnouncement: false
-    },
-    include: feedPostInclude(),
-    orderBy: { createdAt: "desc" },
-    take: normalTake
+      isAdminAnnouncement: false,
+      ...feedDescendingCursorWhere(page.cursor)
+    }),
+    include: feedPostInclude(policy),
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: page.limit + 1
   });
+  const [pinned, normal] = await Promise.all([pinnedPromise, normalPromise]);
 
-  return [...pinned, ...normal];
+  return { pinned, normal, page };
 }
 
-async function fetchProfileFeedPosts(profileUserId: string, take: number) {
-  return prisma.feedPost.findMany({
-    where: {
-      visibility: {
-        in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
-      },
-      OR: [
+async function fetchProfileFeedPostPage(
+  profileUserId: string,
+  input: FeedPageRequest | undefined,
+  policy: FeedViewerPolicy
+) {
+  const page = parseFeedPageRequest(input);
+  const cursorWhere = feedDescendingCursorWhere(page.cursor);
+
+  const posts = await prisma.feedPost.findMany({
+    where: scopeFeedPostWhere(policy, "view", {
+      AND: [
         {
-          authorUserId: profileUserId,
-          targetProfileUserId: null
+          OR: [
+            {
+              authorUserId: profileUserId,
+              targetProfileUserId: null
+            },
+            {
+              targetProfileUserId: profileUserId
+            }
+          ]
         },
-        {
-          targetProfileUserId: profileUserId
-        }
+        cursorWhere
       ]
-    },
-    include: feedPostInclude(),
-    orderBy: { createdAt: "desc" },
-    take
+    }),
+    include: feedPostInclude(policy),
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: page.limit + 1
   });
+
+  return { posts, page };
 }
 
-function fetchFeedPostThread(postId: string) {
-  return prisma.feedPost.findFirst({
-    where: {
-      id: postId,
-      visibility: {
-        in: [FeedVisibility.MEMBERS, FeedVisibility.FRIENDS]
-      }
-    },
+async function fetchFeedPostThreadPage(
+  postId: string,
+  input: FeedPageRequest | undefined,
+  policy: FeedViewerPolicy
+) {
+  const page = parseFeedPageRequest(input, DEFAULT_FEED_COMMENT_PAGE_LIMIT);
+
+  const post = await prisma.feedPost.findFirst({
+    where: scopeFeedPostWhere(policy, "view", { id: postId }),
     include: {
       author: {
         include: {
@@ -398,24 +444,65 @@ function fetchFeedPostThread(postId: string) {
       mediaAsset: {
         select: {
           id: true,
-          storageKey: true,
-          publicUrl: true,
           mimeType: true,
-          originalName: true,
-          metadata: true
+          originalName: true
         }
       },
-      reactions: feedReactionInclude(),
+      reactions: feedReactionInclude(policy),
       comments: {
         where: {
-          parentCommentId: null,
-          deletedAt: null
+          AND: [
+            {
+              parentCommentId: null,
+              deletedAt: null,
+              author: {
+                is: policy.actorWhere
+              }
+            },
+            feedDescendingCursorWhere(page.cursor)
+          ]
         },
-        include: feedThreadCommentInclude(FEED_THREAD_REPLY_DEPTH),
-        orderBy: { createdAt: "asc" }
+        include: feedCommentInclude(policy, FEED_THREAD_REPLY_PREVIEW_LIMIT),
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: page.limit + 1
       }
     }
   });
+
+  return { post, page };
+}
+
+async function fetchFeedCommentPage(
+  postId: string,
+  parentCommentId: string | null,
+  input: FeedPageRequest | undefined,
+  policy: FeedViewerPolicy
+) {
+  const page = parseFeedPageRequest(input, DEFAULT_FEED_COMMENT_PAGE_LIMIT);
+
+  const comments = await prisma.feedComment.findMany({
+    where: {
+      AND: [
+        {
+          postId,
+          parentCommentId,
+          deletedAt: null,
+          author: {
+            is: policy.actorWhere
+          },
+          post: {
+            is: scopeFeedPostWhere(policy, "view", { id: postId })
+          }
+        },
+        feedDescendingCursorWhere(page.cursor)
+      ]
+    },
+    include: feedCommentInclude(policy),
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: page.limit + 1
+  });
+
+  return { comments, page };
 }
 
 async function verifyOwnedMediaAsset(userId: string, mediaAssetId?: string) {
@@ -427,9 +514,8 @@ async function verifyOwnedMediaAsset(userId: string, mediaAssetId?: string) {
     where: {
       id: mediaAssetId,
       ownerUserId: userId,
-      mimeType: {
-        startsWith: "image/"
-      }
+      status: MediaAssetStatus.READY,
+      mimeType: { in: ["image/jpeg", "image/png", "image/webp", "image/gif"] }
     },
     select: {
       id: true
@@ -443,45 +529,105 @@ async function verifyOwnedMediaAsset(userId: string, mediaAssetId?: string) {
   return { ok: true as const };
 }
 
-async function canCreateProfileTargetedPost(authorUserId: string, targetProfileUserId?: string | null) {
+async function canCreateProfileTargetedPost(
+  authorUserId: string,
+  targetProfileUserId: string | null | undefined,
+  policy: FeedViewerPolicy
+) {
   if (!targetProfileUserId) return { ok: true as const };
   if (authorUserId === targetProfileUserId) return { ok: true as const };
 
-  const [targetProfile, relationship] = await Promise.all([
-    prisma.profile.findUnique({
-      where: { userId: targetProfileUserId },
-      select: { allowProfilePosts: true }
-    }),
-    prisma.socialRelationship.findFirst({
+  const relationshipTypes = [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY];
+  const [target, relationships] = await Promise.all([
+    prisma.user.findFirst({
       where: {
-        fromUserId: authorUserId,
-        toUserId: targetProfileUserId,
-        type: {
-          in: [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY]
-        }
+        id: targetProfileUserId,
+        deactivatedAt: null,
+        AND: [policy.actorWhere]
       },
-      select: { id: true }
+      select: {
+        profile: {
+          select: {
+            allowProfilePosts: true
+          }
+        }
+      }
+    }),
+    prisma.socialRelationship.findMany({
+      where: {
+        OR: [
+          { fromUserId: authorUserId, toUserId: targetProfileUserId },
+          { fromUserId: targetProfileUserId, toUserId: authorUserId }
+        ]
+      },
+      select: {
+        fromUserId: true,
+        toUserId: true,
+        type: true
+      }
     })
   ]);
 
-  if (!targetProfile) {
+  if (!target?.profile) {
     return { ok: false as const, error: "That profile was not found." };
   }
 
-  if (!targetProfile.allowProfilePosts) {
+  if (!target.profile.allowProfilePosts) {
     return { ok: false as const, error: "This profile is not accepting profile posts." };
   }
 
-  if (!relationship) {
+  const hasInteractionExclusion = relationships.some(
+    (relationship) =>
+      relationship.type === SocialRelationshipType.BLOCK || relationship.type === SocialRelationshipType.MUTE
+  );
+
+  if (hasInteractionExclusion) {
+    return { ok: false as const, error: "That profile is not available for direct posts." };
+  }
+
+  const hasAcceptedSymmetricRelationship = relationshipTypes.some(
+    (type) =>
+      relationships.some(
+        (relationship) =>
+          relationship.type === type &&
+          relationship.fromUserId === authorUserId &&
+          relationship.toUserId === targetProfileUserId
+      ) &&
+      relationships.some(
+        (relationship) =>
+          relationship.type === type &&
+          relationship.fromUserId === targetProfileUserId &&
+          relationship.toUserId === authorUserId
+      )
+  );
+
+  if (!hasAcceptedSymmetricRelationship) {
     return { ok: false as const, error: "Only friends and family can post directly to this profile." };
   }
 
   return { ok: true as const };
 }
 
+export async function listFeedPostsPage(
+  input: FeedPageRequest = {},
+  viewerUserId?: string
+): Promise<FeedPostPage> {
+  const policy = await resolveFeedViewerPolicy(viewerUserId);
+  const result = await withFeedDbTimeout(fetchFeedPostPage(input, policy), "feed lookup");
+  const normalPage = takeFeedPage(result.normal as unknown as FeedPostRecord[], result.page.limit);
+
+  return {
+    pinnedItems: (result.pinned as unknown as FeedPostRecord[]).map(toFeedPostView),
+    items: normalPage.items.map(toFeedPostView),
+    nextCursor: normalPage.nextCursor,
+    hasMore: normalPage.hasMore
+  };
+}
+
 export async function listFeedPosts(take = 20, viewerUserId?: string) {
-  const posts = await withFeedDbTimeout(fetchFeedPosts(take, viewerUserId), "feed lookup");
-  return posts.map(toFeedPostView);
+  const page = await listFeedPostsPage({ limit: take }, viewerUserId);
+  const requestedTake = Number.isFinite(take) ? Math.max(Math.trunc(take), 0) : 20;
+  return [...page.pinnedItems, ...page.items].slice(0, requestedTake);
 }
 
 export async function safeListFeedPosts(take = 20, viewerUserId?: string) {
@@ -495,14 +641,33 @@ export async function safeListFeedPosts(take = 20, viewerUserId?: string) {
   }
 }
 
-export async function listProfileFeedPosts(profileUserId: string, take = 20) {
-  const posts = await withFeedDbTimeout(fetchProfileFeedPosts(profileUserId, take), "profile feed lookup");
-  return posts.map(toFeedPostView);
+export async function listProfileFeedPostsPage(
+  profileUserId: string,
+  input: FeedPageRequest = {},
+  viewerUserId?: string
+) {
+  const policy = await resolveFeedViewerPolicy(viewerUserId);
+  const result = await withFeedDbTimeout(
+    fetchProfileFeedPostPage(profileUserId, input, policy),
+    "profile feed lookup"
+  );
+  const page = takeFeedPage(result.posts as unknown as FeedPostRecord[], result.page.limit);
+
+  return {
+    items: page.items.map(toFeedPostView),
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore
+  };
 }
 
-export async function safeListProfileFeedPosts(profileUserId: string, take = 20) {
+export async function listProfileFeedPosts(profileUserId: string, take = 20, viewerUserId?: string) {
+  const page = await listProfileFeedPostsPage(profileUserId, { limit: take }, viewerUserId);
+  return page.items;
+}
+
+export async function safeListProfileFeedPosts(profileUserId: string, take = 20, viewerUserId?: string) {
   try {
-    return await listProfileFeedPosts(profileUserId, take);
+    return await listProfileFeedPosts(profileUserId, take, viewerUserId);
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list profile feed posts.", {
       profileUserId,
@@ -512,9 +677,79 @@ export async function safeListProfileFeedPosts(profileUserId: string, take = 20)
   }
 }
 
+export async function authorizeFeedPostAction(userId: string, postId: string, action: FeedPostPolicyAction) {
+  const policy = await resolveFeedViewerPolicy(userId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to access this post." };
+  }
+
+  const post = await prisma.feedPost.findFirst({
+    where: scopeFeedPostWhere(policy, action, { id: postId }),
+    select: { id: true }
+  });
+
+  return post
+    ? { ok: true as const, postId: post.id }
+    : { ok: false as const, error: "Post not found or not available to you." };
+}
+
+export async function deleteFeedPost(userId: string, postId: string) {
+  const policy = await resolveFeedViewerPolicy(userId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to delete this post." };
+  }
+
+  const deleted = await prisma.feedPost.deleteMany({
+    where: scopeFeedPostWhere(policy, "delete", { id: postId })
+  });
+
+  if (deleted.count === 0) {
+    return { ok: false as const, error: "Post not found or you cannot delete it." };
+  }
+
+  await diagnostics.info(MODULE_KEY, "Feed post deleted.", { userId, postId });
+  return { ok: true as const };
+}
+
+export async function deleteFeedComment(userId: string, commentId: string) {
+  const policy = await resolveFeedViewerPolicy(userId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to delete this comment." };
+  }
+
+  const deleted = await prisma.feedComment.updateMany({
+    where: {
+      id: commentId,
+      deletedAt: null,
+      OR: [
+        { authorUserId: userId },
+        {
+          post: {
+            is: scopeFeedPostWhere(policy, "delete", {})
+          }
+        }
+      ]
+    },
+    data: {
+      deletedAt: new Date()
+    }
+  });
+
+  if (deleted.count === 0) {
+    return { ok: false as const, error: "Comment not found or you cannot delete it." };
+  }
+
+  await diagnostics.info(MODULE_KEY, "Feed comment deleted.", { userId, commentId });
+  return { ok: true as const };
+}
+
 export async function dismissFeedPost(userId: string, postId: string) {
-  const post = await prisma.feedPost.findUnique({
-    where: { id: postId },
+  const policy = await resolveFeedViewerPolicy(userId);
+  const post = await prisma.feedPost.findFirst({
+    where: scopeFeedPostWhere(policy, "view", { id: postId }),
     select: {
       id: true,
       isAdminAnnouncement: true
@@ -547,14 +782,40 @@ export async function dismissFeedPost(userId: string, postId: string) {
   return { ok: true as const };
 }
 
-export async function getFeedPostThread(postId: string) {
-  const post = await withFeedDbTimeout(fetchFeedPostThread(postId), "feed thread lookup");
-  return post ? toFeedPostView(post as unknown as FeedPostRecord) : null;
+export async function getFeedPostThreadPage(
+  postId: string,
+  input: FeedPageRequest = {},
+  viewerUserId?: string
+): Promise<FeedPostThreadPage> {
+  const policy = await resolveFeedViewerPolicy(viewerUserId);
+  const result = await withFeedDbTimeout(
+    fetchFeedPostThreadPage(postId, input, policy),
+    "feed thread lookup"
+  );
+
+  if (!result.post) {
+    return { post: null, nextCursor: null, hasMore: false };
+  }
+
+  const post = result.post as unknown as FeedPostRecord;
+  const comments = takeFeedPage(post.comments, result.page.limit);
+  post.comments = [...comments.items].reverse();
+
+  return {
+    post: toFeedPostView(post),
+    nextCursor: comments.nextCursor,
+    hasMore: comments.hasMore
+  };
 }
 
-export async function safeGetFeedPostThread(postId: string) {
+export async function getFeedPostThread(postId: string, viewerUserId?: string) {
+  const page = await getFeedPostThreadPage(postId, {}, viewerUserId);
+  return page.post;
+}
+
+export async function safeGetFeedPostThread(postId: string, viewerUserId?: string) {
   try {
-    return await getFeedPostThread(postId);
+    return await getFeedPostThread(postId, viewerUserId);
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not load feed thread.", {
       error: error instanceof Error ? error.message : "unknown",
@@ -564,6 +825,26 @@ export async function safeGetFeedPostThread(postId: string) {
   }
 }
 
+export async function listFeedCommentsPage(
+  postId: string,
+  parentCommentId: string | null,
+  input: FeedPageRequest = {},
+  viewerUserId?: string
+): Promise<FeedPage<FeedCommentView>> {
+  const policy = await resolveFeedViewerPolicy(viewerUserId);
+  const result = await withFeedDbTimeout(
+    fetchFeedCommentPage(postId, parentCommentId, input, policy),
+    "feed comment lookup"
+  );
+  const page = takeFeedPage(result.comments as unknown as FeedCommentRecord[], result.page.limit);
+
+  return {
+    items: [...page.items].reverse().map(toFeedCommentView),
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore
+  };
+}
+
 export async function createFeedPost(authorUserId: string, input: unknown) {
   const parsed = createFeedPostSchema.safeParse(input);
 
@@ -571,13 +852,20 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid post." };
   }
 
-  const mediaCheck = await verifyOwnedMediaAsset(authorUserId, parsed.data.mediaAssetId || undefined);
+  const policy = await resolveFeedViewerPolicy(authorUserId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to create a post." };
+  }
+
+  const [mediaCheck, profileTargetCheck] = await Promise.all([
+    verifyOwnedMediaAsset(authorUserId, parsed.data.mediaAssetId || undefined),
+    canCreateProfileTargetedPost(authorUserId, parsed.data.targetProfileUserId || undefined, policy)
+  ]);
 
   if (!mediaCheck.ok) {
     return mediaCheck;
   }
-
-  const profileTargetCheck = await canCreateProfileTargetedPost(authorUserId, parsed.data.targetProfileUserId || undefined);
 
   if (!profileTargetCheck.ok) {
     return profileTargetCheck;
@@ -604,7 +892,7 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     return createdPost;
   });
 
-  const postView = await fetchFeedPostThread(post.id);
+  const postView = await fetchFeedPostPreview(post.id, policy);
 
   await diagnostics.info(MODULE_KEY, "Feed post created.", { authorUserId, postId: post.id });
   return { ok: true as const, post: postView ? toFeedPostView(postView as unknown as FeedPostRecord) : null };
@@ -617,10 +905,54 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid comment." };
   }
 
-  const mediaCheck = await verifyOwnedMediaAsset(authorUserId, parsed.data.mediaAssetId || undefined);
+  const [policy, mediaCheck] = await Promise.all([
+    resolveFeedViewerPolicy(authorUserId),
+    verifyOwnedMediaAsset(authorUserId, parsed.data.mediaAssetId || undefined)
+  ]);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to comment on this post." };
+  }
 
   if (!mediaCheck.ok) {
     return mediaCheck;
+  }
+
+  const [postAccess, parentComment] = await Promise.all([
+    prisma.feedPost.findFirst({
+      where: scopeFeedPostWhere(policy, "interact", { id: parsed.data.postId }),
+      select: {
+        id: true,
+        authorUserId: true
+      }
+    }),
+    parsed.data.parentCommentId
+      ? prisma.feedComment.findFirst({
+          where: {
+            id: parsed.data.parentCommentId,
+            postId: parsed.data.postId,
+            deletedAt: null,
+            author: {
+              is: policy.actorWhere
+            },
+            post: {
+              is: scopeFeedPostWhere(policy, "interact", { id: parsed.data.postId })
+            }
+          },
+          select: {
+            id: true,
+            authorUserId: true
+          }
+        })
+      : Promise.resolve(null)
+  ]);
+
+  if (!postAccess) {
+    return { ok: false as const, error: "Post not found or not available to you." };
+  }
+
+  if (parsed.data.parentCommentId && !parentComment) {
+    return { ok: false as const, error: "The comment you are replying to is not available to you." };
   }
 
   const comment = await prisma.$transaction(async (tx) => {
@@ -641,54 +973,14 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
       mediaAssetId: createdComment.mediaAssetId
     });
 
+    const notificationResult = await notifyFeedCommentCreated(authorUserId, createdComment.id, tx);
+    if (!notificationResult.ok) throw new Error(notificationResult.error);
+
     return createdComment;
   });
   await recordPostCommentSignal(authorUserId, comment.postId);
-  const [commentAuthor, post, parentComment] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: authorUserId },
-      include: { profile: true }
-    }),
-    prisma.feedPost.findUnique({
-      where: { id: comment.postId },
-      select: { authorUserId: true, body: true }
-    }),
-    comment.parentCommentId
-      ? prisma.feedComment.findUnique({
-          where: { id: comment.parentCommentId },
-          select: { authorUserId: true, body: true }
-        })
-      : Promise.resolve(null)
-  ]);
-  const commenterName = commentAuthor ? profileName(commentAuthor) : "Someone";
-  const notifications = new Map<string, { title: string; body: string; href: string }>();
 
-  if (post?.authorUserId && post.authorUserId !== authorUserId) {
-    notifications.set(post.authorUserId, {
-      title: `${commenterName} replied to your stream post`,
-      body: comment.body.slice(0, 180),
-      href: `/posts/${comment.postId}`
-    });
-  }
-
-  if (parentComment?.authorUserId && parentComment.authorUserId !== authorUserId && parentComment.authorUserId !== post?.authorUserId) {
-    notifications.set(parentComment.authorUserId, {
-      title: `${commenterName} replied to your comment`,
-      body: comment.body.slice(0, 180),
-      href: `/posts/${comment.postId}`
-    });
-  }
-
-  if (notifications.size > 0) {
-    await prisma.notification.createMany({
-      data: Array.from(notifications, ([userId, notification]) => ({
-        userId,
-        ...notification
-      }))
-    });
-  }
-
-  const postView = await fetchFeedPostThread(comment.postId);
+  const postView = await fetchFeedPostPreview(comment.postId, policy);
 
   await diagnostics.info(MODULE_KEY, "Feed comment created.", {
     authorUserId,
@@ -705,39 +997,70 @@ export async function reactToFeedPost(userId: string, input: unknown) {
     return { ok: false as const, error: "Invalid reaction." };
   }
 
-  const reaction = await prisma.feedPostReaction.upsert({
-    where: {
-      postId_userId: {
+  const policy = await resolveFeedViewerPolicy(userId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to react to this post." };
+  }
+
+  const authorizedReaction = await prisma.$transaction(async (tx) => {
+    const post = await tx.feedPost.findFirst({
+      where: scopeFeedPostWhere(policy, "interact", { id: parsed.data.postId }),
+      select: { authorUserId: true }
+    });
+
+    if (!post) return null;
+
+    const reaction = await tx.feedPostReaction.upsert({
+      where: {
+        postId_userId: {
+          postId: parsed.data.postId,
+          userId
+        }
+      },
+      update: { type: parsed.data.type },
+      create: {
         postId: parsed.data.postId,
-        userId
+        userId,
+        type: parsed.data.type
       }
-    },
-    update: { type: parsed.data.type },
-    create: {
-      postId: parsed.data.postId,
-      userId,
-      type: parsed.data.type
-    }
+    });
+
+    const notificationResult = await notifyFeedPostReaction(userId, parsed.data.postId, tx);
+    if (!notificationResult.ok) throw new Error(notificationResult.error);
+
+    return { post, reaction };
   });
-  const [reactor, post] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, include: { profile: true } }),
-    prisma.feedPost.findUnique({ where: { id: parsed.data.postId }, select: { authorUserId: true } })
-  ]);
+
+  if (!authorizedReaction) {
+    return { ok: false as const, error: "Post not found or not available to you." };
+  }
+
+  const { reaction } = authorizedReaction;
 
   await recordPostReactionSignals(userId, parsed.data.postId, parsed.data.type);
 
-  if (parsed.data.type !== FeedReactionType.DISLIKE && reactor && post?.authorUserId && post.authorUserId !== userId) {
-    await prisma.notification.create({
-      data: {
-        userId: post.authorUserId,
-        title: `${profileName(reactor)} reacted to your stream post`,
-        body: parsed.data.type.toLowerCase(),
-        href: `/posts/${parsed.data.postId}`
-      }
-    });
+  return { ok: true as const, reaction };
+}
+
+export async function shareFeedPost(userId: string, postId: string) {
+  const policy = await resolveFeedViewerPolicy(userId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to share this post." };
   }
 
-  return { ok: true as const, reaction };
+  const post = await prisma.feedPost.findFirst({
+    where: scopeFeedPostWhere(policy, "interact", { id: postId }),
+    select: { id: true }
+  });
+
+  if (!post) {
+    return { ok: false as const, error: "Post not found or not available to you." };
+  }
+
+  await recordPostShareSignal(userId, post.id);
+  return { ok: true as const, href: `/posts/${post.id}` };
 }
 
 export async function reactToFeedComment(userId: string, input: unknown) {
@@ -747,37 +1070,57 @@ export async function reactToFeedComment(userId: string, input: unknown) {
     return { ok: false as const, error: "Invalid reaction." };
   }
 
-  const reaction = await prisma.feedCommentReaction.upsert({
-    where: {
-      commentId_userId: {
+  const policy = await resolveFeedViewerPolicy(userId);
+
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to react to this comment." };
+  }
+
+  const authorizedReaction = await prisma.$transaction(async (tx) => {
+    const comment = await tx.feedComment.findFirst({
+      where: {
+        id: parsed.data.commentId,
+        deletedAt: null,
+        author: {
+          is: policy.actorWhere
+        },
+        post: {
+          is: scopeFeedPostWhere(policy, "interact", {})
+        }
+      },
+      select: { authorUserId: true, postId: true }
+    });
+
+    if (!comment) return null;
+
+    const reaction = await tx.feedCommentReaction.upsert({
+      where: {
+        commentId_userId: {
+          commentId: parsed.data.commentId,
+          userId
+        }
+      },
+      update: { type: parsed.data.type },
+      create: {
         commentId: parsed.data.commentId,
-        userId
-      }
-    },
-    update: { type: parsed.data.type },
-    create: {
-      commentId: parsed.data.commentId,
-      userId,
-      type: parsed.data.type
-    }
-  });
-  const [reactor, comment] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, include: { profile: true } }),
-    prisma.feedComment.findUnique({ where: { id: parsed.data.commentId }, select: { authorUserId: true, postId: true } })
-  ]);
-
-  await recordCommentReactionSignals(userId, parsed.data.commentId, parsed.data.type);
-
-  if (parsed.data.type !== FeedReactionType.DISLIKE && reactor && comment?.authorUserId && comment.authorUserId !== userId) {
-    await prisma.notification.create({
-      data: {
-        userId: comment.authorUserId,
-        title: `${profileName(reactor)} reacted to your comment`,
-        body: parsed.data.type.toLowerCase(),
-        href: `/posts/${comment.postId}`
+        userId,
+        type: parsed.data.type
       }
     });
+
+    const notificationResult = await notifyFeedCommentReaction(userId, parsed.data.commentId, tx);
+    if (!notificationResult.ok) throw new Error(notificationResult.error);
+
+    return { comment, reaction };
+  });
+
+  if (!authorizedReaction) {
+    return { ok: false as const, error: "Comment not found or not available to you." };
   }
+
+  const { reaction } = authorizedReaction;
+
+  await recordCommentReactionSignals(userId, parsed.data.commentId, parsed.data.type);
 
   return { ok: true as const, reaction };
 }

@@ -1,6 +1,7 @@
-import { MediaAssetStatus, type Prisma } from "@prisma/client";
+import { MediaAssetStatus, MediaVisibility, type Prisma } from "@prisma/client";
 import type { PlatformMediaDto, PlatformMediaStatus } from "@/lib/platform/dto";
 import { getR2PublicUrl } from "@/lib/platform/r2";
+import { mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
 
 type MediaAssetForDto = {
   id: string;
@@ -8,6 +9,7 @@ type MediaAssetForDto = {
   storageKey?: string | null;
   metadata: Prisma.JsonValue | null;
   status?: MediaAssetStatus;
+  visibility: MediaVisibility;
 };
 
 type MediaMetadata = {
@@ -39,9 +41,15 @@ function toPlatformMediaStatus(status?: MediaAssetStatus): PlatformMediaStatus {
 
 export function toPlatformMediaDto(asset: MediaAssetForDto): PlatformMediaDto {
   const metadata = readMetadata(asset.metadata);
-  const assetUrl = asset.publicUrl ?? (asset.storageKey ? getR2PublicUrl(asset.storageKey) : null) ?? `/api/media/assets/${asset.id}`;
-  const thumbnailUrl =
-    metadata.thumbnailUrl ?? (metadata.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null) ?? assetUrl;
+  const authorizedDeliveryUrl = mediaAssetDeliveryPath(asset.id);
+  const needsAuthorizedDelivery =
+    asset.visibility === MediaVisibility.PRIVATE || asset.visibility === MediaVisibility.MEMBERS;
+  const assetUrl = needsAuthorizedDelivery
+    ? authorizedDeliveryUrl
+    : asset.publicUrl ?? (asset.storageKey ? getR2PublicUrl(asset.storageKey) : null) ?? authorizedDeliveryUrl;
+  const thumbnailUrl = needsAuthorizedDelivery
+    ? authorizedDeliveryUrl
+    : metadata.thumbnailUrl ?? (metadata.thumbnailStorageKey ? getR2PublicUrl(metadata.thumbnailStorageKey) : null) ?? assetUrl;
 
   return {
     id: asset.id,

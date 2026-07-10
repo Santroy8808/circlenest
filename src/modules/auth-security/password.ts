@@ -1,6 +1,7 @@
 import { compare, hash } from "bcryptjs";
+import { MAX_NEW_PASSWORD_BYTES, MIN_NEW_PASSWORD_LENGTH } from "@/modules/auth-security/types";
 
-const PASSWORD_MIN_LENGTH = 10;
+const BCRYPT_COST = 12;
 
 export type PasswordPolicyResult = {
   valid: boolean;
@@ -10,24 +11,12 @@ export type PasswordPolicyResult = {
 export function validatePasswordStrength(password: string): PasswordPolicyResult {
   const issues: string[] = [];
 
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    issues.push(`Use at least ${PASSWORD_MIN_LENGTH} characters.`);
+  if (password.length < MIN_NEW_PASSWORD_LENGTH) {
+    issues.push(`Use at least ${MIN_NEW_PASSWORD_LENGTH} characters.`);
   }
 
-  if (!/[a-z]/.test(password)) {
-    issues.push("Add at least one lowercase letter.");
-  }
-
-  if (!/[A-Z]/.test(password)) {
-    issues.push("Add at least one uppercase letter.");
-  }
-
-  if (!/\d/.test(password)) {
-    issues.push("Add at least one number.");
-  }
-
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    issues.push("Add at least one symbol.");
+  if (new TextEncoder().encode(password).byteLength > MAX_NEW_PASSWORD_BYTES) {
+    issues.push(`Use ${MAX_NEW_PASSWORD_BYTES} UTF-8 bytes or fewer.`);
   }
 
   return {
@@ -37,9 +26,19 @@ export function validatePasswordStrength(password: string): PasswordPolicyResult
 }
 
 export function hashPassword(password: string) {
-  return hash(password, 12);
+  const policy = validatePasswordStrength(password);
+
+  if (!policy.valid) {
+    throw new Error("Password does not satisfy the shared password contract.");
+  }
+
+  return hash(password, BCRYPT_COST);
 }
 
-export function verifyPassword(password: string, passwordHash: string) {
-  return compare(password, passwordHash);
+export async function verifyPassword(password: string, passwordHash: string) {
+  try {
+    return await compare(password, passwordHash);
+  } catch {
+    return false;
+  }
 }

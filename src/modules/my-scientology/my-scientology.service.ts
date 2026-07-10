@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { MediaVisibility, ScientologyVisibility } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
 import {
   completeScientologyCommendationUploadSchema,
   createScientologyCommendationUploadIntentSchema,
@@ -136,14 +136,15 @@ export async function createScientologyCommendationUploadIntent(userId: string, 
     const uploadUrl = await createPresignedR2PutUrl({
       storageKey,
       mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes
+      sizeBytes: parsed.data.sizeBytes,
+      access: "private"
     });
 
     return {
       ok: true as const,
       uploadUrl,
       storageKey,
-      publicUrl: getR2PublicUrl(storageKey),
+      publicUrl: null,
       expiresInSeconds: 300
     };
   } catch (error) {
@@ -175,6 +176,7 @@ export async function completeScientologyCommendationUpload(userId: string, inpu
     storageKey: parsed.data.storageKey,
     expectedMimeType: parsed.data.mimeType,
     expectedSizeBytes: parsed.data.sizeBytes,
+    access: "private",
     label: "Commendation upload"
   });
 
@@ -196,7 +198,7 @@ export async function completeScientologyCommendationUpload(userId: string, inpu
       data: {
         ownerUserId: userId,
         storageKey: parsed.data.storageKey,
-        publicUrl: getR2PublicUrl(parsed.data.storageKey),
+        publicUrl: null,
         mimeType: parsed.data.mimeType,
         sizeBytes: BigInt(parsed.data.sizeBytes),
         originalName: parsed.data.fileName,

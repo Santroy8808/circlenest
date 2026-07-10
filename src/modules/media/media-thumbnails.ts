@@ -1,4 +1,6 @@
+import { MediaVisibility } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
 
 type MediaThumbnailMetadata = {
   thumbnailUrl?: string | null;
@@ -23,18 +25,21 @@ export async function resolvePreferredThumbnailUrls(urls: Array<string | null | 
     select: {
       id: true,
       publicUrl: true,
-      metadata: true
+      metadata: true,
+      visibility: true
     }
   });
   const resolved = new Map<string, string>();
 
   for (const asset of assets) {
     const metadata = asset.metadata as MediaThumbnailMetadata | null;
-    const thumbnailUrl = metadata?.thumbnailUrl;
+    const authorizedDeliveryUrl = mediaAssetDeliveryPath(asset.id);
+    const needsAuthorizedDelivery = asset.visibility !== MediaVisibility.PUBLIC;
+    const thumbnailUrl = needsAuthorizedDelivery ? authorizedDeliveryUrl : metadata?.thumbnailUrl;
 
     if (!thumbnailUrl) continue;
 
-    resolved.set(`/api/media/assets/${asset.id}`, thumbnailUrl);
+    resolved.set(authorizedDeliveryUrl, thumbnailUrl);
     if (asset.publicUrl) resolved.set(asset.publicUrl, thumbnailUrl);
   }
 

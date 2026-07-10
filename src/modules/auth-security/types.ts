@@ -2,6 +2,7 @@ import { AccountPurpose, MembershipTier, UserRole } from "@prisma/client";
 import { z } from "zod";
 
 const MAX_IDENTIFIER_LENGTH = 254;
+export const MIN_NEW_PASSWORD_LENGTH = 12;
 export const MAX_PASSWORD_LENGTH = 128;
 export const MAX_NEW_PASSWORD_BYTES = 72;
 
@@ -12,7 +13,7 @@ const loginPasswordSchema = z
 
 export const newPasswordSchema = z
   .string()
-  .min(12, "Use at least 12 characters.")
+  .min(MIN_NEW_PASSWORD_LENGTH, `Use at least ${MIN_NEW_PASSWORD_LENGTH} characters.`)
   .max(MAX_NEW_PASSWORD_BYTES, `Use ${MAX_NEW_PASSWORD_BYTES} characters or fewer.`)
   .refine(
     (value) => new TextEncoder().encode(value).byteLength <= MAX_NEW_PASSWORD_BYTES,

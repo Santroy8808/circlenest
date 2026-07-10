@@ -1,8 +1,8 @@
 import { randomBytes } from "crypto";
-import { ProfileVisibility, ScientologyVisibility, type Prisma } from "@prisma/client";
+import { MediaAssetStatus, MediaVisibility, ProfileVisibility, ScientologyVisibility, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
+import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
 import { parseScientologySelections } from "@/modules/my-scientology/types";
 import {
   completeResumeUploadSchema,
@@ -154,9 +154,7 @@ export async function updateResume(userId: string, input: unknown) {
       achievements: parsed.data.achievements,
       additionalNotes: parsed.data.additionalNotes || null,
       includeScientology: parsed.data.includeScientology,
-      visibility: parsed.data.visibility,
-      uploadedResumeUrl: parsed.data.uploadedResumeUrl || null,
-      uploadedResumeName: parsed.data.uploadedResumeName || null
+      visibility: parsed.data.visibility
     },
     create: {
       userId,
@@ -173,9 +171,7 @@ export async function updateResume(userId: string, input: unknown) {
       achievements: parsed.data.achievements,
       additionalNotes: parsed.data.additionalNotes || null,
       includeScientology: parsed.data.includeScientology,
-      visibility: parsed.data.visibility,
-      uploadedResumeUrl: parsed.data.uploadedResumeUrl || null,
-      uploadedResumeName: parsed.data.uploadedResumeName || null
+      visibility: parsed.data.visibility
     }
   });
 
@@ -207,14 +203,15 @@ export async function createResumeUploadIntent(userId: string, input: unknown) {
     const uploadUrl = await createPresignedR2PutUrl({
       storageKey,
       mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes
+      sizeBytes: parsed.data.sizeBytes,
+      access: "private"
     });
 
     return {
       ok: true as const,
       uploadUrl,
       storageKey,
-      publicUrl: getR2PublicUrl(storageKey),
+      publicUrl: null,
       expiresInSeconds: 300
     };
   } catch (error) {
@@ -242,6 +239,7 @@ export async function completeResumeUpload(userId: string, input: unknown) {
     storageKey: parsed.data.storageKey,
     expectedMimeType: parsed.data.mimeType,
     expectedSizeBytes: parsed.data.sizeBytes,
+    access: "private",
     label: "Resume upload"
   });
 
@@ -249,23 +247,48 @@ export async function completeResumeUpload(userId: string, input: unknown) {
     return { ok: false as const, error: uploadedObject.error };
   }
 
-  const publicUrl = getR2PublicUrl(parsed.data.storageKey);
-  if (!publicUrl) {
-    return { ok: false as const, error: "Resume upload URL is not configured." };
-  }
+  const { asset, resume } = await prisma.$transaction(async (tx) => {
+    const savedAsset = await tx.mediaAsset.upsert({
+      where: { storageKey: parsed.data.storageKey },
+      update: {
+        publicUrl: null,
+        mimeType: parsed.data.mimeType,
+        sizeBytes: BigInt(parsed.data.sizeBytes),
+        originalName: parsed.data.fileName,
+        status: MediaAssetStatus.READY,
+        visibility: MediaVisibility.PRIVATE
+      },
+      create: {
+        ownerUserId: userId,
+        storageKey: parsed.data.storageKey,
+        publicUrl: null,
+        mimeType: parsed.data.mimeType,
+        sizeBytes: BigInt(parsed.data.sizeBytes),
+        originalName: parsed.data.fileName,
+        status: MediaAssetStatus.READY,
+        visibility: MediaVisibility.PRIVATE,
+        metadata: { module: MODULE_KEY, purpose: "resume" }
+      }
+    });
+    if (savedAsset.ownerUserId !== userId) throw new Error("Resume upload owner mismatch.");
 
-  const resume = await prisma.userResume.upsert({
-    where: { userId },
-    update: {
-      uploadedResumeUrl: publicUrl,
-      uploadedResumeName: parsed.data.fileName
-    },
-    create: {
-      userId,
-      uploadedResumeUrl: publicUrl,
-      uploadedResumeName: parsed.data.fileName
-    }
+    const savedResume = await tx.userResume.upsert({
+      where: { userId },
+      update: {
+        uploadedResumeUrl: `/api/media/assets/${savedAsset.id}`,
+        uploadedResumeName: parsed.data.fileName
+      },
+      create: {
+        userId,
+        uploadedResumeUrl: `/api/media/assets/${savedAsset.id}`,
+        uploadedResumeName: parsed.data.fileName
+      }
+    });
+
+    return { asset: savedAsset, resume: savedResume };
   });
+
+  const privateUrl = `/api/media/assets/${asset.id}`;
 
   await diagnostics.info(MODULE_KEY, "Resume file uploaded.", {
     userId,
@@ -275,7 +298,7 @@ export async function completeResumeUpload(userId: string, input: unknown) {
   return {
     ok: true as const,
     resume: toResumeView(resume),
-    uploadedResumeUrl: publicUrl,
+    uploadedResumeUrl: privateUrl,
     uploadedResumeName: parsed.data.fileName
   };
 }

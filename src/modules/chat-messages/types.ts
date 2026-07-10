@@ -1,7 +1,14 @@
 import { ChatAttachmentKind, ChatThreadType } from "@prisma/client";
 import { z } from "zod";
+import { cuidIdSchema } from "@/lib/platform/validation";
 
 export const MAX_CHAT_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+export const MAX_CHAT_TOTAL_ATTACHMENT_BYTES = 40 * 1024 * 1024;
+export const MAX_CHAT_MESSAGE_CHARACTERS = 4000;
+export const MAX_CHAT_ATTACHMENTS_PER_MESSAGE = 10;
+export const MAX_CHAT_GROUP_PARTICIPANTS = 25;
+export const DEFAULT_CHAT_MESSAGE_PAGE_SIZE = 60;
+export const MAX_CHAT_MESSAGE_PAGE_SIZE = 100;
 
 export const createDirectChatThreadSchema = z.object({
   targetUserId: z.string().min(1)
@@ -9,24 +16,18 @@ export const createDirectChatThreadSchema = z.object({
 
 export const createGroupChatThreadSchema = z.object({
   title: z.string().min(2, "Name the group chat.").max(80),
-  participantUserIds: z.array(z.string().min(1)).min(1).max(24)
+  participantUserIds: z.array(z.string().min(1)).min(1).max(MAX_CHAT_GROUP_PARTICIPANTS - 1)
 });
 
 export const sendChatAttachmentSchema = z.object({
-  mediaAssetId: z.string().optional().or(z.literal("")),
-  kind: z.nativeEnum(ChatAttachmentKind),
-  fileName: z.string().min(1).max(240),
-  mimeType: z.string().min(1).max(120),
-  sizeBytes: z.number().int().positive().max(MAX_CHAT_ATTACHMENT_BYTES),
-  storageKey: z.string().max(600).optional().or(z.literal("")),
-  publicUrl: z.string().url().nullable().optional().or(z.literal(""))
+  mediaAssetId: cuidIdSchema
 });
 
 export const sendChatMessageSchema = z
   .object({
     threadId: z.string().min(1),
-    body: z.string().max(4000).optional().or(z.literal("")),
-    attachments: z.array(sendChatAttachmentSchema).max(10).default([])
+    body: z.string().max(MAX_CHAT_MESSAGE_CHARACTERS).optional().or(z.literal("")),
+    attachments: z.array(sendChatAttachmentSchema).max(MAX_CHAT_ATTACHMENTS_PER_MESSAGE).default([])
   })
   .refine((value) => Boolean(value.body?.trim()) || value.attachments.length > 0, {
     message: "Write a message or attach a file."
@@ -42,6 +43,24 @@ export const completeChatUploadSchema = createChatUploadIntentSchema.extend({
   storageKey: z.string().min(1).max(600),
   thumbnailStorageKey: z.string().min(1).max(600).optional()
 });
+
+const chatCursorDateSchema = z
+  .union([z.string().datetime({ offset: true }), z.date()])
+  .transform((value) => (value instanceof Date ? value : new Date(value)));
+
+export const chatMessagePageSchema = z
+  .object({
+    afterMessageId: z.string().trim().min(1).max(64).optional(),
+    afterCreatedAt: chatCursorDateSchema.optional(),
+    beforeMessageId: z.string().trim().min(1).max(64).optional(),
+    beforeCreatedAt: chatCursorDateSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(MAX_CHAT_MESSAGE_PAGE_SIZE).default(DEFAULT_CHAT_MESSAGE_PAGE_SIZE)
+  })
+  .refine(
+    (value) => !(value.afterMessageId || value.afterCreatedAt) || !(value.beforeMessageId || value.beforeCreatedAt),
+    "Choose either an after cursor or a before cursor, not both."
+  )
+  .default({});
 
 export type ChatPersonView = {
   id: string;
@@ -85,4 +104,10 @@ export type ChatThreadView = {
 
 export type ChatThreadDetailView = ChatThreadView & {
   messages: ChatMessageView[];
+  messagePage: {
+    oldestMessageId?: string;
+    oldestCreatedAt?: string;
+    newestMessageId?: string;
+    newestCreatedAt?: string;
+  };
 };

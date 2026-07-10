@@ -8,6 +8,7 @@ import {
   InterestCategory,
   JobListingStatus,
   MarketListingStatus,
+  MediaAssetStatus,
   MembershipTier,
   PlatformActivityEventType,
   Prisma,
@@ -22,6 +23,7 @@ import {
   adPlacementLabels,
   createAdCampaignSchema,
   interestCategoryLabels,
+  normalizeAdTargetHashtag,
   type AdCampaignCardView,
   type AdScheduleAdminView,
   type AdScheduleRunView,
@@ -34,6 +36,7 @@ import {
   isAdPricingRuleCompatible
 } from "@/modules/platform-pricing/platform-pricing.service";
 import { listStripeCreditPackages } from "@/modules/billing/stripe-credit-checkout.service";
+import { resolveAdCampaignBudget } from "@/modules/ads-credits/ad-budget";
 
 const MODULE_KEY = "ads-credits";
 const AD_SCHEDULE_TIME_ZONE = "America/Los_Angeles";
@@ -149,6 +152,15 @@ function toScheduleRunView(run: {
 }
 
 async function getAdCreateAccess(userId: string) {
+  const actor = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true }
+  });
+
+  if (isAdminRole(actor?.role)) {
+    return { allowed: true, reason: undefined, fundraiserOnly: false, isAdmin: true };
+  }
+
   const generalAccess = await canUserAccessFeature(userId, "ads.createGeneral");
   if (generalAccess.allowed) {
     return { ...generalAccess, fundraiserOnly: false, isAdmin: false };
@@ -188,6 +200,9 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
     status: campaign.status,
     targetLocation: campaign.targetLocation,
     targetInterestLabels: campaign.targetInterests.map((target) => interestCategoryLabels[target.category]),
+    targetAgeRanges: campaign.targetAgeRanges,
+    targetSexes: campaign.targetSexes,
+    targetHashtags: campaign.targetHashtags,
     subscriberTargetLabel: campaign.subscriberTargetManuscript?.title ?? null,
     totalBudgetCredits: campaign.totalBudgetCredits,
     dailyBudgetCredits: campaign.dailyBudgetCredits,
@@ -980,6 +995,33 @@ export async function getAdPlacementPool(input: {
       })
     : [];
   const viewerInterestSet = new Set(viewerInterests.map((interest) => interest.category));
+  const campaignHashtagTargets = [...new Set(scheduledCampaigns.flatMap((campaign) => campaign.targetHashtags))];
+  const viewerHashtagSet =
+    input.viewerUserId && campaignHashtagTargets.length > 0
+      ? new Set(
+          (
+            await prisma.userHashtagSignal.findMany({
+              where: {
+                userId: input.viewerUserId,
+                isNegative: false,
+                hashtag: {
+                  normalized: {
+                    in: campaignHashtagTargets
+                  }
+                }
+              },
+              select: {
+                hashtag: {
+                  select: {
+                    normalized: true
+                  }
+                }
+              },
+              distinct: ["hashtagId"]
+            })
+          ).map((signal) => signal.hashtag.normalized)
+        )
+      : new Set<string>();
   const subscriberTargetManuscriptIds = [
     ...new Set(scheduledCampaigns.map((campaign) => campaign.subscriberTargetManuscriptId).filter((id): id is string => Boolean(id)))
   ];
@@ -1010,9 +1052,10 @@ export async function getAdPlacementPool(input: {
     if (campaign.spentCredits >= campaign.totalBudgetCredits) return false;
     if (campaign.owner.membership?.tier === MembershipTier.ORG && !orgAdEligibleOwnerIds.has(campaign.ownerUserId)) return false;
     if (campaign.subscriberTargetManuscriptId && !viewerSubscribedManuscriptIds.has(campaign.subscriberTargetManuscriptId)) return false;
-    if (campaign.targetInterests.length === 0) return true;
+    if (campaign.targetInterests.length === 0 && campaign.targetHashtags.length === 0) return true;
     if (!input.viewerUserId) return false;
-    return campaign.targetInterests.some((target) => viewerInterestSet.has(target.category));
+    if (campaign.targetInterests.some((target) => viewerInterestSet.has(target.category))) return true;
+    return campaign.targetHashtags.some((hashtag) => viewerHashtagSet.has(hashtag));
   }).map((campaign) => campaign.id));
 
   return mergeScheduledSlots(slots.filter((slot) => eligibleCampaignIds.has(slot.campaignId)), limit, now);
@@ -1468,24 +1511,6 @@ function normalizeCustomDestinationUrl(value?: string) {
   }
 }
 
-function normalizeExternalImageUrl(value?: string) {
-  const trimmed = value?.trim();
-
-  if (!trimmed) return null;
-
-  try {
-    const url = new URL(trimmed);
-
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return null;
-    }
-
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
 async function isOwnFundraiserDestination(userId: string, destinationUrl: string | null) {
   if (!destinationUrl?.startsWith("/fundraisers/")) return false;
   const slug = destinationUrl.split("?")[0]?.split("#")[0]?.split("/").filter(Boolean)[1];
@@ -1537,9 +1562,8 @@ async function verifyAdImage(userId: string, imageMediaAssetId?: string) {
     where: {
       id: imageMediaAssetId,
       ownerUserId: userId,
-      mimeType: {
-        startsWith: "image/"
-      }
+      status: MediaAssetStatus.READY,
+      mimeType: { in: ["image/jpeg", "image/png", "image/webp", "image/gif"] }
     },
     select: {
       id: true
@@ -1576,11 +1600,24 @@ export async function createAdCampaign(userId: string, input: unknown) {
     return { ok: false as const, error: "That pricing package does not match the selected placement." };
   }
 
-  const campaignCostCredits = parsed.data.totalBudgetCredits ?? (access.fundraiserOnly ? Math.ceil(pricingRule.creditCost / 2) : pricingRule.creditCost);
-  const campaignDurationDays = parsed.data.campaignDurationDays ?? pricingRule.durationDays ?? 7;
+  const budget = resolveAdCampaignBudget({
+    ruleCredits: pricingRule.creditCost,
+    ruleDurationDays: pricingRule.durationDays,
+    fundraiserDiscount: access.fundraiserOnly,
+    requestedCredits: parsed.data.totalBudgetCredits,
+    requestedDurationDays: parsed.data.campaignDurationDays
+  });
+
+  if (!budget.ok) return budget;
+
+  const campaignCostCredits = budget.credits;
+  const campaignDurationDays = budget.durationDays;
   const startsAt = new Date();
   const endsAt = new Date(startsAt.getTime() + campaignDurationDays * 24 * 60 * 60 * 1000);
   const targetInterestCategories = [...new Set(parsed.data.targetInterestCategories)] as InterestCategory[];
+  const targetAgeRanges = [...new Set(parsed.data.targetAgeRanges)];
+  const targetSexes = [...new Set(parsed.data.targetSexes)];
+  const targetHashtags = [...new Set(parsed.data.targetHashtags.map(normalizeAdTargetHashtag).filter(Boolean))];
 
   const membership = await prisma.membership.findUnique({
     where: { userId },
@@ -1618,11 +1655,11 @@ export async function createAdCampaign(userId: string, input: unknown) {
     return image;
   }
 
-  const externalImageUrl = image.imageMediaAssetId ? null : normalizeExternalImageUrl(parsed.data.externalImageUrl);
-
-  if (!image.imageMediaAssetId && !externalImageUrl) {
-    return { ok: false as const, error: "Upload an ad image or enter a valid image URL." };
+  if (!image.imageMediaAssetId) {
+    return { ok: false as const, error: "Upload a verified image for this ad." };
   }
+
+  const externalImageUrl = null;
 
   let campaign: AdCampaignPayload;
 
@@ -1673,6 +1710,9 @@ export async function createAdCampaign(userId: string, input: unknown) {
           externalImageUrl,
           placement: parsed.data.placement,
           targetLocation: parsed.data.targetLocation || null,
+          targetAgeRanges,
+          targetSexes,
+          targetHashtags,
           totalBudgetCredits: campaignCostCredits,
           dailyBudgetCredits: null,
           startsAt,
@@ -1714,6 +1754,9 @@ export async function createAdCampaign(userId: string, input: unknown) {
     campaignDurationDays,
     endsAt: campaign.endsAt?.toISOString(),
     targetInterests: targetInterestCategories,
+    targetAgeRanges,
+    targetSexes,
+    targetHashtags,
     subscriberTargetManuscriptId: subscriberTarget.manuscriptId
   });
   await writeAuditLog({
@@ -1729,6 +1772,9 @@ export async function createAdCampaign(userId: string, input: unknown) {
       campaignDurationDays,
       endsAt: campaign.endsAt?.toISOString(),
       targetInterests: targetInterestCategories,
+      targetAgeRanges,
+      targetSexes,
+      targetHashtags,
       subscriberTargetManuscriptId: subscriberTarget.manuscriptId
     }
   });

@@ -48,6 +48,7 @@ export const envSchema = z.object({
   CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().optional(),
   CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().optional(),
   CLOUDFLARE_R2_BUCKET: z.string().optional(),
+  CLOUDFLARE_R2_PRIVATE_BUCKET: z.string().optional(),
   CLOUDFLARE_R2_ENDPOINT: optionalUrl,
   CLOUDFLARE_R2_PUBLIC_BASE_URL: optionalUrl,
   R2_ACCOUNT_ID: z.string().optional(),
@@ -55,6 +56,7 @@ export const envSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET: z.string().optional(),
+  R2_PRIVATE_BUCKET: z.string().optional(),
   R2_PUBLIC_BASE_URL: optionalUrl,
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
@@ -121,12 +123,42 @@ export const productionEnvSchema = envSchema.superRefine((env, context) => {
     });
   }
 
-  const smtpFields = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASS, env.SMTP_FROM];
+  const smtpFields = [env.SMTP_HOST, env.SMTP_PORT, env.SMTP_USER, env.SMTP_PASS, env.SMTP_FROM];
   if (smtpFields.some((value) => !value)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM are required for production account recovery.",
+      message: "SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM are required for production account recovery.",
       path: ["SMTP_HOST"]
+    });
+  }
+
+  if (env.SMTP_IGNORE_TLS === "true") {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "SMTP_IGNORE_TLS must not be enabled in production.",
+      path: ["SMTP_IGNORE_TLS"]
+    });
+  }
+
+  const publicBucket = env.CLOUDFLARE_R2_BUCKET || env.R2_BUCKET;
+  const privateBucket = env.CLOUDFLARE_R2_PRIVATE_BUCKET || env.R2_PRIVATE_BUCKET;
+  const r2AccountOrEndpoint =
+    env.CLOUDFLARE_R2_ACCOUNT_ID || env.R2_ACCOUNT_ID || env.CLOUDFLARE_R2_ENDPOINT || env.R2_ENDPOINT;
+  const r2AccessKey = env.CLOUDFLARE_R2_ACCESS_KEY_ID || env.R2_ACCESS_KEY_ID;
+  const r2SecretKey = env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || env.R2_SECRET_ACCESS_KEY;
+  if (!r2AccountOrEndpoint || !r2AccessKey || !r2SecretKey || !publicBucket) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "R2 endpoint/account, credentials, and public bucket are required for production media.",
+      path: ["CLOUDFLARE_R2_BUCKET"]
+    });
+  }
+
+  if (!privateBucket || privateBucket === publicBucket) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A distinct CLOUDFLARE_R2_PRIVATE_BUCKET (or R2_PRIVATE_BUCKET) is required for restricted media.",
+      path: ["CLOUDFLARE_R2_PRIVATE_BUCKET"]
     });
   }
 });

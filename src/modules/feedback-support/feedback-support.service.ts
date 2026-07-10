@@ -2,12 +2,24 @@ import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { hashPrivateSignal } from "@/lib/platform/private-signals";
 import { createFeedbackTicketSchema } from "@/modules/feedback-support/types";
 
 const MODULE_KEY = "feedback-support";
 
 function createPublicTicketId() {
   return `TS-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+}
+
+function safeTicketPagePath(value?: string) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value, "https://theta-space.invalid");
+    return url.pathname.startsWith("/") ? url.pathname.slice(0, 600) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function createFeedbackTicket(input: unknown, context: { userId?: string; userAgent?: string } = {}) {
@@ -22,12 +34,12 @@ export async function createFeedbackTicket(input: unknown, context: { userId?: s
       data: {
         publicId: createPublicTicketId(),
         reporterUserId: context.userId,
-        reporterEmail: parsed.data.reporterEmail || undefined,
-        pageUrl: parsed.data.pageUrl,
+        reporterEmail: context.userId ? undefined : parsed.data.reporterEmail || undefined,
+        pageUrl: safeTicketPagePath(parsed.data.pageUrl),
         title: parsed.data.title,
         description: parsed.data.description,
         severity: parsed.data.severity,
-        userAgent: context.userAgent,
+        userAgent: hashPrivateSignal(context.userAgent, "feedback:user-agent"),
         diagnostics: parsed.data.diagnostics as Prisma.InputJsonObject | undefined,
         events: {
           create: {

@@ -1,5 +1,6 @@
 import { SocialRelationshipType } from "@prisma/client";
 import { z } from "zod";
+import { cuidIdSchema } from "@/lib/platform/validation";
 
 export const familyRelationshipLabels = [
   "Spouse",
@@ -20,14 +21,14 @@ export const familyRelationshipLabels = [
 export const quickFamilyRelationshipLabels = ["Spouse", "Sibling", "Cousin", "Family", "Parent", "Progeny"] as const;
 
 export const familyRelationshipRequestSchema = z.object({
-  targetUserId: z.string().min(1),
+  targetUserId: cuidIdSchema,
   relationshipLabel: z.enum(familyRelationshipLabels),
-  message: z.string().max(240).optional().or(z.literal(""))
+  message: z.string().trim().max(240).optional().or(z.literal(""))
 });
 
 export const friendRelationshipRequestSchema = z.object({
-  targetUserId: z.string().min(1),
-  message: z.string().max(240).optional().or(z.literal(""))
+  targetUserId: cuidIdSchema,
+  message: z.string().trim().max(240).optional().or(z.literal(""))
 });
 
 export const familyRelationshipResponseSchema = z.object({
@@ -39,13 +40,13 @@ export const friendRelationshipResponseSchema = z.object({
 });
 
 export const setRelationshipSchema = z.object({
-  toUserId: z.string().min(1),
+  toUserId: cuidIdSchema,
   type: z.nativeEnum(SocialRelationshipType),
-  note: z.string().max(240).optional().or(z.literal(""))
+  note: z.string().trim().max(240).optional().or(z.literal(""))
 });
 
 export const removeRelationshipSchema = z.object({
-  toUserId: z.string().min(1),
+  toUserId: cuidIdSchema,
   type: z.nativeEnum(SocialRelationshipType)
 });
 
