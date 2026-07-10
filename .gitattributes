@@ -1,0 +1,20 @@
+# Preserve byte-for-byte checksums for migrations already applied in production.
+prisma/migrations/20260626101200_add_business_account_links/migration.sql -text
+prisma/migrations/20260626115500_add_god_role_tier_overrides_and_auditor_accounts/migration.sql -text
+prisma/migrations/20260626115600_promote_default_admin_to_god/migration.sql -text
+prisma/migrations/20260630143000_add_hashtag_interest_signals/migration.sql -text
+prisma/migrations/20260630152000_add_acquaintance_relationship/migration.sql -text
+prisma/migrations/20260630154500_add_profile_feed_posts/migration.sql -text
+prisma/migrations/20260630165000_add_platform_health_worker_contract/migration.sql -text
+prisma/migrations/20260701120000_add_user_resume/migration.sql -text
+prisma/migrations/20260702120000_relationship_requests_use_notifications/migration.sql -text
+prisma/migrations/20260703120000_enforce_single_reaction_per_user/migration.sql -text
+prisma/migrations/20260707102000_auditor_help_accounts/migration.sql -text
+prisma/migrations/20260708170000_add_gallery_reactions/migration.sql -text
+prisma/migrations/20260709120000_add_market_listing_contact/migration.sql -text
+
+# Canonicalize only new, unapplied migration SQL to UTF-8/LF.
+prisma/migrations/20260625000000_baseline/migration.sql text eol=lf
+prisma/migrations/20260709143000_expand_ad_targeting/migration.sql text eol=lf
+prisma/migrations/20260710090000_reconcile_schema/migration.sql text eol=lf
+prisma/migrations/20260710100000_add_upload_and_billing_durability/migration.sql text eol=lf

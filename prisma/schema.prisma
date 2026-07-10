@@ -35,6 +35,23 @@ enum StripeCheckoutKind {
   CREDIT_PURCHASE
 }
 
+enum StripeWebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum BillingCheckoutIntentStatus {
+  PENDING
+  SESSION_CREATED
+  COMPLETED
+  EXPIRED
+  CANCELED
+  FAILED
+}
+
 enum PromotionAccessScope {
   GLOBAL
   USER
@@ -96,6 +113,30 @@ enum MediaAssetStatus {
   UPLOADING
   READY
   FAILED
+}
+
+enum UploadIntentPurpose {
+  GALLERY
+  STREAM_POST
+  STREAM_REPLY
+  AD_CREATIVE
+  PROFILE_MEDIA
+  BUSINESS_MEDIA
+  CHAT_ATTACHMENT
+  MAIL_ATTACHMENT
+  GROUP_ASSET
+  MARKET_LISTING
+  RESUME
+}
+
+enum UploadIntentStatus {
+  PENDING
+  VERIFYING
+  VERIFIED
+  USED
+  EXPIRED
+  REVOKED
+  REJECTED
 }
 
 enum FeedVisibility {
@@ -337,6 +378,50 @@ enum InterestCategory {
   FAMILY_COMMUNITY
   TECH
   COURSE_SUPPLIES
+  BOOKS
+  DIANETICS
+  SCIENTOLOGY
+  LOCAL_SERVICES
+  HOME_SERVICES
+  PROFESSIONAL_SERVICES
+  SOFTWARE
+  WEB_APPS
+  SECURITY
+  EDUCATION
+  WRITING
+  MANUSCRIPTS
+  PHOTOGRAPHY
+  GALLERY
+  MUSIC
+  VIDEO
+  HEALTH
+  FITNESS
+  FOOD
+  TRAVEL
+  REAL_ESTATE
+  AUTOMOTIVE
+  FINANCE
+  VOLUNTEERING
+  COMMUNITY
+  NEWS
+  POLITICS
+  SPIRITUALITY
+  SELF_IMPROVEMENT
+  PRODUCTIVITY
+  ENTREPRENEURSHIP
+  ART
+  DESIGN
+  GAMING
+  PETS
+  OUTDOORS
+  SPORTS
+  PARENTING
+  RELATIONSHIPS
+  ENTERTAINMENT
+  SHOPPING
+  EQUIPMENT
+  SUPPLIES
+  ELECTRONICS
 }
 
 enum PlatformActivityEventType {
@@ -570,6 +655,8 @@ model User {
   generatedFreeInvites            FreeAccountInviteCode[]            @relation("FreeInviteGeneratedBy")
   assignedFreeInvites             FreeAccountInviteCode[]            @relation("FreeInviteAssignedUser")
   usedFreeInvites                 FreeAccountInviteCode[]            @relation("FreeInviteUsedBy")
+  uploadIntents                   UploadIntent[]
+  billingCheckoutIntents          BillingCheckoutIntent[]
 }
 
 model UserDevice {
@@ -610,27 +697,27 @@ model Profile {
 }
 
 model UserResume {
-  id                    String            @id @default(cuid())
-  userId                String            @unique
-  headline              String?
-  executiveSummary      String?
-  email                 String?
-  phone                 String?
-  location              String?
-  website               String?
-  coreSkills            Json?
-  experience            Json?
-  education             Json?
-  credentials           Json?
-  achievements          Json?
-  additionalNotes       String?
-  includeScientology    Boolean           @default(false)
-  visibility            ProfileVisibility @default(MEMBERS)
-  uploadedResumeUrl     String?
-  uploadedResumeName    String?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String            @id @default(cuid())
+  userId             String            @unique
+  headline           String?
+  executiveSummary   String?
+  email              String?
+  phone              String?
+  location           String?
+  website            String?
+  coreSkills         Json?
+  experience         Json?
+  education          Json?
+  credentials        Json?
+  achievements       Json?
+  additionalNotes    String?
+  includeScientology Boolean           @default(false)
+  visibility         ProfileVisibility @default(MEMBERS)
+  uploadedResumeUrl  String?
+  uploadedResumeName String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ScientologyProfile {
@@ -812,6 +899,61 @@ model StripeCheckoutFulfillment {
   createdAt               DateTime           @default(now())
 
   @@index([userId, createdAt])
+}
+
+model StripeWebhookEvent {
+  id              String                   @id @default(cuid())
+  providerEventId String                   @unique
+  eventType       String
+  objectId        String?
+  payload         Json
+  livemode        Boolean
+  apiVersion      String?
+  eventCreatedAt  DateTime
+  status          StripeWebhookEventStatus @default(RECEIVED)
+  attempts        Int                      @default(0)
+  lastAttemptAt   DateTime?
+  lockedUntil     DateTime?
+  claimToken      String?
+  nextAttemptAt   DateTime?
+  processedAt     DateTime?
+  errorAt         DateTime?
+  errorMessage    String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([status, createdAt])
+  @@index([status, nextAttemptAt, lockedUntil])
+  @@index([eventType, eventCreatedAt])
+  @@index([objectId, eventCreatedAt])
+}
+
+model BillingCheckoutIntent {
+  id                      String                      @id @default(cuid())
+  idempotencyKey          String                      @unique
+  userId                  String?
+  kind                    StripeCheckoutKind
+  targetTier              MembershipTier?
+  creditPackageKey        String?
+  creditAmountSnapshot    Int?
+  stripePriceIdSnapshot   String
+  amountCentsSnapshot     Int
+  currencySnapshot        String
+  stripeCheckoutSessionId String?                     @unique
+  stripeSubscriptionId    String?                     @unique
+  status                  BillingCheckoutIntentStatus @default(PENDING)
+  expiresAt               DateTime
+  sessionCreatedAt        DateTime?
+  completedAt             DateTime?
+  canceledAt              DateTime?
+  failedAt                DateTime?
+  errorMessage            String?
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
+  user                    User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
 }
 
 model AdExperienceRule {
@@ -1023,6 +1165,33 @@ model MediaAsset {
   @@index([status, updatedAt])
 }
 
+model UploadIntent {
+  id                     String              @id @default(cuid())
+  ownerUserId            String
+  storageKey             String              @unique
+  purpose                UploadIntentPurpose
+  declaredMimeType       String
+  declaredSizeBytes      BigInt
+  declaredChecksumSha256 String?
+  observedMimeType       String?
+  observedSizeBytes      BigInt?
+  observedChecksumSha256 String?
+  visibility             MediaVisibility     @default(PRIVATE)
+  status                 UploadIntentStatus  @default(PENDING)
+  expiresAt              DateTime
+  completedAt            DateTime?
+  verifiedAt             DateTime?
+  rejectedAt             DateTime?
+  usedAt                 DateTime?
+  verificationError      String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  owner                  User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([ownerUserId, createdAt])
+  @@index([status, expiresAt])
+}
+
 model Hashtag {
   id              String               @id @default(cuid())
   normalized      String               @unique
@@ -1108,15 +1277,15 @@ model UserHashtagSignal {
 }
 
 model GalleryAssetComment {
-  id           String     @id @default(cuid())
+  id           String                        @id @default(cuid())
   mediaAssetId String
   authorUserId String
   body         String
   deletedAt    DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
-  author       User       @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                      @default(now())
+  updatedAt    DateTime                      @updatedAt
+  mediaAsset   MediaAsset                    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  author       User                          @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
   reactions    GalleryAssetCommentReaction[]
 
   @@index([mediaAssetId, deletedAt, createdAt])
@@ -1822,26 +1991,26 @@ model EventRsvp {
 }
 
 model MarketListing {
-  id           String                @id @default(cuid())
-  slug         String                @unique
-  sellerUserId String
-  title        String
-  description  String
-  category     MarketListingCategory
-  location     String?
-  contactEmail String?
-  contactPhone String?
-  contactNotes String?
+  id            String                @id @default(cuid())
+  slug          String                @unique
+  sellerUserId  String
+  title         String
+  description   String
+  category      MarketListingCategory
+  location      String?
+  contactEmail  String?
+  contactPhone  String?
+  contactNotes  String?
   allowMessages Boolean               @default(true)
-  priceCents   Int?
-  currency     String                @default("USD")
-  status       MarketListingStatus   @default(ACTIVE)
-  expiresAt    DateTime?
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  seller       User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
-  photos       MarketListingPhoto[]
-  adCampaigns  AdCampaign[]
+  priceCents    Int?
+  currency      String                @default("USD")
+  status        MarketListingStatus   @default(ACTIVE)
+  expiresAt     DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  seller        User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
+  photos        MarketListingPhoto[]
+  adCampaigns   AdCampaign[]
 
   @@index([status, category, createdAt])
   @@index([sellerUserId, createdAt])
@@ -1887,57 +2056,57 @@ model JobListing {
 }
 
 model AuditorProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
+  id              String                @id @default(cuid())
+  userId          String                @unique
   practiceName    String
   location        String?
-  willingToTravel Boolean  @default(false)
+  willingToTravel Boolean               @default(false)
   bio             String?
   offerings       String?
   phone           String?
   website         String?
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  active          Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   successStories  AuditorSuccessStory[]
 
   @@index([active, createdAt])
 }
 
 model AuditorSeekerProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  fullName        String
-  email           String
-  phone           String?
-  resolutionGoal  String?
-  location        String?
-  relationship    String?
-  bio             String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  successStories  AuditorSuccessStory[]
+  id             String                @id @default(cuid())
+  userId         String                @unique
+  fullName       String
+  email          String
+  phone          String?
+  resolutionGoal String?
+  location       String?
+  relationship   String?
+  bio            String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  successStories AuditorSuccessStory[]
 
   @@index([email, createdAt])
 }
 
 model AuditorSuccessStory {
-  id                     String                @id @default(cuid())
-  seekerProfileId        String
-  auditorProfileId       String?
-  authorUserId           String
-  title                  String?
-  body                   String
-  visibility             ProfileVisibility     @default(MEMBERS)
-  pinnedByAuditorAt      DateTime?
-  removedByAuditorAt     DateTime?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  seekerProfile          AuditorSeekerProfile  @relation(fields: [seekerProfileId], references: [id], onDelete: Cascade)
-  auditorProfile         AuditorProfile?       @relation(fields: [auditorProfileId], references: [id], onDelete: SetNull)
-  author                 User                  @relation("AuditorSuccessStoryAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  id                 String               @id @default(cuid())
+  seekerProfileId    String
+  auditorProfileId   String?
+  authorUserId       String
+  title              String?
+  body               String
+  visibility         ProfileVisibility    @default(MEMBERS)
+  pinnedByAuditorAt  DateTime?
+  removedByAuditorAt DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  seekerProfile      AuditorSeekerProfile @relation(fields: [seekerProfileId], references: [id], onDelete: Cascade)
+  auditorProfile     AuditorProfile?      @relation(fields: [auditorProfileId], references: [id], onDelete: SetNull)
+  author             User                 @relation("AuditorSuccessStoryAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
 
   @@index([seekerProfileId, createdAt])
   @@index([auditorProfileId, removedByAuditorAt, createdAt])
@@ -2076,6 +2245,9 @@ model AdCampaign {
   placement                    AdPlacement                @default(RIGHT_STREAM)
   status                       AdCampaignStatus           @default(ACTIVE)
   targetLocation               String?
+  targetAgeRanges              String[]                   @default([])
+  targetSexes                  String[]                   @default([])
+  targetHashtags               String[]                   @default([])
   totalBudgetCredits           Int
   dailyBudgetCredits           Int?
   spentCredits                 Int                        @default(0)

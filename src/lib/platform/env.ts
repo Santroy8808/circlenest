@@ -1,11 +1,36 @@
 import { z } from "zod";
 
 const optionalUrl = z.string().url().or(z.literal("")).optional();
+const placeholderSecretPattern = /(change[-_ ]?me|example|placeholder|replace[-_ ]?with|your[-_ ]?secret)/i;
+
+function isAcceptableProductionSecret(value: string | undefined) {
+  return Boolean(
+    value &&
+      value.length >= 32 &&
+      !placeholderSecretPattern.test(value) &&
+      new Set(value).size >= 10
+  );
+}
+
+function parseSecureOrigin(value: string | undefined) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   NEXTAUTH_SECRET: z.string().min(16).optional(),
   NEXTAUTH_URL: optionalUrl,
+  APP_ORIGIN: optionalUrl,
+  MOBILE_AUTH_SECRET: z.string().min(32).optional(),
+  IP_HASH_SECRET: z.string().min(32).optional(),
   PLATFORM_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   PRISMA_QUERY_LOGS_ENABLED: z.enum(["true", "false"]).default("false"),
   PRISMA_SLOW_QUERY_MS: z.coerce.number().int().min(1).default(250),
@@ -47,14 +72,77 @@ export const envSchema = z.object({
   STRIPE_PRICE_ORG: z.string().optional()
 });
 
+export const productionEnvSchema = envSchema.superRefine((env, context) => {
+  const requiredSecrets = [
+    ["NEXTAUTH_SECRET", env.NEXTAUTH_SECRET],
+    ["MOBILE_AUTH_SECRET", env.MOBILE_AUTH_SECRET],
+    ["IP_HASH_SECRET", env.IP_HASH_SECRET]
+  ] as const;
+
+  for (const [name, value] of requiredSecrets) {
+    if (!isAcceptableProductionSecret(value)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${name} must be a non-placeholder random secret with at least 32 characters in production.`,
+        path: [name]
+      });
+    }
+  }
+
+  const distinctSecrets = new Set(requiredSecrets.map(([, value]) => value).filter(Boolean));
+  if (distinctSecrets.size !== requiredSecrets.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "NEXTAUTH_SECRET, MOBILE_AUTH_SECRET, and IP_HASH_SECRET must be independent secrets.",
+      path: ["NEXTAUTH_SECRET"]
+    });
+  }
+
+  const appOrigin = parseSecureOrigin(env.APP_ORIGIN);
+  const nextAuthOrigin = parseSecureOrigin(env.NEXTAUTH_URL);
+  for (const [name, value] of [
+    ["APP_ORIGIN", appOrigin],
+    ["NEXTAUTH_URL", nextAuthOrigin]
+  ] as const) {
+    if (!value) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${name} must be an HTTPS origin without embedded credentials in production.`,
+        path: [name]
+      });
+    }
+  }
+
+  if (appOrigin && nextAuthOrigin && appOrigin !== nextAuthOrigin) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "APP_ORIGIN and NEXTAUTH_URL must use the same origin in production.",
+      path: ["APP_ORIGIN"]
+    });
+  }
+
+  const smtpFields = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASS, env.SMTP_FROM];
+  if (smtpFields.some((value) => !value)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM are required for production account recovery.",
+      path: ["SMTP_HOST"]
+    });
+  }
+});
+
 export type PlatformEnv = z.infer<typeof envSchema>;
 
 export function readPlatformEnv(input: NodeJS.ProcessEnv = process.env): PlatformEnv {
-  return envSchema.parse(input);
+  return (input.NODE_ENV === "production" ? productionEnvSchema : envSchema).parse(input);
 }
 
 export function safeReadPlatformEnv(input: NodeJS.ProcessEnv = process.env) {
-  return envSchema.safeParse(input);
+  return (input.NODE_ENV === "production" ? productionEnvSchema : envSchema).safeParse(input);
+}
+
+export function safeReadProductionEnv(input: NodeJS.ProcessEnv = process.env) {
+  return productionEnvSchema.safeParse(input);
 }
 
 export function isEnabled(value: string | undefined, fallback = true) {
