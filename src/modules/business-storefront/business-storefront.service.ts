@@ -239,10 +239,29 @@ async function getActiveBusinessMarketListings(ownerUserId: string) {
   return listings.map(toStorefrontMarketListingView);
 }
 
+async function getStorefrontBlogAuthorUserIds(ownerUserId: string) {
+  const account = await prisma.businessAccount.findFirst({
+    where: {
+      businessUserId: ownerUserId,
+      active: true
+    },
+    select: {
+      privateUserId: true
+    }
+  });
+
+  return [
+    ...new Set([ownerUserId, account?.privateUserId].filter((userId): userId is string => Boolean(userId)))
+  ];
+}
+
 async function getPublishedStorefrontBlogs(ownerUserId: string, profileSlug: string) {
+  const authorUserIds = await getStorefrontBlogAuthorUserIds(ownerUserId);
   const blogs = await prisma.writerManuscript.findMany({
     where: {
-      authorUserId: ownerUserId,
+      authorUserId: {
+        in: authorUserIds
+      },
       publishToStorefront: true
     },
     include: {
@@ -820,10 +839,13 @@ export async function getPublicStorefrontBlog(storefrontSlug: string, manuscript
     return { ok: false as const, error: "Storefront blog not found." };
   }
 
+  const authorUserIds = await getStorefrontBlogAuthorUserIds(profile.ownerUserId);
   const blog = await prisma.writerManuscript.findFirst({
     where: {
       slug: manuscriptSlug,
-      authorUserId: profile.ownerUserId,
+      authorUserId: {
+        in: authorUserIds
+      },
       publishToStorefront: true
     },
     include: {

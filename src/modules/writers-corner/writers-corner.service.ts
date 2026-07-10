@@ -123,17 +123,36 @@ async function getViewerRole(userId: string) {
   return user?.role ?? UserRole.MEMBER;
 }
 
-async function canPublishToStorefront(userId: string) {
-  const profile = await prisma.businessProfile.findUnique({
-    where: { ownerUserId: userId },
+async function getStorefrontOwnerUserIdsForPublisher(userId: string) {
+  const accounts = await prisma.businessAccount.findMany({
+    where: {
+      privateUserId: userId,
+      active: true
+    },
     select: {
-      id: true,
-      publicStorefrontEnabled: true,
-      blogEnabled: true
+      businessUserId: true
     }
   });
 
-  return Boolean(profile?.publicStorefrontEnabled && profile.blogEnabled);
+  return [...new Set([userId, ...accounts.map((account) => account.businessUserId)])];
+}
+
+async function canPublishToStorefront(userId: string) {
+  const ownerUserIds = await getStorefrontOwnerUserIdsForPublisher(userId);
+  const profile = await prisma.businessProfile.findFirst({
+    where: {
+      ownerUserId: {
+        in: ownerUserIds
+      },
+      publicStorefrontEnabled: true,
+      blogEnabled: true
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return Boolean(profile);
 }
 
 export async function getWriterAccessState(userId: string) {
