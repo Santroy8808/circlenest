@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { BusinessProfileKind } from "@prisma/client";
 import type { MarketListingCardView } from "@/modules/market/types";
+import type { StorefrontForumTopicListItemView } from "@/modules/storefront-forum/types";
 
 export const updateBusinessProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(100),
@@ -16,6 +17,8 @@ export const updateBusinessProfileSchema = z.object({
   heroImageUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
   galleryImageUrls: z.array(z.string().trim().url().max(500)).max(12).default([]),
   blogEnabled: z.boolean().default(false),
+  forumEnabled: z.boolean().default(false),
+  forumAllowPictureUploads: z.boolean().default(false),
   publicStorefrontEnabled: z.boolean().default(false)
 });
 
@@ -63,12 +66,15 @@ export type BusinessProfileView = {
   heroImageUrl: string | null;
   galleryImageUrls: string[];
   blogEnabled: boolean;
+  forumEnabled: boolean;
+  forumAllowPictureUploads: boolean;
   publicStorefrontEnabled: boolean;
   emailLinkingEnabled: boolean;
   publicUrl: string;
   updatedAt: string;
   marketListings: MarketListingCardView[];
   storefrontBlogs: StorefrontBlogView[];
+  forumTopics: StorefrontForumTopicListItemView[];
   articles: BusinessArticleView[];
   owner?: {
     username: string;

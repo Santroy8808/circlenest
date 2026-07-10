@@ -631,6 +631,10 @@ model User {
   businessProfile                 BusinessProfile?                   @relation("BusinessProfileOwner")
   privateBusinessAccounts         BusinessAccount[]                  @relation("BusinessAccountPrivateOwner")
   businessAccountOwnerLink        BusinessAccount?                   @relation("BusinessAccountActor")
+  storefrontForumTopics           StorefrontForumTopic[]             @relation("StorefrontForumTopicAuthor")
+  deletedStorefrontForumTopics    StorefrontForumTopic[]             @relation("StorefrontForumTopicDeleter")
+  storefrontForumPosts            StorefrontForumPost[]              @relation("StorefrontForumPostAuthor")
+  deletedStorefrontForumPosts     StorefrontForumPost[]              @relation("StorefrontForumPostDeleter")
   adCampaigns                     AdCampaign[]                       @relation("AdCampaignOwner")
   adCreditLedgerEntries           AdCreditLedgerEntry[]
   adDeliveryLogs                  AdDeliveryLog[]                    @relation("AdDeliveryViewer")
@@ -2165,33 +2169,83 @@ model AuditorAccount {
 }
 
 model BusinessProfile {
-  id                      String              @id @default(cuid())
-  ownerUserId             String              @unique
-  profileKind             BusinessProfileKind @default(BUSINESS)
-  slug                    String              @unique
-  businessName            String
-  contactPersonName       String?
-  tagline                 String?
-  description             String?
-  location                String?
-  publicEmail             String?
-  phone                   String?
-  website                 String?
-  logoUrl                 String?
-  bannerUrl               String?
-  heroImageUrl            String?
-  galleryImageUrls        String[]            @default([])
-  blogEnabled             Boolean             @default(false)
-  publicStorefrontEnabled Boolean             @default(false)
-  emailLinkingEnabled     Boolean             @default(false)
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-  owner                   User                @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  inquiries               BusinessInquiry[]
-  adCampaigns             AdCampaign[]
-  articles                BusinessArticle[]
+  id                       String                 @id @default(cuid())
+  ownerUserId              String                 @unique
+  profileKind              BusinessProfileKind    @default(BUSINESS)
+  slug                     String                 @unique
+  businessName             String
+  contactPersonName        String?
+  tagline                  String?
+  description              String?
+  location                 String?
+  publicEmail              String?
+  phone                    String?
+  website                  String?
+  logoUrl                  String?
+  bannerUrl                String?
+  heroImageUrl             String?
+  galleryImageUrls         String[]               @default([])
+  blogEnabled              Boolean                @default(false)
+  forumEnabled             Boolean                @default(false)
+  forumAllowPictureUploads Boolean                @default(false)
+  publicStorefrontEnabled  Boolean                @default(false)
+  emailLinkingEnabled      Boolean                @default(false)
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  owner                    User                   @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  inquiries                BusinessInquiry[]
+  adCampaigns              AdCampaign[]
+  articles                 BusinessArticle[]
+  forumTopics              StorefrontForumTopic[]
 
   @@index([publicStorefrontEnabled, updatedAt])
+}
+
+model StorefrontForumTopic {
+  id                String                @id @default(cuid())
+  businessProfileId String
+  authorUserId      String?
+  guestName         String?
+  title             String
+  body              String
+  imageUrl          String?
+  lastPostAt        DateTime              @default(now())
+  deletedAt         DateTime?
+  deletedByUserId   String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  businessProfile   BusinessProfile       @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  author            User?                 @relation("StorefrontForumTopicAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  deletedBy         User?                 @relation("StorefrontForumTopicDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  posts             StorefrontForumPost[]
+
+  @@index([businessProfileId, deletedAt, lastPostAt])
+  @@index([authorUserId, createdAt])
+  @@index([deletedByUserId, deletedAt])
+}
+
+model StorefrontForumPost {
+  id              String                @id @default(cuid())
+  topicId         String
+  authorUserId    String?
+  guestName       String?
+  parentPostId    String?
+  body            String
+  imageUrl        String?
+  deletedAt       DateTime?
+  deletedByUserId String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  topic           StorefrontForumTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  author          User?                 @relation("StorefrontForumPostAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  parent          StorefrontForumPost?  @relation("StorefrontForumPostReplies", fields: [parentPostId], references: [id], onDelete: SetNull)
+  replies         StorefrontForumPost[] @relation("StorefrontForumPostReplies")
+  deletedBy       User?                 @relation("StorefrontForumPostDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([topicId, deletedAt, createdAt])
+  @@index([parentPostId, deletedAt, createdAt])
+  @@index([authorUserId, createdAt])
+  @@index([deletedByUserId, deletedAt])
 }
 
 model BusinessAccount {

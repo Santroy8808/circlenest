@@ -117,6 +117,36 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
             </nav>
           ) : null}
 
+          {profile.forumEnabled ? (
+            <nav aria-label="Storefront forum" className="storefront-forum-nav rounded-md">
+              <div className="storefront-forum-nav-header">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{isOrgProfile ? "Org forum" : "Storefront forum"}</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Topic threads from {profile.businessName}.</p>
+                </div>
+                <Link className="btn-secondary px-3 py-2 text-sm" href={`/storefront/${profile.slug}/forum`}>
+                  Open forum
+                </Link>
+              </div>
+              <div className="storefront-forum-link-list">
+                {profile.forumTopics.length ? (
+                  profile.forumTopics.map((topic) => (
+                    <Link className="storefront-forum-topic-link" href={topic.publicUrl} key={topic.id}>
+                      <span>{topic.title}</span>
+                      <small>
+                        {topic.replyCount} replies / {new Date(topic.lastPostAt).toLocaleDateString()}
+                      </small>
+                    </Link>
+                  ))
+                ) : (
+                  <Link className="storefront-forum-empty-link" href={`/storefront/${profile.slug}/forum`}>
+                    No forum topics yet. Start the first one.
+                  </Link>
+                )}
+              </div>
+            </nav>
+          ) : null}
+
           <section className="surface rounded-md p-6">
             <h2 className="text-2xl font-semibold text-[var(--gold)]">About</h2>
             <StorefrontDescriptionContent

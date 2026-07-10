@@ -22,6 +22,8 @@ type FormState = {
   heroImageUrl: string;
   galleryImageUrls: string[];
   blogEnabled: boolean;
+  forumEnabled: boolean;
+  forumAllowPictureUploads: boolean;
   publicStorefrontEnabled: boolean;
 };
 
@@ -49,6 +51,8 @@ function initialForm(profile: BusinessProfileView | null): FormState {
     heroImageUrl: "",
     galleryImageUrls: profile?.galleryImageUrls ?? [],
     blogEnabled: profile?.blogEnabled ?? false,
+    forumEnabled: profile?.forumEnabled ?? false,
+    forumAllowPictureUploads: profile?.forumAllowPictureUploads ?? false,
     publicStorefrontEnabled: profile?.publicStorefrontEnabled ?? false
   };
 }
@@ -237,6 +241,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         body: JSON.stringify({
           ...form,
           heroImageUrl: "",
+          forumAllowPictureUploads: form.forumEnabled && form.forumAllowPictureUploads,
           galleryImageUrls: form.galleryImageUrls.map((value) => value.trim()).filter(Boolean)
         })
       });
@@ -554,6 +559,33 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             </Link>
           </span>
         </label>
+
+        <section className="grid gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+          <label className="flex items-start gap-3">
+            <input checked={form.forumEnabled} className="mt-1" onChange={(event) => update("forumEnabled", event.target.checked)} type="checkbox" />
+            <span>
+              <span className="block font-semibold text-[var(--gold)]">Enable storefront forum</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
+                Adds a compact public forum where visitors can search topics, create topics, and reply in full threads.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 border-t border-[var(--line)] pt-3">
+            <input
+              checked={form.forumAllowPictureUploads}
+              className="mt-1"
+              disabled={!form.forumEnabled}
+              onChange={(event) => update("forumAllowPictureUploads", event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              <span className="block font-semibold text-[var(--gold)]">Allow forum picture attachments</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
+                Lets topic starters and replies attach image links. Turn this off for tighter moderation.
+              </span>
+            </span>
+          </label>
+        </section>
 
         {profile ? (
           <p className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm text-[var(--muted)]">

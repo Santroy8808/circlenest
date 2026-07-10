@@ -17,6 +17,8 @@ import { sendSmtpMail } from "@/lib/platform/smtp";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
+import { listStorefrontForumTopics } from "@/modules/storefront-forum/storefront-forum.service";
+import type { StorefrontForumTopicListItemView } from "@/modules/storefront-forum/types";
 import {
   createBusinessArticleSchema,
   createBusinessInquirySchema,
@@ -283,7 +285,8 @@ async function getPublishedStorefrontBlogs(ownerUserId: string, profileSlug: str
 function toBusinessProfileView(
   profile: BusinessProfilePayload,
   marketListings: MarketListingCardView[] = [],
-  storefrontBlogs: StorefrontBlogView[] = []
+  storefrontBlogs: StorefrontBlogView[] = [],
+  forumTopics: StorefrontForumTopicListItemView[] = []
 ): BusinessProfileView {
   return {
     id: profile.id,
@@ -302,12 +305,15 @@ function toBusinessProfileView(
     heroImageUrl: profile.heroImageUrl,
     galleryImageUrls: profile.galleryImageUrls,
     blogEnabled: profile.blogEnabled,
+    forumEnabled: profile.forumEnabled,
+    forumAllowPictureUploads: profile.forumAllowPictureUploads,
     publicStorefrontEnabled: profile.publicStorefrontEnabled,
     emailLinkingEnabled: profile.emailLinkingEnabled,
     publicUrl: publicUrl(profile.slug),
     updatedAt: profile.updatedAt.toISOString(),
     marketListings,
     storefrontBlogs,
+    forumTopics,
     articles: profile.articles.map((article) => toBusinessArticleView(article, profile.slug)),
     owner: {
       username: profile.owner.username,
@@ -539,6 +545,8 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
     heroImageUrl: parsed.data.heroImageUrl || null,
     galleryImageUrls: parsed.data.galleryImageUrls,
     blogEnabled: parsed.data.blogEnabled,
+    forumEnabled: parsed.data.forumEnabled,
+    forumAllowPictureUploads: parsed.data.forumAllowPictureUploads,
     publicStorefrontEnabled: parsed.data.publicStorefrontEnabled
   };
   const profile = existing
@@ -657,12 +665,16 @@ export async function getPublicBusinessProfile(slug: string) {
     return { ok: false as const, error: "Storefront not found." };
   }
 
-  const [marketListings, storefrontBlogs] = await Promise.all([
+  const [marketListings, storefrontBlogs, forumResult] = await Promise.all([
     getActiveBusinessMarketListings(profile.ownerUserId),
-    profile.blogEnabled ? getPublishedStorefrontBlogs(profile.ownerUserId, profile.slug) : Promise.resolve([])
+    profile.blogEnabled ? getPublishedStorefrontBlogs(profile.ownerUserId, profile.slug) : Promise.resolve([]),
+    profile.forumEnabled ? listStorefrontForumTopics(profile.slug, { limit: 8 }) : Promise.resolve(null)
   ]);
 
-  return { ok: true as const, profile: toBusinessProfileView(profile, marketListings, storefrontBlogs) };
+  return {
+    ok: true as const,
+    profile: toBusinessProfileView(profile, marketListings, storefrontBlogs, forumResult?.ok ? forumResult.forum.topics : [])
+  };
 }
 
 export async function safeGetPublicBusinessProfile(slug: string) {

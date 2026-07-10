@@ -7536,6 +7536,185 @@ html.theta-theme-light .listing-square-facts {
   color: var(--muted);
 }
 
+.storefront-forum-nav {
+  background:
+    linear-gradient(135deg, rgba(17, 24, 36, 0.96), rgba(12, 18, 29, 0.94)),
+    radial-gradient(circle at 90% 0%, rgba(255, 216, 95, 0.1), transparent 16rem);
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.storefront-forum-nav-header,
+.storefront-forum-title-row,
+.storefront-forum-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.storefront-forum-link-list,
+.storefront-forum-list {
+  display: grid;
+  gap: 6px;
+}
+
+.storefront-forum-topic-link,
+.storefront-forum-empty-link,
+.storefront-forum-row-link {
+  align-items: baseline;
+  border: 1px solid rgba(143, 161, 191, 0.18);
+  border-radius: 12px;
+  color: var(--text);
+  display: grid;
+  gap: 3px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: 8px 10px;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.storefront-forum-topic-link:hover,
+.storefront-forum-empty-link:hover,
+.storefront-forum-row-link:hover {
+  background: rgba(255, 216, 95, 0.06);
+  border-color: rgba(214, 178, 74, 0.48);
+}
+
+.storefront-forum-topic-link span,
+.storefront-forum-row-title {
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storefront-forum-topic-link small,
+.storefront-forum-row-meta,
+.storefront-forum-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.storefront-forum-empty-link {
+  display: block;
+  font-weight: 700;
+}
+
+.storefront-forum-page {
+  display: grid;
+  gap: 14px;
+}
+
+.storefront-forum-layout,
+.storefront-forum-topic-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+}
+
+.storefront-forum-create {
+  align-self: start;
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 18px;
+}
+
+.storefront-forum-thread {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.storefront-forum-opening,
+.storefront-forum-post {
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 16px;
+  background: rgba(17, 24, 36, 0.64);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.storefront-forum-post.is-reply {
+  background: rgba(8, 11, 16, 0.24);
+  border-color: rgba(143, 161, 191, 0.18);
+}
+
+.storefront-forum-post-meta {
+  align-items: baseline;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  gap: 8px;
+}
+
+.storefront-forum-post-meta strong {
+  color: var(--gold);
+}
+
+.storefront-forum-post-body {
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.storefront-forum-image-link {
+  border: 1px solid rgba(214, 178, 74, 0.2);
+  border-radius: 14px;
+  display: inline-flex;
+  max-width: min(360px, 100%);
+  overflow: hidden;
+}
+
+.storefront-forum-image-link img {
+  display: block;
+  max-height: 260px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.storefront-forum-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.storefront-forum-action {
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.storefront-forum-action:hover {
+  background: rgba(255, 216, 95, 0.08);
+  border-color: rgba(214, 178, 74, 0.56);
+}
+
+.storefront-forum-action.is-danger {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #fecaca;
+}
+
+.storefront-forum-replies {
+  border-left: 1px solid rgba(214, 178, 74, 0.22);
+  display: grid;
+  gap: 8px;
+  margin-left: 10px;
+  padding-left: 12px;
+}
+
 .business-storefront-hero {
   border: 1px solid rgba(214, 178, 74, 0.28);
   background:
@@ -9498,6 +9677,26 @@ html.theta-theme-light .pill-alert {
 
   .storefront-blog-nav {
     grid-template-columns: 1fr;
+  }
+
+  .storefront-forum-layout,
+  .storefront-forum-topic-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .storefront-forum-create {
+    position: static;
+  }
+
+  .storefront-forum-topic-link,
+  .storefront-forum-row-link {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .storefront-forum-topic-link small,
+  .storefront-forum-row-meta {
+    white-space: normal;
   }
 }
 
