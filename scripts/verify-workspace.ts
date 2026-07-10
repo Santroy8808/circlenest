@@ -3,6 +3,7 @@ import path from "node:path";
 
 const expectedRemote = "https://github.com/Santroy8808/circlenest.git";
 const expectedPath = process.env.THETA_EXPECTED_REPO_PATH?.trim();
+const expectedBranch = process.env.THETA_EXPECTED_BRANCH?.trim() || "main";
 
 function fail(message: string): never {
   console.error(`[workspace:verify] ${message}`);
@@ -29,8 +30,8 @@ if (remote !== expectedRemote) {
   fail(`Wrong origin remote: ${remote}. Expected ${expectedRemote}.`);
 }
 
-if (branch !== "main") {
-  fail(`Unexpected branch: ${branch}. Expected main for production-source work.`);
+if (branch !== expectedBranch) {
+  fail(`Unexpected branch: ${branch}. Expected ${expectedBranch}.`);
 }
 
 console.log("[workspace:verify] OK");

@@ -2,9 +2,9 @@ import "./load-next-env";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { safeReadPlatformEnv } from "../src/lib/platform/env";
+import { safeReadPlatformEnv, safeReadProductionEnv } from "../src/lib/platform/env";
 
-type CheckStatus = "pass" | "warn" | "fail";
+type CheckStatus = "pass" | "warn" | "fail" | "manual";
 
 type Check = {
   status: CheckStatus;
@@ -13,17 +13,12 @@ type Check = {
 };
 
 const repoRoot = process.cwd();
-const productionRepoPath = process.env.THETA_PROD_REPO ?? "C:\\Repos\\thetansplace\\circlenest";
-const requiredProductionEnv = [
-  "DATABASE_URL",
-  "NEXTAUTH_SECRET",
-  "NEXTAUTH_URL",
-  "CLOUDFLARE_R2_ACCOUNT_ID",
-  "CLOUDFLARE_R2_ACCESS_KEY_ID",
-  "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
-  "CLOUDFLARE_R2_BUCKET",
-  "CLOUDFLARE_R2_PUBLIC_BASE_URL"
-];
+const expectedLocalRepoPath = "C:\\Repos\\Theta-Space-net\\NewRepo";
+const expectedProductionRepoPath = "S:\\Workspace\\circlenest";
+const productionRepoPath = process.env.THETA_PROD_REPO ?? expectedProductionRepoPath;
+const productionSshHost = "207.188.9.139";
+const productionWindowsIdentity = "ts\\codexadmin";
+const productionPublicOrigin = "https://theta-space.net";
 
 function git(args: string[]) {
   return execFileSync("git", args, {
@@ -39,6 +34,10 @@ function check(status: CheckStatus, label: string, detail: string): Check {
 
 function exists(relativePath: string) {
   return existsSync(path.join(repoRoot, relativePath));
+}
+
+function sameWindowsPath(left: string, right: string) {
+  return path.win32.normalize(left).toLowerCase() === path.win32.normalize(right).toLowerCase();
 }
 
 function readPackageName() {
@@ -79,16 +78,16 @@ function getGitChecks(): Check[] {
 
 function getEnvChecks(): Check[] {
   const parsed = safeReadPlatformEnv();
-  const missingProductionEnv = requiredProductionEnv.filter((key) => !process.env[key]);
+  const production = safeReadProductionEnv();
 
   return [
     check(parsed.success ? "pass" : "fail", "Base environment schema", parsed.success ? "Required platform environment shape is valid." : parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")),
     check(
-      missingProductionEnv.length === 0 ? "pass" : "warn",
-      "Production environment variables",
-      missingProductionEnv.length === 0
-        ? "Production-like Neon/Auth/R2 variables are present."
-        : `Missing or empty for production cutover: ${missingProductionEnv.join(", ")}.`
+      production.success ? "pass" : "fail",
+      "Local candidate production environment",
+      production.success
+        ? "The locally loaded candidate satisfies the database, independent auth/mobile/IP-hash secrets, matching HTTPS origins, recovery SMTP, safe auth/upload toggles, and distinct public/private R2 bucket contract. This does not verify the remote production environment."
+        : `The locally loaded candidate is not production-safe: ${production.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")}`
     )
   ];
 }
@@ -97,14 +96,27 @@ const checks: Check[] = [
   check(exists("package.json") ? "pass" : "fail", "Repo package", exists("package.json") ? "package.json found." : "package.json missing."),
   check(exists("prisma/schema.prisma") ? "pass" : "fail", "Prisma schema", exists("prisma/schema.prisma") ? "Prisma schema found." : "Prisma schema missing."),
   check(readPackageName() === "theta-space-newrepo" ? "pass" : "warn", "Repo identity", `package name is ${readPackageName() ?? "unknown"}.`),
-  check(existsSync(productionRepoPath) ? "pass" : "warn", "Production repo path", existsSync(productionRepoPath) ? `${productionRepoPath} exists.` : `${productionRepoPath} was not found.`),
+  check(
+    sameWindowsPath(repoRoot, expectedLocalRepoPath) ? "pass" : "warn",
+    "Local checkout",
+    sameWindowsPath(repoRoot, expectedLocalRepoPath)
+      ? `Running from the documented local checkout ${expectedLocalRepoPath}.`
+      : `Running from ${repoRoot}; the documented local checkout is ${expectedLocalRepoPath}. A deliberate review worktree is acceptable.`
+  ),
+  check(
+    sameWindowsPath(productionRepoPath, expectedProductionRepoPath) ? "manual" : "fail",
+    "Remote production verification",
+    sameWindowsPath(productionRepoPath, expectedProductionRepoPath)
+      ? `MANUAL GATE: verify host ${productionSshHost}, Windows identity ${productionWindowsIdentity}, checkout ${productionRepoPath}, public origin ${productionPublicOrigin}, deployed commit, service health, and the fail-closed environment on the server. This preflight does not connect to production.`
+      : `THETA_PROD_REPO points to ${productionRepoPath}; documented remote checkout is ${expectedProductionRepoPath}.`
+  ),
   ...getGitChecks(),
   ...getEnvChecks()
 ];
 
-console.info("Theta-Space cutover readiness preflight");
-console.info(`NewRepo: ${repoRoot}`);
-console.info(`Production repo: ${productionRepoPath}`);
+console.info("Theta-Space local cutover candidate preflight");
+console.info(`Local repo: ${repoRoot}`);
+console.info(`Production target (remote, unverified): ${productionRepoPath}`);
 console.info("");
 
 for (const item of checks) {
@@ -113,10 +125,14 @@ for (const item of checks) {
 
 const failures = checks.filter((item) => item.status === "fail");
 const warnings = checks.filter((item) => item.status === "warn");
+const manualGates = checks.filter((item) => item.status === "manual");
+const passes = checks.filter((item) => item.status === "pass");
 
 console.info("");
-console.info(`Summary: ${failures.length} failed, ${warnings.length} warnings, ${checks.length - failures.length - warnings.length} passed.`);
+console.info(
+  `Summary: ${failures.length} failed, ${manualGates.length} ${manualGates.length === 1 ? "manual gate" : "manual gates"}, ${warnings.length} warnings, ${passes.length} passed.`
+);
 
-if (failures.length > 0) {
+if (failures.length > 0 || manualGates.length > 0) {
   process.exit(1);
 }

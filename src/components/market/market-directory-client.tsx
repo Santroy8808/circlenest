@@ -43,18 +43,15 @@ export function MarketDirectoryClient({
       <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Production Zone</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Member Marketplace</p>
             <h1 className="mt-3 text-3xl font-semibold">The Market</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Browse member listings as thumbnails first. Open a card for the full description and seller details.
+              Find member listings, then open one for details and seller contact options.
             </p>
             {createState.viewerCanCreate && createState.listingLimit !== null ? (
               <p className="mt-3 text-sm text-[var(--gold)]">
                 {createState.listingsRemaining} of {createState.listingLimit} Contributor listings left this 14-day period.
               </p>
-            ) : null}
-            {createState.viewerCanCreate && createState.storefrontEligible ? (
-              <p className="mt-2 text-sm text-[var(--muted)]">Professional storefront support is reserved for the Business Storefront phase.</p>
             ) : null}
           </div>
           {createState.viewerCanCreate ? (
@@ -63,7 +60,7 @@ export function MarketDirectoryClient({
             </Link>
           ) : null}
         </div>
-        <div className="mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
+        <div className="market-directory-controls mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
           <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search The Market..." value={query} />
           <select className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
             <option value="">All categories</option>

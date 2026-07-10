@@ -28,10 +28,10 @@ export function JobsBoardClient({
       <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Production Zone</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Member Opportunities</p>
             <h1 className="mt-3 text-3xl font-semibold">Find a Job</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Browse available opportunities. Only Professional accounts can create job listings.
+              Browse available opportunities or post an opening for other members.
             </p>
           </div>
           {viewerCanCreate ? (
@@ -40,7 +40,7 @@ export function JobsBoardClient({
             </Link>
           ) : null}
         </div>
-        <div className="mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
+        <div className="jobs-directory-controls mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
           <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search jobs..." value={query} />
           <select className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
             <option value="">All categories</option>

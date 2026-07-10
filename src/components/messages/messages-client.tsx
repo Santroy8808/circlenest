@@ -839,6 +839,7 @@ export function MessagesClient({
   }
 
   return (
+    <div className="chat-layout-shell">
     <div className={selectedThread ? "chat-layout has-selected-thread" : "chat-layout"}>
       <aside className="chat-sidebar surface rounded-md">
         <section className="chat-panel-section">
@@ -980,7 +981,7 @@ export function MessagesClient({
           <>
             <header className="chat-window-header">
               <button className="chat-window-back" onClick={() => setSelectedThread(null)} type="button">
-                Chats
+                Back to chats
               </button>
               <div className="chat-window-title-row">
                 {directThreadProfile(selectedThread) ? (
@@ -1158,6 +1159,7 @@ export function MessagesClient({
           </div>
         )}
       </section>
+    </div>
     </div>
   );
 }

@@ -31,10 +31,10 @@ export function AuditorsDirectoryClient({
       <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Production Zone</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Auditor Directory</p>
             <h1 className="mt-3 text-3xl font-semibold">Find an Auditor</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Search published auditor profiles by name, practice, location, offerings, and training. If you need help finding the right auditor, create a private auditor-search account.
+              Search published profiles by name, practice, location, offerings, and training. For personal help choosing an auditor, open the guided help form.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

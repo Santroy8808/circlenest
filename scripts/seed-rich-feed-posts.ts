@@ -6,6 +6,7 @@ import {
   MembershipTier,
   PrismaClient
 } from "@prisma/client";
+import { assertLocalQaDatabase } from "./local-qa-database";
 
 const prisma = new PrismaClient();
 
@@ -242,6 +243,7 @@ async function cleanupPriorRichFeed(accounts: SeedAccount[]) {
 }
 
 async function main() {
+  assertLocalQaDatabase();
   const accounts = await getSeedAccounts();
   const cleanup = await cleanupPriorRichFeed(accounts);
   const reactions = [

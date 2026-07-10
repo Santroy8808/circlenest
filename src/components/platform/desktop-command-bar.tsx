@@ -71,7 +71,7 @@ const primaryNavItems: PrimaryNavItem[] = [
   { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
-  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm", tooltip: "Toggle Comm without leaving the stream." }
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Connect", tooltip: "Open messages without leaving the stream." }
 ];
 
 const initialSummaryState: Record<SummaryKind, SummaryState> = {
@@ -271,9 +271,15 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
       <div className="desktop-command-actions">
         {isSignedIn ? (
           <>
-            <button className="desktop-command-icon" data-tooltip="Toggle light/dark mode." onClick={toggleTheme} type="button">
+            <button
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              aria-pressed={theme === "light"}
+              className="desktop-command-icon"
+              data-tooltip="Toggle light/dark mode."
+              onClick={toggleTheme}
+              type="button"
+            >
               <ThemeIcon theme={theme} />
-              <span className="sr-only">Toggle theme</span>
             </button>
             <Link className="desktop-command-create-ad" href="/ads/create" data-tooltip="Create an ad campaign.">
               {theme === "light" ? (

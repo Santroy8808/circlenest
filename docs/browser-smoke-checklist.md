@@ -1,12 +1,12 @@
 # Theta-Space Browser Smoke Checklist
 
-Generated: 2026-07-03T01:00:35.763Z
+Generated: 2026-07-10T12:25:27.615Z
 
 ## Source
 
 - Repo: `C:\Repos\Theta-Space-net\NewRepo`
-- Commit: `8c5a6f9`
-- Full commit: `8c5a6f9013a3aabafd02c560ebd94c65c7e160d1`
+- Commit: `75aa26b`
+- Full commit: `75aa26b746197032d6708df806bba19c6fc5326f`
 - Worktree: dirty when checklist was generated
 
 ## Purpose

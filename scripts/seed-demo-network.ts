@@ -1,3 +1,4 @@
+import "./load-next-env";
 import {
   AdCampaignStatus,
   AdDeliveryEventType,
@@ -44,11 +45,16 @@ import {
   UserRole
 } from "@prisma/client";
 import { hashPassword } from "../src/modules/auth-security/password";
+import {
+  assertLocalQaDatabase,
+  LOCAL_QA_DEMO_DOMAIN,
+  LOCAL_QA_PASSWORD
+} from "./local-qa-database";
 
 const prisma = new PrismaClient();
 
-const DEMO_DOMAIN = "demo.theta-space.dev";
-const PASSWORD = "Pa$$werd13";
+const DEMO_DOMAIN = LOCAL_QA_DEMO_DOMAIN;
+const PASSWORD = LOCAL_QA_PASSWORD;
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = new Date();
 
@@ -487,6 +493,25 @@ function buildAccountPlans(): AccountPlan[] {
     });
   });
 
+  plans.push({
+    key: "admin",
+    email: `admin@${DEMO_DOMAIN}`,
+    username: "qaadmin",
+    displayName: "QA Admin",
+    tagline: "Local QA administrator account.",
+    bio: "Administrator fixture for local-only release checks and moderation workflows.",
+    tier: MembershipTier.FREE,
+    role: UserRole.ADMIN,
+    location: "Clearwater, FL",
+    orgName: "Flag",
+    classification: ScientologyClassification.PUBLIC,
+    trainingLevel: "Student Hat",
+    processingStatus: "Grade 0",
+    createdAt: daysAgo(95),
+    storageLimitBytes: BigInt(100 * 1024 * 1024),
+    platformCredits: 0
+  });
+
   return plans;
 }
 
@@ -547,6 +572,8 @@ async function seedIdentity() {
         emailVerified: plan.createdAt,
         lastLoginAt: daysAgo(plan.key.includes("business") ? 1 : (created.length % 12) + 1),
         lastPasswordChangedAt: plan.createdAt,
+        onboardingCompletedAt: plan.createdAt,
+        termsAcceptedAt: plan.createdAt,
         createdAt: plan.createdAt
       }
     });
@@ -1973,6 +2000,7 @@ async function printSummary() {
 }
 
 async function main() {
+  assertLocalQaDatabase();
   await stage("Cleanup previous demo network", cleanupDemoNetwork);
   const accounts = await stage("Stage 1: identity and tier accounts", seedIdentity);
   await stage("Stage 2: social graph and contacts", () => seedSocialGraph(accounts));

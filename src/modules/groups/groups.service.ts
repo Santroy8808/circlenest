@@ -436,12 +436,30 @@ export async function getGroupProfile(viewerUserId: string, groupIdOrSlug: strin
     }
   });
 
-  if (!group || !canViewPrivateGroup({ viewerUserId, viewerRole, group })) {
+  if (!group) {
     return { ok: false as const, error: "Group not found." };
   }
 
-  const card = toGroupCardView(viewerUserId, group);
-  const viewerMember = viewerMembership(viewerUserId, group);
+  const viewerMember = await prisma.groupMember.findUnique({
+    where: {
+      groupId_userId: {
+        groupId: group.id,
+        userId: viewerUserId
+      }
+    },
+    select: {
+      role: true
+    }
+  });
+
+  if (group.visibility !== GroupVisibility.PUBLIC && !isAdminRole(viewerRole) && !viewerMember) {
+    return { ok: false as const, error: "Group not found." };
+  }
+
+  const card = {
+    ...toGroupCardView(viewerUserId, group),
+    viewerRole: viewerMember?.role ?? null
+  };
   const moderators = group.members
     .filter((member) => member.role === GroupMemberRole.OWNER || member.role === GroupMemberRole.MODERATOR)
     .map(toGroupMemberView);
