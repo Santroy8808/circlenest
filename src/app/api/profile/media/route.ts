@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { setProfileMediaFromGallery } from "@/modules/profile-identity/profile-identity.service";
 
 export async function PUT(request: NextRequest) {
@@ -10,7 +11,8 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const result = await setProfileMediaFromGallery(session.user.id, body);
+  const actor = await getActiveAccountActor(session.user.id);
+  const result = await setProfileMediaFromGallery(actor.actorUserId, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
