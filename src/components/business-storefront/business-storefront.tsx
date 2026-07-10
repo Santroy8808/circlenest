@@ -3,7 +3,7 @@
 import { BusinessProfileKind } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { StorefrontDescriptionContent } from "@/components/business-storefront/storefront-description-content";
 import type { BusinessProfileView } from "@/modules/business-storefront/types";
 
 function priceLabel(listing: BusinessProfileView["marketListings"][number]) {
@@ -65,7 +65,7 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
             : undefined
         }
       >
-        <div className={profile.heroImageUrl ? "business-storefront-hero-grid" : undefined}>
+        <div>
           <div>
             <div className="business-storefront-brand">
               <div className="business-storefront-logo">
@@ -89,12 +89,6 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
               <span className="pill rounded-full px-3 py-1 text-sm">{isOrgProfile ? "Public org profile" : "Public business profile"}</span>
             </div>
           </div>
-          {profile.heroImageUrl ? (
-            <div className="business-storefront-hero-image">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt={`${profile.businessName} storefront feature`} src={profile.heroImageUrl} />
-            </div>
-          ) : null}
         </div>
       </section>
 
@@ -125,9 +119,12 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
 
           <section className="surface rounded-md p-6">
             <h2 className="text-2xl font-semibold text-[var(--gold)]">About</h2>
-            <p className="mt-4 whitespace-pre-wrap leading-7 text-[var(--text)]">
-              {profile.description ?? `This ${entityLabel} has not added a full description yet.`}
-            </p>
+            <StorefrontDescriptionContent
+              businessName={profile.businessName}
+              description={profile.description}
+              fallback={`This ${entityLabel} has not added a full description yet.`}
+              imageUrls={profile.galleryImageUrls}
+            />
             <div className="mt-6 grid gap-3 text-sm text-[var(--muted)]">
               {profile.contactPersonName ? <p>Account contact: {profile.contactPersonName}</p> : null}
               {profile.publicEmail ? <p>Email: {profile.publicEmail}</p> : null}
@@ -142,20 +139,6 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
               ) : null}
             </div>
           </section>
-
-          {profile.galleryImageUrls.length > 0 ? (
-            <section className="surface rounded-md p-6">
-              <h2 className="text-2xl font-semibold text-[var(--gold)]">Gallery</h2>
-              <div className="business-storefront-gallery mt-5">
-                {profile.galleryImageUrls.map((url) => (
-                  <InAppImageViewer alt={`${profile.businessName} storefront photo`} className="business-storefront-gallery-image" key={url} src={url}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt={`${profile.businessName} storefront photo`} src={url} />
-                  </InAppImageViewer>
-                ))}
-              </div>
-            </section>
-          ) : null}
 
           {profile.marketListings.length > 0 ? (
             <section className="surface rounded-md p-6">

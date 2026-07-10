@@ -7648,6 +7648,110 @@ html.theta-theme-light .listing-square-facts {
   transform: translateY(-2px);
 }
 
+.storefront-body-image-library {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+.storefront-body-image-card {
+  background: rgba(8, 11, 16, 0.22);
+  border: 1px solid rgba(143, 161, 191, 0.18);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.storefront-body-image-thumb {
+  aspect-ratio: 16 / 9;
+  background: #172133;
+  border: 1px solid rgba(214, 178, 74, 0.18);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.storefront-body-image-thumb img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.storefront-description-editor-preview {
+  min-height: 160px;
+}
+
+.storefront-description-content {
+  color: var(--text);
+  display: flow-root;
+  margin-top: 16px;
+}
+
+.storefront-description-preview {
+  background: rgba(7, 10, 16, 0.28);
+  border: 1px dashed rgba(143, 161, 191, 0.2);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.storefront-description-paragraph {
+  line-height: 1.75;
+  margin: 0 0 1rem;
+  white-space: pre-wrap;
+}
+
+.storefront-inline-image {
+  border: 1px solid rgba(214, 178, 74, 0.22);
+  border-radius: 18px;
+  margin: 0.35rem 0 1rem;
+  max-width: 100%;
+  overflow: hidden;
+  width: min(100%, 560px);
+}
+
+.storefront-inline-image .in-app-image-trigger {
+  background: transparent;
+  border: 0;
+  display: block;
+  height: 100%;
+  padding: 0;
+  width: 100%;
+}
+
+.storefront-inline-image img {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.storefront-inline-image-left {
+  float: left;
+  margin-right: 1.25rem;
+  width: min(46%, 340px);
+}
+
+.storefront-inline-image-center {
+  clear: both;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.storefront-inline-image-right {
+  float: right;
+  margin-left: 1.25rem;
+  width: min(46%, 340px);
+}
+
+@media (max-width: 720px) {
+  .storefront-inline-image-left,
+  .storefront-inline-image-right {
+    float: none;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+
 .rich-text-editor {
   display: grid;
   gap: 10px;

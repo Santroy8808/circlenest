@@ -6,7 +6,7 @@ export const updateBusinessProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(100),
   contactPersonName: z.string().trim().max(120).optional(),
   tagline: z.string().trim().max(160).optional(),
-  description: z.string().trim().max(2400).optional(),
+  description: z.string().trim().max(6000).optional(),
   location: z.string().trim().max(160).optional(),
   publicEmail: z.string().trim().email().max(180).optional().or(z.literal("")),
   phone: z.string().trim().max(40).optional(),

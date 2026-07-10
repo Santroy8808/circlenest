@@ -3,6 +3,7 @@
 import { BusinessProfileKind, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
+import { inlineImageToken, StorefrontDescriptionContent } from "@/components/business-storefront/storefront-description-content";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { BusinessCenterView, BusinessProfileView } from "@/modules/business-storefront/types";
 
@@ -18,17 +19,19 @@ type FormState = {
   logoUrl: string;
   bannerUrl: string;
   heroImageUrl: string;
-  galleryImageUrlsText: string;
+  galleryImageUrls: string[];
   blogEnabled: boolean;
   publicStorefrontEnabled: boolean;
 };
 
-type HeroUploadState = {
+type UploadState = {
   fileName: string;
   progress: number;
   status: "idle" | "uploading" | "done" | "error";
   error?: string;
 };
+
+type ImageUploadTarget = "banner" | "body";
 
 function initialForm(profile: BusinessProfileView | null): FormState {
   return {
@@ -42,18 +45,22 @@ function initialForm(profile: BusinessProfileView | null): FormState {
     website: profile?.website ?? "",
     logoUrl: profile?.logoUrl ?? "",
     bannerUrl: profile?.bannerUrl ?? "",
-    heroImageUrl: profile?.heroImageUrl ?? "",
-    galleryImageUrlsText: profile?.galleryImageUrls.join("\n") ?? "",
+    heroImageUrl: "",
+    galleryImageUrls: profile?.galleryImageUrls ?? [],
     blogEnabled: profile?.blogEnabled ?? false,
     publicStorefrontEnabled: profile?.publicStorefrontEnabled ?? false
   };
 }
 
 export function BusinessCenterClient({ businessCenter }: { businessCenter: BusinessCenterView }) {
-  const heroImageInputRef = useRef<HTMLInputElement>(null);
+  const bannerImageInputRef = useRef<HTMLInputElement>(null);
+  const bodyImageInputRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const [profile, setProfile] = useState(businessCenter.profile);
   const [form, setForm] = useState<FormState>(() => initialForm(businessCenter.profile));
-  const [heroUpload, setHeroUpload] = useState<HeroUploadState>({ fileName: "", progress: 0, status: "idle" });
+  const [bannerUpload, setBannerUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
+  const [bodyUpload, setBodyUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
+  const [bodyImageUrlInput, setBodyImageUrlInput] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(businessCenter.canManage ? "" : businessCenter.reason ?? "Business profile access required.");
   const [isPending, startTransition] = useTransition();
@@ -65,22 +72,81 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function uploadHeroImage(file: File) {
+  function setUploadStateFor(target: ImageUploadTarget, value: UploadState) {
+    if (target === "banner") {
+      setBannerUpload(value);
+    } else {
+      setBodyUpload(value);
+    }
+  }
+
+  function insertBodyImage(imageIndex: number, align: "left" | "center" | "right") {
+    const token = inlineImageToken(imageIndex, align);
+    const textarea = descriptionRef.current;
+    const insertion = `\n\n${token}\n\n`;
+
+    if (!textarea) {
+      update("description", `${form.description.trimEnd()}${insertion}`);
+      return;
+    }
+
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+    const nextDescription = `${form.description.slice(0, selectionStart)}${insertion}${form.description.slice(selectionEnd)}`;
+    update("description", nextDescription);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      const nextCursor = selectionStart + insertion.length;
+      textarea.setSelectionRange(nextCursor, nextCursor);
+    });
+  }
+
+  function addBodyImageUrl(url: string, insertAtCursor = true) {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return;
+    const nextImages = [...form.galleryImageUrls, trimmedUrl].slice(0, 12);
+    const imageIndex = nextImages.length - 1;
+    update("galleryImageUrls", nextImages);
+    if (insertAtCursor) insertBodyImage(imageIndex, "center");
+  }
+
+  function removeBodyImage(imageIndex: number) {
+    update("galleryImageUrls", form.galleryImageUrls.filter((_, index) => index !== imageIndex));
+    const removedImageNumber = imageIndex + 1;
+    const nextDescription = form.description
+      .replace(/^\s*\[image:(\d+)(?:\s+align=(left|center|right))?\]\s*$/gim, (match, rawIndex: string, align?: string) => {
+        const tokenImageNumber = Number(rawIndex);
+        if (tokenImageNumber === removedImageNumber) return "";
+        if (tokenImageNumber > removedImageNumber) return inlineImageToken(tokenImageNumber - 2, align === "left" || align === "right" ? align : "center");
+        return match.trim();
+      })
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    update("description", nextDescription);
+  }
+
+  async function uploadBusinessImage(file: File, target: ImageUploadTarget) {
     setError("");
     setMessage("");
 
     if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
-      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Use a JPG, PNG, or WEBP image." });
+      setUploadStateFor(target, { fileName: file.name, progress: 0, status: "error", error: "Use a JPG, PNG, or WEBP image." });
       return;
     }
 
     if (file.size > 15 * 1024 * 1024) {
-      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Image must be 15MB or smaller." });
+      setUploadStateFor(target, { fileName: file.name, progress: 0, status: "error", error: "Image must be 15MB or smaller." });
+      return;
+    }
+
+    if (target === "body" && form.galleryImageUrls.length >= 12) {
+      setUploadStateFor(target, { fileName: file.name, progress: 0, status: "error", error: "Body images are limited to 12 per storefront." });
       return;
     }
 
     try {
-      setHeroUpload({ fileName: file.name, progress: 1, status: "uploading" });
+      setUploadStateFor(target, { fileName: file.name, progress: 1, status: "uploading" });
       const intentResponse = await fetch("/api/media/upload-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,7 +167,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
       };
 
       if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
-        throw new Error(intent.error ?? "Could not prepare hero image upload.");
+        throw new Error(intent.error ?? "Could not prepare image upload.");
       }
 
       await uploadWithResilientFallback({
@@ -109,7 +175,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         storageKey: intent.storageKey,
         uploadHeaders: intent.uploadHeaders,
         file,
-        onProgress: (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" }),
+        onProgress: (progress) => setUploadStateFor(target, { fileName: file.name, progress, status: "uploading" }),
         proxyFallback: {
           url: "/api/media/proxy-upload",
           access: "public"
@@ -127,29 +193,34 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           sizeBytes: file.size,
           visibility: MediaVisibility.PUBLIC,
           source: "BUSINESS_MEDIA",
-          tags: ["storefront", "hero"]
+          tags: target === "banner" ? ["storefront", "banner"] : ["storefront", "body-image"]
         })
       });
       const complete = (await completeResponse.json()) as { error?: string; asset?: { id?: string; publicUrl?: string | null } };
 
       if (!completeResponse.ok || !complete.asset?.id) {
-        throw new Error(complete.error ?? "Could not save hero image.");
+        throw new Error(complete.error ?? "Could not save image.");
       }
 
-      update("heroImageUrl", complete.asset.publicUrl ?? `/api/media/assets/${complete.asset.id}`);
-      setHeroUpload({ fileName: file.name, progress: 100, status: "done" });
-      setMessage(`Hero image uploaded. Save the ${entityLabel.toLowerCase()} profile to publish it.`);
+      const imageUrl = complete.asset.publicUrl ?? `/api/media/assets/${complete.asset.id}`;
+      if (target === "banner") {
+        update("bannerUrl", imageUrl);
+        setMessage(`Banner image uploaded. Save the ${entityLabel.toLowerCase()} profile to publish it.`);
+      } else {
+        addBodyImageUrl(imageUrl);
+        setMessage(`Body image uploaded and inserted into the description. Save the ${entityLabel.toLowerCase()} profile to publish it.`);
+      }
+      setUploadStateFor(target, { fileName: file.name, progress: 100, status: "done" });
     } catch (caught) {
-      setHeroUpload({
+      setUploadStateFor(target, {
         fileName: file.name,
         progress: 0,
         status: "error",
         error: caught instanceof Error ? caught.message : "Upload failed."
       });
     } finally {
-      if (heroImageInputRef.current) {
-        heroImageInputRef.current.value = "";
-      }
+      if (target === "banner" && bannerImageInputRef.current) bannerImageInputRef.current.value = "";
+      if (target === "body" && bodyImageInputRef.current) bodyImageInputRef.current.value = "";
     }
   }
 
@@ -164,10 +235,8 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          galleryImageUrls: form.galleryImageUrlsText
-            .split(/\r?\n/)
-            .map((value) => value.trim())
-            .filter(Boolean)
+          heroImageUrl: "",
+          galleryImageUrls: form.galleryImageUrls.map((value) => value.trim()).filter(Boolean)
         })
       });
       const payload = (await response.json()) as { error?: string; profile?: BusinessProfileView };
@@ -240,35 +309,30 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           <div>
             <h2 className="font-semibold text-[var(--gold)]">{isOrgProfile ? "Org profile visuals" : "Storefront visuals"}</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Add a logo, banner, hero image, and {isOrgProfile ? "org profile" : "storefront"} photos. If no hero image is uploaded, the page keeps the current open blue panel.
+              Keep this simple: use one banner image for the top of the page, then place body images directly inside the description.
             </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4">
             <label className="grid gap-2">
               <span className="form-label">Logo image URL</span>
               <input className="form-field" onChange={(event) => update("logoUrl", event.target.value)} placeholder="https://..." value={form.logoUrl} />
             </label>
-            <label className="grid gap-2">
-              <span className="form-label">Banner image URL</span>
-              <input className="form-field" onChange={(event) => update("bannerUrl", event.target.value)} placeholder="https://..." value={form.bannerUrl} />
-              <small className="text-[var(--muted)]">Recommended banner size: 1600 x 480px, wide landscape JPG, PNG, or WEBP.</small>
-            </label>
           </div>
-          <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-[minmax(0,1fr)_220px]">
+          <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-[minmax(0,1fr)_260px]">
             <div className="grid gap-3">
               <div>
-                <h3 className="font-semibold text-[var(--gold)]">Storefront feature image</h3>
+                <h3 className="font-semibold text-[var(--gold)]">Page banner image</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  This appears inside the compact storefront banner. Recommended: 1200 x 675px, JPG, PNG, or WEBP up to 15MB.
+                  This is the wide image at the top of the public storefront. Recommended: 1600 x 480px, JPG, PNG, or WEBP up to 15MB.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button className="btn-secondary" onClick={() => heroImageInputRef.current?.click()} type="button">
-                  Upload hero image
+                <button className="btn-secondary" onClick={() => bannerImageInputRef.current?.click()} type="button">
+                  Upload banner image
                 </button>
-                {form.heroImageUrl ? (
-                  <button className="btn-secondary" onClick={() => update("heroImageUrl", "")} type="button">
-                    Remove hero image
+                {form.bannerUrl ? (
+                  <button className="btn-secondary" onClick={() => update("bannerUrl", "")} type="button">
+                    Remove banner
                   </button>
                 ) : null}
               </div>
@@ -277,66 +341,163 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
                 className="sr-only"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file) void uploadHeroImage(file);
+                  if (file) void uploadBusinessImage(file, "banner");
                 }}
-                ref={heroImageInputRef}
+                ref={bannerImageInputRef}
                 type="file"
               />
-              {heroUpload.status !== "idle" ? (
+              {bannerUpload.status !== "idle" ? (
                 <div className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="truncate">{heroUpload.fileName}</span>
-                    <span>{heroUpload.status === "uploading" ? `${heroUpload.progress}%` : heroUpload.status}</span>
+                    <span className="truncate">{bannerUpload.fileName}</span>
+                    <span>{bannerUpload.status === "uploading" ? `${bannerUpload.progress}%` : bannerUpload.status}</span>
                   </div>
-                  {heroUpload.status === "uploading" ? (
+                  {bannerUpload.status === "uploading" ? (
                     <div
-                      aria-label="Hero image upload progress"
+                      aria-label="Banner image upload progress"
                       aria-valuemax={100}
                       aria-valuemin={0}
-                      aria-valuenow={heroUpload.progress}
+                      aria-valuenow={bannerUpload.progress}
                       className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"
                       role="progressbar"
                     >
-                      <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${heroUpload.progress}%` }} />
+                      <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${bannerUpload.progress}%` }} />
                     </div>
                   ) : null}
-                  {heroUpload.error ? <p className="mt-2 text-red-100" role="alert">{heroUpload.error}</p> : null}
+                  {bannerUpload.error ? <p className="mt-2 text-red-100" role="alert">{bannerUpload.error}</p> : null}
                 </div>
               ) : null}
-              <label className="grid gap-2">
-                <span className="form-label">Hero image URL</span>
-                <input className="form-field" onChange={(event) => update("heroImageUrl", event.target.value)} placeholder="Upload or paste https://..." value={form.heroImageUrl} />
-              </label>
+              <details className="rounded-md border border-[var(--line)] bg-black/10 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-[var(--gold)]">Paste a banner image URL instead</summary>
+                <label className="mt-3 grid gap-2">
+                  <span className="form-label">Banner image URL</span>
+                  <input className="form-field" onChange={(event) => update("bannerUrl", event.target.value)} placeholder="https://..." value={form.bannerUrl} />
+                </label>
+              </details>
             </div>
-            <div className="business-storefront-hero-preview" aria-label="Storefront hero image preview">
-              {form.heroImageUrl ? (
+            <div className="business-storefront-hero-preview" aria-label="Storefront banner image preview">
+              {form.bannerUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt="Storefront hero preview" src={form.heroImageUrl} />
+                <img alt="Storefront banner preview" src={form.bannerUrl} />
               ) : (
-                <span>No hero image</span>
+                <span>No banner image</span>
               )}
             </div>
           </section>
-          <label className="grid gap-2">
-            <span className="form-label">{isOrgProfile ? "Org gallery URLs" : "Storefront gallery URLs"}</span>
-            <textarea
-              className="form-field min-h-28 resize-y"
-              onChange={(event) => update("galleryImageUrlsText", event.target.value)}
-              placeholder="One image URL per line"
-              value={form.galleryImageUrlsText}
-            />
-          </label>
         </section>
 
-        <label className="grid gap-2">
-          <span className="form-label">Description</span>
-          <textarea
-            className="form-field min-h-36 resize-y"
-            onChange={(event) => update("description", event.target.value)}
-            placeholder="What your business offers, who it serves, and how people should think about contacting you."
-            value={form.description}
-          />
-        </label>
+        <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
+          <div>
+            <h2 className="font-semibold text-[var(--gold)]">{isOrgProfile ? "Org page body" : "Storefront body"}</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Write the description, upload body images, then insert each image where it belongs: left, center, or right.
+            </p>
+          </div>
+          <label className="grid gap-2">
+            <span className="form-label">Description</span>
+            <textarea
+              className="form-field min-h-44 resize-y"
+              onChange={(event) => update("description", event.target.value)}
+              placeholder="What your business offers, who it serves, and how people should think about contacting you."
+              ref={descriptionRef}
+              value={form.description}
+            />
+            <small className="text-[var(--muted)]">Use the insert buttons below to place images in the text. You can keep writing around the inserted image markers.</small>
+          </label>
+          <div className="flex flex-wrap gap-3">
+            <button className="btn-secondary" disabled={form.galleryImageUrls.length >= 12} onClick={() => bodyImageInputRef.current?.click()} type="button">
+              Upload body image
+            </button>
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadBusinessImage(file, "body");
+              }}
+              ref={bodyImageInputRef}
+              type="file"
+            />
+          </div>
+          {bodyUpload.status !== "idle" ? (
+            <div className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate">{bodyUpload.fileName}</span>
+                <span>{bodyUpload.status === "uploading" ? `${bodyUpload.progress}%` : bodyUpload.status}</span>
+              </div>
+              {bodyUpload.status === "uploading" ? (
+                <div
+                  aria-label="Body image upload progress"
+                  aria-valuemax={100}
+                  aria-valuemin={0}
+                  aria-valuenow={bodyUpload.progress}
+                  className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"
+                  role="progressbar"
+                >
+                  <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${bodyUpload.progress}%` }} />
+                </div>
+              ) : null}
+              {bodyUpload.error ? <p className="mt-2 text-red-100" role="alert">{bodyUpload.error}</p> : null}
+            </div>
+          ) : null}
+          <details className="rounded-md border border-[var(--line)] bg-black/10 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-[var(--gold)]">Paste a body image URL instead</summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+              <input className="form-field" onChange={(event) => setBodyImageUrlInput(event.target.value)} placeholder="https://..." value={bodyImageUrlInput} />
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  addBodyImageUrl(bodyImageUrlInput);
+                  setBodyImageUrlInput("");
+                }}
+                type="button"
+              >
+                Add image
+              </button>
+            </div>
+          </details>
+          {form.galleryImageUrls.length > 0 ? (
+            <div className="storefront-body-image-library">
+              {form.galleryImageUrls.map((url, index) => (
+                <article className="storefront-body-image-card" key={`${url}-${index}`}>
+                  <div className="storefront-body-image-thumb">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt={`Body image ${index + 1}`} src={url} />
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-sm font-semibold text-[var(--gold)]">Image {index + 1}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="btn-secondary px-3 py-1 text-xs" onClick={() => insertBodyImage(index, "left")} type="button">
+                        Insert left
+                      </button>
+                      <button className="btn-secondary px-3 py-1 text-xs" onClick={() => insertBodyImage(index, "center")} type="button">
+                        Insert center
+                      </button>
+                      <button className="btn-secondary px-3 py-1 text-xs" onClick={() => insertBodyImage(index, "right")} type="button">
+                        Insert right
+                      </button>
+                      <button className="btn-secondary px-3 py-1 text-xs" onClick={() => removeBodyImage(index)} type="button">
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No body images yet. Upload one and it will be inserted into the description.</p>
+          )}
+          <section className="storefront-description-editor-preview rounded-md border border-[var(--line)] bg-black/10 p-4">
+            <h3 className="font-semibold text-[var(--gold)]">Body preview</h3>
+            <StorefrontDescriptionContent
+              businessName={form.businessName || entityLabel}
+              description={form.description}
+              fallback={`This ${entityLabel.toLowerCase()} has not added a full description yet.`}
+              imageUrls={form.galleryImageUrls}
+              preview
+            />
+          </section>
+        </section>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">
