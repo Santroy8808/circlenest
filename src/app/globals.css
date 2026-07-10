@@ -2479,19 +2479,20 @@ a {
   overflow-y: auto;
   padding-right: 4px;
   position: sticky;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   top: 18px;
 }
 
 .gallery-detail-sidebar::-webkit-scrollbar,
 .gallery-comment-list::-webkit-scrollbar {
-  width: 6px;
+  display: none;
+  height: 0;
+  width: 0;
 }
 
 .gallery-detail-sidebar::-webkit-scrollbar-thumb,
 .gallery-comment-list::-webkit-scrollbar-thumb {
-  background: rgba(214, 178, 74, 0.3);
-  border-radius: 999px;
+  background: transparent;
 }
 
 .gallery-engagement {
@@ -9708,15 +9709,29 @@ html.theta-theme-light .pill-alert {
 }
 
 /* UX consistency pass: nav assets, profile block, feed actions, gallery detail. */
+html,
+body,
 * {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
+::-webkit-scrollbar,
 *::-webkit-scrollbar {
+  background: transparent !important;
   display: none !important;
   height: 0 !important;
   width: 0 !important;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-corner {
+  background: transparent !important;
+  border: 0 !important;
 }
 
 .desktop-command-nav-image,
@@ -9847,11 +9862,16 @@ html.theta-theme-light .pill-alert {
   align-items: start;
   display: grid;
   gap: 20px;
-  grid-template-columns: minmax(420px, 0.88fr) minmax(390px, 0.5fr);
+  grid-template-columns: minmax(0, 0.88fr) minmax(min(100%, 340px), 0.5fr);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .gallery-viewer {
   justify-items: start;
+  min-width: 0;
 }
 
 .gallery-detail-image {
@@ -9864,6 +9884,7 @@ html.theta-theme-light .pill-alert {
 
 .gallery-detail-sidebar {
   max-height: calc(100vh - 36px);
+  min-width: 0;
   overflow-y: auto;
 }
 
