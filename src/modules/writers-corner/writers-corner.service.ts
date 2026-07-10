@@ -58,6 +58,10 @@ function plainTextFromHtml(html: string) {
     .trim();
 }
 
+function escapeHtmlAttribute(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function sanitizeRichTextHtml(html?: string | null) {
   if (!html) return null;
 
@@ -72,8 +76,29 @@ function sanitizeRichTextHtml(html?: string | null) {
 
   clean = clean.replace(/<\/?([a-z0-9]+)([^>]*)>/gi, (match, rawTag: string, rawAttrs: string) => {
     const tag = rawTag.toLowerCase();
-    const allowed = new Set(["p", "br", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li", "blockquote", "h2", "h3", "a"]);
+    const allowed = new Set(["p", "br", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li", "blockquote", "h2", "h3", "a", "img"]);
     if (!allowed.has(tag)) return "";
+    if (tag === "img") {
+      if (match.startsWith("</")) return "";
+      const src = /src=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "";
+      if (!src || (!src.startsWith("https://") && !src.startsWith("http://") && !src.startsWith("/"))) return "";
+
+      const alt = /alt=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "Blog image";
+      const classValue = /class=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "";
+      const classes = classValue
+        .split(/\s+/)
+        .filter((className) =>
+          ["rich-text-image", "rich-text-image-left", "rich-text-image-center", "rich-text-image-right", "rich-text-image-full"].includes(className)
+        );
+      if (!classes.includes("rich-text-image")) classes.unshift("rich-text-image");
+      if (!classes.some((className) => className.startsWith("rich-text-image-") && className !== "rich-text-image")) {
+        classes.push("rich-text-image-center");
+      }
+
+      const safeSrc = escapeHtmlAttribute(src).slice(0, 1000);
+      const safeAlt = escapeHtmlAttribute(alt).slice(0, 160);
+      return `<img src="${safeSrc}" alt="${safeAlt}" class="${classes.join(" ")}" loading="lazy">`;
+    }
     if (tag !== "a" || match.startsWith("</")) return match.startsWith("</") ? `</${tag}>` : `<${tag}>`;
 
     const href = /href=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "";

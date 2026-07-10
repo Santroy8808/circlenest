@@ -48,7 +48,7 @@ export function CreateManuscriptForm({ access }: { access: WriterAccessState }) 
   }
 
   return (
-    <form className="surface grid gap-5 rounded-md p-6" onSubmit={submit}>
+    <form className="surface writer-manuscript-form grid gap-5 rounded-md p-6" onSubmit={submit}>
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Writers Corner</p>
         <h1 className="mt-3 text-3xl font-semibold">Create manuscript</h1>
@@ -57,7 +57,16 @@ export function CreateManuscriptForm({ access }: { access: WriterAccessState }) 
         <input className="form-field" onChange={(event) => setTitle(event.target.value)} placeholder="Title" value={title} />
         <input className="form-field" onChange={(event) => setGenre(event.target.value)} placeholder="Genre" value={genre} />
       </div>
-      <textarea className="form-field min-h-32 resize-y" onChange={(event) => setSummary(event.target.value)} placeholder="Summary blurb" value={summary} />
+      <label className="writer-summary-editor grid gap-2">
+        <span className="form-label">Blog summary</span>
+        <textarea
+          className="form-field writer-summary-textarea resize-y"
+          onChange={(event) => setSummary(event.target.value)}
+          placeholder="Write the public summary or intro blurb for this manuscript/blog."
+          value={summary}
+        />
+        <small className="text-[var(--muted)]">This is the short summary shown before readers open the chapter body.</small>
+      </label>
       <select className="form-field" onChange={(event) => setVisibility(event.target.value as ManuscriptVisibility)} value={visibility}>
         <option value={ManuscriptVisibility.MEMBERS}>Members can read</option>
         <option value={ManuscriptVisibility.PRIVATE}>Private draft</option>

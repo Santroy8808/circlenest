@@ -83,7 +83,7 @@ export function ChapterReaderEditor({ chapter }: { chapter: ChapterDetailView })
               setBodyHtml(value.html);
               setBodyText(value.text);
             }}
-            placeholder="Edit this chapter with rich formatting."
+            placeholder="Edit this chapter/blog. Paste or drop images directly into the editor."
           />
           {message ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
           {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}

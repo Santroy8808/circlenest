@@ -55,7 +55,7 @@ export function CreateChapterForm({ manuscript }: { manuscript: ManuscriptDetail
           setBodyHtml(value.html);
           setBodyText(value.text);
         }}
-        placeholder="Write the chapter here. Use the toolbar for rich formatting."
+        placeholder="Write the chapter/blog here. Paste or drop images directly into the editor."
       />
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       <div className="flex justify-end gap-3">
