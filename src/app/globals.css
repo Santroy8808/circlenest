@@ -4434,6 +4434,14 @@ a {
   width: 100%;
 }
 
+.feed-reply-button > span:first-child,
+.feed-share-button > span:first-child {
+  color: var(--gold);
+  filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.32));
+  font-size: 2em;
+  line-height: 1;
+}
+
 .feed-reaction-trigger:hover,
 .feed-reply-button:hover,
 .feed-share-button:hover {
@@ -4867,12 +4875,12 @@ a {
 }
 
 .feed-post.is-stream-card .feed-reaction-trigger,
-.feed-post.is-stream-card .feed-reply-button,
-.feed-post.is-stream-card .feed-share-button {
+.feed-post.is-stream-card .feed-reply-button {
   color: var(--muted);
 }
 
 .feed-post.is-stream-card .feed-reaction-trigger .theta-like-triangle,
+.feed-post.is-stream-card .feed-reply-button,
 .feed-post.is-stream-card .feed-share-button {
   color: var(--gold);
 }
