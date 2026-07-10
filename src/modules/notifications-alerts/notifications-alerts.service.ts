@@ -780,6 +780,45 @@ type NoticePageInput = {
   limit?: number;
 };
 
+type NoticeCursor = {
+  createdAt: Date;
+  id: string;
+};
+
+const NOTICE_CURSOR_PREFIX = "notice-v1.";
+
+function encodeNoticeCursor(item: { createdAt: Date; id: string }) {
+  return `${NOTICE_CURSOR_PREFIX}${Buffer.from(JSON.stringify([item.createdAt.toISOString(), item.id]), "utf8").toString("base64url")}`;
+}
+
+function decodeNoticeCursor(value: string): NoticeCursor | null {
+  if (!value.startsWith(NOTICE_CURSOR_PREFIX)) return null;
+
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(value.slice(NOTICE_CURSOR_PREFIX.length), "base64url").toString("utf8")
+    ) as unknown;
+    if (!Array.isArray(decoded) || decoded.length !== 2) return null;
+    const [rawCreatedAt, rawId] = decoded;
+    const id = cleanIdentifier(rawId);
+    const createdAt = typeof rawCreatedAt === "string" ? new Date(rawCreatedAt) : new Date(Number.NaN);
+    if (!id || Number.isNaN(createdAt.getTime())) return null;
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
+function descendingNoticeCursorWhere(cursor: NoticeCursor | null) {
+  if (!cursor) return {};
+  return {
+    OR: [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { lt: cursor.id } }
+    ]
+  };
+}
+
 function normalizeNoticePageInput(input: NoticePageInput = {}) {
   const cursor = typeof input.cursor === "string" ? cleanIdentifier(input.cursor) : null;
   const requestedLimit = typeof input.limit === "number" && Number.isFinite(input.limit) ? Math.trunc(input.limit) : DEFAULT_NOTICE_PAGE_SIZE;
@@ -797,19 +836,20 @@ export async function listNotificationsPage(userId: string, input: NoticePageInp
   try {
     await purgeExpiredReadNotifications(cleanUserId);
     await migratePendingRelationshipRequestAlertsToNotifications(cleanUserId);
-    if (page.cursor) {
-      const ownedCursor = await prisma.notification.findFirst({
-        where: { id: page.cursor, userId: cleanUserId },
-        select: { id: true }
-      });
-      if (!ownedCursor) return { items: [], nextCursor: null };
-    }
+    const stableCursor = page.cursor ? decodeNoticeCursor(page.cursor) : null;
+    const legacyCursor = page.cursor && !page.cursor.startsWith(NOTICE_CURSOR_PREFIX)
+      ? await prisma.notification.findFirst({
+          where: { id: page.cursor, userId: cleanUserId },
+          select: { id: true, createdAt: true }
+        })
+      : null;
+    if (page.cursor && !stableCursor && !legacyCursor) return { items: [], nextCursor: null };
+    const cursor = stableCursor ?? legacyCursor;
 
     const rows = await withNotificationTimeout(
       prisma.notification.findMany({
-        where: { userId: cleanUserId },
+        where: { userId: cleanUserId, ...descendingNoticeCursorWhere(cursor) },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
         take: page.limit + 1
       }),
       "notification list lookup"
@@ -883,7 +923,7 @@ export async function listNotificationsPage(userId: string, input: NoticePageInp
 
     return {
       items,
-      nextCursor: hasMore ? notifications.at(-1)?.id ?? null : null
+      nextCursor: hasMore && notifications.at(-1) ? encodeNoticeCursor(notifications.at(-1)!) : null
     };
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list notifications.", {
@@ -906,19 +946,20 @@ export async function listAlertsPage(userId: string, input: NoticePageInput = {}
 
   try {
     await purgeExpiredAlerts(cleanUserId);
-    if (page.cursor) {
-      const ownedCursor = await prisma.alert.findFirst({
-        where: { id: page.cursor, userId: cleanUserId, readAt: null },
-        select: { id: true }
-      });
-      if (!ownedCursor) return { items: [], nextCursor: null };
-    }
+    const stableCursor = page.cursor ? decodeNoticeCursor(page.cursor) : null;
+    const legacyCursor = page.cursor && !page.cursor.startsWith(NOTICE_CURSOR_PREFIX)
+      ? await prisma.alert.findFirst({
+          where: { id: page.cursor, userId: cleanUserId },
+          select: { id: true, createdAt: true }
+        })
+      : null;
+    if (page.cursor && !stableCursor && !legacyCursor) return { items: [], nextCursor: null };
+    const cursor = stableCursor ?? legacyCursor;
 
     const rows = await withNotificationTimeout(
       prisma.alert.findMany({
-        where: { userId: cleanUserId, readAt: null },
+        where: { userId: cleanUserId, readAt: null, ...descendingNoticeCursorWhere(cursor) },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
         take: page.limit + 1
       }),
       "alert list lookup"
@@ -932,7 +973,7 @@ export async function listAlertsPage(userId: string, input: NoticePageInput = {}
     }));
     return {
       items,
-      nextCursor: hasMore ? alerts.at(-1)?.id ?? null : null
+      nextCursor: hasMore && alerts.at(-1) ? encodeNoticeCursor(alerts.at(-1)!) : null
     };
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list alerts.", {

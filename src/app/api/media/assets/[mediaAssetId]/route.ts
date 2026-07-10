@@ -1,12 +1,21 @@
 import { Readable } from "stream";
-import { MediaVisibility } from "@prisma/client";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  MediaAssetStatus,
+  MediaVisibility,
+  ProfileVisibility,
+  ScientologyVisibility,
+  SocialRelationshipType
+} from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
-import { requireMobileSession } from "@/lib/platform/mobile-auth";
-import { getR2Object } from "@/lib/platform/r2";
+import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
+import { getR2Client, readR2Config } from "@/lib/platform/r2";
 import { timeServerStep } from "@/lib/platform/server-timing";
+import { canViewerAccessPrivateFeedMediaAsset } from "@/modules/feed-stream/feed-media-authorization";
+import { authorizeMediaAccess, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
 
 function toWebStream(body: unknown) {
   if (body && typeof (body as { transformToWebStream?: unknown }).transformToWebStream === "function") {
@@ -14,6 +23,180 @@ function toWebStream(body: unknown) {
   }
 
   return Readable.toWeb(body as Readable);
+}
+
+function parseByteRange(value: string | null) {
+  if (!value) return { ok: true as const, value: undefined };
+  if (value.length > 128 || value.includes(",")) return { ok: false as const };
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(value);
+  if (!match || (!match[1] && !match[2])) return { ok: false as const };
+
+  const start = match[1] ? Number(match[1]) : null;
+  const end = match[2] ? Number(match[2]) : null;
+  if (
+    (start !== null && (!Number.isSafeInteger(start) || start < 0)) ||
+    (end !== null && (!Number.isSafeInteger(end) || end < 0)) ||
+    (start !== null && end !== null && end < start) ||
+    (start === null && end === 0)
+  ) {
+    return { ok: false as const };
+  }
+
+  return { ok: true as const, value };
+}
+
+function safeContentType(value: string) {
+  return /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(value)
+    ? value
+    : "application/octet-stream";
+}
+
+function contentDisposition(fileName: string | null, mimeType: string) {
+  const normalized = (fileName || "media")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f"\\/]/g, "_")
+    .trim()
+    .slice(0, 180) || "media";
+  const ascii = normalized.replace(/[^\x20-\x7e]/g, "_");
+  const encoded = encodeURIComponent(normalized).replace(/[!'()*]/g, (character) =>
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+  const disposition = /^(?:image|audio|video)\//.test(mimeType) || mimeType === "application/pdf" ? "inline" : "attachment";
+
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+function isRangeError(error: unknown) {
+  const candidate = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return candidate?.name === "InvalidRange" || candidate?.$metadata?.httpStatusCode === 416;
+}
+
+function profileVisibilityAllows(visibility: ProfileVisibility, viewerUserId: string | null, ownerUserId: string) {
+  return (
+    visibility === ProfileVisibility.PUBLIC ||
+    (visibility === ProfileVisibility.MEMBERS && Boolean(viewerUserId)) ||
+    viewerUserId === ownerUserId
+  );
+}
+
+async function identityMediaAccess(mediaAssetId: string, ownerUserId: string, viewerUserId: string | null) {
+  const deliveryPath = mediaAssetDeliveryPath(mediaAssetId);
+  const [profile, resume, commendation] = await Promise.all([
+    prisma.profile.findFirst({
+      where: {
+        userId: ownerUserId,
+        user: { deactivatedAt: null },
+        OR: [{ avatarUrl: deliveryPath }, { bannerUrl: deliveryPath }]
+      },
+      select: { visibility: true }
+    }),
+    prisma.userResume.findFirst({
+      where: {
+        userId: ownerUserId,
+        user: { deactivatedAt: null },
+        uploadedResumeUrl: deliveryPath
+      },
+      select: { visibility: true }
+    }),
+    prisma.scientologyCommendation.findFirst({
+      where: {
+        mediaAssetId,
+        profile: { userId: ownerUserId, user: { deactivatedAt: null } }
+      },
+      select: { profile: { select: { visibility: true } } }
+    })
+  ]);
+
+  return Boolean(
+    (profile && profileVisibilityAllows(profile.visibility, viewerUserId, ownerUserId)) ||
+    (resume && profileVisibilityAllows(resume.visibility, viewerUserId, ownerUserId)) ||
+    (commendation &&
+      (commendation.profile.visibility === ScientologyVisibility.MEMBERS
+        ? Boolean(viewerUserId)
+        : viewerUserId === ownerUserId))
+  );
+}
+
+async function hasAuthorizedPrivateContext(
+  mediaAssetId: string,
+  ownerUserId: string,
+  viewerUserId: string
+) {
+  const blocked = await prisma.socialRelationship.findFirst({
+    where: {
+      type: SocialRelationshipType.BLOCK,
+      OR: [
+        { fromUserId: viewerUserId, toUserId: ownerUserId },
+        { fromUserId: ownerUserId, toUserId: viewerUserId }
+      ]
+    },
+    select: { id: true }
+  });
+  if (blocked) return false;
+
+  const [groupAccess, chatParticipation, mailAccess, feedAccess, identityAccess] = await Promise.all([
+    prisma.group.findFirst({
+      where: {
+        archivedAt: null,
+        AND: [
+          {
+            OR: [
+              { visibility: "PUBLIC" },
+              { members: { some: { userId: viewerUserId } } }
+            ]
+          },
+          {
+            OR: [
+              { assets: { some: { mediaAssetId, deletedAt: null } } },
+              {
+                forumThreads: {
+                  some: {
+                    deletedAt: null,
+                    posts: { some: { mediaAssetId, deletedAt: null } }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      select: { id: true }
+    }),
+    prisma.chatParticipant.findFirst({
+      where: {
+        userId: viewerUserId,
+        archivedAt: null,
+        thread: {
+          messages: {
+            some: {
+              deletedAt: null,
+              sender: { deactivatedAt: null },
+              attachments: { some: { mediaAssetId } }
+            }
+          }
+        }
+      },
+      select: { id: true }
+    }),
+    prisma.mailAttachment.findFirst({
+      where: {
+        mediaAssetId,
+        message: {
+          deletedAt: null,
+          OR: [
+            { senderUserId: viewerUserId },
+            { recipients: { some: { userId: viewerUserId, deletedAt: null } } }
+          ]
+        }
+      },
+      select: { id: true }
+    }),
+    canViewerAccessPrivateFeedMediaAsset(mediaAssetId, viewerUserId),
+    identityMediaAccess(mediaAssetId, ownerUserId, viewerUserId)
+  ]);
+
+  return Boolean(groupAccess || chatParticipation || mailAccess || feedAccess || identityAccess);
 }
 
 function mediaFallbackSvg(label?: string | null) {
@@ -52,18 +235,24 @@ async function getMediaViewerUserId(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest, { params }: { params: { mediaAssetId: string } }) {
+  if (/^Bearer\s+/i.test(request.headers.get("authorization") ?? "")) {
+    const unavailable = mobileAuthUnavailableResponse();
+    if (unavailable) return unavailable;
+  }
+
   const viewerUserId = await getMediaViewerUserId(request);
 
-  if (!viewerUserId) {
-    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  if (!params.mediaAssetId || params.mediaAssetId.length > 128) {
+    return NextResponse.json({ error: "Media not found." }, { status: 404 });
   }
 
   const asset = await timeServerStep("api.media.asset.lookup", prisma.mediaAsset.findUnique({
-    where: { id: params.mediaAssetId },
+    where: { id: params.mediaAssetId, status: MediaAssetStatus.READY },
     select: {
       ownerUserId: true,
       storageKey: true,
       mimeType: true,
+      sizeBytes: true,
       originalName: true,
       visibility: true
     }
@@ -73,32 +262,87 @@ export async function GET(request: NextRequest, { params }: { params: { mediaAss
     return NextResponse.json({ error: "Media not found." }, { status: 404 });
   }
 
-  const isOwner = asset.ownerUserId === viewerUserId;
-  const isVisibleToMember = asset.visibility === MediaVisibility.MEMBERS || asset.visibility === MediaVisibility.PUBLIC;
+  let authorizedPrivateMemberUserIds: string[] | undefined;
+  let anonymousIdentityAccess = false;
+  if (
+    viewerUserId &&
+    asset.visibility === MediaVisibility.PRIVATE &&
+    asset.ownerUserId !== viewerUserId &&
+    (await hasAuthorizedPrivateContext(params.mediaAssetId, asset.ownerUserId, viewerUserId))
+  ) {
+    authorizedPrivateMemberUserIds = [viewerUserId];
+  } else if (!viewerUserId && asset.visibility === MediaVisibility.PRIVATE) {
+    anonymousIdentityAccess = await identityMediaAccess(params.mediaAssetId, asset.ownerUserId, null);
+  }
 
-  if (!isOwner && !isVisibleToMember) {
-    return NextResponse.json({ error: "Not allowed." }, { status: 403 });
+  const access = authorizeMediaAccess({ asset, viewerUserId, authorizedPrivateMemberUserIds });
+
+  if (!access.allowed && !anonymousIdentityAccess) {
+    return viewerUserId
+      ? NextResponse.json({ error: "Media not found." }, { status: 404 })
+      : NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const range = parseByteRange(request.headers.get("range"));
+  if (!range.ok) {
+    return new NextResponse(null, {
+      status: 416,
+      headers: { "Accept-Ranges": "bytes", "Content-Range": `bytes */${asset.sizeBytes}` }
+    });
   }
 
   try {
-    const object = await timeServerStep("api.media.asset.r2", getR2Object(asset.storageKey), { mimeType: asset.mimeType });
+    const r2 = readR2Config();
+    const bucket = asset.visibility === MediaVisibility.PUBLIC ? r2.bucket : r2.privateBucket;
+    if (!bucket) {
+      return NextResponse.json({ error: "Media storage is unavailable." }, { status: 503 });
+    }
+
+    const object = await timeServerStep(
+      "api.media.asset.r2",
+      getR2Client().send(
+        new GetObjectCommand({
+          Bucket: bucket,
+          Key: asset.storageKey,
+          Range: range.value
+        })
+      ),
+      { mimeType: asset.mimeType }
+    );
+    if (!object.Body) throw new Error("Storage returned an empty media body.");
+
+    const mimeType = safeContentType(asset.mimeType);
     const headers = new Headers({
-      "Cache-Control": "private, max-age=300",
-      "Content-Type": asset.mimeType,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": asset.visibility === MediaVisibility.PUBLIC ? "public, max-age=300" : "private, no-store",
+      "Content-Disposition": contentDisposition(asset.originalName, mimeType),
+      "Content-Type": mimeType,
       "X-Content-Type-Options": "nosniff"
     });
 
-    if (asset.originalName) {
-      headers.set("Content-Disposition", `inline; filename="${asset.originalName.replace(/"/g, "")}"`);
-    }
+    if (object.ContentLength !== undefined) headers.set("Content-Length", String(object.ContentLength));
+    if (object.ContentRange) headers.set("Content-Range", object.ContentRange);
+    if (object.ETag) headers.set("ETag", object.ETag);
+    if (object.LastModified) headers.set("Last-Modified", object.LastModified.toUTCString());
 
-    return new NextResponse(toWebStream(object.Body) as BodyInit, { headers });
+    return new NextResponse(toWebStream(object.Body) as BodyInit, {
+      status: object.ContentRange ? 206 : 200,
+      headers
+    });
   } catch (error) {
     console.error("[media.assets.get]", error);
-    if (asset.mimeType.startsWith("image/")) {
+    if (isRangeError(error)) {
+      return new NextResponse(null, {
+        status: 416,
+        headers: { "Accept-Ranges": "bytes", "Content-Range": `bytes */${asset.sizeBytes}` }
+      });
+    }
+
+    if (!range.value && asset.mimeType.startsWith("image/")) {
       return new NextResponse(mediaFallbackSvg(asset.originalName), {
         headers: {
-          "Cache-Control": "private, max-age=60",
+          "Cache-Control": asset.visibility === MediaVisibility.PUBLIC ? "public, max-age=60" : "private, no-store",
+          "Content-Disposition": contentDisposition(asset.originalName, "image/svg+xml"),
           "Content-Type": "image/svg+xml; charset=utf-8",
           "X-Content-Type-Options": "nosniff",
           "X-Theta-Media-Fallback": "true"

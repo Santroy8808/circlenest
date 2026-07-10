@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { getMailPreference, updateMailPreference } from "@/modules/mail/mail.service";
 
 export async function GET() {
@@ -19,8 +20,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const body = await request.json();
-  const result = await updateMailPreference(session.user.id, body);
+  const body = await readJsonRequest(request, 8 * 1024);
+  if (!body.ok) return body.response;
+  const result = await updateMailPreference(session.user.id, body.value);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

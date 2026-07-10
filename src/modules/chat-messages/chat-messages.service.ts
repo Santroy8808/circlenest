@@ -1,4 +1,4 @@
-import { constants, createPublicKey, publicEncrypt, randomBytes } from "crypto";
+import { constants, createPublicKey, publicEncrypt } from "crypto";
 import {
   ChatAttachmentKind,
   ChatThreadType,
@@ -6,9 +6,9 @@ import {
   MediaVisibility,
   ProfileVisibility,
   Prisma,
-  SocialRelationshipType
+  SocialRelationshipType,
+  UploadIntentPurpose
 } from "@prisma/client";
-import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
@@ -36,6 +36,11 @@ import {
   type ChatThreadDetailView,
   type ChatThreadView
 } from "@/modules/chat-messages/types";
+import {
+  completeUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent
+} from "@/modules/media/upload-intent.service";
 
 const MODULE_KEY = "chat-messages";
 const CHAT_DB_TIMEOUT_MS = 2500;
@@ -60,15 +65,6 @@ function withChatDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T
       setTimeout(() => reject(new Error(`${operation} timed out`)), CHAT_DB_TIMEOUT_MS);
     })
   ]);
-}
-
-function safeFileName(value: string) {
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
-  return cleaned || "attachment";
-}
-
-function dateSlug(date = new Date()) {
-  return date.toISOString().slice(0, 10);
 }
 
 function attachmentKindForFile(fileName: string, mimeType: string) {
@@ -1261,36 +1257,26 @@ export async function createChatUploadIntent(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload." };
   }
 
-  const storageKey = [
-    "users",
-    userId,
-    "chat",
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const result = await createUploadIntent(userId, {
+    checksumSha256: parsed.data.checksumSha256,
+    mimeType: parsed.data.mimeType,
+    purpose: UploadIntentPurpose.CHAT_ATTACHMENT,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: MediaVisibility.PRIVATE
+  });
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      access: "private"
-    });
+  if (!result.ok) return { ok: false as const, error: result.error };
 
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: null,
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create chat upload intent.", {
-      userId,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return { ok: false as const, error: "Media storage is not configured." };
-  }
+  return {
+    ok: true as const,
+    intentId: result.intent.id,
+    intent: result.intent,
+    uploadUrl: result.uploadUrl,
+    uploadHeaders: result.uploadHeaders,
+    storageKey: result.intent.storageKey,
+    publicUrl: null,
+    expiresInSeconds: result.expiresInSeconds
+  };
 }
 
 export async function completeChatUpload(userId: string, input: unknown) {
@@ -1300,59 +1286,72 @@ export async function completeChatUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
-  const expectedPrefix = ["users", userId, "chat"].join("/") + "/";
-  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid upload key." };
-  }
-
-  if (parsed.data.thumbnailStorageKey && !parsed.data.thumbnailStorageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid thumbnail upload key." };
-  }
-
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    access: "private",
-    label: "Chat attachment upload"
-  });
-
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
   if (parsed.data.thumbnailStorageKey) {
-    const uploadedThumbnail = await verifyR2Object({
-      storageKey: parsed.data.thumbnailStorageKey,
-      expectedMimeType: "image/jpeg",
-      access: "private",
-      label: "Chat thumbnail upload"
-    });
-
-    if (!uploadedThumbnail.ok) {
-      return { ok: false as const, error: uploadedThumbnail.error };
-    }
+    return { ok: false as const, error: "Thumbnail uploads require a separate verified upload intent." };
   }
 
-  const publicUrl = null;
-  const thumbnailUrl = null;
-  const asset = await prisma.mediaAsset.create({
-    data: {
+  const verified = await completeUploadIntent(userId, { intentId: parsed.data.intentId });
+  if (!verified.ok) return { ok: false as const, error: verified.error };
+
+  const normalizedMimeType = parsed.data.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (
+    verified.intent.purpose !== UploadIntentPurpose.CHAT_ATTACHMENT ||
+    verified.intent.visibility !== MediaVisibility.PRIVATE ||
+    verified.intent.mimeType !== normalizedMimeType ||
+    verified.intent.sizeBytes !== String(parsed.data.sizeBytes) ||
+    (parsed.data.storageKey && parsed.data.storageKey !== verified.intent.storageKey)
+  ) {
+    return { ok: false as const, error: "Upload intent did not match this chat attachment." };
+  }
+
+  let consumed;
+  try {
+    consumed = await consumeVerifiedUploadIntent({
       ownerUserId: userId,
-      storageKey: parsed.data.storageKey,
-      publicUrl,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      visibility: MediaVisibility.PRIVATE,
-      metadata: {
-        module: MODULE_KEY,
-        attachmentKind: attachmentKindForFile(parsed.data.fileName, parsed.data.mimeType),
-        thumbnailStorageKey: parsed.data.thumbnailStorageKey ?? null,
-        thumbnailUrl
+      intentId: parsed.data.intentId,
+      purpose: UploadIntentPurpose.CHAT_ATTACHMENT,
+      consume: async (transaction, intent) => {
+        if (
+          intent.ownerUserId !== userId ||
+          intent.purpose !== UploadIntentPurpose.CHAT_ATTACHMENT ||
+          intent.visibility !== MediaVisibility.PRIVATE ||
+          intent.declaredMimeType !== normalizedMimeType ||
+          intent.declaredSizeBytes !== BigInt(parsed.data.sizeBytes)
+        ) {
+          throw new Error("Chat upload intent contract changed during consumption.");
+        }
+
+        return transaction.mediaAsset.create({
+          data: {
+            ownerUserId: userId,
+            storageKey: intent.storageKey,
+            publicUrl: null,
+            mimeType: intent.observedMimeType ?? intent.declaredMimeType,
+            sizeBytes: intent.observedSizeBytes ?? intent.declaredSizeBytes,
+            originalName: parsed.data.fileName,
+            visibility: MediaVisibility.PRIVATE,
+            metadata: {
+              module: MODULE_KEY,
+              uploadIntentId: intent.id,
+              attachmentKind: attachmentKindForFile(parsed.data.fileName, intent.declaredMimeType),
+              thumbnailStorageKey: null,
+              thumbnailUrl: null
+            }
+          }
+        });
       }
-    }
-  });
+    });
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not consume verified chat upload intent.", {
+      userId,
+      intentId: parsed.data.intentId,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return { ok: false as const, error: "Chat attachment could not be finalized." };
+  }
+
+  if (!consumed.ok) return { ok: false as const, error: consumed.error };
+  const asset = consumed.value;
 
   await diagnostics.info(MODULE_KEY, "Chat attachment upload completed.", {
     userId,
@@ -1362,6 +1361,7 @@ export async function completeChatUpload(userId: string, input: unknown) {
 
   return {
     ok: true as const,
+    intentId: parsed.data.intentId,
     attachment: {
       mediaAssetId: asset.id,
       kind: attachmentKindForFile(asset.originalName ?? parsed.data.fileName, asset.mimeType),

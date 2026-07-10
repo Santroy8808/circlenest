@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { MembershipTier, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { signMobileAuthPayload, verifyMobileAuthSignature } from "@/modules/auth-security/mobile-secret";
@@ -20,6 +20,21 @@ export type MobileSession = {
     sessionVersion: number;
   };
 };
+
+export function mobileAuthUnavailableResponse() {
+  if ((process.env.MOBILE_AUTH_SECRET?.trim().length ?? 0) >= 32) return null;
+
+  return NextResponse.json(
+    { error: "Mobile authentication is temporarily unavailable." },
+    {
+      status: 503,
+      headers: {
+        "cache-control": "no-store",
+        "retry-after": "300"
+      }
+    }
+  );
+}
 
 function base64Url(input: Buffer | string) {
   return Buffer.from(input).toString("base64url");

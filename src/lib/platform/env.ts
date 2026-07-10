@@ -29,6 +29,9 @@ export const envSchema = z.object({
   NEXTAUTH_SECRET: z.string().min(16).optional(),
   NEXTAUTH_URL: optionalUrl,
   APP_ORIGIN: optionalUrl,
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(8).default(1),
+  AUTH_SIGNUP_PREVERIFIED: z.enum(["true", "false"]).default("false"),
+  UPLOAD_PROXY_FALLBACK_ENABLED: z.enum(["true", "false"]).default("false"),
   MOBILE_AUTH_SECRET: z.string().min(32).optional(),
   IP_HASH_SECRET: z.string().min(32).optional(),
   PLATFORM_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
@@ -75,6 +78,22 @@ export const envSchema = z.object({
 });
 
 export const productionEnvSchema = envSchema.superRefine((env, context) => {
+  if (env.AUTH_SIGNUP_PREVERIFIED === "true") {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "AUTH_SIGNUP_PREVERIFIED must not be enabled in production.",
+      path: ["AUTH_SIGNUP_PREVERIFIED"]
+    });
+  }
+
+  if (env.UPLOAD_PROXY_FALLBACK_ENABLED === "true") {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "UPLOAD_PROXY_FALLBACK_ENABLED must remain disabled in production until uploads are streamed with a hard byte limit.",
+      path: ["UPLOAD_PROXY_FALLBACK_ENABLED"]
+    });
+  }
+
   const requiredSecrets = [
     ["NEXTAUTH_SECRET", env.NEXTAUTH_SECRET],
     ["MOBILE_AUTH_SECRET", env.MOBILE_AUTH_SECRET],

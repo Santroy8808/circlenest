@@ -24,14 +24,6 @@ export async function createAuditorHelpAccount(input: unknown, context?: Request
   }
 
   const email = normalizeIdentifier(parsed.data.email);
-  const existing = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true }
-  });
-
-  if (existing) {
-    return { ok: false as const, error: "An account already exists for that email. Log in to continue." };
-  }
 
   let username = generatedUsername();
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -49,12 +41,12 @@ export async function createAuditorHelpAccount(input: unknown, context?: Request
       email,
       username,
       displayName: parsed.data.fullName,
-      password
+      password,
+      inviteCode: parsed.data.inviteCode
     },
     {
       accountPurpose: AccountPurpose.AUDITOR_SEEKER,
       tier: MembershipTier.FREE,
-      skipInviteCode: true,
       preverified: false,
       context
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { prisma } from "@/lib/platform/db";
 
 const uploadCompleteNotificationSchema = z.object({
@@ -16,7 +17,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const parsed = uploadCompleteNotificationSchema.safeParse(await request.json().catch(() => null));
+  const requestBody = await readJsonRequest(request);
+  if (!requestBody.ok) return requestBody.response;
+
+  const parsed = uploadCompleteNotificationSchema.safeParse(requestBody.value);
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid upload completion payload." }, { status: 400 });
@@ -28,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const actor = await getActiveAccountActor(session.user.id);
   const title = parsed.data.failed > 0 ? "Gallery upload finished with errors" : "Gallery upload complete";
-  const body =
+  const notificationBody =
     parsed.data.failed > 0
       ? `${parsed.data.uploaded} uploaded, ${parsed.data.failed} failed.`
       : `${parsed.data.uploaded} photo${parsed.data.uploaded === 1 ? "" : "s"} uploaded to your gallery.`;
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
     data: {
       userId: actor.actorUserId,
       title,
-      body,
+      body: notificationBody,
       href: "/profile/gallery"
     }
   });

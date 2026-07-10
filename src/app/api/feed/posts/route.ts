@@ -2,11 +2,27 @@ import { AdPlacement } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
-import { createFeedPost, safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
+import { createFeedPost, listFeedPostsPage } from "@/modules/feed-stream/feed-stream.service";
 
 function deviceClassFromRequest(request: NextRequest) {
   return /android|iphone|ipad|ipod|mobile/i.test(request.headers.get("user-agent") ?? "") ? "MOBILE" : "DESKTOP";
+}
+
+function feedPageFromRequest(request: NextRequest) {
+  const cursorCreatedAt = request.nextUrl.searchParams.get("cursorCreatedAt")?.trim();
+  const cursorId = request.nextUrl.searchParams.get("cursorId")?.trim();
+  const rawLimit = request.nextUrl.searchParams.get("limit");
+  const limit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
+
+  if (Boolean(cursorCreatedAt) !== Boolean(cursorId)) return null;
+  if (cursorCreatedAt && Number.isNaN(Date.parse(cursorCreatedAt))) return null;
+
+  return {
+    ...(cursorCreatedAt && cursorId ? { cursor: { createdAt: cursorCreatedAt, id: cursorId } } : {}),
+    ...(Number.isFinite(limit) ? { limit } : {})
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -17,7 +33,14 @@ export async function GET(request: NextRequest) {
   }
 
   const actor = await getActiveAccountActor(session.user.id);
-  const posts = await safeListFeedPosts(20, actor.actorUserId);
+  const pageInput = feedPageFromRequest(request);
+  if (!pageInput) {
+    return NextResponse.json({ error: "Both feed cursor fields are required." }, { status: 400 });
+  }
+
+  const page = await listFeedPostsPage(pageInput, actor.actorUserId);
+
+  const posts = "cursor" in pageInput ? page.items : [...page.pinnedItems, ...page.items];
   await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, deviceClassFromRequest(request));
   const reservedStreamAds = await getAdPlacementPool({
     viewerUserId: session.user.id,
@@ -25,7 +48,14 @@ export async function GET(request: NextRequest) {
     limit: 1
   });
 
-  return NextResponse.json({ posts, reservedStreamAds });
+  return NextResponse.json({
+    posts,
+    pinnedItems: page.pinnedItems,
+    items: page.items,
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+    reservedStreamAds
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -36,8 +66,9 @@ export async function POST(request: NextRequest) {
   }
 
   const actor = await getActiveAccountActor(session.user.id);
-  const body = await request.json();
-  const result = await createFeedPost(actor.actorUserId, body);
+  const body = await readJsonRequest(request);
+  if (!body.ok) return body.response;
+  const result = await createFeedPost(actor.actorUserId, body.value);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

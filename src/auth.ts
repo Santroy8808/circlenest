@@ -2,6 +2,8 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { AccountPurpose, MembershipTier, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { consumeRateLimit } from "@/lib/platform/rate-limit";
+import { getRequestContext } from "@/lib/platform/request-context";
 import { authorizeCredentials, getUserSessionGuard } from "@/modules/auth-security/auth-security.service";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -19,12 +21,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials, request) {
-        const userAgent = request.headers.get("user-agent") ?? undefined;
-        const forwardedFor = request.headers.get("x-forwarded-for") ?? undefined;
-        const user = await authorizeCredentials(credentials, {
-          ipAddress: forwardedFor?.split(",")[0]?.trim(),
-          userAgent
-        });
+        const context = getRequestContext(request);
+        const identifier = typeof credentials.identifier === "string"
+          ? credentials.identifier.trim().toLowerCase().slice(0, 320)
+          : "missing-identifier";
+        const [addressLimit, accountLimit] = await Promise.all([
+          consumeRateLimit({
+            namespace: "auth:credentials:address",
+            key: context.ipAddress ?? "unknown-address",
+            limit: 20,
+            windowMs: 15 * 60 * 1000
+          }),
+          consumeRateLimit({
+            namespace: "auth:credentials:account",
+            key: identifier,
+            limit: 8,
+            windowMs: 15 * 60 * 1000
+          })
+        ]);
+
+        if (!addressLimit.allowed || !accountLimit.allowed) return null;
+
+        const user = await authorizeCredentials(credentials, context);
 
         if (!user) return null;
 

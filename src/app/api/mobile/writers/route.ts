@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/platform/mobile-auth";
+import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import {
   createChapter,
   createManuscript,
@@ -10,6 +10,9 @@ import {
 } from "@/modules/writers-corner/writers-corner.service";
 
 export async function GET(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
@@ -34,6 +37,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 

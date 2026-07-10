@@ -1,4 +1,3 @@
-import { randomBytes } from "crypto";
 import {
   MailAttachmentKind,
   MailDeliveryKind,
@@ -8,9 +7,9 @@ import {
   MembershipTier,
   Prisma,
   SocialRelationshipType,
+  UploadIntentPurpose,
   UserRole
 } from "@prisma/client";
-import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
@@ -30,6 +29,11 @@ import {
   type MailThreadPageView,
   type MailThreadSummaryView
 } from "@/modules/mail/types";
+import {
+  completeUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent
+} from "@/modules/media/upload-intent.service";
 
 const MODULE_KEY = "mail";
 const MAIL_DB_TIMEOUT_MS = 2500;
@@ -45,15 +49,6 @@ function withMailDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T
       setTimeout(() => reject(new Error(`${operation} timed out`)), MAIL_DB_TIMEOUT_MS);
     })
   ]);
-}
-
-function safeFileName(value: string) {
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
-  return cleaned || "attachment";
-}
-
-function dateSlug(date = new Date()) {
-  return date.toISOString().slice(0, 10);
 }
 
 function attachmentKindForMime(mimeType: string) {
@@ -244,18 +239,43 @@ function toThreadSummary(
   };
 }
 
-function uniqueThreadSummaries(items: MailThreadSummaryView[]) {
-  const seen = new Set<string>();
-  const output: MailThreadSummaryView[] = [];
+type MailThreadCursor = {
+  updatedAt: Date;
+  id: string;
+};
 
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      output.push(item);
-    }
+const MAIL_THREAD_CURSOR_PREFIX = "mail-thread-v1.";
+
+function encodeMailThreadCursor(thread: MailThreadCursor) {
+  return `${MAIL_THREAD_CURSOR_PREFIX}${Buffer.from(JSON.stringify([thread.updatedAt.toISOString(), thread.id]), "utf8").toString("base64url")}`;
+}
+
+function decodeMailThreadCursor(value: string): MailThreadCursor | null {
+  if (!value.startsWith(MAIL_THREAD_CURSOR_PREFIX)) return null;
+
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(value.slice(MAIL_THREAD_CURSOR_PREFIX.length), "base64url").toString("utf8")
+    ) as unknown;
+    if (!Array.isArray(decoded) || decoded.length !== 2) return null;
+    const [rawUpdatedAt, rawId] = decoded;
+    const id = typeof rawId === "string" ? rawId.trim() : "";
+    const updatedAt = typeof rawUpdatedAt === "string" ? new Date(rawUpdatedAt) : new Date(Number.NaN);
+    if (!id || id.length > 64 || Number.isNaN(updatedAt.getTime())) return null;
+    return { updatedAt, id };
+  } catch {
+    return null;
   }
+}
 
-  return output;
+function descendingMailThreadCursorWhere(cursor: MailThreadCursor | null) {
+  if (!cursor) return {};
+  return {
+    OR: [
+      { updatedAt: { lt: cursor.updatedAt } },
+      { updatedAt: cursor.updatedAt, id: { lt: cursor.id } }
+    ]
+  };
 }
 
 async function getMailPolicyConfig() {
@@ -457,91 +477,129 @@ export async function listMailThreadsPage(
   const blockedUserIds = await blockedUserIdsFor(userId);
 
   if (folder === "sent") {
-    const cursorRecord = options.cursor
+    const stableCursor = options.cursor ? decodeMailThreadCursor(options.cursor) : null;
+    const legacyCursor = options.cursor && !stableCursor
       ? await prisma.mailMessage.findFirst({
           where: {
             id: options.cursor,
             senderUserId: userId,
             deletedAt: null
           },
-          select: { id: true }
+          select: {
+            thread: {
+              select: { id: true, updatedAt: true }
+            }
+          }
         })
       : null;
 
-    if (options.cursor && !cursorRecord) {
+    if (options.cursor && !stableCursor && !legacyCursor) {
       return { threads: [], nextCursor: null };
     }
+    const cursor = stableCursor ?? legacyCursor?.thread ?? null;
+    const sentMessageWhere: Prisma.MailMessageWhereInput = {
+      senderUserId: userId,
+      deletedAt: null
+    };
 
-    const messages = await withMailDbTimeout(
-      prisma.mailMessage.findMany({
+    const threads = await withMailDbTimeout(
+      prisma.mailThread.findMany({
         where: {
-          senderUserId: userId,
-          deletedAt: null
+          messages: { some: sentMessageWhere },
+          ...descendingMailThreadCursorWhere(cursor)
         },
-        select: mailSummaryMessageSelect,
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        ...(cursorRecord ? { cursor: { id: cursorRecord.id }, skip: 1 } : {}),
+        select: {
+          id: true,
+          updatedAt: true,
+          messages: {
+            where: sentMessageWhere,
+            select: mailSummaryMessageSelect,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 1
+          }
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
         take: limit + 1
       }),
       "sent mail lookup"
     );
-    const hasMore = messages.length > limit;
-    const pageMessages = messages.slice(0, limit);
+    const hasMore = threads.length > limit;
+    const pageThreads = threads.slice(0, limit);
 
     return {
-      threads: uniqueThreadSummaries(
-        pageMessages.map((message) => toThreadSummary(userId, message, blockedUserIds))
-      ),
-      nextCursor: hasMore ? pageMessages[pageMessages.length - 1]?.id ?? null : null
+      threads: pageThreads.flatMap((thread) => {
+        const message = thread.messages[0];
+        return message ? [toThreadSummary(userId, message, blockedUserIds)] : [];
+      }),
+      nextCursor: hasMore && pageThreads.at(-1) ? encodeMailThreadCursor(pageThreads.at(-1)!) : null
     };
   }
 
-  const recipientWhere: Prisma.MailRecipientWhereInput = {
+  const recipientStateWhere: Prisma.MailRecipientWhereInput = {
     userId,
     deletedAt: null,
-    ...(folder === "archive" ? { archivedAt: { not: null } } : { archivedAt: null }),
-    message: {
-      deletedAt: null,
-      senderUserId: { notIn: [...blockedUserIds] }
-    }
+    ...(folder === "archive" ? { archivedAt: { not: null } } : { archivedAt: null })
   };
-  const cursorRecord = options.cursor
+  const visibleFolderMessageWhere: Prisma.MailMessageWhereInput = {
+    deletedAt: null,
+    senderUserId: { notIn: [...blockedUserIds] },
+    recipients: { some: recipientStateWhere }
+  };
+  const stableCursor = options.cursor ? decodeMailThreadCursor(options.cursor) : null;
+  const legacyCursor = options.cursor && !stableCursor
     ? await prisma.mailRecipient.findFirst({
         where: {
-          ...recipientWhere,
-          id: options.cursor
+          ...recipientStateWhere,
+          id: options.cursor,
+          message: visibleFolderMessageWhere
         },
-        select: { id: true }
+        select: {
+          message: {
+            select: {
+              thread: {
+                select: { id: true, updatedAt: true }
+              }
+            }
+          }
+        }
       })
     : null;
 
-  if (options.cursor && !cursorRecord) {
+  if (options.cursor && !stableCursor && !legacyCursor) {
     return { threads: [], nextCursor: null };
   }
+  const cursor = stableCursor ?? legacyCursor?.message.thread ?? null;
 
-  const recipients = await withMailDbTimeout(
-    prisma.mailRecipient.findMany({
-      where: recipientWhere,
+  const threads = await withMailDbTimeout(
+    prisma.mailThread.findMany({
+      where: {
+        messages: { some: visibleFolderMessageWhere },
+        ...descendingMailThreadCursorWhere(cursor)
+      },
       select: {
         id: true,
-        message: {
-          select: mailSummaryMessageSelect
+        updatedAt: true,
+        messages: {
+          where: visibleFolderMessageWhere,
+          select: mailSummaryMessageSelect,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 1
         }
       },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      ...(cursorRecord ? { cursor: { id: cursorRecord.id }, skip: 1 } : {}),
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       take: limit + 1
     }),
     `${folder} mail lookup`
   );
-  const hasMore = recipients.length > limit;
-  const pageRecipients = recipients.slice(0, limit);
+  const hasMore = threads.length > limit;
+  const pageThreads = threads.slice(0, limit);
 
   return {
-    threads: uniqueThreadSummaries(
-      pageRecipients.map((recipient) => toThreadSummary(userId, recipient.message, blockedUserIds))
-    ),
-    nextCursor: hasMore ? pageRecipients[pageRecipients.length - 1]?.id ?? null : null
+    threads: pageThreads.flatMap((thread) => {
+      const message = thread.messages[0];
+      return message ? [toThreadSummary(userId, message, blockedUserIds)] : [];
+    }),
+    nextCursor: hasMore && pageThreads.at(-1) ? encodeMailThreadCursor(pageThreads.at(-1)!) : null
   };
 }
 
@@ -1124,36 +1182,26 @@ export async function createMailUploadIntent(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload." };
   }
 
-  const storageKey = [
-    "users",
-    userId,
-    "mail",
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const result = await createUploadIntent(userId, {
+    checksumSha256: parsed.data.checksumSha256,
+    mimeType: parsed.data.mimeType,
+    purpose: UploadIntentPurpose.MAIL_ATTACHMENT,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: MediaVisibility.PRIVATE
+  });
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      access: "private"
-    });
+  if (!result.ok) return { ok: false as const, error: result.error };
 
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: null,
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create mail upload intent.", {
-      userId,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return { ok: false as const, error: "Media storage is not configured." };
-  }
+  return {
+    ok: true as const,
+    intentId: result.intent.id,
+    intent: result.intent,
+    uploadUrl: result.uploadUrl,
+    uploadHeaders: result.uploadHeaders,
+    storageKey: result.intent.storageKey,
+    publicUrl: null,
+    expiresInSeconds: result.expiresInSeconds
+  };
 }
 
 export async function completeMailUpload(userId: string, input: unknown) {
@@ -1163,39 +1211,66 @@ export async function completeMailUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
-  const expectedPrefix = ["users", userId, "mail"].join("/") + "/";
-  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid mail upload key." };
+  const verified = await completeUploadIntent(userId, { intentId: parsed.data.intentId });
+  if (!verified.ok) return { ok: false as const, error: verified.error };
+
+  const normalizedMimeType = parsed.data.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (
+    verified.intent.purpose !== UploadIntentPurpose.MAIL_ATTACHMENT ||
+    verified.intent.visibility !== MediaVisibility.PRIVATE ||
+    verified.intent.mimeType !== normalizedMimeType ||
+    verified.intent.sizeBytes !== String(parsed.data.sizeBytes) ||
+    (parsed.data.storageKey && parsed.data.storageKey !== verified.intent.storageKey)
+  ) {
+    return { ok: false as const, error: "Upload intent did not match this mail attachment." };
   }
 
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    access: "private",
-    label: "Mail attachment upload"
-  });
-
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
-  const publicUrl = null;
-  const asset = await prisma.mediaAsset.create({
-    data: {
+  let consumed;
+  try {
+    consumed = await consumeVerifiedUploadIntent({
       ownerUserId: userId,
-      storageKey: parsed.data.storageKey,
-      publicUrl,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      visibility: MediaVisibility.PRIVATE,
-      metadata: {
-        module: MODULE_KEY,
-        attachmentKind: attachmentKindForMime(parsed.data.mimeType)
+      intentId: parsed.data.intentId,
+      purpose: UploadIntentPurpose.MAIL_ATTACHMENT,
+      consume: async (transaction, intent) => {
+        if (
+          intent.ownerUserId !== userId ||
+          intent.purpose !== UploadIntentPurpose.MAIL_ATTACHMENT ||
+          intent.visibility !== MediaVisibility.PRIVATE ||
+          intent.declaredMimeType !== normalizedMimeType ||
+          intent.declaredSizeBytes !== BigInt(parsed.data.sizeBytes)
+        ) {
+          throw new Error("Mail upload intent contract changed during consumption.");
+        }
+
+        return transaction.mediaAsset.create({
+          data: {
+            ownerUserId: userId,
+            storageKey: intent.storageKey,
+            publicUrl: null,
+            mimeType: intent.observedMimeType ?? intent.declaredMimeType,
+            sizeBytes: intent.observedSizeBytes ?? intent.declaredSizeBytes,
+            originalName: parsed.data.fileName,
+            visibility: MediaVisibility.PRIVATE,
+            metadata: {
+              module: MODULE_KEY,
+              uploadIntentId: intent.id,
+              attachmentKind: attachmentKindForMime(intent.declaredMimeType)
+            }
+          }
+        });
       }
-    }
-  });
+    });
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not consume verified mail upload intent.", {
+      userId,
+      intentId: parsed.data.intentId,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return { ok: false as const, error: "Mail attachment could not be finalized." };
+  }
+
+  if (!consumed.ok) return { ok: false as const, error: consumed.error };
+  const asset = consumed.value;
 
   await diagnostics.info(MODULE_KEY, "Mail attachment upload completed.", {
     userId,
@@ -1205,6 +1280,7 @@ export async function completeMailUpload(userId: string, input: unknown) {
 
   return {
     ok: true as const,
+    intentId: parsed.data.intentId,
     attachment: {
       mediaAssetId: asset.id,
       kind: attachmentKindForMime(asset.mimeType),

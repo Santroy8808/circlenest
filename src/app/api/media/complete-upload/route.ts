@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
+import { uploadIntentFailureResponse } from "@/lib/platform/upload-intent-response";
 import { completeGalleryUpload } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export async function POST(request: NextRequest) {
@@ -12,11 +14,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const actor = await getActiveAccountActor(session.user.id);
-    const body = await request.json();
-    const result = await completeGalleryUpload(actor.actorUserId, body);
+    const body = await readJsonRequest(request);
+    if (!body.ok) return body.response;
+
+    const result = await completeGalleryUpload(actor.actorUserId, body.value);
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return uploadIntentFailureResponse(result);
     }
 
     if (!result.asset) {

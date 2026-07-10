@@ -1,8 +1,11 @@
-import { randomBytes } from "crypto";
-import { MediaVisibility, ScientologyVisibility } from "@prisma/client";
+import { MediaAssetStatus, MediaVisibility, ScientologyVisibility, UploadIntentPurpose } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
+import {
+  completeUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent
+} from "@/modules/media/upload-intent.service";
 import {
   completeScientologyCommendationUploadSchema,
   createScientologyCommendationUploadIntentSchema,
@@ -26,15 +29,6 @@ function parseServiceDate(value?: string) {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function safeFileName(value: string) {
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
-  return cleaned || "commendation";
-}
-
-function dateSlug(date = new Date()) {
-  return date.toISOString().slice(0, 10);
 }
 
 export async function getScientologyProfileForOwner(userId: string) {
@@ -123,37 +117,23 @@ export async function createScientologyCommendationUploadIntent(userId: string, 
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid commendation upload." };
   }
 
-  const storageKey = [
-    "users",
-    userId,
-    "my-scientology",
-    "commendations",
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const intent = await createUploadIntent(userId, {
+    purpose: UploadIntentPurpose.PROFILE_MEDIA,
+    mimeType: parsed.data.mimeType,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: MediaVisibility.PRIVATE
+  });
+  if (!intent.ok) return intent;
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      access: "private"
-    });
-
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: null,
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create commendation upload intent.", {
-      userId,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return { ok: false as const, error: "Media storage is not configured." };
-  }
+  return {
+    ok: true as const,
+    intentId: intent.intent.id,
+    uploadUrl: intent.uploadUrl,
+    uploadHeaders: intent.uploadHeaders,
+    storageKey: intent.intent.storageKey,
+    publicUrl: null,
+    expiresInSeconds: intent.expiresInSeconds
+  };
 }
 
 export async function completeScientologyCommendationUpload(userId: string, input: unknown) {
@@ -167,60 +147,64 @@ export async function completeScientologyCommendationUpload(userId: string, inpu
     return { ok: false as const, error: "PDF commendations must be flattened and not encrypted before upload." };
   }
 
-  const expectedPrefix = ["users", userId, "my-scientology", "commendations"].join("/") + "/";
-  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid commendation upload key." };
+  const verified = await completeUploadIntent(userId, { intentId: parsed.data.intentId });
+  if (!verified.ok) return verified;
+  if (
+    verified.intent.purpose !== UploadIntentPurpose.PROFILE_MEDIA ||
+    verified.intent.storageKey !== parsed.data.storageKey ||
+    verified.intent.mimeType !== parsed.data.mimeType ||
+    verified.intent.sizeBytes !== String(parsed.data.sizeBytes) ||
+    verified.intent.visibility !== MediaVisibility.PRIVATE
+  ) {
+    return { ok: false as const, error: "Upload intent does not match this commendation." };
   }
 
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    access: "private",
-    label: "Commendation upload"
-  });
-
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const profile = await tx.scientologyProfile.upsert({
-      where: { userId },
-      update: {},
-      create: {
-        userId,
-        classification: "PUBLIC",
-        visibility: ScientologyVisibility.PRIVATE
-      }
-    });
-    const asset = await tx.mediaAsset.create({
-      data: {
-        ownerUserId: userId,
-        storageKey: parsed.data.storageKey,
-        publicUrl: null,
-        mimeType: parsed.data.mimeType,
-        sizeBytes: BigInt(parsed.data.sizeBytes),
-        originalName: parsed.data.fileName,
-        visibility: MediaVisibility.PRIVATE,
-        metadata: {
-          source: "my-scientology-commendation",
-          flattenedPdf: parsed.data.isFlattenedPdf
+  const consumed = await consumeVerifiedUploadIntent({
+    ownerUserId: userId,
+    intentId: parsed.data.intentId,
+    purpose: UploadIntentPurpose.PROFILE_MEDIA,
+    consume: async (transaction, intent) => {
+      const profile = await transaction.scientologyProfile.upsert({
+        where: { userId },
+        update: {},
+        create: {
+          userId,
+          classification: "PUBLIC",
+          visibility: ScientologyVisibility.PRIVATE
         }
-      }
-    });
-    const commendation = await tx.scientologyCommendation.create({
-      data: {
-        scientologyProfileId: profile.id,
-        mediaAssetId: asset.id,
-        title: parsed.data.title || parsed.data.fileName,
-        isFlattenedPdf: parsed.data.isFlattenedPdf
-      },
-      include: { mediaAsset: true }
-    });
+      });
+      const asset = await transaction.mediaAsset.create({
+        data: {
+          ownerUserId: userId,
+          storageKey: intent.storageKey,
+          publicUrl: null,
+          mimeType: parsed.data.mimeType,
+          sizeBytes: intent.declaredSizeBytes,
+          originalName: parsed.data.fileName,
+          status: MediaAssetStatus.READY,
+          visibility: MediaVisibility.PRIVATE,
+          metadata: {
+            source: "my-scientology-commendation",
+            flattenedPdf: parsed.data.isFlattenedPdf,
+            uploadIntentId: intent.id
+          }
+        }
+      });
+      const commendation = await transaction.scientologyCommendation.create({
+        data: {
+          scientologyProfileId: profile.id,
+          mediaAssetId: asset.id,
+          title: parsed.data.title || parsed.data.fileName,
+          isFlattenedPdf: parsed.data.isFlattenedPdf
+        },
+        include: { mediaAsset: true }
+      });
 
-    return commendation;
+      return commendation;
+    }
   });
+  if (!consumed.ok) return consumed;
+  const result = consumed.value;
 
   await diagnostics.info(MODULE_KEY, "Scientology commendation uploaded.", {
     userId,

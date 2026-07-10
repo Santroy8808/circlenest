@@ -1,10 +1,22 @@
-import { randomBytes } from "crypto";
-import { MarketListingCategory, MarketListingStatus, MediaVisibility, Prisma, UserRole } from "@prisma/client";
+import {
+  MarketListingCategory,
+  MarketListingStatus,
+  MediaAssetStatus,
+  MediaVisibility,
+  Prisma,
+  UploadIntentPurpose,
+  UserRole
+} from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
-import { createPresignedR2PutUrl, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
+import { getR2PublicUrl } from "@/lib/platform/r2";
 import { canUserAccessFeature, getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
+import {
+  completeUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent
+} from "@/modules/media/upload-intent.service";
 import {
   completeMarketPhotoUploadSchema,
   createMarketListingSchema,
@@ -51,15 +63,6 @@ async function uniqueMarketSlug(title: string) {
   return candidate;
 }
 
-function safeFileName(value: string) {
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
-  return cleaned || "market-photo";
-}
-
-function dateSlug(date = new Date()) {
-  return date.toISOString().slice(0, 10);
-}
-
 function profileName(user: { username: string; profile: { displayName: string | null } | null }) {
   return user.profile?.displayName ?? user.username;
 }
@@ -77,8 +80,22 @@ function sellerView(user: {
   };
 }
 
-function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
-  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+function mediaAssetUrl(
+  mediaAsset?: {
+    id: string;
+    publicUrl: string | null;
+    status: MediaAssetStatus;
+    visibility: MediaVisibility;
+  } | null
+) {
+  if (
+    !mediaAsset ||
+    mediaAsset.status !== MediaAssetStatus.READY ||
+    mediaAsset.visibility !== MediaVisibility.PUBLIC
+  ) {
+    return null;
+  }
+  return mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}`;
 }
 
 function futureDate(days: number) {
@@ -267,34 +284,24 @@ export async function createMarketPhotoUploadIntent(userId: string, input: unkno
     return { ok: false as const, error: state.reason ?? "You cannot create Market listings." };
   }
 
-  const storageKey = [
-    "market",
-    userId,
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const intent = await createUploadIntent(userId, {
+    purpose: UploadIntentPurpose.MARKET_LISTING,
+    mimeType: parsed.data.mimeType,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: MediaVisibility.PUBLIC
+  });
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes
-    });
+  if (!intent.ok) return intent;
 
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: getR2PublicUrl(storageKey),
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create Market photo upload intent.", {
-      userId,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return { ok: false as const, error: "Media storage is not configured." };
-  }
+  return {
+    ok: true as const,
+    intentId: intent.intent.id,
+    uploadUrl: intent.uploadUrl,
+    uploadHeaders: intent.uploadHeaders,
+    storageKey: intent.intent.storageKey,
+    publicUrl: getR2PublicUrl(intent.intent.storageKey),
+    expiresInSeconds: intent.expiresInSeconds
+  };
 }
 
 export async function completeMarketPhotoUpload(userId: string, input: unknown) {
@@ -310,48 +317,43 @@ export async function completeMarketPhotoUpload(userId: string, input: unknown) 
     return { ok: false as const, error: state.reason ?? "You cannot create Market listings." };
   }
 
-  if (!parsed.data.storageKey.startsWith(`market/${userId}/`)) {
-    return { ok: false as const, error: "Invalid upload target." };
+  const verified = await completeUploadIntent(userId, { intentId: parsed.data.intentId });
+  if (!verified.ok) return verified;
+
+  if (
+    verified.intent.purpose !== UploadIntentPurpose.MARKET_LISTING ||
+    verified.intent.storageKey !== parsed.data.storageKey ||
+    verified.intent.mimeType !== parsed.data.mimeType ||
+    Number(verified.intent.sizeBytes) !== parsed.data.sizeBytes ||
+    verified.intent.visibility !== MediaVisibility.PUBLIC
+  ) {
+    return { ok: false as const, error: "Upload intent does not match this Market photo." };
   }
 
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    label: "Market photo upload"
+  const consumed = await consumeVerifiedUploadIntent({
+    ownerUserId: userId,
+    intentId: parsed.data.intentId,
+    purpose: UploadIntentPurpose.MARKET_LISTING,
+    consume: async (transaction, intent) => transaction.mediaAsset.create({
+      data: {
+        ownerUserId: userId,
+        storageKey: intent.storageKey,
+        publicUrl: getR2PublicUrl(intent.storageKey),
+        mimeType: intent.declaredMimeType,
+        sizeBytes: intent.declaredSizeBytes,
+        originalName: parsed.data.fileName,
+        status: MediaAssetStatus.READY,
+        visibility: intent.visibility,
+        metadata: {
+          module: MODULE_KEY,
+          uploadIntentId: intent.id
+        }
+      }
+    })
   });
 
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
-  const asset = await prisma.mediaAsset.upsert({
-    where: {
-      storageKey: parsed.data.storageKey
-    },
-    update: {
-      publicUrl: getR2PublicUrl(parsed.data.storageKey),
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      visibility: MediaVisibility.PUBLIC,
-      metadata: {
-        module: MODULE_KEY
-      }
-    },
-    create: {
-      ownerUserId: userId,
-      storageKey: parsed.data.storageKey,
-      publicUrl: getR2PublicUrl(parsed.data.storageKey),
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      visibility: MediaVisibility.PUBLIC,
-      metadata: {
-        module: MODULE_KEY
-      }
-    }
-  });
+  if (!consumed.ok) return consumed;
+  const asset = consumed.value;
 
   await diagnostics.info(MODULE_KEY, "Market photo upload completed.", {
     userId,

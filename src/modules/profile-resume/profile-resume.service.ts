@@ -1,8 +1,18 @@
-import { randomBytes } from "crypto";
-import { MediaAssetStatus, MediaVisibility, ProfileVisibility, ScientologyVisibility, type Prisma } from "@prisma/client";
+import {
+  MediaAssetStatus,
+  MediaVisibility,
+  ProfileVisibility,
+  ScientologyVisibility,
+  UploadIntentPurpose,
+  type Prisma
+} from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { createPresignedR2PutUrl, verifyR2Object } from "@/lib/platform/r2";
+import {
+  completeUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent
+} from "@/modules/media/upload-intent.service";
 import { parseScientologySelections } from "@/modules/my-scientology/types";
 import {
   completeResumeUploadSchema,
@@ -23,21 +33,6 @@ function withResumeDbTimeout<T>(promise: Promise<T>, operation: string): Promise
       setTimeout(() => reject(new Error(`${operation} timed out`)), DB_TIMEOUT_MS);
     })
   ]);
-}
-
-function dateSlug(date = new Date()) {
-  return date.toISOString().slice(0, 10);
-}
-
-function safeFileName(fileName: string) {
-  return fileName
-    .replace(/\\/g, "/")
-    .split("/")
-    .pop()
-    ?.replace(/[^a-z0-9._-]+/gi, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 140) || "resume";
 }
 
 function asStringList(value: Prisma.JsonValue | null | undefined): string[] {
@@ -191,36 +186,24 @@ export async function createResumeUploadIntent(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid resume upload." };
   }
 
-  const storageKey = [
-    "users",
-    userId,
-    "resume",
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const intent = await createUploadIntent(userId, {
+    purpose: UploadIntentPurpose.RESUME,
+    mimeType: parsed.data.mimeType,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: MediaVisibility.PRIVATE
+  });
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      access: "private"
-    });
+  if (!intent.ok) return intent;
 
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: null,
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create resume upload intent.", {
-      userId,
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return { ok: false as const, error: "Resume upload is not available right now." };
-  }
+  return {
+    ok: true as const,
+    intentId: intent.intent.id,
+    uploadUrl: intent.uploadUrl,
+    uploadHeaders: intent.uploadHeaders,
+    storageKey: intent.intent.storageKey,
+    publicUrl: null,
+    expiresInSeconds: intent.expiresInSeconds
+  };
 }
 
 export async function completeResumeUpload(userId: string, input: unknown) {
@@ -230,63 +213,60 @@ export async function completeResumeUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid resume upload." };
   }
 
-  const expectedPrefix = ["users", userId, "resume"].join("/") + "/";
-  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid resume upload key." };
+  const verified = await completeUploadIntent(userId, { intentId: parsed.data.intentId });
+  if (!verified.ok) return verified;
+
+  if (
+    verified.intent.purpose !== UploadIntentPurpose.RESUME ||
+    verified.intent.storageKey !== parsed.data.storageKey ||
+    verified.intent.mimeType !== parsed.data.mimeType ||
+    Number(verified.intent.sizeBytes) !== parsed.data.sizeBytes ||
+    verified.intent.visibility !== MediaVisibility.PRIVATE
+  ) {
+    return { ok: false as const, error: "Upload intent does not match this resume." };
   }
 
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    access: "private",
-    label: "Resume upload"
+  const consumed = await consumeVerifiedUploadIntent({
+    ownerUserId: userId,
+    intentId: parsed.data.intentId,
+    purpose: UploadIntentPurpose.RESUME,
+    consume: async (transaction, intent) => {
+      const savedAsset = await transaction.mediaAsset.create({
+        data: {
+          ownerUserId: userId,
+          storageKey: intent.storageKey,
+          publicUrl: null,
+          mimeType: intent.declaredMimeType,
+          sizeBytes: intent.declaredSizeBytes,
+          originalName: parsed.data.fileName,
+          status: MediaAssetStatus.READY,
+          visibility: intent.visibility,
+          metadata: {
+            module: MODULE_KEY,
+            purpose: "resume",
+            uploadIntentId: intent.id
+          }
+        }
+      });
+      const savedResume = await transaction.userResume.upsert({
+        where: { userId },
+        update: {
+          uploadedResumeUrl: `/api/media/assets/${savedAsset.id}`,
+          uploadedResumeName: parsed.data.fileName
+        },
+        create: {
+          userId,
+          uploadedResumeUrl: `/api/media/assets/${savedAsset.id}`,
+          uploadedResumeName: parsed.data.fileName
+        }
+      });
+
+      return { asset: savedAsset, resume: savedResume };
+    }
   });
 
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
-  const { asset, resume } = await prisma.$transaction(async (tx) => {
-    const savedAsset = await tx.mediaAsset.upsert({
-      where: { storageKey: parsed.data.storageKey },
-      update: {
-        publicUrl: null,
-        mimeType: parsed.data.mimeType,
-        sizeBytes: BigInt(parsed.data.sizeBytes),
-        originalName: parsed.data.fileName,
-        status: MediaAssetStatus.READY,
-        visibility: MediaVisibility.PRIVATE
-      },
-      create: {
-        ownerUserId: userId,
-        storageKey: parsed.data.storageKey,
-        publicUrl: null,
-        mimeType: parsed.data.mimeType,
-        sizeBytes: BigInt(parsed.data.sizeBytes),
-        originalName: parsed.data.fileName,
-        status: MediaAssetStatus.READY,
-        visibility: MediaVisibility.PRIVATE,
-        metadata: { module: MODULE_KEY, purpose: "resume" }
-      }
-    });
-    if (savedAsset.ownerUserId !== userId) throw new Error("Resume upload owner mismatch.");
-
-    const savedResume = await tx.userResume.upsert({
-      where: { userId },
-      update: {
-        uploadedResumeUrl: `/api/media/assets/${savedAsset.id}`,
-        uploadedResumeName: parsed.data.fileName
-      },
-      create: {
-        userId,
-        uploadedResumeUrl: `/api/media/assets/${savedAsset.id}`,
-        uploadedResumeName: parsed.data.fileName
-      }
-    });
-
-    return { asset: savedAsset, resume: savedResume };
-  });
+  if (!consumed.ok) return consumed;
+  const { asset, resume } = consumed.value;
 
   const privateUrl = `/api/media/assets/${asset.id}`;
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/platform/app-shell";
 import { getModuleDefinitions } from "@/modules/platform-infrastructure/platform.service";
+import { requireAdminPage } from "@/lib/platform/page-access";
 
 const rootDocs = [
   { title: "Module Index", href: "/docs/module-index" },
@@ -16,7 +17,9 @@ const rootDocs = [
   { title: "External Services Readiness", href: "/docs/external-services-readiness" }
 ];
 
-export default function DocsPage() {
+export default async function DocsPage() {
+  await requireAdminPage("/docs");
+
   const modules = getModuleDefinitions();
 
   return (

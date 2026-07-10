@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { isAdminRole } from "@/lib/platform/roles";
+import {
+  consumeRequestRateLimit,
+  rateLimitExceededResponse,
+  withRateLimitHeaders
+} from "@/lib/platform/request-rate-limit";
 import { revokeUserSessions } from "@/modules/auth-security/auth-security.service";
 
 export async function POST(request: NextRequest) {
@@ -10,10 +16,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   }
 
-  const body = (await request.json()) as { targetUserId?: string; reason?: string };
+  const rateLimit = await consumeRequestRateLimit(request, {
+    namespace: "auth-session-revoke",
+    identity: session.user.id,
+    limit: 30,
+    windowMs: 15 * 60 * 1000
+  });
+  if (!rateLimit.allowed) return rateLimitExceededResponse(rateLimit);
 
-  if (!body.targetUserId) {
-    return NextResponse.json({ error: "targetUserId is required." }, { status: 400 });
+  const payload = await readJsonRequest(request, 4 * 1024);
+  if (!payload.ok) return withRateLimitHeaders(payload.response, rateLimit);
+  const body =
+    payload.value && typeof payload.value === "object"
+      ? payload.value as { targetUserId?: string; reason?: string }
+      : null;
+
+  if (!body?.targetUserId) {
+    return withRateLimitHeaders(
+      NextResponse.json({ error: "targetUserId is required." }, { status: 400 }),
+      rateLimit
+    );
   }
 
   const result = await revokeUserSessions({
@@ -22,5 +44,8 @@ export async function POST(request: NextRequest) {
     reason: body.reason
   });
 
-  return NextResponse.json(result);
+  return withRateLimitHeaders(
+    NextResponse.json(result, { headers: { "cache-control": "no-store" } }),
+    rateLimit
+  );
 }

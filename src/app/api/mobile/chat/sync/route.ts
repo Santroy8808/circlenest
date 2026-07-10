@@ -1,27 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/platform/mobile-auth";
+import { readJsonRequest } from "@/lib/platform/api-request";
+import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import { prisma } from "@/lib/platform/db";
+import { resolveChatAccessContext } from "@/modules/chat-messages/chat-access-policy";
 
 export async function GET(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
-  const deviceId = (request.nextUrl.searchParams.get("deviceId") ?? "").trim();
-  if (!deviceId) return NextResponse.json({ error: "Device ID is required." }, { status: 400 });
+  const deviceId = (request.nextUrl.searchParams.get("deviceId") ?? "").trim().slice(0, 65);
+  const cursorThreadId = request.nextUrl.searchParams.get("cursorThreadId")?.trim();
+  const cursorUpdatedAt = request.nextUrl.searchParams.get("cursorUpdatedAt")?.trim();
+  const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 30);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 60) : 30;
+  if (!deviceId || deviceId.length > 64) {
+    return NextResponse.json({ error: "Device ID is required." }, { status: 400 });
+  }
+  if (Boolean(cursorThreadId) !== Boolean(cursorUpdatedAt)) {
+    return NextResponse.json({ error: "Both encrypted chat cursor fields are required." }, { status: 400 });
+  }
+  const cursorDate = cursorUpdatedAt ? new Date(cursorUpdatedAt) : null;
+  if ((cursorThreadId && cursorThreadId.length > 64) || (cursorDate && Number.isNaN(cursorDate.getTime()))) {
+    return NextResponse.json({ error: "Invalid encrypted chat cursor." }, { status: 400 });
+  }
 
-  const device = await prisma.userDevice.findFirst({
+  const [context, device] = await Promise.all([
+    resolveChatAccessContext(session.user.id),
+    prisma.userDevice.findFirst({
+      where: {
+        id: deviceId,
+        userId: session.user.id,
+        revokedAt: null
+      }
+    })
+  ]);
+
+  if (!context.userId || !device) {
+    return NextResponse.json({ error: "Device is not registered." }, { status: 400 });
+  }
+
+  const threadRows = await prisma.encryptedChatThread.findMany({
     where: {
-      id: deviceId,
-      userId: session.user.id,
-      revokedAt: null
-    }
-  });
-
-  if (!device) return NextResponse.json({ error: "Device is not registered." }, { status: 400 });
-
-  const threads = await prisma.encryptedChatThread.findMany({
-    where: {
-      participants: { some: { userId: session.user.id } }
+      AND: [
+        { participants: { some: { userId: session.user.id } } },
+        { participants: { every: { user: { is: context.visibleUserWhere } } } },
+        ...(cursorDate && cursorThreadId
+          ? [
+              {
+                OR: [
+                  { updatedAt: { lt: cursorDate } },
+                  { updatedAt: cursorDate, id: { lt: cursorThreadId } }
+                ]
+              }
+            ]
+          : [])
+      ]
     },
     include: {
       participants: {
@@ -31,6 +67,8 @@ export async function GET(request: NextRequest) {
               profile: true,
               devices: {
                 where: { revokedAt: null },
+                orderBy: [{ lastSeenAt: "desc" }, { id: "desc" }],
+                take: 5,
                 select: {
                   id: true,
                   deviceId: true,
@@ -43,7 +81,8 @@ export async function GET(request: NextRequest) {
         }
       },
       messages: {
-        orderBy: { createdAt: "asc" },
+        where: { sender: { is: context.visibleUserWhere } },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 80,
         include: {
           envelopes: {
@@ -52,9 +91,12 @@ export async function GET(request: NextRequest) {
         }
       }
     },
-    orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
-    take: 60
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: limit + 1
   });
+  const hasMore = threadRows.length > limit;
+  const threads = threadRows.slice(0, limit);
+  const lastThread = hasMore ? threads.at(-1) : null;
 
   await prisma.userDevice.update({
     where: { id: device.id },
@@ -67,7 +109,8 @@ export async function GET(request: NextRequest) {
       deviceId: device.deviceId
     },
     threads: threads.map((thread) => {
-      const messages = thread.messages
+      const messages = [...thread.messages]
+        .reverse()
         .map((message) => {
           const envelope = message.envelopes[0];
           if (!envelope) return null;
@@ -106,17 +149,39 @@ export async function GET(request: NextRequest) {
         })),
         messages
       };
-    })
+    }),
+    nextCursor: lastThread
+      ? { cursorThreadId: lastThread.id, cursorUpdatedAt: lastThread.updatedAt.toISOString() }
+      : null,
+    hasMore
   });
 }
 
 export async function POST(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
-  const body = await request.json().catch(() => ({}));
+  const parsedBody = await readJsonRequest(request, 16 * 1024);
+  if (!parsedBody.ok) return parsedBody.response;
+  if (typeof parsedBody.value !== "object" || parsedBody.value === null || Array.isArray(parsedBody.value)) {
+    return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
+  }
+  const body = parsedBody.value as Record<string, unknown>;
+  if (Array.isArray(body.envelopeIds) && body.envelopeIds.length > 100) {
+    return NextResponse.json({ error: "Choose at most 100 encrypted messages." }, { status: 400 });
+  }
   const envelopeIds = Array.isArray(body.envelopeIds)
-    ? body.envelopeIds.filter((id: unknown): id is string => typeof id === "string")
+    ? Array.from(
+        new Set(
+          body.envelopeIds
+            .filter((id: unknown): id is string => typeof id === "string")
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0 && id.length <= 64)
+        )
+      )
     : [];
   if (envelopeIds.length === 0) return NextResponse.json({ ok: true });
 

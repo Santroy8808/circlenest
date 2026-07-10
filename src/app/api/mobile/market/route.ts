@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/platform/mobile-auth";
+import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import { safeGetMarketListingDetail, safeListMarketListings } from "@/modules/market/market.service";
 
 export async function GET(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 

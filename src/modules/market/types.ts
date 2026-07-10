@@ -28,6 +28,7 @@ export const createMarketPhotoUploadIntentSchema = z.object({
 });
 
 export const completeMarketPhotoUploadSchema = createMarketPhotoUploadIntentSchema.extend({
+  intentId: z.string().trim().min(1).max(80),
   storageKey: z.string().min(1).max(600)
 });
 

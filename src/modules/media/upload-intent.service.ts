@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { consumeRateLimit } from "@/lib/platform/rate-limit";
 import {
   createPresignedR2PutRequest,
   deleteR2Object,
@@ -21,6 +22,8 @@ const UPLOAD_INTENT_TTL_MS = 5 * 60 * 1000;
 const VERIFIED_CONSUMPTION_TTL_MS = 10 * 60 * 1000;
 const VERIFYING_EXPIRY_GRACE_MS = 60 * 1000;
 const MAX_CLEANUP_BATCH_SIZE = 500;
+const MAX_ACTIVE_UPLOAD_INTENTS_PER_OWNER = 10;
+const MAX_ACTIVE_DECLARED_UPLOAD_BYTES_PER_OWNER = BigInt(100 * 1024 * 1024);
 
 const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 const STATIC_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -28,7 +31,11 @@ const DOCUMENT_MIME_TYPES = [
   "application/pdf",
   "text/plain",
   "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 ] as const;
 
 type UploadIntentPolicy = {
@@ -64,10 +71,10 @@ const UPLOAD_INTENT_POLICIES: Record<UploadIntentPurpose, UploadIntentPolicy> = 
     maxSizeBytes: 10 * 1024 * 1024
   },
   [UploadIntentPurpose.PROFILE_MEDIA]: {
-    allowedMimeTypes: STATIC_IMAGE_MIME_TYPES,
+    allowedMimeTypes: [...STATIC_IMAGE_MIME_TYPES, "application/pdf"],
     allowedVisibilities: [MediaVisibility.PRIVATE, MediaVisibility.MEMBERS, MediaVisibility.PUBLIC],
     defaultVisibility: MediaVisibility.MEMBERS,
-    maxSizeBytes: 8 * 1024 * 1024
+    maxSizeBytes: 15 * 1024 * 1024
   },
   [UploadIntentPurpose.BUSINESS_MEDIA]: {
     allowedMimeTypes: STATIC_IMAGE_MIME_TYPES,
@@ -88,10 +95,10 @@ const UPLOAD_INTENT_POLICIES: Record<UploadIntentPurpose, UploadIntentPolicy> = 
     maxSizeBytes: 20 * 1024 * 1024
   },
   [UploadIntentPurpose.GROUP_ASSET]: {
-    allowedMimeTypes: [...IMAGE_MIME_TYPES, "application/pdf"],
+    allowedMimeTypes: [...IMAGE_MIME_TYPES, ...DOCUMENT_MIME_TYPES],
     allowedVisibilities: [MediaVisibility.PRIVATE],
     defaultVisibility: MediaVisibility.PRIVATE,
-    maxSizeBytes: 15 * 1024 * 1024
+    maxSizeBytes: 20 * 1024 * 1024
   },
   [UploadIntentPurpose.MARKET_LISTING]: {
     allowedMimeTypes: STATIC_IMAGE_MIME_TYPES,
@@ -133,6 +140,7 @@ export type UploadIntentErrorCode =
   | "PURPOSE_MISMATCH"
   | "OBJECT_REJECTED"
   | "CONFLICT"
+  | "RATE_LIMITED"
   | "STORAGE_UNAVAILABLE";
 
 export type UploadIntentFailure = {
@@ -196,9 +204,10 @@ function createStorageKey(ownerUserId: string, purpose: UploadIntentPurpose, now
   return `upload-intents/${ownerSegment}/${purposeSegment}/${dateSegment}/${nonce}`;
 }
 
-function publicIntentView(intent: Pick<UploadIntent, "id" | "purpose" | "declaredMimeType" | "declaredSizeBytes" | "visibility" | "expiresAt" | "declaredChecksumSha256">) {
+function publicIntentView(intent: Pick<UploadIntent, "id" | "storageKey" | "purpose" | "declaredMimeType" | "declaredSizeBytes" | "visibility" | "expiresAt" | "declaredChecksumSha256">) {
   return {
     id: intent.id,
+    storageKey: intent.storageKey,
     purpose: intent.purpose,
     mimeType: intent.declaredMimeType,
     sizeBytes: intent.declaredSizeBytes.toString(),
@@ -208,9 +217,10 @@ function publicIntentView(intent: Pick<UploadIntent, "id" | "purpose" | "declare
   };
 }
 
-function verifiedIntentView(intent: Pick<UploadIntent, "id" | "purpose" | "declaredMimeType" | "declaredSizeBytes" | "visibility" | "verifiedAt" | "declaredChecksumSha256">) {
+function verifiedIntentView(intent: Pick<UploadIntent, "id" | "storageKey" | "purpose" | "declaredMimeType" | "declaredSizeBytes" | "visibility" | "verifiedAt" | "declaredChecksumSha256">) {
   return {
     id: intent.id,
+    storageKey: intent.storageKey,
     purpose: intent.purpose,
     mimeType: intent.declaredMimeType,
     sizeBytes: intent.declaredSizeBytes.toString(),
@@ -241,6 +251,19 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
     return failure("INVALID_UPLOAD", parsed.success ? "A member is required." : parsed.error.issues[0]?.message ?? "Invalid upload.");
   }
 
+  const requestRate = await consumeRateLimit({
+    namespace: "upload-intent:owner",
+    key: cleanOwnerUserId,
+    limit: 30,
+    windowMs: 60 * 60 * 1000
+  });
+  if (!requestRate.allowed) {
+    return {
+      ...failure("RATE_LIMITED", "Too many uploads were started. Try again later."),
+      retryAfterSeconds: requestRate.retryAfterSeconds
+    };
+  }
+
   const policy = UPLOAD_INTENT_POLICIES[parsed.data.purpose];
   const mimeType = normalizeMimeType(parsed.data.mimeType);
   const visibility = parsed.data.visibility ?? policy.defaultVisibility;
@@ -266,6 +289,36 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + UPLOAD_INTENT_TTL_MS);
+  const [owner, activeIntents] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: cleanOwnerUserId, deactivatedAt: null },
+      select: { id: true }
+    }),
+    prisma.uploadIntent.aggregate({
+      where: {
+        ownerUserId: cleanOwnerUserId,
+        status: {
+          in: [UploadIntentStatus.PENDING, UploadIntentStatus.VERIFYING, UploadIntentStatus.VERIFIED]
+        },
+        expiresAt: { gt: now }
+      },
+      _count: { _all: true },
+      _sum: { declaredSizeBytes: true }
+    })
+  ]);
+
+  if (!owner) {
+    return failure("INVALID_UPLOAD", "An active member is required.");
+  }
+
+  const activeDeclaredBytes = activeIntents._sum.declaredSizeBytes ?? BigInt(0);
+  if (
+    activeIntents._count._all >= MAX_ACTIVE_UPLOAD_INTENTS_PER_OWNER ||
+    activeDeclaredBytes + BigInt(parsed.data.sizeBytes) > MAX_ACTIVE_DECLARED_UPLOAD_BYTES_PER_OWNER
+  ) {
+    return failure("CONFLICT", "Finish or cancel an existing upload before starting another.");
+  }
+
   const storageKey = createStorageKey(cleanOwnerUserId, parsed.data.purpose, now);
   const intent = await prisma.uploadIntent.create({
     data: {

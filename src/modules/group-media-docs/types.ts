@@ -20,11 +20,12 @@ const documentMimeTypes = [
 export const groupAssetKindSchema = z.nativeEnum(GroupAssetKind);
 
 const groupAssetUploadBaseSchema = z.object({
-  fileName: z.string().min(1).max(240),
-  mimeType: z.string().min(3).max(160),
+  fileName: z.string().trim().min(1).max(240),
+  mimeType: z.string().trim().min(3).max(160),
   sizeBytes: z.number().int().positive(),
   kind: groupAssetKindSchema,
-  forumThreadId: z.string().optional().or(z.literal(""))
+  forumThreadId: z.string().trim().max(128).optional().or(z.literal("")),
+  checksumSha256: z.string().trim().max(160).optional().nullable()
 });
 
 export const createGroupAssetUploadIntentSchema = groupAssetUploadBaseSchema
@@ -66,7 +67,8 @@ export const createGroupAssetUploadIntentSchema = groupAssetUploadBaseSchema
 
 export const completeGroupAssetUploadSchema = groupAssetUploadBaseSchema
   .extend({
-    storageKey: z.string().min(1).max(600),
+    intentId: z.string().trim().min(1).max(80),
+    storageKey: z.string().trim().min(1).max(600),
     headline: z.string().max(120).optional().or(z.literal("")),
     description: z.string().max(1000).optional().or(z.literal(""))
   })

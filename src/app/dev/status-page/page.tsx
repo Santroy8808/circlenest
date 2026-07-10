@@ -1,8 +1,11 @@
 import { AppShell } from "@/components/platform/app-shell";
 import { ModuleCard } from "@/components/platform/module-card";
 import { getModuleDefinitions, milestoneDefinitions } from "@/modules/platform-infrastructure/platform.service";
+import { requireAdminPage } from "@/lib/platform/page-access";
 
-export default function DevStatusPage() {
+export default async function DevStatusPage() {
+  await requireAdminPage("/dev/status-page");
+
   const modules = getModuleDefinitions();
 
   return (

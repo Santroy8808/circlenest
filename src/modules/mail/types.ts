@@ -48,13 +48,15 @@ export const sendMailSchema = z
   });
 
 export const createMailUploadIntentSchema = z.object({
+  checksumSha256: z.string().trim().max(160).optional().nullable(),
   fileName: z.string().min(1).max(240),
   mimeType: z.string().min(1).max(120),
   sizeBytes: z.number().int().positive().max(MAX_MAIL_ATTACHMENT_BYTES)
 });
 
 export const completeMailUploadSchema = createMailUploadIntentSchema.extend({
-  storageKey: z.string().min(1).max(600)
+  intentId: z.string().trim().min(1).max(80),
+  storageKey: z.string().min(1).max(600).optional()
 });
 
 export const updateMailPreferenceSchema = z.object({

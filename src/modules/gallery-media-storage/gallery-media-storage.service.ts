@@ -1,9 +1,21 @@
-import { randomBytes } from "crypto";
-import { FeedReactionType, MediaAssetStatus, MediaCollectionType, MediaVisibility, Prisma } from "@prisma/client";
-import { createPresignedR2PutUrl, deleteR2Object, getR2PublicUrl, verifyR2Object } from "@/lib/platform/r2";
+import {
+  FeedReactionType,
+  MediaAssetStatus,
+  MediaCollectionType,
+  MediaVisibility,
+  Prisma,
+  UploadIntentPurpose,
+  UploadIntentStatus
+} from "@prisma/client";
+import { deleteR2Object, getR2PublicUrl } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { canAccessMedia, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
+import {
+  completeUploadIntent as verifyDurableUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent as createDurableUploadIntent
+} from "@/modules/media/upload-intent.service";
 import {
   completeUploadSchema,
   createGalleryAssetCommentSchema,
@@ -60,35 +72,55 @@ function uniqueCleanTagNames(tags: string[]) {
   return [...bySlug.values()];
 }
 
-function safeFileName(value: string) {
-  const fallback = "photo";
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
-  return cleaned || fallback;
-}
-
 function dateSlug(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-type UploadSource = "GALLERY" | "STREAM_POST" | "STREAM_REPLY" | "AD_CREATIVE";
-const SYSTEM_GALLERY_TAGS = new Set(["stream images", "stream post images", "stream reply images", "ad", "ad images", "ad creative"]);
-
-function sourceFolder(source: UploadSource) {
-  if (source === "AD_CREATIVE") return "ad-creatives";
-  return source === "GALLERY" ? "my-pics" : "stream-images";
-}
+type UploadSource = "GALLERY" | "STREAM_POST" | "STREAM_REPLY" | "AD_CREATIVE" | "PROFILE_MEDIA" | "BUSINESS_MEDIA";
+const SYSTEM_GALLERY_TAGS = new Set([
+  "stream images",
+  "stream post images",
+  "stream reply images",
+  "ad",
+  "ad images",
+  "ad creative",
+  "profile media",
+  "business media"
+]);
 
 function sourceTags(source: UploadSource) {
   if (source === "STREAM_POST") return ["Stream Images", "Stream Post Images"];
   if (source === "STREAM_REPLY") return ["Stream Images", "Stream Reply Images"];
   if (source === "AD_CREATIVE") return ["Ad Images", "Ad Creative"];
+  if (source === "PROFILE_MEDIA") return ["Profile Media"];
+  if (source === "BUSINESS_MEDIA") return ["Business Media"];
   return [];
+}
+
+function purposeForSource(source: UploadSource) {
+  if (source === "STREAM_POST") return UploadIntentPurpose.STREAM_POST;
+  if (source === "STREAM_REPLY") return UploadIntentPurpose.STREAM_REPLY;
+  if (source === "AD_CREATIVE") return UploadIntentPurpose.AD_CREATIVE;
+  if (source === "PROFILE_MEDIA") return UploadIntentPurpose.PROFILE_MEDIA;
+  if (source === "BUSINESS_MEDIA") return UploadIntentPurpose.BUSINESS_MEDIA;
+  return UploadIntentPurpose.GALLERY;
+}
+
+class GalleryUploadCompletionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GalleryUploadCompletionError";
+  }
 }
 
 type GalleryAssetMetadata = {
   caption?: string | null;
   commentsEnabled?: boolean;
+  hiddenFromGalleryByDefault?: boolean;
+  retentionPolicy?: { compressAfterDays: number; purgeUnviewedAfterDays: number } | null;
   source?: UploadSource;
+  uploadIntentId?: string;
+  thumbnailIntentId?: string | null;
   thumbnailStorageKey?: string | null;
   thumbnailUrl?: string | null;
 };
@@ -221,10 +253,15 @@ function canCommentOnAsset(userId: string, asset: { ownerUserId: string; visibil
   return canViewAsset(userId, asset) && asset.visibility !== MediaVisibility.PRIVATE && Boolean(metadata?.commentsEnabled);
 }
 
-async function upsertCollection(ownerUserId: string, type: MediaCollectionType, name: string) {
+async function upsertCollection(
+  ownerUserId: string,
+  type: MediaCollectionType,
+  name: string,
+  database: Prisma.TransactionClient = prisma
+) {
   const slug = slugify(name);
 
-  return prisma.mediaCollection.upsert({
+  return database.mediaCollection.upsert({
     where: {
       ownerUserId_type_slug: {
         ownerUserId,
@@ -242,8 +279,12 @@ async function upsertCollection(ownerUserId: string, type: MediaCollectionType, 
   });
 }
 
-async function attachAssetToCollection(mediaAssetId: string, collectionId: string) {
-  await prisma.mediaCollectionAsset.upsert({
+async function attachAssetToCollection(
+  mediaAssetId: string,
+  collectionId: string,
+  database: Prisma.TransactionClient = prisma
+) {
+  await database.mediaCollectionAsset.upsert({
     where: {
       collectionId_mediaAssetId: {
         collectionId,
@@ -288,36 +329,39 @@ export async function createGalleryUploadIntent(userId: string, input: unknown) 
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload." };
   }
 
-  const storageKey = [
-    "users",
-    userId,
-    sourceFolder(parsed.data.source),
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const result = await createDurableUploadIntent(userId, {
+    purpose: purposeForSource(parsed.data.source),
+    mimeType: parsed.data.mimeType,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: parsed.data.visibility,
+    checksumSha256: parsed.data.checksumSha256
+  });
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      access: parsed.data.visibility === MediaVisibility.PUBLIC ? "public" : "private"
-    });
+  if (!result.ok) return result;
 
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: parsed.data.visibility === MediaVisibility.PUBLIC ? getR2PublicUrl(storageKey) : null,
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create upload intent.", {
-      userId,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return { ok: false as const, error: "Media storage is not configured." };
-  }
+  return {
+    ok: true as const,
+    intentId: result.intent.id,
+    intent: result.intent,
+    uploadUrl: result.uploadUrl,
+    uploadHeaders: result.uploadHeaders,
+    storageKey: result.intent.storageKey,
+    publicUrl:
+      result.intent.visibility === MediaVisibility.PUBLIC ? getR2PublicUrl(result.intent.storageKey) : null,
+    expiresInSeconds: result.expiresInSeconds
+  };
+}
+
+async function findCompletedGalleryUpload(userId: string, intentId: string, storageKey: string) {
+  const asset = await prisma.mediaAsset.findUnique({
+    where: { storageKey },
+    include: galleryAssetInclude()
+  });
+  const metadata = asset?.metadata as GalleryAssetMetadata | null | undefined;
+
+  return asset && asset.ownerUserId === userId && metadata?.uploadIntentId === intentId
+    ? toGalleryAssetView(asset)
+    : null;
 }
 
 export async function completeGalleryUpload(userId: string, input: unknown) {
@@ -327,104 +371,160 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
-  const expectedPrefix = `users/${userId}/${sourceFolder(parsed.data.source)}/`;
+  const purpose = purposeForSource(parsed.data.source);
+  const verification = await verifyDurableUploadIntent(userId, { intentId: parsed.data.intentId });
 
-  if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid upload target." };
+  if (!verification.ok) {
+    if (verification.code === "ALREADY_USED") {
+      const existing = await findCompletedGalleryUpload(userId, parsed.data.intentId, parsed.data.storageKey);
+      if (existing) return { ok: true as const, asset: existing };
+    }
+    return verification;
   }
 
-  if (parsed.data.thumbnailStorageKey && !parsed.data.thumbnailStorageKey.startsWith(expectedPrefix)) {
-    return { ok: false as const, error: "Invalid thumbnail upload target." };
+  if (
+    verification.intent.purpose !== purpose ||
+    verification.intent.storageKey !== parsed.data.storageKey ||
+    verification.intent.mimeType !== parsed.data.mimeType ||
+    verification.intent.sizeBytes !== String(parsed.data.sizeBytes) ||
+    verification.intent.visibility !== parsed.data.visibility
+  ) {
+    return { ok: false as const, error: "Upload details did not match the original intent." };
   }
 
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    access: parsed.data.visibility === MediaVisibility.PUBLIC ? "public" : "private",
-    label: "Photo upload"
-  });
-
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
-  if (parsed.data.thumbnailStorageKey) {
-    const uploadedThumbnail = await verifyR2Object({
-      storageKey: parsed.data.thumbnailStorageKey,
-      expectedMimeType: "image/jpeg",
-      access: parsed.data.visibility === MediaVisibility.PUBLIC ? "public" : "private",
-      label: "Photo thumbnail upload"
+  if (parsed.data.thumbnailIntentId && parsed.data.thumbnailStorageKey) {
+    const thumbnailVerification = await verifyDurableUploadIntent(userId, {
+      intentId: parsed.data.thumbnailIntentId
     });
 
-    if (!uploadedThumbnail.ok) {
-      return { ok: false as const, error: uploadedThumbnail.error };
+    if (!thumbnailVerification.ok) return thumbnailVerification;
+    if (
+      thumbnailVerification.intent.purpose !== purpose ||
+      thumbnailVerification.intent.storageKey !== parsed.data.thumbnailStorageKey ||
+      thumbnailVerification.intent.visibility !== parsed.data.visibility ||
+      thumbnailVerification.intent.mimeType !== "image/jpeg"
+    ) {
+      return { ok: false as const, error: "Thumbnail details did not match the original intent." };
     }
   }
 
-  const publiclyDeliverable = parsed.data.visibility === MediaVisibility.PUBLIC;
-  const publicUrl = publiclyDeliverable ? getR2PublicUrl(parsed.data.storageKey) : null;
-  const thumbnailUrl = publiclyDeliverable && parsed.data.thumbnailStorageKey ? getR2PublicUrl(parsed.data.thumbnailStorageKey) : null;
-  const systemSource = parsed.data.source !== "GALLERY";
-  const metadata = {
-    caption: parsed.data.caption || null,
-    commentsEnabled: parsed.data.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled,
-    hiddenFromGalleryByDefault: systemSource,
-    retentionPolicy: systemSource
-      ? {
-          compressAfterDays: 14,
-          purgeUnviewedAfterDays: 14
-        }
-      : null,
-    source: parsed.data.source,
-    thumbnailStorageKey: parsed.data.thumbnailStorageKey ?? null,
-    thumbnailUrl
-  };
-  const asset = await prisma.mediaAsset.upsert({
-    where: {
-      storageKey: parsed.data.storageKey
-    },
-    update: {
-      publicUrl,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      status: MediaAssetStatus.READY,
-      visibility: parsed.data.visibility,
-      metadata
-    },
-    create: {
+  let consumed;
+  try {
+    consumed = await consumeVerifiedUploadIntent({
       ownerUserId: userId,
-      storageKey: parsed.data.storageKey,
-      publicUrl,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      status: MediaAssetStatus.READY,
-      visibility: parsed.data.visibility,
-      metadata
+      intentId: parsed.data.intentId,
+      purpose,
+      consume: async (transaction, intent) => {
+        const now = new Date();
+        const thumbnailIntent = parsed.data.thumbnailIntentId
+          ? await transaction.uploadIntent.findUnique({ where: { id: parsed.data.thumbnailIntentId } })
+          : null;
+
+        if (
+          parsed.data.thumbnailIntentId &&
+          (!thumbnailIntent ||
+            thumbnailIntent.ownerUserId !== userId ||
+            thumbnailIntent.purpose !== purpose ||
+            thumbnailIntent.status !== UploadIntentStatus.VERIFIED ||
+            !thumbnailIntent.completedAt ||
+            !thumbnailIntent.verifiedAt ||
+            thumbnailIntent.expiresAt <= now ||
+            thumbnailIntent.storageKey !== parsed.data.thumbnailStorageKey ||
+            thumbnailIntent.visibility !== intent.visibility ||
+            thumbnailIntent.declaredMimeType !== "image/jpeg")
+        ) {
+          throw new GalleryUploadCompletionError("Thumbnail intent is no longer available.");
+        }
+
+        const publiclyDeliverable = intent.visibility === MediaVisibility.PUBLIC;
+        const thumbnailStorageKey = thumbnailIntent?.storageKey ?? null;
+        const publicUrl = publiclyDeliverable ? getR2PublicUrl(intent.storageKey) : null;
+        const thumbnailUrl = publiclyDeliverable && thumbnailStorageKey ? getR2PublicUrl(thumbnailStorageKey) : null;
+        const systemSource = parsed.data.source !== "GALLERY";
+        const asset = await transaction.mediaAsset.create({
+          data: {
+            ownerUserId: userId,
+            storageKey: intent.storageKey,
+            publicUrl,
+            mimeType: intent.declaredMimeType,
+            sizeBytes: intent.declaredSizeBytes,
+            originalName: parsed.data.fileName,
+            status: MediaAssetStatus.READY,
+            visibility: intent.visibility,
+            metadata: {
+              caption: parsed.data.caption || null,
+              commentsEnabled: intent.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled,
+              hiddenFromGalleryByDefault: systemSource,
+              retentionPolicy: systemSource
+                ? { compressAfterDays: 14, purgeUnviewedAfterDays: 14 }
+                : null,
+              source: parsed.data.source,
+              uploadIntentId: intent.id,
+              thumbnailIntentId: thumbnailIntent?.id ?? null,
+              thumbnailStorageKey,
+              thumbnailUrl
+            }
+          }
+        });
+
+        const systemDate = await upsertCollection(
+          userId,
+          MediaCollectionType.SYSTEM_DATE,
+          dateSlug(asset.createdAt),
+          transaction
+        );
+        await attachAssetToCollection(asset.id, systemDate.id, transaction);
+
+        const tagNames = uniqueCleanTagNames([...sourceTags(parsed.data.source), ...parsed.data.tags]);
+        for (const tagName of tagNames) {
+          const tag = await upsertCollection(userId, MediaCollectionType.TAG, tagName, transaction);
+          await attachAssetToCollection(asset.id, tag.id, transaction);
+        }
+
+        if (thumbnailIntent) {
+          const used = await transaction.uploadIntent.updateMany({
+            where: {
+              id: thumbnailIntent.id,
+              ownerUserId: userId,
+              purpose,
+              status: UploadIntentStatus.VERIFIED,
+              expiresAt: { gt: now }
+            },
+            data: { status: UploadIntentStatus.USED, usedAt: now }
+          });
+          if (used.count !== 1) {
+            throw new GalleryUploadCompletionError("Thumbnail intent changed while it was being used.");
+          }
+        }
+
+        return { mediaAssetId: asset.id, storageKey: asset.storageKey };
+      }
+    });
+  } catch (error) {
+    if (error instanceof GalleryUploadCompletionError) {
+      return { ok: false as const, error: error.message };
     }
-  });
-
-  const systemDate = await upsertCollection(userId, MediaCollectionType.SYSTEM_DATE, dateSlug(asset.createdAt));
-  await attachAssetToCollection(asset.id, systemDate.id);
-
-  const tagNames = uniqueCleanTagNames([...sourceTags(parsed.data.source), ...parsed.data.tags]);
-
-  for (const tagName of tagNames) {
-    const tag = await upsertCollection(userId, MediaCollectionType.TAG, tagName);
-    await attachAssetToCollection(asset.id, tag.id);
+    throw error;
   }
+
+  if (!consumed.ok) {
+    if (consumed.code === "ALREADY_USED") {
+      const existing = await findCompletedGalleryUpload(userId, parsed.data.intentId, parsed.data.storageKey);
+      if (existing) return { ok: true as const, asset: existing };
+    }
+    return consumed;
+  }
+
+  const trackedAsset = await prisma.mediaAsset.findUnique({
+    where: { id: consumed.value.mediaAssetId },
+    include: galleryAssetInclude()
+  });
 
   await diagnostics.info(MODULE_KEY, "Gallery upload completed.", {
     userId,
-    mediaAssetId: asset.id,
-    storageKey: asset.storageKey
-  });
-
-  const trackedAsset = await prisma.mediaAsset.findUnique({
-    where: { id: asset.id },
-    include: galleryAssetInclude()
+    intentId: parsed.data.intentId,
+    mediaAssetId: consumed.value.mediaAssetId,
+    storageKey: consumed.value.storageKey
   });
 
   return { ok: true as const, asset: trackedAsset ? toGalleryAssetView(trackedAsset) : null };
@@ -576,6 +676,13 @@ export async function updateGalleryAssetSettings(userId: string, input: unknown)
 
   if (!asset) {
     return { ok: false as const, error: "Photo not found." };
+  }
+
+  if (parsed.data.visibility !== asset.visibility) {
+    return {
+      ok: false as const,
+      error: "Changing photo privacy is temporarily unavailable. Re-upload the photo with the visibility you want."
+    };
   }
 
   const metadata = (asset.metadata as GalleryAssetMetadata | null) ?? {};

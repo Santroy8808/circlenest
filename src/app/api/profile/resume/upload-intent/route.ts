@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
+import { uploadIntentFailureResponse } from "@/lib/platform/upload-intent-response";
 import { createResumeUploadIntent } from "@/modules/profile-resume/profile-resume.service";
 
 export async function POST(request: NextRequest) {
@@ -11,12 +13,13 @@ export async function POST(request: NextRequest) {
   }
 
   const actor = await getActiveAccountActor(session.user.id);
-  const body = await request.json();
-  const result = await createResumeUploadIntent(actor.actorUserId, body);
+  const body = await readJsonRequest(request, 8 * 1024);
+  if (!body.ok) return body.response;
+  const result = await createResumeUploadIntent(actor.actorUserId, body.value);
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+    return uploadIntentFailureResponse(result);
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { hideNotifications } from "@/modules/notifications-alerts/notifications-alerts.service";
 
 export async function POST(request: NextRequest) {
@@ -9,12 +10,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => null)) as { ids?: unknown } | null;
+  const parsedBody = await readJsonRequest(request, 32 * 1024);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.value as { ids?: unknown } | null;
   const ids = Array.isArray(body?.ids) ? body.ids.filter((id): id is string => typeof id === "string") : [];
 
   if (ids.length === 0) {
     return NextResponse.json({ error: "Select at least one notification to hide." }, { status: 400 });
   }
 
-  return NextResponse.json(await hideNotifications(session.user.id, ids));
+  const result = await hideNotifications(session.user.id, ids);
+  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

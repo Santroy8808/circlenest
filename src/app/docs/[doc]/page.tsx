@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { AppShell } from "@/components/platform/app-shell";
 import { MarkdownDocument } from "@/components/platform/markdown-document";
+import { requireAdminPage } from "@/lib/platform/page-access";
 
 const docFiles: Record<string, string> = {
   "module-index": "MODULE_INDEX.md",
@@ -19,6 +20,8 @@ const docFiles: Record<string, string> = {
 };
 
 export default async function RootDocPage({ params }: { params: { doc: string } }) {
+  await requireAdminPage(`/docs/${params.doc}`);
+
   const fileName = docFiles[params.doc];
   if (!fileName) notFound();
 

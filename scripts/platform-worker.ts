@@ -1,11 +1,23 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/platform/db";
+import {
+  cleanupRejectedOrExpiredUploadIntents,
+  expireStaleUploadIntents
+} from "@/modules/media/upload-intent.service";
 import { runOnePlatformJob } from "@/modules/platform-jobs/platform-jobs.service";
 
 const workerId = process.env.PLATFORM_WORKER_ID ?? `worker-${randomUUID()}`;
 const once = process.argv.includes("--once");
 const idleDelayMs = Number.parseInt(process.env.PLATFORM_WORKER_IDLE_MS ?? "2000", 10);
+const configuredUploadMaintenanceIntervalMs = Number.parseInt(
+  process.env.UPLOAD_INTENT_MAINTENANCE_MS ?? "60000",
+  10
+);
+const uploadMaintenanceIntervalMs = Number.isFinite(configuredUploadMaintenanceIntervalMs)
+  ? Math.max(configuredUploadMaintenanceIntervalMs, 30_000)
+  : 60_000;
 let shuttingDown = false;
+let lastUploadMaintenanceAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -19,10 +31,25 @@ process.on("SIGTERM", () => {
   shuttingDown = true;
 });
 
+async function runUploadIntentMaintenance(force = false) {
+  const now = Date.now();
+  if (!force && now - lastUploadMaintenanceAt < uploadMaintenanceIntervalMs) return;
+  lastUploadMaintenanceAt = now;
+
+  const expired = await expireStaleUploadIntents({ take: 100 });
+  const cleaned = await cleanupRejectedOrExpiredUploadIntents({ take: 100 });
+  if (expired.expiredCount > 0 || cleaned.cleanedCount > 0) {
+    console.log(
+      `[platform-worker] upload maintenance expired=${expired.expiredCount} cleaned=${cleaned.cleanedCount}`
+    );
+  }
+}
+
 async function main() {
   console.log(`[platform-worker] started ${workerId}`);
 
   do {
+    await runUploadIntentMaintenance(lastUploadMaintenanceAt === 0);
     const result = await runOnePlatformJob(workerId);
     if (once) break;
     if (!result.ran) await sleep(idleDelayMs);

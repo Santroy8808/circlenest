@@ -511,31 +511,18 @@ export async function setEventRsvp(viewerUserId: string, eventIdOrSlug: string, 
   return { ok: true as const, rsvp };
 }
 
-export async function submitExternalEventRsvp(eventIdOrSlug: string, input: unknown) {
+export async function submitExternalEventRsvp(viewerUserId: string, eventIdOrSlug: string, input: unknown) {
   const parsed = externalEventRsvpSchema.safeParse(input);
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid RSVP." };
   }
 
-  const event = await prisma.event.findFirst({
-    where: {
-      OR: [{ id: eventIdOrSlug }, { slug: eventIdOrSlug }],
-      status: EventStatus.PUBLISHED
-    },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      startsAt: true,
-      locationName: true,
-      createdByUserId: true
-    }
-  });
-
-  if (!event) {
-    return { ok: false as const, error: "Event not found." };
+  const context = await getEventContext(viewerUserId, eventIdOrSlug);
+  if (!context?.canManage || context.event.status !== EventStatus.PUBLISHED) {
+    return { ok: false as const, error: "Only event creators and moderators can record guest RSVPs." };
   }
+  const event = context.event;
 
   const normalizedEmail = parsed.data.email.toLowerCase();
   const existing = await prisma.eventRsvp.findUnique({

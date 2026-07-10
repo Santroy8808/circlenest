@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { reactToFeedComment } from "@/modules/feed-stream/feed-stream.service";
 
 export async function POST(request: NextRequest) {
@@ -11,8 +12,9 @@ export async function POST(request: NextRequest) {
   }
 
   const actor = await getActiveAccountActor(session.user.id);
-  const body = await request.json();
-  const result = await reactToFeedComment(actor.actorUserId, body);
+  const body = await readJsonRequest(request, 4 * 1024);
+  if (!body.ok) return body.response;
+  const result = await reactToFeedComment(actor.actorUserId, body.value);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

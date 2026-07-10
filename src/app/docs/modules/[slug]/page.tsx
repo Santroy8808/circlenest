@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { AppShell } from "@/components/platform/app-shell";
 import { MarkdownDocument } from "@/components/platform/markdown-document";
+import { requireAdminPage } from "@/lib/platform/page-access";
 
 const allowedDocs = new Set([
   "01-platform-infrastructure",
@@ -34,6 +35,8 @@ const allowedDocs = new Set([
 ]);
 
 export default async function ModuleDocPage({ params }: { params: { slug: string } }) {
+  await requireAdminPage(`/docs/modules/${params.slug}`);
+
   if (!allowedDocs.has(params.slug)) notFound();
 
   const content = await readFile(path.join(process.cwd(), "docs", "modules", `${params.slug}.md`), "utf8");
@@ -44,4 +47,3 @@ export default async function ModuleDocPage({ params }: { params: { slug: string
     </AppShell>
   );
 }
-

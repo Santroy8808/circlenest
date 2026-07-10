@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/platform/app-shell";
 import { getPlatformHealth } from "@/lib/platform/health";
+import { requireAdminPage } from "@/lib/platform/page-access";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ const statusColor = {
 };
 
 export default async function HealthPage() {
+  await requireAdminPage("/health");
+
   const checks = await getPlatformHealth();
 
   return (

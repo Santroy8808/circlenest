@@ -1,10 +1,23 @@
-import { randomBytes } from "crypto";
-import { GroupAssetKind, GroupMemberRole, GroupVisibility, MediaVisibility, Prisma, UserRole } from "@prisma/client";
+import {
+  GroupAssetKind,
+  GroupMemberRole,
+  GroupVisibility,
+  MediaAssetStatus,
+  MediaVisibility,
+  Prisma,
+  UploadIntentPurpose,
+  UserRole
+} from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { verifyPassword } from "@/modules/auth-security/password";
-import { createPresignedR2PutUrl, deleteR2Object, verifyR2Object } from "@/lib/platform/r2";
+import { deleteR2Object } from "@/lib/platform/r2";
+import {
+  completeUploadIntent as verifyDurableUploadIntent,
+  consumeVerifiedUploadIntent,
+  createUploadIntent as createDurableUploadIntent
+} from "@/modules/media/upload-intent.service";
 import {
   completeGroupAssetUploadSchema,
   createGroupAssetCommentSchema,
@@ -45,17 +58,15 @@ function authorView(user: {
   };
 }
 
-function safeFileName(value: string) {
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
-  return cleaned || "group-asset";
+function mediaAssetUrl(mediaAsset?: { id: string } | null) {
+  return mediaAsset ? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
-function dateSlug(date = new Date()) {
-  return date.toISOString().slice(0, 10);
-}
-
-function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
-  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+class GroupUploadCompletionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GroupUploadCompletionError";
+  }
 }
 
 export async function getGroupMediaContext(viewerUserId: string, groupIdOrSlug: string) {
@@ -317,6 +328,10 @@ export async function createGroupAssetUploadIntent(viewerUserId: string, groupId
     return { ok: false as const, error: "Group not found." };
   }
 
+  if (parsed.data.forumThreadId && !context.canUpload && parsed.data.kind !== GroupAssetKind.PHOTO) {
+    return { ok: false as const, error: "Forum reply uploads must be photos." };
+  }
+
   const uploadAllowed = await canUploadGroupAsset({
     groupId: context.group.id,
     canUpload: context.canUpload,
@@ -335,38 +350,59 @@ export async function createGroupAssetUploadIntent(viewerUserId: string, groupId
     return { ok: false as const, error: "This group is at its assigned storage limit. Purge group files or raise the limit before uploading." };
   }
 
-  const storageKey = [
-    "groups",
-    context.group.id,
-    parsed.data.forumThreadId ? "forum" : parsed.data.kind.toLowerCase(),
-    ...(parsed.data.forumThreadId ? [parsed.data.forumThreadId] : []),
-    dateSlug(),
-    `${randomBytes(8).toString("hex")}-${safeFileName(parsed.data.fileName)}`
-  ].join("/");
+  const result = await createDurableUploadIntent(viewerUserId, {
+    purpose: UploadIntentPurpose.GROUP_ASSET,
+    mimeType: parsed.data.mimeType,
+    sizeBytes: parsed.data.sizeBytes,
+    visibility: MediaVisibility.PRIVATE,
+    checksumSha256: parsed.data.checksumSha256
+  });
 
-  try {
-    const uploadUrl = await createPresignedR2PutUrl({
-      storageKey,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      access: "private"
-    });
+  if (!result.ok) return result;
 
-    return {
-      ok: true as const,
-      uploadUrl,
-      storageKey,
-      publicUrl: null,
-      expiresInSeconds: 300
-    };
-  } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Could not create group media upload intent.", {
-      viewerUserId,
-      groupId: context.group.id,
-      error: error instanceof Error ? error.message : "unknown"
-    });
-    return { ok: false as const, error: "Media storage is not configured." };
-  }
+  return {
+    ok: true as const,
+    intentId: result.intent.id,
+    intent: result.intent,
+    uploadUrl: result.uploadUrl,
+    uploadHeaders: result.uploadHeaders,
+    storageKey: result.intent.storageKey,
+    publicUrl: null,
+    expiresInSeconds: result.expiresInSeconds
+  };
+}
+
+async function findCompletedGroupUpload(
+  viewerUserId: string,
+  groupId: string,
+  intentId: string,
+  storageKey: string
+) {
+  const record = await prisma.groupAsset.findFirst({
+    where: {
+      groupId,
+      uploaderUserId: viewerUserId,
+      mediaAsset: { storageKey }
+    },
+    select: {
+      id: true,
+      groupId: true,
+      mediaAssetId: true,
+      uploaderUserId: true,
+      kind: true,
+      headline: true,
+      description: true,
+      deletedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      mediaAsset: { select: { metadata: true } }
+    }
+  });
+  const metadata = record?.mediaAsset.metadata as { uploadIntentId?: string } | null | undefined;
+
+  if (!record || metadata?.uploadIntentId !== intentId) return null;
+  const { mediaAsset: _mediaAsset, ...asset } = record;
+  return asset;
 }
 
 export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSlug: string, input: unknown) {
@@ -377,9 +413,10 @@ export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSl
   }
 
   const context = await getGroupMediaContext(viewerUserId, groupIdOrSlug);
+  if (!context?.canView) return { ok: false as const, error: "Group not found." };
 
-  if (!context?.canView) {
-    return { ok: false as const, error: "Group not found." };
+  if (parsed.data.forumThreadId && !context.canUpload && parsed.data.kind !== GroupAssetKind.PHOTO) {
+    return { ok: false as const, error: "Forum reply uploads must be photos." };
   }
 
   const uploadAllowed = await canUploadGroupAsset({
@@ -388,71 +425,154 @@ export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSl
     isGroupMember: Boolean(context.membership),
     forumThreadId: parsed.data.forumThreadId
   });
-
   if (!uploadAllowed) {
     return { ok: false as const, error: "Uploads are only available to group creators, moderators, providers, or threads with photo replies enabled." };
   }
 
-  const usedBytes = await currentGroupStorageBytes(context.group.id);
-  const nextBytes = usedBytes + BigInt(parsed.data.sizeBytes);
-
-  if (nextBytes > context.group.storageLimitBytes) {
-    return { ok: false as const, error: "This group is at its assigned storage limit. Purge group files or raise the limit before uploading." };
+  const verification = await verifyDurableUploadIntent(viewerUserId, { intentId: parsed.data.intentId });
+  if (!verification.ok) {
+    if (verification.code === "ALREADY_USED") {
+      const existing = await findCompletedGroupUpload(
+        viewerUserId,
+        context.group.id,
+        parsed.data.intentId,
+        parsed.data.storageKey
+      );
+      if (existing) return { ok: true as const, asset: existing };
+    }
+    return verification;
   }
 
-  if (!parsed.data.storageKey.startsWith(`groups/${context.group.id}/`)) {
-    return { ok: false as const, error: "Invalid group upload target." };
+  if (
+    verification.intent.purpose !== UploadIntentPurpose.GROUP_ASSET ||
+    verification.intent.storageKey !== parsed.data.storageKey ||
+    verification.intent.mimeType !== parsed.data.mimeType ||
+    verification.intent.sizeBytes !== String(parsed.data.sizeBytes) ||
+    verification.intent.visibility !== MediaVisibility.PRIVATE
+  ) {
+    return { ok: false as const, error: "Upload details did not match the original group intent." };
   }
 
-  const uploadedObject = await verifyR2Object({
-    storageKey: parsed.data.storageKey,
-    expectedMimeType: parsed.data.mimeType,
-    expectedSizeBytes: parsed.data.sizeBytes,
-    access: "private",
-    label: "Group media upload"
-  });
-
-  if (!uploadedObject.ok) {
-    return { ok: false as const, error: uploadedObject.error };
-  }
-
-  const mediaAsset = await prisma.mediaAsset.create({
-    data: {
+  let consumed;
+  try {
+    consumed = await consumeVerifiedUploadIntent({
       ownerUserId: viewerUserId,
-      storageKey: parsed.data.storageKey,
-      publicUrl: null,
-      mimeType: parsed.data.mimeType,
-      sizeBytes: BigInt(parsed.data.sizeBytes),
-      originalName: parsed.data.fileName,
-      visibility: MediaVisibility.PRIVATE,
-      metadata: {
-        groupId: context.group.id,
-        kind: parsed.data.kind,
-        forumThreadId: parsed.data.forumThreadId || null
-      }
-    }
-  });
+      intentId: parsed.data.intentId,
+      purpose: UploadIntentPurpose.GROUP_ASSET,
+      consume: async (transaction, intent) => {
+        const [viewer, group] = await Promise.all([
+          transaction.user.findFirst({
+            where: { id: viewerUserId, deactivatedAt: null },
+            select: { role: true }
+          }),
+          transaction.group.findFirst({
+            where: { id: context.group.id, archivedAt: null },
+            include: { members: true }
+          })
+        ]);
 
-  const groupAsset = await prisma.groupAsset.create({
-    data: {
-      groupId: context.group.id,
-      mediaAssetId: mediaAsset.id,
-      uploaderUserId: viewerUserId,
-      kind: parsed.data.kind,
-      headline: parsed.data.headline || (parsed.data.forumThreadId ? `Forum photo: ${parsed.data.fileName}` : null),
-      description: parsed.data.description || null
+        if (!viewer || !group) throw new GroupUploadCompletionError("Group is no longer available.");
+        const membership = group.members.find((member) => member.userId === viewerUserId);
+        const canModerate =
+          isAdminRole(viewer.role) ||
+          membership?.role === GroupMemberRole.OWNER ||
+          membership?.role === GroupMemberRole.MODERATOR;
+        let canUpload = canModerate || Boolean(membership?.isProvider);
+
+        if (!canUpload && membership && parsed.data.forumThreadId && parsed.data.kind === GroupAssetKind.PHOTO) {
+          const thread = await transaction.groupForumThread.findFirst({
+            where: {
+              id: parsed.data.forumThreadId,
+              groupId: group.id,
+              allowPhotoReplies: true,
+              endedAt: null,
+              deletedAt: null
+            },
+            select: { id: true }
+          });
+          canUpload = Boolean(thread);
+        }
+
+        if (!canUpload) throw new GroupUploadCompletionError("Group upload permission changed.");
+
+        const storedAssets = await transaction.groupAsset.findMany({
+          where: { groupId: group.id, deletedAt: null },
+          select: { mediaAsset: { select: { sizeBytes: true } } }
+        });
+        const usedBytes = storedAssets.reduce(
+          (total, asset) => total + asset.mediaAsset.sizeBytes,
+          BigInt(0)
+        );
+        if (usedBytes + intent.declaredSizeBytes > group.storageLimitBytes) {
+          throw new GroupUploadCompletionError(
+            "This group is at its assigned storage limit. Purge group files or raise the limit before uploading."
+          );
+        }
+
+        const mediaAsset = await transaction.mediaAsset.create({
+          data: {
+            ownerUserId: viewerUserId,
+            storageKey: intent.storageKey,
+            publicUrl: null,
+            mimeType: intent.declaredMimeType,
+            sizeBytes: intent.declaredSizeBytes,
+            originalName: parsed.data.fileName,
+            status: MediaAssetStatus.READY,
+            visibility: intent.visibility,
+            metadata: {
+              uploadIntentId: intent.id,
+              groupId: group.id,
+              kind: parsed.data.kind,
+              forumThreadId: parsed.data.forumThreadId || null
+            }
+          }
+        });
+        const groupAsset = await transaction.groupAsset.create({
+          data: {
+            groupId: group.id,
+            mediaAssetId: mediaAsset.id,
+            uploaderUserId: viewerUserId,
+            kind: parsed.data.kind,
+            headline:
+              parsed.data.headline ||
+              (parsed.data.forumThreadId ? `Forum photo: ${parsed.data.fileName}` : null),
+            description: parsed.data.description || null
+          }
+        });
+
+        return { groupAsset, mediaAssetId: mediaAsset.id };
+      }
+    });
+  } catch (error) {
+    if (error instanceof GroupUploadCompletionError) {
+      return { ok: false as const, error: error.message };
     }
-  });
+    throw error;
+  }
+
+  if (!consumed.ok) {
+    if (consumed.code === "ALREADY_USED") {
+      const existing = await findCompletedGroupUpload(
+        viewerUserId,
+        context.group.id,
+        parsed.data.intentId,
+        parsed.data.storageKey
+      );
+      if (existing) return { ok: true as const, asset: existing };
+    }
+    return consumed;
+  }
 
   await diagnostics.info(MODULE_KEY, "Group asset upload completed.", {
     viewerUserId,
+    intentId: parsed.data.intentId,
     groupId: context.group.id,
-    groupAssetId: groupAsset.id,
-    mediaAssetId: mediaAsset.id,
-    kind: groupAsset.kind
+    groupAssetId: consumed.value.groupAsset.id,
+    mediaAssetId: consumed.value.mediaAssetId,
+    kind: consumed.value.groupAsset.kind
   });
 
-  return { ok: true as const, asset: groupAsset };
+  return { ok: true as const, asset: consumed.value.groupAsset };
 }
 
 export async function commentOnGroupAsset(viewerUserId: string, groupIdOrSlug: string, assetId: string, input: unknown) {

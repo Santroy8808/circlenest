@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
-import { recordPostShareSignal } from "@/modules/feed-stream/hashtag-signals.service";
+import { readJsonRequest } from "@/lib/platform/api-request";
+import { shareFeedPost } from "@/modules/feed-stream/feed-stream.service";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -10,7 +11,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { postId?: unknown };
+  const parsedBody = await readJsonRequest(request, 4 * 1024);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.value as { postId?: unknown };
   const postId = typeof body.postId === "string" ? body.postId : "";
 
   if (!postId) {
@@ -18,7 +21,10 @@ export async function POST(request: Request) {
   }
 
   const actor = await getActiveAccountActor(session.user.id);
-  await recordPostShareSignal(actor.actorUserId, postId);
+  const result = await shareFeedPost(actor.actorUserId, postId);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 404 });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(result);
 }

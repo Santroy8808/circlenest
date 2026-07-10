@@ -34,13 +34,15 @@ export const sendChatMessageSchema = z
   });
 
 export const createChatUploadIntentSchema = z.object({
+  checksumSha256: z.string().trim().max(160).optional().nullable(),
   fileName: z.string().min(1).max(240),
   mimeType: z.string().min(1).max(120),
   sizeBytes: z.number().int().positive().max(MAX_CHAT_ATTACHMENT_BYTES)
 });
 
 export const completeChatUploadSchema = createChatUploadIntentSchema.extend({
-  storageKey: z.string().min(1).max(600),
+  intentId: z.string().trim().min(1).max(80),
+  storageKey: z.string().min(1).max(600).optional(),
   thumbnailStorageKey: z.string().min(1).max(600).optional()
 });
 
@@ -59,6 +61,14 @@ export const chatMessagePageSchema = z
   .refine(
     (value) => !(value.afterMessageId || value.afterCreatedAt) || !(value.beforeMessageId || value.beforeCreatedAt),
     "Choose either an after cursor or a before cursor, not both."
+  )
+  .refine(
+    (value) => Boolean(value.afterMessageId) === Boolean(value.afterCreatedAt),
+    "An after cursor requires both message ID and timestamp."
+  )
+  .refine(
+    (value) => Boolean(value.beforeMessageId) === Boolean(value.beforeCreatedAt),
+    "A before cursor requires both message ID and timestamp."
   )
   .default({});
 

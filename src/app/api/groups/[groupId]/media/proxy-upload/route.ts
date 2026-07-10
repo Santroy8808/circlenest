@@ -7,6 +7,13 @@ import { createGroupAssetUploadIntentSchema } from "@/modules/group-media-docs/t
 import { canUploadGroupAsset, currentGroupStorageBytes, getGroupMediaContext } from "@/modules/group-media-docs/group-media-docs.service";
 
 export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
+  if (process.env.UPLOAD_PROXY_FALLBACK_ENABLED !== "true") {
+    return NextResponse.json(
+      { error: "Direct upload fallback is temporarily unavailable. Check your connection and try again." },
+      { status: 503, headers: { "cache-control": "no-store", "retry-after": "30" } }
+    );
+  }
+
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -72,13 +79,13 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
     }
 
     const r2 = readR2Config();
-    if (!r2.bucket) {
+    if (!r2.privateBucket) {
       return NextResponse.json({ error: "Storage bucket is not configured." }, { status: 500 });
     }
 
     await getR2Client().send(
       new PutObjectCommand({
-        Bucket: r2.bucket,
+        Bucket: r2.privateBucket,
         Key: storageKey,
         Body: Buffer.from(await file.arrayBuffer()),
         ContentLength: file.size,

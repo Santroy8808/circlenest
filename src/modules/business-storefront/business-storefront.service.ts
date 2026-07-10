@@ -1,4 +1,14 @@
-import { BusinessProfileKind, MailDeliveryKind, MailRecipientType, MarketListingStatus, MembershipTier, Prisma, UserRole } from "@prisma/client";
+import {
+  BusinessProfileKind,
+  MailDeliveryKind,
+  MailRecipientType,
+  MarketListingStatus,
+  MediaAssetStatus,
+  MediaVisibility,
+  MembershipTier,
+  Prisma,
+  UserRole
+} from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
@@ -66,8 +76,25 @@ function publicUrl(slug: string) {
   return `/storefront/${slug}`;
 }
 
-function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
-  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+function mediaAssetUrl(
+  mediaAsset?: {
+    id: string;
+    publicUrl: string | null;
+    status: MediaAssetStatus;
+    visibility: MediaVisibility;
+    mimeType: string;
+  } | null
+) {
+  if (
+    !mediaAsset ||
+    mediaAsset.status !== MediaAssetStatus.READY ||
+    mediaAsset.visibility !== MediaVisibility.PUBLIC ||
+    !/^(?:image\/(?:jpeg|png|webp|gif))$/i.test(mediaAsset.mimeType)
+  ) {
+    return null;
+  }
+
+  return mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}`;
 }
 
 function escapeHtml(value: string) {
@@ -333,9 +360,9 @@ async function verifyBusinessImage(userId: string, mediaAssetId?: string | null)
     where: {
       id: mediaAssetId,
       ownerUserId: userId,
-      mimeType: {
-        startsWith: "image/"
-      }
+      status: MediaAssetStatus.READY,
+      visibility: MediaVisibility.PUBLIC,
+      mimeType: { in: ["image/jpeg", "image/png", "image/webp", "image/gif"] }
     },
     select: {
       id: true

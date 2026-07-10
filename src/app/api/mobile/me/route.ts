@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/platform/mobile-auth";
+import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import { membershipFeatureKeys } from "@/modules/membership-policy/policy";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
 export async function GET(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
 
   if (!session) {

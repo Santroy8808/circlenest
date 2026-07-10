@@ -1,29 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/platform/mobile-auth";
-import { prisma } from "@/lib/platform/db";
-import { getMailThread, listMailThreads, markMailThreadRead, sendMail } from "@/modules/mail/mail.service";
+import { readJsonRequest } from "@/lib/platform/api-request";
+import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
+import {
+  deleteMailThread,
+  getMailThread,
+  listMailThreadsPage,
+  markMailThreadRead,
+  sendMail,
+  setMailThreadArchived
+} from "@/modules/mail/mail.service";
 
 export async function GET(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
   const threadId = request.nextUrl.searchParams.get("threadId");
   if (threadId) {
-    const result = await getMailThread(session.user.id, threadId);
+    const cursor = request.nextUrl.searchParams.get("cursor");
+    const rawLimit = request.nextUrl.searchParams.get("limit");
+    const limit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
+    const result = await getMailThread(session.user.id, threadId, {
+      ...(cursor ? { cursor } : {}),
+      ...(Number.isFinite(limit) ? { limit } : {})
+    });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 404 });
-    return NextResponse.json({ thread: result.thread });
+    return NextResponse.json({ thread: result.thread, nextCursor: result.thread.nextCursor });
   }
 
-  return NextResponse.json({
-    threads: await listMailThreads(session.user.id, request.nextUrl.searchParams.get("folder") ?? "inbox")
+  const cursor = request.nextUrl.searchParams.get("cursor");
+  const rawLimit = request.nextUrl.searchParams.get("limit");
+  const limit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
+  const page = await listMailThreadsPage(session.user.id, request.nextUrl.searchParams.get("folder") ?? "inbox", {
+    ...(cursor ? { cursor } : {}),
+    ...(Number.isFinite(limit) ? { limit } : {})
   });
+  return NextResponse.json({ threads: page.threads, nextCursor: page.nextCursor });
 }
 
 export async function POST(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
-  const body = await request.json().catch(() => ({}));
+  const parsedBody = await readJsonRequest(request, 256 * 1024);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.value as Record<string, unknown>;
   const result = await sendMail(session.user.id, {
     threadId: body.threadId,
     recipientUserIds: body.recipientUserIds ?? [],
@@ -37,10 +63,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const unavailable = mobileAuthUnavailableResponse();
+  if (unavailable) return unavailable;
+
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
-  const body = await request.json().catch(() => ({}));
+  const parsedBody = await readJsonRequest(request, 8 * 1024);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.value as Record<string, unknown>;
   const threadId = typeof body.threadId === "string" ? body.threadId.trim() : "";
   const action = typeof body.action === "string" ? body.action.trim() : "";
   if (!threadId) return NextResponse.json({ error: "Mail thread is required." }, { status: 400 });
@@ -51,23 +82,15 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(result);
   }
 
-  const stamp = action === "archive" || action === "delete" ? new Date() : null;
   if (!["archive", "unarchive", "delete"].includes(action)) {
     return NextResponse.json({ error: "Unsupported mail action." }, { status: 400 });
   }
 
-  await prisma.mailRecipient.updateMany({
-    where: {
-      userId: session.user.id,
-      message: { threadId }
-    },
-    data:
-      action === "archive"
-        ? { archivedAt: stamp }
-        : action === "delete"
-          ? { deletedAt: stamp }
-          : { archivedAt: null }
-  });
-
-  return NextResponse.json({ ok: true });
+  const result =
+    action === "delete"
+      ? await deleteMailThread(session.user.id, threadId)
+      : await setMailThreadArchived(session.user.id, threadId, action === "archive");
+  return result.ok
+    ? NextResponse.json({ ok: true })
+    : NextResponse.json({ error: result.error }, { status: 404 });
 }

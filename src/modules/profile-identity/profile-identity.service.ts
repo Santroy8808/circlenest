@@ -97,6 +97,32 @@ async function getViewerRelationshipState(viewerUserId: string | undefined, targ
   };
 }
 
+async function canViewerAccessProfile(
+  targetUserId: string,
+  visibility: ProfileVisibility,
+  viewerUserId?: string
+) {
+  if (viewerUserId === targetUserId) return true;
+  if (visibility === ProfileVisibility.PRIVATE) return false;
+  if (!viewerUserId) return visibility === ProfileVisibility.PUBLIC;
+
+  const viewer = await prisma.user.findFirst({
+    where: {
+      id: viewerUserId,
+      deactivatedAt: null,
+      socialRelationshipsFrom: {
+        none: { toUserId: targetUserId, type: SocialRelationshipType.BLOCK }
+      },
+      socialRelationshipsTo: {
+        none: { fromUserId: targetUserId, type: SocialRelationshipType.BLOCK }
+      }
+    },
+    select: { id: true }
+  });
+
+  return Boolean(viewer);
+}
+
 export async function getPublicProfileByUsername(username: string, viewerUserId?: string) {
   try {
     const user = await withProfileDbTimeout(
@@ -121,6 +147,8 @@ export async function getPublicProfileByUsername(username: string, viewerUserId?
     );
 
     if (!user || user.deactivatedAt) return null;
+    const profileVisibility = user.profile?.visibility ?? ProfileVisibility.MEMBERS;
+    if (!(await canViewerAccessProfile(user.id, profileVisibility, viewerUserId))) return null;
 
     const [familyMembers, relationshipState] = await Promise.all([
       listApprovedFamilyMembers(user.id),

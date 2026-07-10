@@ -45,8 +45,8 @@ function displayName(user: { username: string; profile: { displayName: string | 
   return user.profile?.displayName ?? user.username;
 }
 
-function mediaAssetUrl(mediaAsset?: { id: string; publicUrl: string | null } | null) {
-  return mediaAsset ? mediaAsset.publicUrl ?? `/api/media/assets/${mediaAsset.id}` : null;
+function mediaAssetUrl(mediaAsset?: { id: string } | null) {
+  return mediaAsset ? `/api/media/assets/${mediaAsset.id}` : null;
 }
 
 function groupWithItems(kind: SearchResultGroup["kind"], title: string, items: SearchResultItem[]): SearchResultGroup | null {

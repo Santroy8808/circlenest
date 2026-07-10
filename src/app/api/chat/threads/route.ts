@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import {
   createGroupChatThread,
   findOrCreateDirectChatThread,
@@ -26,11 +27,16 @@ export async function POST(request: NextRequest) {
   }
 
   const actor = await getActiveAccountActor(session.user.id);
-  const body = await request.json();
+  const parsedBody = await readJsonRequest(request);
+  if (!parsedBody.ok) return parsedBody.response;
+  if (typeof parsedBody.value !== "object" || parsedBody.value === null || Array.isArray(parsedBody.value)) {
+    return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
+  }
+  const body = parsedBody.value as { type?: unknown };
   const result =
     body.type === "GROUP"
-      ? await createGroupChatThread(actor.actorUserId, body)
-      : await findOrCreateDirectChatThread(actor.actorUserId, body);
+      ? await createGroupChatThread(actor.actorUserId, parsedBody.value)
+      : await findOrCreateDirectChatThread(actor.actorUserId, parsedBody.value);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

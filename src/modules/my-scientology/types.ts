@@ -159,6 +159,7 @@ export const createScientologyCommendationUploadIntentSchema = z.object({
 });
 
 export const completeScientologyCommendationUploadSchema = createScientologyCommendationUploadIntentSchema.extend({
+  intentId: z.string().trim().min(1).max(80),
   storageKey: z.string().min(1).max(600),
   title: z.string().max(160).optional().or(z.literal("")),
   isFlattenedPdf: z.boolean().default(false)
