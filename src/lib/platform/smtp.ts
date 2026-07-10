@@ -6,6 +6,11 @@ type SendSmtpMailInput = {
   subject: string;
   text: string;
   html?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
 };
 
 let smtpTransporter: Transporter | null = null;
@@ -50,6 +55,7 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
     to: input.to,
     subject: input.subject,
     text: input.text,
-    html: input.html
+    html: input.html,
+    attachments: input.attachments
   });
 }

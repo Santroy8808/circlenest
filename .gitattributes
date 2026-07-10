@@ -18,3 +18,6 @@ prisma/migrations/20260625000000_baseline/migration.sql text eol=lf
 prisma/migrations/20260709143000_expand_ad_targeting/migration.sql text eol=lf
 prisma/migrations/20260710090000_reconcile_schema/migration.sql text eol=lf
 prisma/migrations/20260710100000_add_upload_and_billing_durability/migration.sql text eol=lf
+
+# Legal/downloadable documents must stay byte-for-byte intact.
+*.pdf binary

@@ -1,0 +1,348 @@
+﻿Terms of Service
+Effective Date: July 10, 2026
+Platform: theta-space.net
+Operator: Theta-Space
+Contact: Mike@santroy.com
+Address: 101 Rainbow Dr, PMB 6731, Livingston, TX 77399, United States
+These Terms of Service govern your access to and use of theta-space.net, together with all websites, applications, private member spaces, communities, messaging features, content features, account systems, software, services, and related products operated by Theta-Space and its subsidiaries.
+By creating an account, accepting an invitation, accessing the Platform, posting Content, sending messages, making a payment, or otherwise using the Platform, you agree to these Terms and our Privacy Policy. If you do not agree, you may not access or use the Platform.
+1. Definitions
+"Platform," "Service," "we," "us," and "our" mean theta-space.net, Theta-Space, its subsidiaries, affiliates, successors, assigns, and any related websites, applications, services, features, groups, communities, content systems, moderation systems, and communications tools.
+"User," "Member," "you," and "your" mean any person or entity that accesses, registers for, uses, views, posts on, communicates through, or otherwise interacts with the Platform.
+"Content" means any text, images, videos, audio, files, posts, comments, messages, profile information, links, reactions, metadata, usernames, group names, community names, or other material submitted, uploaded, posted, transmitted, displayed, stored, or made available through the Platform.
+"User Content" means Content provided by users.
+"Platform Content" means Content, software, design, branding, systems, features, interfaces, documentation, rules, compilations, arrangements, analytics, and other materials owned, licensed, created, selected, organized, or controlled by us.
+2. Private Membership and Revocable Access
+The Platform is privately owned and operated. Access to the Platform is a limited, personal, non-exclusive, non-transferable, revocable privilege.
+Membership is not a right. Access is not sold to you. You do not acquire any ownership interest in the Platform, your account, your username, any profile, group, community, invitation, membership status, follower list, message thread, feature, setting, content location, or Platform Content.
+To the fullest extent permitted by law, we may accept, deny, approve, reject, suspend, restrict, limit, revoke, terminate, or condition any account, invitation, membership, username, profile, Content, group, community, feature, setting, visibility status, or access to the Platform at any time, with or without notice, for any reason or no reason, with or without explanation, and with or without an opportunity to appeal.
+Any warning, review, exception, appeal, restoration, grace period, refund, credit, or other accommodation we provide is voluntary and does not limit our discretion in any other matter.
+3. Eligibility
+You must be at least 18 years old to use the Platform.
+By using the Platform, you represent and warrant that:
+You are at least 18 years old.
+You have the legal capacity to agree to these Terms.
+You are not barred from using the Platform under applicable law.
+You have not previously been suspended, banned, removed, or denied access unless we have expressly authorized your return in writing.
+All information you provide to us is accurate, current, and complete.
+You will maintain the accuracy of your account information.
+You will comply with these Terms and all applicable laws.
+We may require identity, eligibility, invitation, payment, location, or other verification before granting, continuing, restoring, or expanding access.
+4. Account Registration and Security
+You are responsible for your account and for all activity that occurs under your account, whether or not authorized by you.
+You agree not to:
+Share, sell, transfer, sublicense, rent, or assign your account.
+Allow another person to access the Platform through your account.
+Create an account using false, misleading, incomplete, or unauthorized information.
+Create or use multiple accounts to evade enforcement or access restrictions.
+Use another person's account without permission.
+Interfere with account security systems.
+Attempt to regain access after suspension or termination without our written permission.
+You are responsible for maintaining the confidentiality of your login credentials. You must notify us promptly if you believe your account has been compromised.
+We are not responsible for losses arising from unauthorized account access unless caused by our violation of duties that cannot be limited under applicable law.
+5. No Public Forum
+The Platform is not a public forum, common carrier, public utility, neutral archive, open speech venue, or place for unrestricted expression.
+We decide what the Platform is, how it operates, who may use it, what Content may appear on it, how Content may be displayed, whether Content may be restricted or removed, and whether any account, community, feature, or membership may continue.
+You acknowledge that we may exercise editorial, operational, technical, safety, business, reputational, community, legal, and moderation judgment over the Platform and all Content.
+6. Platform Discretion
+To the fullest extent permitted by law, we have sole and absolute discretion over:
+Whether you may access or continue accessing the Platform.
+Whether your account may be created, maintained, restricted, suspended, restored, or terminated.
+Whether your Content may be posted, displayed, distributed, hidden, labeled, restricted, archived, edited for formatting, preserved, removed, deleted, restored, or otherwise acted upon.
+Whether any group, community, event, message thread, channel, list, or feature may exist or continue.
+Whether any username, profile name, group name, display name, handle, image, tag, or identifier may be used.
+Whether Content is visible to any user, group, audience, search function, feed, recommendation tool, or archive.
+Whether any rule, policy, feature, or enforcement standard applies in a specific situation.
+Whether to provide any explanation, notice, review, warning, appeal, restoration, or exception.
+Whether to modify, suspend, discontinue, replace, limit, or remove any feature or part of the Platform.
+Whether to preserve or delete records, Content, messages, logs, account data, or enforcement history, subject to our Privacy Policy and applicable law.
+Our failure to act in one instance does not waive our right to act later or in any other instance. Our action in one instance does not require us to take similar action in any other instance.
+7. Community Rules and Enforcement
+We may publish community rules, content standards, moderation guidelines, help articles, examples, or enforcement descriptions.
+Those materials are illustrative and non-exhaustive. They do not limit our discretion, create a promise of consistent enforcement, create a right to enforcement, or require us to take or refrain from taking any action.
+We may enforce written rules, unwritten standards, safety concerns, business concerns, reputational concerns, legal concerns, user complaints, operational needs, or other factors we consider relevant.
+We may act on Content or accounts whether or not the Content is lawful, constitutionally protected, accurate, popular, unpopular, offensive, harmless, harmful, reported, unreported, similar to other Content, or previously allowed.
+8. User Conduct
+You agree not to use the Platform to:
+Violate any applicable law, regulation, court order, or contractual obligation.
+Infringe or misappropriate intellectual property, privacy, publicity, confidentiality, or other rights.
+Harass, threaten, abuse, stalk, defame, exploit, intimidate, or target another person.
+Post or transmit unlawful, harmful, fraudulent, deceptive, obscene, exploitative, hateful, violent, or abusive Content.
+Impersonate another person or misrepresent your identity, affiliation, authority, or intentions.
+Collect, scrape, harvest, copy, index, or monitor Platform data without our written permission.
+Use bots, crawlers, scrapers, automated tools, artificial accounts, or unauthorized scripts.
+Interfere with, disrupt, overload, damage, reverse engineer, or compromise the Platform.
+Attempt to bypass access controls, moderation controls, payment systems, security measures, or technical restrictions.
+Upload malware, spyware, ransomware, viruses, worms, logic bombs, or harmful code.
+Send spam, unsolicited promotions, deceptive messages, chain messages, or mass communications.
+Use the Platform for illegal transactions, regulated goods or services, fraud, money laundering, or evasion of law.
+Encourage, assist, or coordinate self-harm, violence, exploitation, or criminal conduct.
+Publicly disclose private or sensitive information about others without authorization.
+Use the Platform in a way that creates legal, security, operational, reputational, financial, or community risk for us.
+Circumvent suspension, termination, bans, limits, or membership restrictions.
+Assist another person in violating these Terms.
+We may determine, in our sole discretion, whether conduct violates these Terms.
+9. User Content
+You are responsible for your User Content and for the consequences of submitting, posting, transmitting, or sharing it.
+You represent and warrant that:
+You own your User Content or have all rights necessary to provide it to the Platform.
+Your User Content does not violate these Terms.
+Your User Content does not violate applicable law.
+Your User Content does not infringe, misappropriate, or violate any third-party rights.
+Your User Content is not confidential information of another person or entity unless you have authority to share it.
+Your User Content does not contain malware or harmful code.
+We do not endorse, verify, approve, or guarantee User Content. User Content is solely the responsibility of the user who provides it.
+10. License to User Content
+You retain any ownership rights you have in your User Content.
+By submitting, posting, uploading, transmitting, sending, displaying, or otherwise making User Content available through the Platform, you grant us a worldwide, non-exclusive, royalty-free, fully paid, transferable, sublicensable license to host, store, reproduce, copy, modify, adapt, reformat, edit for technical or formatting purposes, publish, display, perform, distribute, transmit, promote, translate, analyze, create derivative works from, archive, preserve, remove, restrict, and otherwise use your User Content for purposes related to operating, providing, securing, moderating, enforcing, improving, developing, testing, analyzing, marketing, and promoting the Platform.
+This license includes the right to make technical changes necessary to display, transmit, store, process, moderate, or make User Content available across different devices, systems, networks, formats, products, and features.
+This license continues for as long as reasonably necessary for the purposes described in these Terms, including after account suspension, termination, deletion, or Content removal, subject to our Privacy Policy and applicable law.
+You waive, to the fullest extent permitted by law, any moral rights, attribution rights, integrity rights, or similar rights you may have in User Content as against us and our service providers, sublicensees, successors, and assigns.
+11. Content Control and Moderation
+To the fullest extent permitted by law, we may review, scan, screen, refuse, remove, hide, restrict, label, reclassify, demote, block, disable, preserve, restore, delete, modify for formatting, or otherwise act on any Content, account, feature, group, community, message, profile, username, or activity at any time, with or without notice, for any reason or no reason, with or without explanation.
+We may take these actions whether or not the Content violates these Terms, whether or not similar Content remains available, whether or not the Content has been reported, and whether or not the Content is lawful or constitutionally protected.
+We are not obligated to monitor the Platform, but we may do so. We are not obligated to remove Content, but we may do so. We are not obligated to preserve Content, but we may do so.
+12. Private Membership Does Not Guarantee Confidentiality
+The Platform may be membership-based, invitation-based, restricted, or private in access, but Content shared on the Platform is not guaranteed to remain confidential.
+Other users may copy, screenshot, photograph, record, download, save, disclose, repost, forward, quote, summarize, misuse, or otherwise distribute Content, even if doing so violates these Terms.
+Do not share Content on the Platform that you require to remain confidential, secret, restricted, privileged, proprietary, or private.
+We are not responsible for another user's use, disclosure, copying, recording, distribution, or misuse of Content unless liability cannot be excluded under applicable law.
+13. Messages and Communications
+The Platform may allow private messages, group messages, comments, posts, replies, reactions, notifications, or other communications.
+You acknowledge that messages and communications may be stored, processed, reviewed, moderated, restricted, disclosed, or deleted as described in these Terms and our Privacy Policy.
+To the fullest extent permitted by law, we may access, review, scan, moderate, preserve, and disclose messages, communications, account information, logs, metadata, and related records when we believe it is reasonably necessary to:
+Operate, provide, maintain, or improve the Platform.
+Enforce these Terms.
+Investigate abuse, fraud, spam, security threats, or illegal activity.
+Protect the rights, safety, property, or security of us, users, or others.
+Comply with law, regulation, subpoena, court order, legal process, or governmental request.
+Respond to emergencies.
+Detect, prevent, or address technical issues.
+Preserve evidence or protect legal rights.
+We do not guarantee that messages are private, confidential, encrypted, uninterrupted, recoverable, or secure.
+14. Data, Privacy, and Security
+Our collection, use, disclosure, retention, and protection of personal information is described in our Privacy Policy.
+We maintain administrative, technical, and physical safeguards designed to protect information in our possession. However, no website, application, network, system, transmission, storage method, or security measure is perfectly secure.
+To the fullest extent permitted by law, we do not guarantee that your account, Content, communications, personal information, data, files, messages, records, settings, or activity will be uninterrupted, error-free, secure, confidential, available, complete, accurate, recoverable, immune from unauthorized access, immune from loss, immune from misuse, immune from alteration, immune from disclosure, immune from deletion, or immune from destruction.
+You are responsible for maintaining independent copies of any Content or information you wish to preserve.
+Nothing in these Terms limits privacy, security, data protection, breach notification, consumer protection, or other rights or obligations that cannot be limited under applicable law.
+15. No Storage, Backup, Availability, or Retention Guarantee
+The Platform is not a backup, archive, storage, records-retention, or data-preservation service.
+We do not guarantee that any account, Content, message, file, image, post, comment, setting, profile, group, thread, notification, record, log, data, or other information will remain available, accurate, complete, unchanged, accessible, recoverable, or preserved.
+To the fullest extent permitted by law, we may delete, restrict, retain, preserve, anonymize, modify, migrate, verify, restore, fail to restore, or otherwise manage Content and data at any time, with or without notice, subject to our Privacy Policy and applicable law.
+16. Platform Changes and Availability
+We may modify, suspend, discontinue, replace, restrict, remove, rename, redesign, limit, charge for, or stop offering all or part of the Platform at any time, with or without notice.
+We do not guarantee that the Platform or any Content, feature, account, group, message, tool, function, or service will be available, uninterrupted, secure, timely, accurate, complete, error-free, or compatible with any device, browser, operating system, network, or third-party service.
+We are not liable for any loss or harm arising from Platform changes, interruptions, downtime, errors, maintenance, security incidents, data loss, Content removal, feature removal, account restrictions, or termination, except where liability cannot be excluded under applicable law.
+17. Platform Content and Intellectual Property
+The Platform and Platform Content are owned by us or our licensors and are protected by copyright, trademark, trade secret, patent, and other laws.
+Subject to your compliance with these Terms, we grant you a limited, personal, revocable, non-exclusive, non-transferable, non-sublicensable license to access and use the Platform solely for your personal, permitted use.
+You may not:
+Copy, reproduce, distribute, publicly display, publicly perform, modify, adapt, translate, create derivative works from, sell, license, or exploit the Platform or Platform Content without our written permission.
+Reverse engineer, decompile, disassemble, or attempt to derive source code from the Platform.
+Remove, obscure, or alter copyright, trademark, proprietary, or legal notices.
+Use our names, logos, branding, trade dress, or marks without our written permission.
+Use Platform Content outside the Platform unless expressly authorized by us.
+All rights not expressly granted are reserved.
+18. Feedback
+If you provide ideas, suggestions, proposals, corrections, improvements, requests, or other feedback relating to the Platform, you grant us a worldwide, perpetual, irrevocable, royalty-free, fully paid, transferable, sublicensable license to use, reproduce, modify, distribute, commercialize, and otherwise exploit that feedback for any purpose without compensation, attribution, restriction, or obligation to you.
+19. Third-Party Services and Links
+The Platform may include links, integrations, embeds, content, tools, or services provided by third parties.
+We do not control and are not responsible for third-party websites, services, content, policies, practices, availability, security, accuracy, or conduct.
+Your use of third-party services may be governed by separate terms and privacy policies.
+20. Fees, Payments, and Refunds
+Some parts of the Platform may require payment, subscription, membership fees, application fees, event fees, processing fees, or other charges.
+By providing payment information, you authorize us and our payment processors to charge the applicable amounts, taxes, and fees.
+Unless we expressly state otherwise in writing, fees are non-refundable to the fullest extent permitted by law.
+We may change prices, billing methods, subscription terms, benefits, access levels, or payment requirements at any time, subject to applicable law.
+Payment does not guarantee continued access. To the fullest extent permitted by law, we may suspend, restrict, or terminate paid access at any time in accordance with these Terms.
+Chargebacks, failed payments, payment disputes, fraud indicators, or payment processor restrictions may result in immediate suspension or termination.
+21. Taxes
+You are responsible for any taxes, duties, levies, charges, or assessments associated with your use of the Platform, purchases, subscriptions, or payments, except taxes based on our net income.
+22. Termination by You
+You may stop using the Platform at any time.
+You may request account deletion as described in our Privacy Policy or through any account tools we make available.
+Account deletion may not immediately remove all Content, records, backups, logs, messages, legal records, moderation records, transaction records, security records, or information we are permitted or required to retain under applicable law, our Privacy Policy, or our legitimate business, safety, security, compliance, or legal needs.
+23. Termination by Us
+To the fullest extent permitted by law, we may suspend, restrict, limit, revoke, or terminate your account, membership, invitation, access, visibility, privileges, Content, groups, messages, or use of the Platform at any time, with or without notice, for any reason or no reason, with or without explanation, and without liability to you.
+Reasons may include, but are not limited to:
+Violation of these Terms.
+Violation of community rules.
+Legal, regulatory, safety, security, operational, reputational, or business concerns.
+Risk to us, users, third parties, or the Platform.
+Payment issues.
+Fraud, abuse, spam, harassment, or misuse.
+Inactivity.
+Discontinuation or modification of the Platform.
+Our decision that continued access is inappropriate.
+No stated reason.
+We are not required to provide advance notice, a warning, an appeal, a reason, evidence, or an opportunity to cure.
+24. Effect of Suspension or Termination
+Upon suspension, restriction, or termination:
+Your right to access and use the Platform immediately stops or becomes limited as determined by us.
+You may lose access to your account, Content, messages, groups, profile, contacts, followers, settings, purchases, paid features, and membership status.
+We may delete, restrict, retain, preserve, anonymize, or disclose Content and account information as permitted by these Terms, our Privacy Policy, and applicable law.
+We may prevent you from creating or accessing other accounts.
+We may refuse future access, invitations, purchases, memberships, or services.
+These Terms will continue to apply where their nature requires survival.
+Sections concerning ownership, licenses, moderation, data, privacy, security, termination effects, disclaimers, limitation of liability, indemnification, dispute resolution, governing law, and miscellaneous terms survive suspension or termination.
+25. Legal Compliance
+You are responsible for complying with all laws applicable to your use of the Platform.
+You may not use the Platform where prohibited by law or in a way that would cause us to violate applicable law.
+We may restrict, suspend, terminate, preserve, disclose, or remove accounts, Content, data, or access when we believe it is necessary or appropriate to comply with applicable law, legal process, governmental request, regulatory requirement, sanctions, export controls, safety obligations, or legal risk.
+26. Copyright and DMCA Policy
+We respect intellectual property rights and may remove or restrict Content alleged to infringe copyrights or other rights.
+If you believe Content on the Platform infringes your copyright, you may send a notice to our designated copyright agent:
+DMCA Agent: Theta-Space
+Address: 101 Rainbow Dr, PMB 6731, Livingston, TX 77399, United States
+Email: Mike@santroy.com
+Your notice should include:
+Your physical or electronic signature.
+Identification of the copyrighted work claimed to be infringed.
+Identification of the allegedly infringing material and information reasonably sufficient to locate it.
+Your contact information.
+A statement that you have a good-faith belief that use of the material is not authorized by the copyright owner, its agent, or law.
+A statement, under penalty of perjury, that the information in the notice is accurate and that you are authorized to act on behalf of the copyright owner.
+We may remove or restrict allegedly infringing Content and may terminate repeat infringers in appropriate circumstances.
+If you believe your Content was removed by mistake or misidentification, you may submit a counter-notification as permitted by law.
+27. Repeat Infringer Policy
+We may terminate, restrict, or suspend users who repeatedly infringe intellectual property rights or who are repeatedly accused of infringement, in our sole discretion and as appropriate under applicable law.
+We may also remove or restrict Content, limit posting privileges, disable accounts, preserve records, or take other action relating to intellectual property complaints.
+28. Reporting Violations
+You may report violations of these Terms using any reporting tools or contact methods we make available.
+We are not required to investigate, respond to, resolve, explain, or act on any report.
+We may use reports, ignore reports, act on reports, reject reports, disclose reports, or preserve reports in our sole discretion, subject to our Privacy Policy and applicable law.
+False, abusive, deceptive, retaliatory, or bad-faith reports may result in account restriction or termination.
+29. Investigations
+We may investigate suspected violations of these Terms, applicable law, Platform rules, security requirements, or third-party rights.
+You agree to cooperate with investigations when requested.
+We may suspend, restrict, preserve, or terminate accounts, Content, payments, features, or access during or after an investigation.
+We are not required to disclose investigation details, evidence, complainants, witnesses, methods, internal notes, risk signals, security information, or enforcement reasoning.
+30. Indemnification
+To the fullest extent permitted by law, you agree to defend, indemnify, and hold harmless Theta-Space, its subsidiaries, affiliates, owners, officers, directors, employees, contractors, agents, representatives, licensors, service providers, successors, and assigns from and against all claims, demands, actions, damages, losses, liabilities, judgments, settlements, costs, and expenses, including reasonable attorneys' fees, arising out of or relating to:
+Your access to or use of the Platform.
+Your User Content.
+Your violation of these Terms.
+Your violation of applicable law.
+Your violation, infringement, or misappropriation of any third-party right.
+Your interaction with another user.
+Your fraud, misconduct, negligence, or intentional wrongdoing.
+Your attempt to bypass moderation, access controls, payment systems, or security measures.
+We may control the defense and settlement of any matter subject to indemnification. You may not settle any claim without our prior written consent if the settlement imposes obligations on us, admits fault by us, or affects our rights.
+31. Disclaimers
+The Platform is provided "as is" and "as available."
+To the fullest extent permitted by law, we disclaim all warranties, express, implied, statutory, or otherwise, including warranties of merchantability, fitness for a particular purpose, title, non-infringement, availability, reliability, accuracy, completeness, security, quiet enjoyment, data integrity, uninterrupted operation, error-free operation, and any warranties arising from course of dealing, course of performance, or usage of trade.
+We do not warrant or guarantee that:
+The Platform will meet your requirements or expectations.
+The Platform will be uninterrupted, secure, timely, accurate, complete, or error-free.
+Content will be available, preserved, accurate, complete, lawful, safe, or reliable.
+Any user is who they claim to be.
+Any user will comply with these Terms.
+Any defects or errors will be corrected.
+The Platform will be free from viruses, malware, vulnerabilities, unauthorized access, data loss, or harmful components.
+Any moderation decision will be correct, consistent, fair, explained, appealable, or reversible.
+Your account, Content, data, communications, or information will be secure, private, confidential, recoverable, or preserved.
+You use the Platform at your own risk.
+32. Limitation of Liability
+To the fullest extent permitted by law, Theta-Space, its subsidiaries, affiliates, owners, officers, directors, employees, contractors, agents, representatives, licensors, service providers, successors, and assigns will not be liable for any indirect, incidental, special, consequential, exemplary, punitive, enhanced, or similar damages, including lost profits, lost revenue, lost savings, lost business, lost opportunity, lost goodwill, reputational harm, emotional distress, data loss, Content loss, account loss, business interruption, system failure, device damage, unauthorized access, unauthorized disclosure, or cost of substitute services, whether based on warranty, contract, tort, statute, negligence, strict liability, or any other legal theory, even if we have been advised of the possibility of such damages.
+To the fullest extent permitted by law, our total liability for all claims arising out of or relating to the Platform or these Terms will not exceed the greater of:
+The amount you paid us for access to the Platform during the six months before the claim arose; or
+One hundred U.S. dollars.
+The limitations in this section apply even if any remedy fails of its essential purpose.
+Nothing in these Terms limits liability that cannot be limited under applicable law.
+33. Release
+To the fullest extent permitted by law, you release Theta-Space, its subsidiaries, affiliates, owners, officers, directors, employees, contractors, agents, representatives, licensors, service providers, successors, and assigns from claims, demands, damages, losses, liabilities, costs, and expenses arising out of or relating to:
+User Content.
+User conduct.
+Disputes between users.
+Content removal or restriction.
+Account suspension or termination.
+Platform changes or discontinuation.
+Data loss, Content loss, or service interruption.
+Unauthorized access, use, disclosure, or misuse by third parties.
+Your reliance on Content or information available through the Platform.
+If you are a California resident, you waive California Civil Code Section 1542, which provides:
+A general release does not extend to claims that the creditor or releasing party does not know or suspect to exist in the creditor's or releasing party's favor at the time of executing the release and that, if known, would have materially affected the settlement with the debtor or released party.
+
+You waive any similar law, rule, or principle that may apply in any other jurisdiction.
+34. Dispute Resolution; Informal Resolution
+Before filing a claim, you agree to first contact us at Mike@santroy.com and attempt to resolve the dispute informally.
+Your notice must include your name, account information, contact information, a description of the dispute, the relief requested, and enough information for us to evaluate the claim.
+We will attempt to resolve the dispute informally. Either party may proceed with formal dispute resolution if the dispute is not resolved within 30 days after notice is received.
+35. Arbitration Agreement
+You and we agree that, except for claims that qualify for small claims court and claims for injunctive or equitable relief described below, any dispute, claim, or controversy arising out of or relating to these Terms, the Platform, your account, your Content, your membership, your access, suspension, termination, payments, privacy, security, or communications will be resolved by binding individual arbitration.
+The arbitration will be administered by the American Arbitration Association under its applicable Consumer Arbitration Rules, unless otherwise required by law.
+The arbitration will be conducted in English. The seat and venue of arbitration will be Polk County, Texas, unless the arbitration provider's rules or applicable law require otherwise.
+The arbitrator will have exclusive authority to resolve disputes about arbitrability, interpretation, applicability, enforceability, unconscionability, or formation of this arbitration agreement, except that courts will decide disputes concerning the class action waiver.
+Judgment on the arbitration award may be entered in any court of competent jurisdiction.
+36. Class Action Waiver
+You and we agree that each party may bring claims against the other only in an individual capacity and not as a plaintiff, claimant, class member, or representative in any class action, collective action, consolidated action, private attorney general action, or representative proceeding.
+The arbitrator may not consolidate claims of more than one person and may not preside over any class, collective, consolidated, private attorney general, or representative proceeding unless both parties expressly agree in writing.
+If this class action waiver is found unenforceable as to a claim, that claim must be severed from arbitration and brought in court, unless applicable law requires otherwise.
+37. Small Claims and Injunctive Relief
+Either party may bring an individual claim in small claims court if the claim qualifies.
+Nothing in these Terms prevents either party from seeking temporary, preliminary, or permanent injunctive or equitable relief in court to protect intellectual property, confidential information, security, privacy, Platform integrity, access controls, or against unauthorized use, scraping, abuse, harassment, circumvention, or illegal conduct.
+38. Arbitration Opt-Out
+You may opt out of the arbitration agreement by sending written notice to Mike@santroy.com within 30 days after you first accept these Terms.
+Your opt-out notice must include your full name, account email, username if applicable, and a clear statement that you opt out of arbitration.
+Opting out of arbitration does not opt you out of any other part of these Terms, including the class action waiver to the extent enforceable.
+39. Governing Law
+These Terms and any dispute arising out of or relating to these Terms or the Platform are governed by the laws of the State of Texas, without regard to conflict-of-law rules, except to the extent federal law applies or applicable law requires otherwise.
+40. Venue
+Subject to the arbitration agreement, you and we consent to the exclusive jurisdiction and venue of the state courts located in Polk County, Texas, and the applicable federal courts having jurisdiction over Polk County, Texas, for disputes arising out of or relating to these Terms or the Platform.
+You and we waive objections to personal jurisdiction, venue, and inconvenient forum in those courts.
+41. Changes to These Terms
+We may modify these Terms at any time.
+When we make material changes, we may provide notice through the Platform, by email, through account notifications, by posting updated Terms, by requiring renewed acceptance, or by other reasonable means.
+The updated Terms are effective as of the effective date stated in the updated Terms, unless otherwise stated.
+Your continued access to or use of the Platform after updated Terms become effective means you accept the updated Terms.
+If you do not agree to updated Terms, you must stop using the Platform.
+We may require you to accept updated Terms before continuing to access the Platform.
+42. Privacy Policy
+Our Privacy Policy is incorporated into these Terms.
+If there is a conflict between these Terms and the Privacy Policy regarding our collection, use, disclosure, retention, or protection of personal information, the Privacy Policy controls as to that conflict, unless these Terms provide greater rights or protections required by applicable law.
+43. Electronic Communications
+You agree that we may communicate with you electronically, including by email, Platform notices, account messages, push notifications, SMS if you provide a phone number and consent where required, or postings on the Platform.
+Electronic communications satisfy any legal requirement that communications be in writing, to the fullest extent permitted by law.
+You are responsible for keeping your contact information current.
+44. Notices
+Notices to us must be sent to:
+Theta-Space
+101 Rainbow Dr
+PMB 6731
+Livingston, TX 77399
+United States
+Email: Mike@santroy.com
+We may provide notices to you using the email address associated with your account, Platform notifications, postings on the Platform, or other reasonable methods.
+Notices are deemed given when sent, posted, or otherwise made available, unless applicable law requires otherwise.
+45. Assignment
+You may not assign, transfer, delegate, or sublicense these Terms, your account, your membership, or your Platform access without our prior written consent.
+We may assign, transfer, delegate, sublicense, or otherwise convey these Terms and our rights or obligations at any time, with or without notice, including in connection with a merger, acquisition, reorganization, sale of assets, financing, change of control, corporate restructuring, or operation of law.
+46. No Waiver
+Our failure or delay in exercising any right, power, remedy, or discretion under these Terms does not waive that right, power, remedy, or discretion.
+Any waiver must be in writing and signed by us to be effective.
+A waiver in one instance does not constitute a waiver in any other instance.
+47. Severability
+If any provision of these Terms is found invalid, illegal, or unenforceable, that provision will be enforced to the maximum extent permitted by law, and the remaining provisions will remain in full force and effect.
+If necessary, the invalid, illegal, or unenforceable provision will be modified to the minimum extent necessary to make it valid, legal, and enforceable while preserving the original intent as closely as possible.
+48. Entire Agreement
+These Terms, together with the Privacy Policy and any additional terms, rules, or policies that expressly apply to specific features, memberships, purchases, or services, constitute the entire agreement between you and us regarding the Platform.
+These Terms supersede all prior or contemporaneous agreements, understandings, representations, and communications regarding the Platform.
+49. No Third-Party Beneficiaries
+These Terms do not create any third-party beneficiary rights unless expressly stated otherwise.
+50. Force Majeure
+We are not responsible or liable for delay, failure, interruption, loss, or damage caused by events beyond our reasonable control, including acts of God, natural disasters, war, terrorism, civil unrest, labor disputes, supply chain issues, internet failures, hosting failures, utility failures, cyberattacks, malware, government action, legal restrictions, payment processor issues, third-party service failures, emergencies, disease, or other events beyond our reasonable control.
+51. Interpretation
+Headings are for convenience only and do not affect interpretation.
+The words "including," "includes," and "include" mean "including without limitation."
+The phrase "to the fullest extent permitted by law" applies to every provision where limitation, disclaimer, waiver, release, discretion, or restriction may be subject to legal limits.
+No rule of construction will apply against either party based on authorship.
+52. Contact
+Questions about these Terms may be sent to:
+Theta-Space
+101 Rainbow Dr
+PMB 6731
+Livingston, TX 77399
+United States
+Email: Mike@santroy.com
+Use of the Platform remains subject to these Terms regardless of whether we respond to any question, complaint, report, request, or communication.

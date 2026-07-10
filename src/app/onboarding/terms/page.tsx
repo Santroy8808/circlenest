@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { OnboardingTermsForm } from "@/components/onboarding/onboarding-forms";
+import { currentTermsSummary } from "@/modules/legal/terms";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 
 export default async function OnboardingTermsPage() {
@@ -28,5 +29,16 @@ export default async function OnboardingTermsPage() {
     redirect("/home");
   }
 
-  return <OnboardingTermsForm />;
+  const terms = currentTermsSummary();
+
+  return (
+    <OnboardingTermsForm
+      defaultEmail={state.user.email}
+      defaultName={state.user.profile?.displayName ?? ""}
+      effectiveDateLabel={terms.effectiveDateLabel}
+      termsHref={terms.pagePath}
+      termsPdfHref={terms.pdfPath}
+      termsVersion={terms.version}
+    />
+  );
 }

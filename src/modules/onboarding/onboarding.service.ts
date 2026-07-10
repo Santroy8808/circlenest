@@ -1,7 +1,13 @@
-import { ScientologyClassification, ScientologyVisibility } from "@prisma/client";
+import { ScientologyClassification, ScientologyVisibility, TermsEmailDeliveryStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { sendSmtpMail } from "@/lib/platform/smtp";
+import {
+  currentTermsSummary,
+  getCurrentTermsPdfSha256,
+  readCurrentTermsPdf
+} from "@/modules/legal/terms";
 import { scientologyProcessingStatuses, scientologyTrainingLevels } from "@/modules/my-scientology/types";
 
 const MODULE_KEY = "onboarding";
@@ -30,8 +36,24 @@ export const goodStandingSchema = z.object({
 export const termsSchema = z.object({
   accepted: z.literal(true, {
     errorMap: () => ({ message: "Terms must be accepted." })
-  })
+  }),
+  signerName: z.string().trim().min(2, "Enter your full name.").max(120, "Name is too long."),
+  signerEmail: z.string().trim().email("Enter a valid email address.").max(180, "Email is too long."),
+  termsVersion: z.string().trim().min(1, "Terms version is missing.")
 });
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function truncateError(value: unknown) {
+  const message = value instanceof Error ? value.message : "Could not send SMTP email.";
+  return message.slice(0, 500);
+}
 
 export async function getOnboardingState(userId: string) {
   const user = await prisma.user.findUnique({
@@ -244,15 +266,169 @@ export async function acceptOnboardingTerms(userId: string, input: unknown) {
     return { ok: false as const, error: "Complete the previous onboarding steps first." };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      termsAcceptedAt: new Date(),
-      onboardingCompletedAt: new Date()
-    }
+  const terms = currentTermsSummary();
+  if (parsed.data.termsVersion !== terms.version) {
+    return { ok: false as const, error: "Terms changed. Refresh this page and review the current Terms." };
+  }
+
+  const signerEmail = parsed.data.signerEmail.trim().toLowerCase();
+  const accountEmail = state.user.email.trim().toLowerCase();
+  if (signerEmail !== accountEmail) {
+    return { ok: false as const, error: "Enter the email address on this account." };
+  }
+
+  const acceptedAt = new Date();
+  const pdf = readCurrentTermsPdf();
+  const pdfSha256 = getCurrentTermsPdfSha256();
+  const signerName = parsed.data.signerName.trim();
+
+  const acceptance = await prisma.$transaction(async (transaction) => {
+    const record = await transaction.termsAcceptance.create({
+      data: {
+        userId,
+        termsVersion: terms.version,
+        termsEffectiveDate: terms.effectiveDate,
+        signerName,
+        signerEmail,
+        accountEmail,
+        acceptedAt,
+        pdfPath: terms.pdfPath,
+        pdfSha256,
+        metadata: {
+          pagePath: terms.pagePath,
+          pdfFilename: terms.pdfFilename
+        }
+      }
+    });
+
+    await transaction.user.update({
+      where: { id: userId },
+      data: {
+        termsAcceptedAt: acceptedAt,
+        onboardingCompletedAt: acceptedAt
+      }
+    });
+
+    await transaction.auditLog.create({
+      data: {
+        actorUserId: userId,
+        module: MODULE_KEY,
+        action: "terms.accepted",
+        targetType: "TermsAcceptance",
+        targetId: record.id,
+        metadata: {
+          termsVersion: terms.version,
+          pdfSha256,
+          signerEmail
+        }
+      }
+    });
+
+    return record;
   });
 
-  await diagnostics.info(MODULE_KEY, "Onboarding completed.", { userId });
+  try {
+    const sent = await sendSmtpMail({
+      to: signerEmail,
+      subject: "Your Theta-Space Terms of Service",
+      text: [
+        `Hello ${signerName},`,
+        "",
+        `Attached is the Theta-Space Terms of Service PDF you accepted on ${acceptedAt.toISOString()}.`,
+        `Terms version: ${terms.version}`,
+        `Effective date: ${terms.effectiveDateLabel}`,
+        `PDF SHA-256: ${pdfSha256}`,
+        "",
+        "Keep this email for your records.",
+        "",
+        "Theta-Space"
+      ].join("\n"),
+      html: [
+        `<p>Hello ${escapeHtml(signerName)},</p>`,
+        `<p>Attached is the Theta-Space Terms of Service PDF you accepted on ${escapeHtml(acceptedAt.toISOString())}.</p>`,
+        `<p><strong>Terms version:</strong> ${escapeHtml(terms.version)}<br />`,
+        `<strong>Effective date:</strong> ${escapeHtml(terms.effectiveDateLabel)}<br />`,
+        `<strong>PDF SHA-256:</strong> ${escapeHtml(pdfSha256)}</p>`,
+        "<p>Keep this email for your records.</p>",
+        "<p>Theta-Space</p>"
+      ].join(""),
+      attachments: [
+        {
+          filename: terms.pdfFilename,
+          content: pdf,
+          contentType: "application/pdf"
+        }
+      ]
+    });
+
+    await prisma.$transaction([
+      prisma.termsAcceptance.update({
+        where: { id: acceptance.id },
+        data: {
+          emailDeliveryStatus: TermsEmailDeliveryStatus.SENT,
+          emailSentAt: new Date(),
+          emailMessageId: typeof sent.messageId === "string" ? sent.messageId : null
+        }
+      }),
+      prisma.auditLog.create({
+        data: {
+          actorUserId: userId,
+          module: MODULE_KEY,
+          action: "terms.pdf_emailed",
+          targetType: "TermsAcceptance",
+          targetId: acceptance.id,
+          metadata: {
+            termsVersion: terms.version,
+            pdfSha256,
+            messageId: typeof sent.messageId === "string" ? sent.messageId : null
+          }
+        }
+      })
+    ]);
+  } catch (error) {
+    const emailError = truncateError(error);
+
+    await prisma.$transaction([
+      prisma.termsAcceptance.update({
+        where: { id: acceptance.id },
+        data: {
+          emailDeliveryStatus: TermsEmailDeliveryStatus.FAILED,
+          emailError
+        }
+      }),
+      prisma.auditLog.create({
+        data: {
+          actorUserId: userId,
+          module: MODULE_KEY,
+          action: "terms.pdf_email_failed",
+          targetType: "TermsAcceptance",
+          targetId: acceptance.id,
+          metadata: {
+            termsVersion: terms.version,
+            error: emailError
+          }
+        }
+      })
+    ]);
+
+    await diagnostics.warn(MODULE_KEY, "Terms PDF SMTP send failed.", {
+      userId,
+      acceptanceId: acceptance.id,
+      error: emailError
+    });
+
+    return {
+      ok: true as const,
+      nextPath: "/home",
+      warning: "Account activated, but the Terms PDF email could not be sent. The acceptance was logged."
+    };
+  }
+
+  await diagnostics.info(MODULE_KEY, "Onboarding completed.", {
+    userId,
+    acceptanceId: acceptance.id,
+    termsVersion: terms.version
+  });
 
   return { ok: true as const, nextPath: "/home" };
 }

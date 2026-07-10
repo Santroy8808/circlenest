@@ -24,6 +24,15 @@ type ScientologyDefaults = {
   educationNotes: string;
 };
 
+type TermsDefaults = {
+  defaultName: string;
+  defaultEmail: string;
+  termsVersion: string;
+  effectiveDateLabel: string;
+  termsHref: string;
+  termsPdfHref: string;
+};
+
 function OnboardingShell({
   eyebrow,
   title,
@@ -335,7 +344,14 @@ export function OnboardingGoodStandingForm() {
   );
 }
 
-export function OnboardingTermsForm() {
+export function OnboardingTermsForm({
+  defaultName,
+  defaultEmail,
+  termsVersion,
+  effectiveDateLabel,
+  termsHref,
+  termsPdfHref
+}: TermsDefaults) {
   const router = useRouter();
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
@@ -344,12 +360,16 @@ export function OnboardingTermsForm() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const formData = new FormData(event.currentTarget);
 
     startTransition(async () => {
       try {
         const nextPath = await submitStep({
           step: "terms",
-          accepted
+          accepted,
+          signerName: formData.get("signerName"),
+          signerEmail: formData.get("signerEmail"),
+          termsVersion
         });
         router.push(nextPath);
         router.refresh();
@@ -368,15 +388,27 @@ export function OnboardingTermsForm() {
       <form className="surface grid gap-4 rounded-md p-5" onSubmit={handleSubmit}>
         <section className="rounded-md border border-[var(--line)] bg-black/20 p-4 leading-7 text-[var(--muted)]" id="onboarding-terms-summary">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Theta-Space Terms of Service</h2>
-          <p className="mt-3">
-            Final Terms of Service will be inserted here. By continuing, you agree to follow:
-          </p>
-          <ul className="mt-3 list-disc space-y-2 pl-5">
-            <li>the private membership rules and community standards;</li>
-            <li>account-security requirements; and</li>
-            <li>Theta-Space platform policies.</li>
-          </ul>
+          <p className="mt-3">Effective {effectiveDateLabel}. Open the full Terms in a new tab, or download the PDF before accepting.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <a className="btn-secondary" href={termsHref} target="_blank" rel="noopener noreferrer">
+              View full Terms
+            </a>
+            <a className="btn-secondary" download href={termsPdfHref}>
+              Download PDF
+            </a>
+          </div>
         </section>
+
+        <label className="grid gap-2">
+          <span className="form-label">Full legal name</span>
+          <input autoComplete="name" className="form-field" defaultValue={defaultName} maxLength={120} name="signerName" required />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="form-label">Account email</span>
+          <input autoComplete="email" className="form-field" defaultValue={defaultEmail} maxLength={180} name="signerEmail" required type="email" />
+        </label>
+
         <label className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]">
           <input
             aria-describedby="onboarding-terms-summary"
@@ -387,8 +419,11 @@ export function OnboardingTermsForm() {
             required
             type="checkbox"
           />
-          <span>I have read and agree to the Theta-Space Terms of Service.</span>
+          <span>I have read and agree to the Theta-Space Terms of Service version {termsVersion}.</span>
         </label>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          After acceptance, Theta-Space will email the Terms PDF to this account email and log the delivery result.
+        </p>
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <button className="btn-primary" disabled={isPending || !accepted} type="submit">
           {isPending ? "Activating..." : "Agree and enter Theta-Space"}
