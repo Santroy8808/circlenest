@@ -4,9 +4,9 @@ import { SignupForm } from "@/components/auth/signup-form";
 export default function SignupPage() {
   return (
     <AuthCard
-      eyebrow="Invitation Required"
-      title="Create account"
-      subtitle="Use the one-time invite code you received to create your Theta-Space account."
+      eyebrow="Invite-only access"
+      title="Create your invited account"
+      subtitle="You need a valid one-time invitation code. Account creation is not open to the public."
     >
       <SignupForm />
     </AuthCard>

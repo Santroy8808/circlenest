@@ -11,6 +11,12 @@ function eventTimeLabel(startsAt: string, endsAt?: string | null) {
   return `${startLabel} - ${new Date(endsAt).toLocaleTimeString()}`;
 }
 
+function rsvpLabel(status: EventRsvpStatus) {
+  if (status === EventRsvpStatus.GOING) return "Going";
+  if (status === EventRsvpStatus.MAYBE) return "Maybe";
+  return "Can't go";
+}
+
 export function EventDetailClient({ event: initialEvent }: { event: EventDetailView }) {
   const [event, setEvent] = useState(initialEvent);
   const [inviteIdentifier, setInviteIdentifier] = useState("");
@@ -39,7 +45,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
       }
 
       setEvent((current) => ({ ...current, viewerRsvpStatus: status }));
-      setMessage(`RSVP updated to ${status}.`);
+      setMessage(`RSVP updated to ${rsvpLabel(status)}.`);
     });
   }
 
@@ -162,38 +168,46 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
       <section className="grid gap-4 lg:grid-cols-3">
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">RSVP</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">Current: {event.viewerRsvpStatus ?? "No response yet"}</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Current: {event.viewerRsvpStatus ? rsvpLabel(event.viewerRsvpStatus) : "No response yet"}</p>
           {event.viewerCanRsvp ? (
             <div className="mt-4 flex flex-wrap gap-2">
               {[EventRsvpStatus.GOING, EventRsvpStatus.MAYBE, EventRsvpStatus.DECLINED].map((status) => (
                 <button className="btn-secondary px-3 py-2 text-sm" disabled={isPending} key={status} onClick={() => updateRsvp(status)} type="button">
-                  {status}
+                  {rsvpLabel(status)}
                 </button>
               ))}
             </div>
           ) : null}
         </article>
 
-        <form className="surface grid gap-3 rounded-md p-5" onSubmit={submitExternalRsvp}>
-          <h2 className="text-xl font-semibold text-[var(--gold)]">RSVP by email</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">Use a real email address so the event host has a confirmed attendee record.</p>
-          <input
-            className="form-field"
-            onChange={(inputEvent) => setExternalName(inputEvent.target.value)}
-            placeholder="Full name"
-            value={externalName}
-          />
-          <input
-            className="form-field"
-            onChange={(inputEvent) => setExternalEmail(inputEvent.target.value)}
-            placeholder="Email address"
-            type="email"
-            value={externalEmail}
-          />
-          <button className="btn-primary justify-self-end" disabled={isPending || externalName.trim().length < 2 || externalEmail.trim().length < 5} type="submit">
-            Confirm RSVP
-          </button>
-        </form>
+        {event.viewerCanInvite ? (
+          <form className="surface grid gap-3 rounded-md p-5" onSubmit={submitExternalRsvp}>
+            <h2 className="text-xl font-semibold text-[var(--gold)]">Record a guest RSVP</h2>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              For hosts and moderators only. Use this for someone whose RSVP you are managing outside Theta-Space.
+            </p>
+            <label className="grid gap-2">
+              <span className="form-label">Guest name</span>
+              <input
+                className="form-field"
+                onChange={(inputEvent) => setExternalName(inputEvent.target.value)}
+                value={externalName}
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="form-label">Guest email</span>
+              <input
+                className="form-field"
+                onChange={(inputEvent) => setExternalEmail(inputEvent.target.value)}
+                type="email"
+                value={externalEmail}
+              />
+            </label>
+            <button className="btn-primary justify-self-end" disabled={isPending || externalName.trim().length < 2 || externalEmail.trim().length < 5} type="submit">
+              Record RSVP
+            </button>
+          </form>
+        ) : null}
 
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
@@ -215,20 +229,24 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
         </article>
       </section>
 
-      {message ? <p className="surface rounded-md p-3 text-sm text-[var(--gold)]">{message}</p> : null}
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      {message ? <p aria-live="polite" className="surface rounded-md p-3 text-sm text-[var(--gold)]">{message}</p> : null}
+      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
 
       {event.viewerCanInvite ? (
         <section className="grid gap-4 lg:grid-cols-2">
           <form className="surface grid gap-3 rounded-md p-5" onSubmit={inviteMember}>
             <h2 className="text-xl font-semibold text-[var(--gold)]">Invite member</h2>
             <p className="text-sm leading-6 text-[var(--muted)]">Search by username, email, or display name. Invitations live with the event.</p>
-            <input
-              className="form-field"
-              onChange={(inputEvent) => setInviteIdentifier(inputEvent.target.value)}
-              placeholder="jules, jules@theta-space.net, or Jules"
-              value={inviteIdentifier}
-            />
+            <label className="grid gap-2">
+              <span className="form-label">Member username, email, or name</span>
+              <input
+                autoComplete="off"
+                className="form-field"
+                onChange={(inputEvent) => setInviteIdentifier(inputEvent.target.value)}
+                placeholder="For example, jules"
+                value={inviteIdentifier}
+              />
+            </label>
             <button className="btn-primary send-logo-button justify-self-end" disabled={isPending || inviteIdentifier.trim().length < 2} type="submit">
               <span aria-hidden="true" className="send-logo-icon" />
               <span className="sr-only">Send invite</span>
@@ -238,12 +256,16 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
           <form className="surface grid gap-3 rounded-md p-5" onSubmit={addModerator}>
             <h2 className="text-xl font-semibold text-[var(--gold)]">Add event moderator</h2>
             <p className="text-sm leading-6 text-[var(--muted)]">Scoped moderators can manage this event without becoming site moderators.</p>
-            <input
-              className="form-field"
-              onChange={(inputEvent) => setModeratorIdentifier(inputEvent.target.value)}
-              placeholder="Member username, email, or display name"
-              value={moderatorIdentifier}
-            />
+            <label className="grid gap-2">
+              <span className="form-label">Member username, email, or name</span>
+              <input
+                autoComplete="off"
+                className="form-field"
+                onChange={(inputEvent) => setModeratorIdentifier(inputEvent.target.value)}
+                placeholder="For example, jules"
+                value={moderatorIdentifier}
+              />
+            </label>
             <button className="btn-primary justify-self-end" disabled={isPending || moderatorIdentifier.trim().length < 2} type="submit">
               Add moderator
             </button>

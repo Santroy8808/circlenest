@@ -116,6 +116,20 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
   async function uploadResumeFile(file: File | null | undefined) {
     if (!file) return;
 
+    const allowedTypes = new Set([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ]);
+    if (!allowedTypes.has(file.type)) {
+      setError("Upload a PDF, DOC, or DOCX resume.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Resume files must be 8MB or smaller.");
+      return;
+    }
+
     setError("");
     setMessage("");
     setIsUploading(true);
@@ -133,17 +147,20 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
       });
       const intent = (await intentResponse.json()) as {
         error?: string;
+        intentId?: string;
         uploadUrl?: string;
+        uploadHeaders?: Record<string, string>;
         storageKey?: string;
       };
 
-      if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+      if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
         throw new Error(intent.error ?? "Could not prepare resume upload.");
       }
 
       await uploadWithResilientFallback({
         uploadUrl: intent.uploadUrl,
         storageKey: intent.storageKey,
+        uploadHeaders: intent.uploadHeaders,
         file,
         onProgress: setUploadProgress
       });
@@ -152,6 +169,7 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          intentId: intent.intentId,
           storageKey: intent.storageKey,
           fileName: file.name,
           mimeType: file.type || "application/octet-stream",

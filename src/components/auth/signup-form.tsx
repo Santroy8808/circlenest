@@ -84,27 +84,47 @@ export function SignupForm() {
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit}>
+      <p className="text-sm leading-6 text-[var(--muted)]">
+        Have your invitation ready. All fields are required, and your password must be at least 12 characters.
+      </p>
       <label className="grid gap-2">
         <span className="form-label">Invite code</span>
-        <input className="form-field" name="inviteCode" placeholder="Enter your one-time invite code" required />
+        <input
+          autoComplete="one-time-code"
+          className="form-field"
+          name="inviteCode"
+          placeholder="Enter your one-time invite code"
+          required
+        />
       </label>
       <label className="grid gap-2">
         <span className="form-label">Display name</span>
-        <input className="form-field" name="displayName" required />
+        <input autoComplete="name" className="form-field" maxLength={100} name="displayName" required />
       </label>
       <label className="grid gap-2">
         <span className="form-label">Username</span>
-        <input className="form-field" name="username" required />
+        <input autoCapitalize="none" autoComplete="username" className="form-field" name="username" required />
       </label>
       <label className="grid gap-2">
         <span className="form-label">Email</span>
-        <input className="form-field" name="email" type="email" required />
+        <input autoCapitalize="none" autoComplete="email" className="form-field" name="email" type="email" required />
       </label>
       <label className="grid gap-2">
         <span className="form-label">Password</span>
-        <input className="form-field" name="password" type="password" autoComplete="new-password" required />
+        <input
+          aria-describedby="signup-password-help"
+          autoComplete="new-password"
+          className="form-field"
+          minLength={12}
+          name="password"
+          required
+          type="password"
+        />
+        <span className="text-xs text-[var(--muted)]" id="signup-password-help">
+          Use 12 or more characters. A long, memorable passphrase works well.
+        </span>
       </label>
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
         {isPending ? "Creating..." : "Create invited account"}
       </button>

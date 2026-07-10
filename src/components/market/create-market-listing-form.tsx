@@ -51,7 +51,15 @@ export function CreateMarketListingForm({
 
   function addFiles(files: FileList | File[]) {
     const remaining = Math.max(0, createState.photoCap - existingPhotoCount - items.length);
-    const next = Array.from(files)
+    const candidates = Array.from(files);
+    const validFiles = candidates.filter(
+      (file) => /^image\/(jpeg|png|webp)$/.test(file.type) && file.size > 0 && file.size <= 10 * 1024 * 1024
+    );
+    if (validFiles.length !== candidates.length) {
+      setError("Listing photos must be JPG, PNG, or WEBP files no larger than 10MB.");
+    }
+
+    const next = validFiles
       .slice(0, remaining)
       .map((file) => ({
         id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
@@ -87,15 +95,22 @@ export function CreateMarketListingForm({
           sizeBytes: item.file.size
         })
       });
-      const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+      const intent = (await intentResponse.json()) as {
+        error?: string;
+        intentId?: string;
+        uploadUrl?: string;
+        uploadHeaders?: Record<string, string>;
+        storageKey?: string;
+      };
 
-      if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+      if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
         throw new Error(intent.error ?? "Could not prepare photo upload.");
       }
 
       await uploadWithResilientFallback({
         uploadUrl: intent.uploadUrl,
         storageKey: intent.storageKey,
+        uploadHeaders: intent.uploadHeaders,
         file: item.file,
         onProgress: (progress) => updateItem(item.id, { progress })
       });
@@ -104,6 +119,7 @@ export function CreateMarketListingForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          intentId: intent.intentId,
           storageKey: intent.storageKey,
           fileName: item.file.name,
           mimeType: item.file.type,
@@ -257,7 +273,7 @@ export function CreateMarketListingForm({
           </button>
           <input
             ref={inputRef}
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
             multiple
             onChange={(event) => {
@@ -275,7 +291,14 @@ export function CreateMarketListingForm({
                 <img alt="" src={item.previewUrl} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{item.file.name}</p>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30">
+                  <div
+                    aria-label={`${item.file.name} upload progress`}
+                    aria-valuemax={100}
+                    aria-valuemin={0}
+                    aria-valuenow={item.progress}
+                    className="mt-2 h-2 overflow-hidden rounded-full bg-black/30"
+                    role="progressbar"
+                  >
                     <div className="h-full rounded-full bg-[var(--blue)]" style={{ width: `${item.progress}%` }} />
                   </div>
                 </div>
@@ -285,7 +308,7 @@ export function CreateMarketListingForm({
         ) : null}
       </section>
 
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
 
       <div className="flex justify-end gap-3">
         <Link className="btn-secondary" href={mode === "edit" && initialListing ? `/market/${initialListing.slug}` : "/market"}>

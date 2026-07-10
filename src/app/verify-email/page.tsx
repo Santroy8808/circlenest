@@ -9,8 +9,8 @@ export default function VerifyEmailPage({
   return (
     <AuthCard
       eyebrow="Verification"
-      title="Verify email"
-      subtitle="Enter the verification token from your Theta-Space email."
+      title="Verify your email"
+      subtitle="Confirm your email address to finish securing your invited account."
     >
       <EmailVerificationForm initialToken={searchParams?.token} />
     </AuthCard>

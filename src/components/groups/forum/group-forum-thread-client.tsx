@@ -113,28 +113,31 @@ export function GroupForumThreadClient({
         forumThreadId: thread.id
       })
     });
-    const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+    const intent = (await intentResponse.json()) as {
+      error?: string;
+      intentId?: string;
+      uploadUrl?: string;
+      uploadHeaders?: Record<string, string>;
+      storageKey?: string;
+    };
 
-    if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+    if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.storageKey) {
       throw new Error(intent.error ?? "Could not prepare photo upload.");
     }
 
     await uploadWithResilientFallback({
       uploadUrl: intent.uploadUrl,
       storageKey: intent.storageKey,
+      uploadHeaders: intent.uploadHeaders,
       file: photo.file,
-      onProgress: (progress) => setPhoto((current) => (current ? { ...current, progress } : current)),
-      proxyUrl: `/api/groups/${group.slug}/media/proxy-upload`,
-      fields: {
-        kind: GroupAssetKind.PHOTO,
-        forumThreadId: thread.id
-      }
+      onProgress: (progress) => setPhoto((current) => (current ? { ...current, progress } : current))
     });
 
     const completeResponse = await fetch(`/api/groups/${group.slug}/media/complete-upload`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        intentId: intent.intentId,
         storageKey: intent.storageKey,
         fileName: photo.file.name,
         mimeType: photo.file.type,

@@ -15,14 +15,17 @@ function initials(name: string) {
 
 export function GroupsDirectoryClient({
   initialGroups,
-  initialMode
+  initialMode,
+  initialNextCursor
 }: {
   initialGroups: GroupCardView[];
   initialMode: GroupDirectoryMode;
+  initialNextCursor: string | null;
 }) {
   const [groups, setGroups] = useState(initialGroups);
   const [mode, setMode] = useState<GroupDirectoryMode>(initialMode);
   const [query, setQuery] = useState("");
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const hasMounted = useRef(false);
@@ -33,6 +36,7 @@ export function GroupsDirectoryClient({
       return;
     }
 
+    setNextCursor(null);
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       setError("");
@@ -42,7 +46,11 @@ export function GroupsDirectoryClient({
           cache: "no-store",
           signal: controller.signal
         });
-        const payload = (await response.json()) as { error?: string; groups?: GroupCardView[] };
+        const payload = (await response.json()) as {
+          error?: string;
+          groups?: GroupCardView[];
+          nextCursor?: string | null;
+        };
 
         if (!response.ok) {
           setError(payload.error ?? "Could not load groups.");
@@ -50,6 +58,7 @@ export function GroupsDirectoryClient({
         }
 
         setGroups(payload.groups ?? []);
+        setNextCursor(payload.nextCursor ?? null);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setError("Could not load groups.");
@@ -65,6 +74,39 @@ export function GroupsDirectoryClient({
   function toggleMode(nextMode: GroupDirectoryMode) {
     startTransition(() => {
       setMode(nextMode);
+    });
+  }
+
+  function loadMore() {
+    if (!nextCursor) return;
+    setError("");
+
+    startTransition(async () => {
+      const effectiveMode = query.trim() ? "discover" : mode;
+      const params = new URLSearchParams({ mode: effectiveMode, cursor: nextCursor });
+      if (query.trim()) params.set("q", query.trim());
+
+      try {
+        const response = await fetch(`/api/groups?${params.toString()}`, { cache: "no-store" });
+        const payload = (await response.json()) as {
+          error?: string;
+          groups?: GroupCardView[];
+          nextCursor?: string | null;
+        };
+        if (!response.ok) {
+          setError(payload.error ?? "Could not load more groups.");
+          return;
+        }
+
+        setGroups((current) => {
+          const byId = new Map(current.map((group) => [group.id, group]));
+          for (const group of payload.groups ?? []) byId.set(group.id, group);
+          return Array.from(byId.values());
+        });
+        setNextCursor(payload.nextCursor ?? null);
+      } catch {
+        setError("Could not load more groups.");
+      }
     });
   }
 
@@ -84,12 +126,15 @@ export function GroupsDirectoryClient({
           </Link>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto]">
-          <input
-            className="form-field"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search groups..."
-            value={query}
-          />
+          <label className="grid gap-2">
+            <span className="sr-only">Search groups</span>
+            <input
+              className="form-field"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search groups by name or topic"
+              value={query}
+            />
+          </label>
           <div className="flex flex-wrap gap-2">
             {(["joined", "mine", "discover"] as GroupDirectoryMode[]).map((item) => (
               <button
@@ -139,13 +184,21 @@ export function GroupsDirectoryClient({
                   {group.isPinned ? <span className="pill rounded-full px-2 py-1 text-xs">Pinned</span> : null}
                 </div>
                 <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[var(--gold)]">
-                  {group.memberCount} members · {group.visibility}
+                  {group.memberCount} members · {group.visibility.toLowerCase()}
                 </p>
               </div>
             </Link>
           ))}
         </section>
       )}
+      {nextCursor ? (
+        <div className="flex justify-center">
+          <button className="btn-secondary min-w-40" disabled={isPending} onClick={loadMore} type="button">
+            {isPending ? "Loading…" : "Load more groups"}
+          </button>
+        </div>
+      ) : null}
+      <p aria-live="polite" className="sr-only">{error}</p>
     </div>
   );
 }

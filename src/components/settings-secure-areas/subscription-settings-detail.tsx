@@ -24,15 +24,15 @@ export function SubscriptionSettingsDetail({ policy, plans }: { policy: Effectiv
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Current membership</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-md border border-[var(--line)] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Tier</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Your plan</p>
             <p className="mt-2 text-xl font-semibold">{currentPolicy.displayName}</p>
           </div>
           <div className="rounded-md border border-[var(--line)] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Effective Access</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Access available now</p>
             <p className="mt-2 text-xl font-semibold">{policy.displayName}</p>
           </div>
           <div className="rounded-md border border-[var(--line)] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Storage Limit</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">File storage</p>
             <p className="mt-2 text-xl font-semibold">{bytes(policy.limits.storageLimitBytes)}</p>
           </div>
         </div>
@@ -45,20 +45,23 @@ export function SubscriptionSettingsDetail({ policy, plans }: { policy: Effectiv
 
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Available upgrades</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          Choose a plan to continue to secure checkout. You can review the price before paying.
+        </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {plans.map((plan) => (
             <article className="module-card rounded-md p-4" key={plan.tier}>
               <h3 className="text-lg font-semibold">{plan.displayName}</h3>
-              <p className="mt-2 text-sm text-[var(--muted)]">Standard: {money(plan.standardPriceCents)}</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">Monthly price: {money(plan.standardPriceCents)}</p>
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{plan.summary}</p>
               <p className="text-sm text-[var(--muted)]">Monthly credits: {plan.monthlyCreditBudget.toLocaleString()}</p>
-              {plan.hiddenUntilEligible ? <p className="mt-2 text-sm text-[var(--gold)]">Admin-approved upgrade option.</p> : null}
-              {!plan.checkoutReady ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">Stripe price is not configured for this plan yet.</p> : null}
+              {plan.hiddenUntilEligible ? <p className="mt-2 text-sm text-[var(--gold)]">This plan requires approval.</p> : null}
+              {!plan.checkoutReady ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">Checkout is temporarily unavailable for this plan.</p> : null}
               <div className="mt-4">
                 {plan.current ? (
                   <span className="pill rounded-full px-3 py-1 text-sm">Current plan</span>
                 ) : (
-                  <SubscriptionCheckoutButton disabled={!plan.checkoutReady} tier={plan.tier} />
+                  <SubscriptionCheckoutButton disabled={!plan.checkoutReady} planName={plan.displayName} tier={plan.tier} />
                 )}
               </div>
             </article>

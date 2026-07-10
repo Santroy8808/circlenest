@@ -1,6 +1,21 @@
 "use client";
 
-function directUploadWithProgress(url: string, file: File, onProgress: (progress: number) => void) {
+class DirectUploadError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(status > 0 ? `Direct storage upload failed with ${status}.` : "Direct storage upload failed.");
+    this.name = "DirectUploadError";
+    this.status = status;
+  }
+}
+
+function directUploadWithProgress(
+  url: string,
+  file: File,
+  uploadHeaders: Record<string, string>,
+  onProgress: (progress: number) => void
+) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
 
@@ -13,55 +28,39 @@ function directUploadWithProgress(url: string, file: File, onProgress: (progress
       if (request.status >= 200 && request.status < 300) {
         resolve();
       } else {
-        reject(new Error(`Direct storage upload failed with ${request.status}.`));
+        reject(new DirectUploadError(request.status));
       }
     };
-    request.onerror = () => reject(new Error("Direct storage upload failed."));
+    request.onerror = () => reject(new DirectUploadError(0));
+    request.onabort = () => reject(new DirectUploadError(0));
     request.open("PUT", url);
-    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+    const hasContentType = Object.keys(uploadHeaders).some((header) => header.toLowerCase() === "content-type");
+    if (!hasContentType) {
+      request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    }
+    for (const [header, value] of Object.entries(uploadHeaders)) {
+      request.setRequestHeader(header, value);
+    }
+
     request.send(file);
   });
-}
-
-async function proxyUploadWithProgress(input: {
-  storageKey: string;
-  file: File;
-  onProgress: (progress: number) => void;
-  proxyUrl?: string;
-  fields?: Record<string, string>;
-}) {
-  const formData = new FormData();
-  formData.set("storageKey", input.storageKey);
-  formData.set("file", input.file);
-
-  for (const [key, value] of Object.entries(input.fields ?? {})) {
-    formData.set(key, value);
-  }
-
-  input.onProgress(45);
-  const response = await fetch(input.proxyUrl ?? "/api/media/proxy-upload", {
-    method: "POST",
-    body: formData
-  });
-  input.onProgress(95);
-  const payload = (await response.json().catch(() => ({}))) as { error?: string };
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "Upload could not reach storage. Check connection and try again.");
-  }
 }
 
 export async function uploadWithResilientFallback(input: {
   uploadUrl: string;
   storageKey: string;
+  uploadHeaders?: Record<string, string>;
   file: File;
   onProgress: (progress: number) => void;
-  proxyUrl?: string;
-  fields?: Record<string, string>;
 }) {
   try {
-    await directUploadWithProgress(input.uploadUrl, input.file, input.onProgress);
-  } catch {
-    await proxyUploadWithProgress(input);
+    await directUploadWithProgress(input.uploadUrl, input.file, input.uploadHeaders ?? {}, input.onProgress);
+  } catch (error) {
+    if (!(error instanceof DirectUploadError) || (error.status > 0 && error.status < 500)) throw error;
+
+    input.onProgress(1);
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
+    await directUploadWithProgress(input.uploadUrl, input.file, input.uploadHeaders ?? {}, input.onProgress);
   }
 }

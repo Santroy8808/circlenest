@@ -20,7 +20,7 @@ export function AuthCard({
         <div className="mt-6">{children}</div>
         <div className="mt-6 border-t border-[var(--line)] pt-4 text-sm text-[var(--muted)]">
           <Link className="text-[var(--gold)]" href="/">
-            Return to dev update page
+            Back to Theta-Space
           </Link>
         </div>
       </section>

@@ -69,13 +69,13 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
     setError("");
     setMessage("");
 
-    if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
-      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Use JPG, PNG, GIF, or WEBP." });
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Use a JPG, PNG, or WEBP image." });
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Image must be 10MB or smaller." });
+    if (file.size > 15 * 1024 * 1024) {
+      setHeroUpload({ fileName: file.name, progress: 0, status: "error", error: "Image must be 15MB or smaller." });
       return;
     }
 
@@ -88,18 +88,26 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           fileName: file.name,
           mimeType: file.type,
           sizeBytes: file.size,
-          visibility: MediaVisibility.PUBLIC
+          visibility: MediaVisibility.PUBLIC,
+          source: "BUSINESS_MEDIA"
         })
       });
-      const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+      const intent = (await intentResponse.json()) as {
+        error?: string;
+        intentId?: string;
+        uploadUrl?: string;
+        uploadHeaders?: Record<string, string>;
+        storageKey?: string;
+      };
 
-      if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+      if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
         throw new Error(intent.error ?? "Could not prepare hero image upload.");
       }
 
       await uploadWithResilientFallback({
         uploadUrl: intent.uploadUrl,
         storageKey: intent.storageKey,
+        uploadHeaders: intent.uploadHeaders,
         file,
         onProgress: (progress) => setHeroUpload({ fileName: file.name, progress, status: "uploading" })
       });
@@ -108,11 +116,13 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          intentId: intent.intentId,
           storageKey: intent.storageKey,
           fileName: file.name,
           mimeType: file.type,
           sizeBytes: file.size,
           visibility: MediaVisibility.PUBLIC,
+          source: "BUSINESS_MEDIA",
           tags: ["storefront", "hero"]
         })
       });
@@ -237,7 +247,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             <label className="grid gap-2">
               <span className="form-label">Banner image URL</span>
               <input className="form-field" onChange={(event) => update("bannerUrl", event.target.value)} placeholder="https://..." value={form.bannerUrl} />
-              <small className="text-[var(--muted)]">Recommended banner size: 1600 x 480px, wide landscape JPG/PNG/GIF/WEBP.</small>
+              <small className="text-[var(--muted)]">Recommended banner size: 1600 x 480px, wide landscape JPG, PNG, or WEBP.</small>
             </label>
           </div>
           <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -245,7 +255,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
               <div>
                 <h3 className="font-semibold text-[var(--gold)]">Storefront feature image</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  This appears inside the compact storefront banner. Recommended: 1200 x 675px, JPG/PNG/GIF/WEBP up to 10MB.
+                  This appears inside the compact storefront banner. Recommended: 1200 x 675px, JPG, PNG, or WEBP up to 15MB.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -259,7 +269,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
                 ) : null}
               </div>
               <input
-                accept="image/jpeg,image/png,image/gif,image/webp"
+                accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -275,11 +285,18 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
                     <span>{heroUpload.status === "uploading" ? `${heroUpload.progress}%` : heroUpload.status}</span>
                   </div>
                   {heroUpload.status === "uploading" ? (
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      aria-label="Hero image upload progress"
+                      aria-valuemax={100}
+                      aria-valuemin={0}
+                      aria-valuenow={heroUpload.progress}
+                      className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"
+                      role="progressbar"
+                    >
                       <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${heroUpload.progress}%` }} />
                     </div>
                   ) : null}
-                  {heroUpload.error ? <p className="mt-2 text-red-100">{heroUpload.error}</p> : null}
+                  {heroUpload.error ? <p className="mt-2 text-red-100" role="alert">{heroUpload.error}</p> : null}
                 </div>
               ) : null}
               <label className="grid gap-2">

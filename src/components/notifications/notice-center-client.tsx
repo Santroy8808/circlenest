@@ -2,7 +2,7 @@
 
 import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { FamilyRequestActions } from "@/components/notifications/family-request-actions";
 import { FriendRequestActions } from "@/components/notifications/friend-request-actions";
 
@@ -48,24 +48,45 @@ function filterLabel(filter: NoticeFilter) {
   return "All";
 }
 
+function sortNotices(items: NoticeCenterItem[]) {
+  return [...items].sort(
+    (left, right) => Date.parse(String(right.createdAt)) - Date.parse(String(left.createdAt)) || noticeKey(right).localeCompare(noticeKey(left))
+  );
+}
+
+function mergeNotices(current: NoticeCenterItem[], incoming: NoticeCenterItem[]) {
+  const byKey = new Map(current.map((item) => [noticeKey(item), item]));
+  incoming.forEach((item) => byKey.set(noticeKey(item), item));
+  return sortNotices(Array.from(byKey.values()));
+}
+
 export function NoticeCenterClient({
+  initialAlertCursor,
   initialFilter = "all",
-  initialItems
+  initialItems,
+  initialNotificationCursor
 }: {
+  initialAlertCursor?: string | null;
   initialFilter?: NoticeFilter;
   initialItems: NoticeCenterItem[];
+  initialNotificationCursor?: string | null;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
+  const [alertCursor, setAlertCursor] = useState(initialAlertCursor ?? null);
+  const [notificationCursor, setNotificationCursor] = useState(initialNotificationCursor ?? null);
   const [filter, setFilter] = useState<NoticeFilter>(initialFilter);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setItems(initialItems);
+    setAlertCursor(initialAlertCursor ?? null);
+    setNotificationCursor(initialNotificationCursor ?? null);
     setSelectedKeys([]);
-  }, [initialItems]);
+  }, [initialAlertCursor, initialItems, initialNotificationCursor]);
 
   const visibleItems = useMemo(() => (filter === "all" ? items : items.filter((item) => item.kind === filter)), [filter, items]);
   const unreadCounts = useMemo(
@@ -103,6 +124,61 @@ export function NoticeCenterClient({
     });
   }
 
+  const requestNoticePage = useCallback(async (kind: NoticeCenterKind, cursor?: string | null) => {
+    const params = new URLSearchParams();
+    if (cursor) params.set("cursor", cursor);
+    const response = await fetch(`/api/${kind === "alert" ? "alerts" : "notifications"}${params.size ? `?${params}` : ""}`, {
+      cache: "no-store"
+    });
+    const payload = (await response.json()) as {
+      alerts?: Omit<NoticeCenterItem, "kind">[];
+      error?: string;
+      items?: Omit<NoticeCenterItem, "kind">[];
+      nextCursor?: string | null;
+      notifications?: Omit<NoticeCenterItem, "kind">[];
+    };
+    if (!response.ok) throw new Error(payload.error ?? `Could not load ${kind}s.`);
+    const pageItems = payload.items ?? (kind === "alert" ? payload.alerts : payload.notifications) ?? [];
+    return {
+      items: pageItems.map((item) => ({ ...item, kind } satisfies NoticeCenterItem)),
+      nextCursor: payload.nextCursor ?? null
+    };
+  }, []);
+
+  async function loadMore() {
+    if (isLoadingMore) return;
+    const wantsAlerts = filter !== "notification" && Boolean(alertCursor);
+    const wantsNotifications = filter !== "alert" && Boolean(notificationCursor);
+    if (!wantsAlerts && !wantsNotifications) return;
+
+    setIsLoadingMore(true);
+    setError("");
+    try {
+      const [alerts, notifications] = await Promise.all([
+        wantsAlerts ? requestNoticePage("alert", alertCursor) : Promise.resolve(null),
+        wantsNotifications ? requestNoticePage("notification", notificationCursor) : Promise.resolve(null)
+      ]);
+      setItems((current) => mergeNotices(current, [...(alerts?.items ?? []), ...(notifications?.items ?? [])]));
+      if (alerts) setAlertCursor(alerts.nextCursor);
+      if (notifications) setNotificationCursor(notifications.nextCursor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load more notices.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void Promise.all([requestNoticePage("alert"), requestNoticePage("notification")])
+        .then(([alerts, notifications]) => {
+          setItems((current) => mergeNotices(current, [...alerts.items, ...notifications.items]));
+        })
+        .catch(() => undefined);
+    }, 15_000);
+    return () => window.clearInterval(interval);
+  }, [requestNoticePage]);
+
   function toggleSelected(item: NoticeCenterItem) {
     const key = noticeKey(item);
     setSelectedKeys((current) => (current.includes(key) ? current.filter((selectedKey) => selectedKey !== key) : [...current, key]));
@@ -120,43 +196,44 @@ export function NoticeCenterClient({
     removeItems(keys);
 
     startTransition(async () => {
-      const notifications = targets.filter((item) => item.kind === "notification").map((item) => item.id);
-      const alerts = targets.filter((item) => item.kind === "alert").map((item) => item.id);
-      const responses = await Promise.all([
+      const notifications = targets.filter((item) => item.kind === "notification");
+      const alerts = targets.filter((item) => item.kind === "alert");
+      const notificationResponse =
         notifications.length > 0
           ? fetch("/api/notifications/hide", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ids: notifications })
+              body: JSON.stringify({ ids: notifications.map((item) => item.id) })
             })
-          : Promise.resolve(new Response(null, { status: 200 })),
-        ...alerts.map((id) => dismissAlert(id))
+          : Promise.resolve(new Response(null, { status: 200 }));
+      const [notificationResult, alertResults] = await Promise.all([
+        notificationResponse,
+        Promise.all(alerts.map((item) => dismissAlert(item.id)))
       ]);
+      const failed = [
+        ...(!notificationResult.ok ? notifications : []),
+        ...alerts.filter((_item, index) => !alertResults[index]?.ok)
+      ];
 
-      if (responses.some((response) => !response.ok)) {
+      if (failed.length > 0) {
+        setItems((current) => mergeNotices(current, failed));
         setError("Could not hide every selected item.");
-        router.refresh();
-        return;
       }
-
-      router.refresh();
     });
   }
 
   function markRead(item: NoticeCenterItem) {
     setError("");
-    setItemRead(item);
+    if (item.kind === "alert") removeItems([noticeKey(item)]);
+    else setItemRead(item);
 
     startTransition(async () => {
       const response = item.kind === "alert" ? await dismissAlert(item.id) : await markNotificationRead(item.id);
 
       if (!response.ok) {
+        setItems((current) => mergeNotices(current, [item]));
         setError(`Could not update ${item.kind}.`);
-        router.refresh();
-        return;
       }
-
-      router.refresh();
     });
   }
 
@@ -164,22 +241,27 @@ export function NoticeCenterClient({
     const unreadVisibleItems = visibleItems.filter((item) => !item.readAt);
     if (unreadVisibleItems.length === 0) return;
     setError("");
+    const unreadKeys = new Set(unreadVisibleItems.map(noticeKey));
     setItems((current) =>
-      current.map((item) => (unreadVisibleItems.some((target) => noticeKey(target) === noticeKey(item)) ? { ...item, readAt: new Date().toISOString() } : item))
+      current.flatMap((item) => {
+        if (!unreadKeys.has(noticeKey(item))) return [item];
+        return item.kind === "alert" ? [] : [{ ...item, readAt: new Date().toISOString() }];
+      })
     );
 
     startTransition(async () => {
-      const responses = await Promise.all(
-        unreadVisibleItems.map((item) => (item.kind === "alert" ? dismissAlert(item.id) : markNotificationRead(item.id)))
+      const results = await Promise.all(
+        unreadVisibleItems.map(async (item) => ({
+          item,
+          response: item.kind === "alert" ? await dismissAlert(item.id) : await markNotificationRead(item.id)
+        }))
       );
+      const failed = results.filter((result) => !result.response.ok).map((result) => result.item);
 
-      if (responses.some((response) => !response.ok)) {
+      if (failed.length > 0) {
+        setItems((current) => mergeNotices(current, failed));
         setError("Could not mark every visible item read.");
-        router.refresh();
-        return;
       }
-
-      router.refresh();
     });
   }
 
@@ -188,6 +270,9 @@ export function NoticeCenterClient({
       router.push(item.href);
     }
   }
+
+  const canLoadMore =
+    filter === "alert" ? Boolean(alertCursor) : filter === "notification" ? Boolean(notificationCursor) : Boolean(alertCursor || notificationCursor);
 
   return (
     <section className="notice-center">
@@ -204,7 +289,7 @@ export function NoticeCenterClient({
           {(["all", "notification", "alert"] as NoticeFilter[]).map((option) => (
             <button
               aria-selected={filter === option}
-              className={filter === option ? "is-active" : ""}
+              className={filter === option ? "is-active min-h-11" : "min-h-11"}
               key={option}
               onClick={() => {
                 setFilter(option);
@@ -218,22 +303,22 @@ export function NoticeCenterClient({
           ))}
         </div>
         <div className="notice-center-actions">
-          <button className="btn-secondary" disabled={isPending || allVisibleSelected || visibleItems.length === 0} onClick={selectAllVisible} type="button">
+          <button className="btn-secondary min-h-11" disabled={isPending || allVisibleSelected || visibleItems.length === 0} onClick={selectAllVisible} type="button">
             Select
           </button>
-          <button className="btn-secondary" disabled={isPending || selectedKeys.length === 0} onClick={() => setSelectedKeys([])} type="button">
+          <button className="btn-secondary min-h-11" disabled={isPending || selectedKeys.length === 0} onClick={() => setSelectedKeys([])} type="button">
             Clear
           </button>
-          <button className="btn-secondary" disabled={isPending || selectedVisibleItems.length === 0} onClick={hideSelected} type="button">
+          <button className="btn-secondary min-h-11" disabled={isPending || selectedVisibleItems.length === 0} onClick={hideSelected} type="button">
             Hide
           </button>
-          <button className="btn-secondary" disabled={isPending || visibleItems.every((item) => item.readAt)} onClick={markAllVisibleRead} type="button">
+          <button className="btn-secondary min-h-11" disabled={isPending || visibleItems.every((item) => item.readAt)} onClick={markAllVisibleRead} type="button">
             Read
           </button>
         </div>
       </div>
 
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
 
       {visibleItems.length === 0 ? (
         <section className="surface rounded-md p-6 text-center">
@@ -331,6 +416,11 @@ export function NoticeCenterClient({
           ))}
         </div>
       )}
+      {canLoadMore ? (
+        <button className="btn-secondary min-h-11 w-full" disabled={isLoadingMore} onClick={() => void loadMore()} type="button">
+          {isLoadingMore ? "Loading more..." : `Load more ${filterLabel(filter).toLowerCase()}`}
+        </button>
+      ) : null}
     </section>
   );
 }

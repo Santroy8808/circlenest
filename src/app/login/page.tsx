@@ -18,7 +18,7 @@ export default async function LoginPage({
     <AuthCard
       eyebrow="Theta-Space Access"
       title="Log in"
-      subtitle="Use your member credentials. Email and handle login are both supported."
+      subtitle="Theta-Space is invite-only. Members can log in with an email address or handle."
     >
       <LoginForm callbackUrl={searchParams?.callbackUrl ?? "/home"} />
     </AuthCard>

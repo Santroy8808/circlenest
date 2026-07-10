@@ -26,6 +26,14 @@ type UploadNotice = {
   href?: string;
 };
 
+type DurableUploadIntentResponse = {
+  error?: string;
+  intentId?: string;
+  uploadUrl?: string;
+  uploadHeaders?: Record<string, string>;
+  storageKey?: string;
+};
+
 type BackgroundGalleryUploadContextValue = {
   items: BackgroundGalleryUploadItem[];
   isUploading: boolean;
@@ -213,6 +221,7 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
             try {
               updateItem(item.id, { status: "uploading", progress: 1, error: undefined });
               const uploadFile = await optimizeImageForUpload(item.file);
+              let thumbnailIntentId: string | undefined;
               let thumbnailStorageKey: string | undefined;
               const intentResponse = await fetch("/api/media/upload-intent", {
                 method: "POST",
@@ -225,15 +234,22 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
                   source: "GALLERY"
                 })
               });
-              const intent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(intentResponse);
+              const intent = await readJsonResponse<DurableUploadIntentResponse>(intentResponse);
 
-              if (!intentResponse.ok || !intent?.uploadUrl || !intent.storageKey) {
+              if (
+                !intentResponse.ok ||
+                !intent?.intentId ||
+                !intent.uploadUrl ||
+                !intent.uploadHeaders ||
+                !intent.storageKey
+              ) {
                 throw new Error(intent?.error ?? "Could not prepare upload.");
               }
 
               await uploadWithResilientFallback({
                 uploadUrl: intent.uploadUrl,
                 storageKey: intent.storageKey,
+                uploadHeaders: intent.uploadHeaders,
                 file: uploadFile,
                 onProgress: (progress) => updateItem(item.id, { progress })
               });
@@ -255,19 +271,28 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
                       source: "GALLERY"
                     })
                   });
-                  const thumbnailIntent = await readJsonResponse<{ error?: string; uploadUrl?: string; storageKey?: string }>(thumbnailIntentResponse);
+                  const thumbnailIntent = await readJsonResponse<DurableUploadIntentResponse>(thumbnailIntentResponse);
 
-                  if (thumbnailIntentResponse.ok && thumbnailIntent?.uploadUrl && thumbnailIntent.storageKey) {
+                  if (
+                    thumbnailIntentResponse.ok &&
+                    thumbnailIntent?.intentId &&
+                    thumbnailIntent.uploadUrl &&
+                    thumbnailIntent.uploadHeaders &&
+                    thumbnailIntent.storageKey
+                  ) {
                     await uploadWithResilientFallback({
                       uploadUrl: thumbnailIntent.uploadUrl,
                       storageKey: thumbnailIntent.storageKey,
+                      uploadHeaders: thumbnailIntent.uploadHeaders,
                       file: thumbnailFile,
                       onProgress: () => updateItem(item.id, { progress: 98 })
                     });
+                    thumbnailIntentId = thumbnailIntent.intentId;
                     thumbnailStorageKey = thumbnailIntent.storageKey;
                   }
                 }
               } catch {
+                thumbnailIntentId = undefined;
                 thumbnailStorageKey = undefined;
               }
 
@@ -275,7 +300,9 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                  intentId: intent.intentId,
                   storageKey: intent.storageKey,
+                  thumbnailIntentId,
                   thumbnailStorageKey,
                   fileName: uploadFile.name,
                   mimeType: uploadFile.type,

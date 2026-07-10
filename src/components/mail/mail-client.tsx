@@ -1,21 +1,47 @@
 "use client";
 
-import { MailDeliveryKind } from "@prisma/client";
+import { MailAttachmentKind, MailDeliveryKind } from "@prisma/client";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
-import type {
-  MailAttachmentView,
-  MailFolder,
-  MailMessageView,
-  MailPersonView,
-  MailPreferenceView,
-  MailThreadDetailView,
-  MailThreadSummaryView
+import {
+  MAX_MAIL_ATTACHMENT_BYTES,
+  MAX_MAIL_ATTACHMENTS,
+  MAX_MAIL_TOTAL_ATTACHMENT_BYTES,
+  type MailAttachmentView,
+  type MailFolder,
+  type MailMessageView,
+  type MailPersonView,
+  type MailPreferenceView,
+  type MailThreadDetailView,
+  type MailThreadSummaryView
 } from "@/modules/mail/types";
+
+const MAIL_MESSAGE_PAGE_SIZE = 30;
+
+function putPrivateUpload(
+  uploadUrl: string,
+  uploadHeaders: Record<string, string>,
+  file: File,
+  onProgress: (progress: number) => void
+) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", uploadUrl);
+    Object.entries(uploadHeaders).forEach(([name, value]) => request.setRequestHeader(name, value));
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onerror = () => reject(new Error("The attachment upload was interrupted. Try again."));
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new Error("The attachment could not be uploaded. Try again."));
+    };
+    request.send(file);
+  });
+}
 
 type QueuedMailAttachment = {
   id: string;
@@ -24,6 +50,16 @@ type QueuedMailAttachment = {
   progress: number;
   status: "queued" | "uploading" | "done" | "error";
   error?: string;
+};
+
+type UploadedMailAttachment = {
+  mediaAssetId: string;
+  kind: MailAttachmentKind;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+  publicUrl?: string | null;
 };
 
 function initials(name: string) {
@@ -80,23 +116,34 @@ function mailDeliveryReaderLabel(deliveryKind: MailDeliveryKind) {
 }
 
 export function MailClient({
+  currentUserId,
   initialFolder,
+  initialNextCursor,
   initialPreference,
   initialSelectedThread,
   initialThreads,
   isAdmin = false
 }: {
+  currentUserId: string;
   initialFolder: MailFolder;
+  initialNextCursor?: string | null;
   initialPreference: MailPreferenceView;
   initialSelectedThread?: MailThreadDetailView | null;
   initialThreads: MailThreadSummaryView[];
   isAdmin?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentsRef = useRef<QueuedMailAttachment[]>([]);
   const [folder, setFolder] = useState<MailFolder>(initialFolder);
   const [threads, setThreads] = useState(initialThreads);
+  const [nextFolderCursor, setNextFolderCursor] = useState(initialNextCursor ?? null);
   const [selectedThread, setSelectedThread] = useState<MailThreadDetailView | null>(initialSelectedThread ?? null);
+  const [isLoadingFolder, setIsLoadingFolder] = useState(false);
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [isSearchingContacts, setIsSearchingContacts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
+  const [replyThreadId, setReplyThreadId] = useState<string | null>(null);
   const [contactQuery, setContactQuery] = useState("");
   const [contacts, setContacts] = useState<MailPersonView[]>([]);
   const [recipients, setRecipients] = useState<MailPersonView[]>([]);
@@ -108,17 +155,57 @@ export function MailClient({
   const [notice, setNotice] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((attachment) => {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+      });
+    };
+  }, []);
+
   function openCompose() {
+    setReplyThreadId(null);
     setIsComposing(true);
     setSelectedThread(null);
   }
 
+  function startReply() {
+    if (!selectedThread) return;
+    const candidates = [selectedThread.sender, ...selectedThread.recipients.map((recipient) => recipient.user)];
+    const byId = new Map(
+      candidates.filter((person) => person.id !== currentUserId).map((person) => [person.id, person])
+    );
+    setRecipients(Array.from(byId.values()));
+    setSubject(selectedThread.subject);
+    setBodyText("");
+    setReplyThreadId(selectedThread.id);
+    setIsComposing(true);
+    setError("");
+  }
+
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
-      const response = await fetch(`/api/mail/contacts?q=${encodeURIComponent(contactQuery)}`, { cache: "no-store" });
-      if (response.ok) {
-        const payload = (await response.json()) as { people: MailPersonView[] };
+      if (contactQuery.trim().length < 2) {
+        setContacts([]);
+        setIsSearchingContacts(false);
+        return;
+      }
+
+      setIsSearchingContacts(true);
+      try {
+        const response = await fetch(`/api/mail/contacts?q=${encodeURIComponent(contactQuery)}`, { cache: "no-store" });
+        const payload = (await response.json()) as { error?: string; people?: MailPersonView[] };
+        if (!response.ok) throw new Error(payload.error ?? "Could not search contacts.");
         setContacts(payload.people ?? []);
+      } catch (caught) {
+        setContacts([]);
+        setError(caught instanceof Error ? caught.message : "Could not search contacts.");
+      } finally {
+        setIsSearchingContacts(false);
       }
     }, 200);
 
@@ -126,15 +213,55 @@ export function MailClient({
   }, [contactQuery]);
 
   async function refreshFolder(nextFolder = folder) {
-    const response = await fetch(`/api/mail/threads?folder=${nextFolder}`, { cache: "no-store" });
-    if (response.ok) {
-      const payload = (await response.json()) as { threads: MailThreadSummaryView[] };
+    setIsLoadingFolder(true);
+    try {
+      const response = await fetch(`/api/mail/threads?folder=${nextFolder}`, { cache: "no-store" });
+      const payload = (await response.json()) as {
+        error?: string;
+        threads?: MailThreadSummaryView[];
+        nextCursor?: string | null;
+      };
+      if (!response.ok) throw new Error(payload.error ?? "Could not load this mail folder.");
       setThreads(payload.threads ?? []);
+      setNextFolderCursor(payload.nextCursor ?? null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load this mail folder.");
+    } finally {
+      setIsLoadingFolder(false);
+    }
+  }
+
+  async function loadMoreThreads() {
+    if (!nextFolderCursor || isLoadingFolder) return;
+    setIsLoadingFolder(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ folder, cursor: nextFolderCursor });
+      const response = await fetch(`/api/mail/threads?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as {
+        error?: string;
+        threads?: MailThreadSummaryView[];
+        nextCursor?: string | null;
+      };
+      if (!response.ok) throw new Error(payload.error ?? "Could not load more mail.");
+      setThreads((current) => {
+        const byId = new Map(current.map((thread) => [thread.id, thread]));
+        (payload.threads ?? []).forEach((thread) => byId.set(thread.id, thread));
+        return Array.from(byId.values());
+      });
+      setNextFolderCursor(payload.nextCursor ?? null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load more mail.");
+    } finally {
+      setIsLoadingFolder(false);
     }
   }
 
   function chooseFolder(nextFolder: MailFolder) {
+    setError("");
     setFolder(nextFolder);
+    setThreads([]);
+    setNextFolderCursor(null);
     setSelectedThread(null);
     setIsComposing(false);
     startTransition(() => {
@@ -144,28 +271,99 @@ export function MailClient({
 
   async function loadThread(threadId: string) {
     setError("");
-    const response = await fetch(`/api/mail/threads/${threadId}`, { cache: "no-store" });
-    const payload = (await response.json()) as { error?: string; thread?: MailThreadDetailView };
+    setIsLoadingThread(true);
+    try {
+      const response = await fetch(`/api/mail/threads/${threadId}?limit=${MAIL_MESSAGE_PAGE_SIZE}`, { cache: "no-store" });
+      const payload = (await response.json()) as { error?: string; thread?: MailThreadDetailView };
 
-    if (!response.ok || !payload.thread) {
-      setError(payload.error ?? "Could not open mail.");
-      return;
+      if (!response.ok || !payload.thread) {
+        setError(payload.error ?? "Could not open mail.");
+        return;
+      }
+
+      setSelectedThread(payload.thread);
+      setIsComposing(false);
+      await fetch(`/api/mail/threads/${threadId}/read`, { method: "POST" });
+      await refreshFolder();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not open mail.");
+    } finally {
+      setIsLoadingThread(false);
     }
-
-    setSelectedThread(payload.thread);
-    setIsComposing(false);
-    await fetch(`/api/mail/threads/${threadId}/read`, { method: "POST" });
-    await refreshFolder();
   }
+
+  async function loadOlderMessages() {
+    if (!selectedThread?.nextCursor || isLoadingOlder) return;
+    setIsLoadingOlder(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ cursor: selectedThread.nextCursor, limit: String(MAIL_MESSAGE_PAGE_SIZE) });
+      const response = await fetch(`/api/mail/threads/${selectedThread.id}?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as { error?: string; thread?: MailThreadDetailView };
+      if (!response.ok || !payload.thread) throw new Error(payload.error ?? "Could not load earlier mail.");
+      setSelectedThread((current) => {
+        if (!current || current.id !== payload.thread!.id) return current;
+        const byId = new Map<string, MailMessageView>();
+        [...payload.thread!.messages, ...current.messages].forEach((message) => byId.set(message.id, message));
+        return { ...payload.thread!, messages: Array.from(byId.values()), nextCursor: payload.thread!.nextCursor ?? null };
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load earlier mail.");
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedThread?.id || isComposing) return;
+    const threadId = selectedThread.id;
+    const interval = window.setInterval(() => {
+      void (async () => {
+        const response = await fetch(`/api/mail/threads/${threadId}?limit=${MAIL_MESSAGE_PAGE_SIZE}`, { cache: "no-store" });
+        const payload = (await response.json()) as { thread?: MailThreadDetailView };
+        if (!response.ok || !payload.thread) return;
+        setSelectedThread((current) => {
+          if (!current || current.id !== payload.thread!.id) return current;
+          const byId = new Map(current.messages.map((message) => [message.id, message]));
+          payload.thread!.messages.forEach((message) => byId.set(message.id, message));
+          const messages = Array.from(byId.values()).sort(
+            (left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt) || left.id.localeCompare(right.id)
+          );
+          return { ...payload.thread!, messages, nextCursor: current.nextCursor ?? payload.thread!.nextCursor ?? null };
+        });
+        await fetch(`/api/mail/threads/${threadId}/read`, { method: "POST" });
+      })();
+    }, 10_000);
+    return () => window.clearInterval(interval);
+  }, [isComposing, selectedThread?.id]);
 
   function addRecipient(person: MailPersonView) {
     setRecipients((current) => (current.some((recipient) => recipient.id === person.id) ? current : [...current, person]));
     setContactQuery("");
-    openCompose();
+    if (!isComposing) openCompose();
   }
 
   function addFiles(files: FileList | File[]) {
-    const next = Array.from(files).map((file) => ({
+    const candidates = Array.from(files);
+    if (attachments.length + candidates.length > MAX_MAIL_ATTACHMENTS) {
+      setError(`Attach at most ${MAX_MAIL_ATTACHMENTS} files to one mail.`);
+      return;
+    }
+    if (candidates.some((file) => file.size > MAX_MAIL_ATTACHMENT_BYTES)) {
+      setError("Each attachment must be 20 MB or smaller.");
+      return;
+    }
+    const totalBytes = [...attachments.map((attachment) => attachment.file), ...candidates].reduce(
+      (total, file) => total + file.size,
+      0
+    );
+    if (totalBytes > MAX_MAIL_TOTAL_ATTACHMENT_BYTES) {
+      setError("Attachments for one mail may total no more than 40 MB.");
+      return;
+    }
+
+    setError("");
+    const next = candidates.map((file) => ({
       id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
       file,
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
@@ -174,6 +372,23 @@ export function MailClient({
     }));
 
     setAttachments((current) => [...current, ...next]);
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => {
+      const removed = current.find((attachment) => attachment.id === id);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return current.filter((attachment) => attachment.id !== id);
+    });
+  }
+
+  function clearAttachments() {
+    setAttachments((current) => {
+      current.forEach((attachment) => {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+      });
+      return [];
+    });
   }
 
   function updateAttachment(id: string, patch: Partial<QueuedMailAttachment>) {
@@ -191,37 +406,41 @@ export function MailClient({
         sizeBytes: item.file.size
       })
     });
-    const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+    const intent = (await intentResponse.json()) as {
+      error?: string;
+      intentId?: string;
+      uploadHeaders?: Record<string, string>;
+      uploadUrl?: string;
+      storageKey?: string;
+    };
 
-    if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+    if (!intentResponse.ok || !intent.intentId || !intent.uploadHeaders || !intent.uploadUrl || !intent.storageKey) {
       throw new Error(intent.error ?? "Could not prepare attachment.");
     }
 
-    await uploadWithResilientFallback({
-      uploadUrl: intent.uploadUrl,
-      storageKey: intent.storageKey,
-      file: item.file,
-      onProgress: (progress) => updateAttachment(item.id, { progress })
-    });
+    await putPrivateUpload(intent.uploadUrl, intent.uploadHeaders, item.file, (progress) =>
+      updateAttachment(item.id, { progress })
+    );
 
     const completeResponse = await fetch("/api/mail/complete-upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        intentId: intent.intentId,
         storageKey: intent.storageKey,
         fileName: item.file.name,
         mimeType: item.file.type || "application/octet-stream",
         sizeBytes: item.file.size
       })
     });
-    const complete = (await completeResponse.json()) as { error?: string; attachment?: Omit<MailAttachmentView, "id"> };
+    const complete = (await completeResponse.json()) as { error?: string; attachment?: UploadedMailAttachment };
 
-    if (!completeResponse.ok || !complete.attachment) {
+    if (!completeResponse.ok || !complete.attachment?.mediaAssetId) {
       throw new Error(complete.error ?? "Could not save attachment.");
     }
 
     updateAttachment(item.id, { status: "done", progress: 100 });
-    return complete.attachment;
+    return { ...complete.attachment, mediaAssetId: complete.attachment.mediaAssetId };
   }
 
   function applyFormat(format: "bold" | "italic" | "list" | "link") {
@@ -249,6 +468,7 @@ export function MailClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             recipientUserIds: recipients.map((recipient) => recipient.id),
+            threadId: replyThreadId ?? "",
             subject,
             bodyText,
             deliveryKind: recipients.length > 1 ? MailDeliveryKind.MASS_INTERNAL : MailDeliveryKind.DIRECT,
@@ -264,10 +484,11 @@ export function MailClient({
         setNotice("Mail sent.");
         setSelectedThread(payload.thread);
         setIsComposing(false);
+        setReplyThreadId(null);
         setRecipients([]);
         setSubject("");
         setBodyText("");
-        setAttachments([]);
+        clearAttachments();
         await refreshFolder(folder);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Could not send mail.");
@@ -284,6 +505,32 @@ export function MailClient({
         body: JSON.stringify({ allowMassMail: nextAllowMassMail })
       });
     });
+  }
+
+  async function updateSelectedThread(action: "archive" | "unarchive" | "delete") {
+    if (!selectedThread) return;
+    if (action === "delete" && !window.confirm("Delete this mail from your mailbox?")) return;
+
+    setError("");
+    setNotice("");
+    const response = await fetch(`/api/mail/threads/${selectedThread.id}`, {
+      method: action === "delete" ? "DELETE" : "PATCH",
+      ...(action === "delete"
+        ? {}
+        : {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ archived: action === "archive" })
+          })
+    });
+    const payload = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(payload.error ?? "Could not update this mail.");
+      return;
+    }
+
+    setNotice(action === "delete" ? "Mail deleted." : action === "archive" ? "Mail archived." : "Mail moved to inbox.");
+    setSelectedThread(null);
+    await refreshFolder();
   }
 
   return (
@@ -319,6 +566,16 @@ export function MailClient({
             value={contactQuery}
           />
           <div className="mt-3 grid gap-2">
+            {isSearchingContacts ? (
+              <p className="rounded-md border border-[var(--line)] p-3 text-sm text-[var(--muted)]" role="status">
+                Searching contacts...
+              </p>
+            ) : null}
+            {!isSearchingContacts && contactQuery.trim().length >= 2 && contacts.length === 0 ? (
+              <p className="rounded-md border border-dashed border-[var(--line)] p-3 text-sm text-[var(--muted)]">
+                No contacts match.
+              </p>
+            ) : null}
             {contacts.map((person) => (
               <div
                 className="mail-contact-card"
@@ -340,7 +597,7 @@ export function MailClient({
                   <MailProfileLink person={person}>
                     <span className="block truncate font-semibold">{person.displayName}</span>
                   </MailProfileLink>
-                  <span className="block truncate text-xs text-[var(--muted)]">{person.email}</span>
+                  <span className="block truncate text-xs text-[var(--muted)]">{person.email || `@${person.username}`}</span>
                 </span>
               </div>
             ))}
@@ -363,7 +620,17 @@ export function MailClient({
           <h2 className="mt-2 text-2xl font-semibold">{folder === "inbox" ? "Inbox" : folder === "sent" ? "Sent" : "Archive"}</h2>
         </header>
         <div className="grid gap-2 p-3">
-          {threads.length === 0 ? (
+          {error && !isComposing ? (
+            <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {isLoadingFolder && threads.length === 0 ? (
+            <p className="rounded-md border border-[var(--line)] p-4 text-sm text-[var(--muted)]" role="status">
+              Loading mail...
+            </p>
+          ) : null}
+          {!isLoadingFolder && threads.length === 0 ? (
             <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No mail in this folder.</p>
           ) : null}
           {threads.map((thread) => (
@@ -391,6 +658,16 @@ export function MailClient({
               </div>
             </div>
           ))}
+          {nextFolderCursor ? (
+            <button
+              className="btn-secondary min-h-11 w-full"
+              disabled={isLoadingFolder}
+              onClick={() => void loadMoreThreads()}
+              type="button"
+            >
+              {isLoadingFolder ? "Loading more mail..." : "Load more mail"}
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -407,7 +684,7 @@ export function MailClient({
           >
             <header>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Compose mail</p>
-              <h2 className="mt-2 text-2xl font-semibold">New internal mail</h2>
+              <h2 className="mt-2 text-2xl font-semibold">{replyThreadId ? "Reply to mail" : "New internal mail"}</h2>
             </header>
             <section className="grid gap-3">
               <div className="mail-recipient-box">
@@ -431,7 +708,11 @@ export function MailClient({
                     placeholder="To: search name, username, email..."
                     value={contactQuery}
                   />
-                  {contacts.length > 0 ? (
+                  {isSearchingContacts ? (
+                    <div className="mail-recipient-search-results p-3 text-sm text-[var(--muted)]" role="status">
+                      Searching contacts...
+                    </div>
+                  ) : contacts.length > 0 ? (
                     <div className="mail-recipient-search-results">
                       {contacts.map((person) => (
                         <div
@@ -454,7 +735,7 @@ export function MailClient({
                             <MailProfileLink person={person}>
                               <span className="block truncate font-semibold">{person.displayName}</span>
                             </MailProfileLink>
-                            <span className="block truncate text-xs text-[var(--muted)]">{person.email}</span>
+                            <span className="block truncate text-xs text-[var(--muted)]">{person.email || `@${person.username}`}</span>
                           </span>
                         </div>
                       ))}
@@ -509,7 +790,7 @@ export function MailClient({
                       <span className="text-xs text-[var(--muted)]">{item.progress}%</span>
                       <button
                         className="btn-secondary px-3 py-1 text-xs"
-                        onClick={() => setAttachments((current) => current.filter((candidate) => candidate.id !== item.id))}
+                        onClick={() => removeAttachment(item.id)}
                         type="button"
                       >
                         Remove
@@ -521,7 +802,14 @@ export function MailClient({
             </section>
             {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
             <div className="mail-compose-actions">
-              <button className="btn-secondary" onClick={() => setIsComposing(false)} type="button">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setIsComposing(false);
+                  setReplyThreadId(null);
+                }}
+                type="button"
+              >
                 Cancel
               </button>
               <button className="btn-primary send-logo-button is-compact" disabled={isPending || recipients.length === 0 || !subject.trim() || !bodyText.trim()} type="submit">
@@ -549,8 +837,42 @@ export function MailClient({
                   </span>
                 ))}
               </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className="btn-primary min-h-11 px-4" onClick={startReply} type="button">
+                  Reply
+                </button>
+                <button
+                  className="btn-secondary min-h-11 px-4"
+                  onClick={() => void updateSelectedThread(folder === "archive" ? "unarchive" : "archive")}
+                  type="button"
+                >
+                  {folder === "archive" ? "Move to inbox" : "Archive"}
+                </button>
+                <button
+                  className="btn-secondary min-h-11 px-4"
+                  onClick={() => void updateSelectedThread("delete")}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
             </header>
             <div className="grid gap-4 p-5">
+              {selectedThread.nextCursor ? (
+                <button
+                  className="btn-secondary min-h-11 justify-self-center px-4"
+                  disabled={isLoadingOlder}
+                  onClick={() => void loadOlderMessages()}
+                  type="button"
+                >
+                  {isLoadingOlder ? "Loading earlier mail..." : "Load earlier mail"}
+                </button>
+              ) : null}
+              {isLoadingThread ? (
+                <p className="text-center text-sm text-[var(--muted)]" role="status">
+                  Opening mail...
+                </p>
+              ) : null}
               {selectedThread.messages.map((message: MailMessageView) => (
                 <section className="mail-message-card" key={message.id}>
                   <div className="flex items-start justify-between gap-4">
@@ -562,7 +884,7 @@ export function MailClient({
                         <MailProfileLink person={message.sender}>
                           <p className="font-semibold text-[var(--gold)]">{message.sender.displayName}</p>
                         </MailProfileLink>
-                        <p className="truncate text-sm text-[var(--muted)]">{message.sender.email}</p>
+                        <p className="truncate text-sm text-[var(--muted)]">{message.sender.email || `@${message.sender.username}`}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">

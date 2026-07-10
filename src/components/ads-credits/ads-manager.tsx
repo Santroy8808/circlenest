@@ -33,7 +33,7 @@ export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsMan
       <section className="surface rounded-md p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Buy platform credits</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          Credits are granted only after Stripe confirms payment through the webhook.
+          After Stripe confirms your payment, the credits are added to your account automatically.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {adsManager.creditPackages.length > 0 ? (
@@ -49,7 +49,7 @@ export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsMan
                 {creditPackage.description ? <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{creditPackage.description}</p> : null}
                 {!creditPackage.checkoutReady ? (
                   <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">
-                    Stripe checkout is not configured for this package yet.
+                    Credit checkout is temporarily unavailable for this package.
                   </p>
                 ) : null}
                 <div className="mt-4">
@@ -58,7 +58,7 @@ export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsMan
               </article>
             ))
           ) : (
-            <p className="rounded-md border border-dashed border-[var(--line)] p-5 text-[var(--muted)]">No credit packages are configured.</p>
+            <p className="rounded-md border border-dashed border-[var(--line)] p-5 text-[var(--muted)]">Credit packages are temporarily unavailable.</p>
           )}
         </div>
       </section>

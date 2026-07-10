@@ -6,6 +6,7 @@ import { SocialRelationshipType } from "@prisma/client";
 import { ListingViewSwitcher } from "@/components/listings/listing-view-switcher";
 import type { ListingPreferenceSurface, ListingViewMode } from "@/modules/listing-preferences/types";
 import { FamilyTagButton } from "@/components/social/family-tag-button";
+import { FriendRequestButton } from "@/components/social/friend-request-button";
 import type { PeopleCardView } from "@/modules/social-graph/types";
 
 function initials(name: string) {
@@ -25,9 +26,11 @@ function relationshipLabel(relationship: SocialRelationshipType) {
 function AcquaintanceButton({ person }: { person: PeopleCardView }) {
   const [relationships, setRelationships] = useState(person.relationships);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
   const isAcquaintance = relationships.includes(SocialRelationshipType.ACQUAINTANCE);
 
   async function markAcquaintance() {
+    setError("");
     setIsSaving(true);
     try {
       const response = await fetch("/api/social-graph/relationships", {
@@ -39,20 +42,31 @@ function AcquaintanceButton({ person }: { person: PeopleCardView }) {
         })
       });
 
-      if (response.ok) {
-        setRelationships((current) =>
-          current.includes(SocialRelationshipType.ACQUAINTANCE) ? current : [...current, SocialRelationshipType.ACQUAINTANCE]
-        );
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error ?? "Could not save this relationship.");
+        return;
       }
+      setRelationships((current) =>
+        current.includes(SocialRelationshipType.ACQUAINTANCE) ? current : [...current, SocialRelationshipType.ACQUAINTANCE]
+      );
     } finally {
       setIsSaving(false);
     }
   }
 
   return (
-    <button className="btn-secondary family-action-button" disabled={isSaving || isAcquaintance} onClick={markAcquaintance} type="button">
-      {isAcquaintance ? "Acquaintance" : isSaving ? "Saving..." : "Acquaintance"}
-    </button>
+    <div className="grid gap-1">
+      <button
+        className="btn-secondary family-action-button min-h-11"
+        disabled={isSaving || isAcquaintance}
+        onClick={markAcquaintance}
+        type="button"
+      >
+        {isAcquaintance ? "Acquaintance" : isSaving ? "Saving..." : "Mark acquaintance"}
+      </button>
+      {error ? <p className="max-w-40 text-xs text-red-300" role="alert">{error}</p> : null}
+    </div>
   );
 }
 
@@ -70,8 +84,15 @@ export function PeopleGrid({
   if (people.length === 0) {
     return (
       <section className="surface rounded-md p-6 text-center">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">No people yet</h2>
-        <p className="mt-2 text-[var(--muted)]">No matching people were found.</p>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">{surface === "friends" ? "No friends yet" : "No people yet"}</h2>
+        <p className="mt-2 text-[var(--muted)]">
+          {surface === "friends" ? "Browse members and send a friend request to get started." : "No matching people were found."}
+        </p>
+        {surface === "friends" ? (
+          <Link className="btn-primary mt-4 inline-flex min-h-11 items-center" href="/people">
+            Browse people
+          </Link>
+        ) : null}
       </section>
     );
   }
@@ -111,6 +132,11 @@ export function PeopleGrid({
               </div>
             </Link>
             <div className="people-family-action">
+              <FriendRequestButton
+                isFriend={person.relationships.includes(SocialRelationshipType.FRIEND)}
+                pending={person.pendingFriendRequest}
+                targetUserId={person.id}
+              />
               <FamilyTagButton
                 disabled={person.pendingFamilyRequest}
                 existingLabel={person.relationships.includes(SocialRelationshipType.FAMILY) ? person.familyLabel ?? "Family" : null}

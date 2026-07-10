@@ -5,15 +5,17 @@ import Link from "next/link";
 import { flushSync } from "react-dom";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
-import type {
-  ChatAttachmentView,
-  ChatMessageView,
-  ChatPersonView,
-  ChatThreadDetailView,
-  ChatThreadView
+import {
+  MAX_CHAT_ATTACHMENT_BYTES,
+  MAX_CHAT_ATTACHMENTS_PER_MESSAGE,
+  MAX_CHAT_TOTAL_ATTACHMENT_BYTES,
+  type ChatAttachmentView,
+  type ChatMessageView,
+  type ChatPersonView,
+  type ChatThreadDetailView,
+  type ChatThreadView
 } from "@/modules/chat-messages/types";
 
 type QueuedAttachment = {
@@ -25,7 +27,7 @@ type QueuedAttachment = {
   error?: string;
 };
 
-const CHAT_THUMBNAIL_MAX_EDGE = 420;
+const CHAT_MESSAGE_PAGE_SIZE = 60;
 const contactFilters = [
   { key: "ALL", label: "All" },
   { key: "FRIENDS", label: "Friends" },
@@ -49,42 +51,26 @@ function isBrowserPreviewImage(mimeType: string) {
   return /^image\/(jpeg|png|webp|gif)$/.test(mimeType);
 }
 
-function loadImageElement(url: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Could not preview image attachment."));
-    image.src = url;
+function putPrivateUpload(
+  uploadUrl: string,
+  uploadHeaders: Record<string, string>,
+  file: File,
+  onProgress: (progress: number) => void
+) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", uploadUrl);
+    Object.entries(uploadHeaders).forEach(([name, value]) => request.setRequestHeader(name, value));
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onerror = () => reject(new Error("The attachment upload was interrupted. Try again."));
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new Error("The attachment could not be uploaded. Try again."));
+    };
+    request.send(file);
   });
-}
-
-async function createChatThumbnail(file: File) {
-  if (!isBrowserPreviewImage(file.type)) return null;
-
-  const objectUrl = URL.createObjectURL(file);
-
-  try {
-    const image = await loadImageElement(objectUrl);
-    const scale = Math.min(1, CHAT_THUMBNAIL_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-
-    if (!context) return null;
-
-    context.drawImage(image, 0, 0, width, height);
-
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
-    if (!blob) return null;
-
-    const fileName = file.name.replace(/\.[^.]+$/, "") || "image";
-    return new File([blob], `${fileName}-thumb.jpg`, { type: "image/jpeg", lastModified: file.lastModified });
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
 }
 
 function messagePreview(message?: ChatMessageView | null) {
@@ -260,8 +246,15 @@ export function MessagesClient({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<QueuedAttachment[]>([]);
+  const prependScrollRef = useRef<{ height: number; top: number } | null>(null);
   const [threads, setThreads] = useState(initialThreads);
   const [selectedThread, setSelectedThread] = useState<ChatThreadDetailView | null>(initialSelectedThread ?? null);
+  const [hasOlderMessages, setHasOlderMessages] = useState(
+    (initialSelectedThread?.messages.length ?? 0) >= CHAT_MESSAGE_PAGE_SIZE
+  );
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [isSearchingContacts, setIsSearchingContacts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [threadFilter, setThreadFilter] = useState<"ALL" | ChatThreadType>("ALL");
   const [contactFilter, setContactFilter] = useState<ChatContactFilter>("ALL");
@@ -310,14 +303,22 @@ export function MessagesClient({
     const timeout = window.setTimeout(async () => {
       if (!searchQuery.trim()) {
         setContacts([]);
+        setIsSearchingContacts(false);
         return;
       }
 
-      const params = new URLSearchParams({ q: searchQuery, filter: contactFilter });
-      const response = await fetch(`/api/chat/contacts?${params.toString()}`, { cache: "no-store" });
-      if (response.ok) {
-        const payload = (await response.json()) as { people: ChatPersonView[] };
+      setIsSearchingContacts(true);
+      try {
+        const params = new URLSearchParams({ q: searchQuery, filter: contactFilter });
+        const response = await fetch(`/api/chat/contacts?${params.toString()}`, { cache: "no-store" });
+        const payload = (await response.json()) as { error?: string; people?: ChatPersonView[] };
+        if (!response.ok) throw new Error(payload.error ?? "Could not search members.");
         setContacts(uniquePeopleById(payload.people ?? []));
+      } catch (caught) {
+        setContacts([]);
+        setError(caught instanceof Error ? caught.message : "Could not search members.");
+      } finally {
+        setIsSearchingContacts(false);
       }
     }, 200);
 
@@ -334,17 +335,70 @@ export function MessagesClient({
 
   async function loadThread(threadId: string, options?: { silent?: boolean }) {
     if (!options?.silent) setError("");
-    const response = await fetch(`/api/chat/threads/${threadId}`, { cache: "no-store" });
-    const payload = (await response.json()) as { error?: string; thread?: ChatThreadDetailView };
+    if (!options?.silent) setIsLoadingThread(true);
+    try {
+      const response = await fetch(`/api/chat/threads/${threadId}?limit=${CHAT_MESSAGE_PAGE_SIZE}`, { cache: "no-store" });
+      const payload = (await response.json()) as { error?: string; thread?: ChatThreadDetailView };
 
-    if (!response.ok || !payload.thread) {
-      if (!options?.silent) setError(payload.error ?? "Could not open chat.");
+      if (!response.ok || !payload.thread) {
+        if (!options?.silent) setError(payload.error ?? "Could not open chat.");
+        return;
+      }
+
+      setSelectedThread((current) => mergePendingMessages(payload.thread!, current));
+      setHasOlderMessages(payload.thread.messages.length >= CHAT_MESSAGE_PAGE_SIZE);
+      await fetch(`/api/chat/threads/${threadId}/read`, { method: "POST" });
+      await refreshThreads();
+    } catch (caught) {
+      if (!options?.silent) setError(caught instanceof Error ? caught.message : "Could not open chat.");
+    } finally {
+      if (!options?.silent) setIsLoadingThread(false);
+    }
+  }
+
+  async function loadOlderMessages() {
+    if (!selectedThread || isLoadingOlder) return;
+    const { oldestMessageId, oldestCreatedAt } = selectedThread.messagePage;
+    if (!oldestMessageId || !oldestCreatedAt) {
+      setHasOlderMessages(false);
       return;
     }
 
-    setSelectedThread((current) => mergePendingMessages(payload.thread!, current));
-    await fetch(`/api/chat/threads/${threadId}/read`, { method: "POST" });
-    await refreshThreads();
+    const list = messageListRef.current;
+    if (list) prependScrollRef.current = { height: list.scrollHeight, top: list.scrollTop };
+    setIsLoadingOlder(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        beforeMessageId: oldestMessageId,
+        beforeCreatedAt: oldestCreatedAt,
+        limit: String(CHAT_MESSAGE_PAGE_SIZE)
+      });
+      const response = await fetch(`/api/chat/threads/${selectedThread.id}?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as { error?: string; thread?: ChatThreadDetailView };
+      if (!response.ok || !payload.thread) throw new Error(payload.error ?? "Could not load earlier messages.");
+
+      setSelectedThread((current) =>
+        current && current.id === payload.thread!.id
+          ? {
+              ...payload.thread!,
+              messages: dedupeMessages([...payload.thread!.messages, ...current.messages]),
+              messagePage: {
+                oldestMessageId: payload.thread!.messagePage.oldestMessageId ?? current.messagePage.oldestMessageId,
+                oldestCreatedAt: payload.thread!.messagePage.oldestCreatedAt ?? current.messagePage.oldestCreatedAt,
+                newestMessageId: current.messagePage.newestMessageId,
+                newestCreatedAt: current.messagePage.newestCreatedAt
+              }
+            }
+          : current
+      );
+      setHasOlderMessages(payload.thread.messages.length >= CHAT_MESSAGE_PAGE_SIZE);
+    } catch (caught) {
+      prependScrollRef.current = null;
+      setError(caught instanceof Error ? caught.message : "Could not load earlier messages.");
+    } finally {
+      setIsLoadingOlder(false);
+    }
   }
 
   useEffect(() => {
@@ -360,21 +414,45 @@ export function MessagesClient({
 
     const interval = window.setInterval(() => {
       void (async () => {
-        const response = await fetch(`/api/chat/threads/${selectedThread.id}`, { cache: "no-store" });
+        const params = new URLSearchParams({ limit: String(CHAT_MESSAGE_PAGE_SIZE) });
+        if (selectedThread.messagePage.newestMessageId && selectedThread.messagePage.newestCreatedAt) {
+          params.set("afterMessageId", selectedThread.messagePage.newestMessageId);
+          params.set("afterCreatedAt", selectedThread.messagePage.newestCreatedAt);
+        }
+        const response = await fetch(`/api/chat/threads/${selectedThread.id}?${params.toString()}`, { cache: "no-store" });
         const payload = (await response.json()) as { thread?: ChatThreadDetailView };
         if (response.ok && payload.thread) {
-          setSelectedThread((current) => mergePendingMessages(payload.thread!, current));
+          setSelectedThread((current) => {
+            if (!current || current.id !== payload.thread!.id) return current;
+            const incoming = mergePendingMessages(payload.thread!, current);
+            return {
+              ...incoming,
+              messages: dedupeMessages([...current.messages, ...incoming.messages]),
+              messagePage: {
+                oldestMessageId: current.messagePage.oldestMessageId ?? incoming.messagePage.oldestMessageId,
+                oldestCreatedAt: current.messagePage.oldestCreatedAt ?? incoming.messagePage.oldestCreatedAt,
+                newestMessageId: incoming.messagePage.newestMessageId ?? current.messagePage.newestMessageId,
+                newestCreatedAt: incoming.messagePage.newestCreatedAt ?? current.messagePage.newestCreatedAt
+              }
+            };
+          });
           await fetch(`/api/chat/threads/${selectedThread.id}/read`, { method: "POST" });
         }
       })();
     }, 3500);
 
     return () => window.clearInterval(interval);
-  }, [selectedThread?.id]);
+  }, [selectedThread?.id, selectedThread?.messagePage.newestCreatedAt, selectedThread?.messagePage.newestMessageId]);
 
   useEffect(() => {
     const list = messageListRef.current;
     if (!list) return;
+    const prepend = prependScrollRef.current;
+    if (prepend) {
+      list.scrollTop = prepend.top + (list.scrollHeight - prepend.height);
+      prependScrollRef.current = null;
+      return;
+    }
     list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }, [selectedThread?.id, selectedThread?.messages.length]);
 
@@ -394,6 +472,7 @@ export function MessagesClient({
       }
 
       setSelectedThread(payload.thread);
+      setHasOlderMessages(payload.thread.messages.length >= CHAT_MESSAGE_PAGE_SIZE);
       setSearchQuery("");
       await refreshThreads();
     });
@@ -433,6 +512,7 @@ export function MessagesClient({
       }
 
       setSelectedThread(payload.thread);
+      setHasOlderMessages(payload.thread.messages.length >= CHAT_MESSAGE_PAGE_SIZE);
       setChatStartMode("DIRECT");
       setGroupTitle("");
       setGroupParticipants([]);
@@ -442,7 +522,26 @@ export function MessagesClient({
   }
 
   function addFiles(files: FileList | File[]) {
-    const next = Array.from(files).map((file) => ({
+    const candidates = Array.from(files);
+    if (attachments.length + candidates.length > MAX_CHAT_ATTACHMENTS_PER_MESSAGE) {
+      setError(`Attach at most ${MAX_CHAT_ATTACHMENTS_PER_MESSAGE} files to one message.`);
+      return;
+    }
+    if (candidates.some((file) => file.size > MAX_CHAT_ATTACHMENT_BYTES)) {
+      setError("Each attachment must be 20 MB or smaller.");
+      return;
+    }
+    const totalBytes = [...attachments.map((attachment) => attachment.file), ...candidates].reduce(
+      (total, file) => total + file.size,
+      0
+    );
+    if (totalBytes > MAX_CHAT_TOTAL_ATTACHMENT_BYTES) {
+      setError("Attachments for one message may total no more than 40 MB.");
+      return;
+    }
+
+    setError("");
+    const next = candidates.map((file) => ({
       id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
       file,
       previewUrl: isBrowserPreviewImage(file.type) ? URL.createObjectURL(file) : undefined,
@@ -476,7 +575,6 @@ export function MessagesClient({
 
   async function uploadAttachment(item: QueuedAttachment) {
     updateAttachment(item.id, { status: "uploading", progress: 1, error: undefined });
-    let thumbnailStorageKey: string | undefined;
     const intentResponse = await fetch("/api/chat/upload-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -486,55 +584,28 @@ export function MessagesClient({
         sizeBytes: item.file.size
       })
     });
-    const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+    const intent = (await intentResponse.json()) as {
+      error?: string;
+      intentId?: string;
+      uploadHeaders?: Record<string, string>;
+      uploadUrl?: string;
+      storageKey?: string;
+    };
 
-    if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+    if (!intentResponse.ok || !intent.intentId || !intent.uploadHeaders || !intent.uploadUrl || !intent.storageKey) {
       throw new Error(intent.error ?? "Could not prepare attachment.");
     }
 
-    await uploadWithResilientFallback({
-      uploadUrl: intent.uploadUrl,
-      storageKey: intent.storageKey,
-      file: item.file,
-      onProgress: (progress) => updateAttachment(item.id, { progress })
-    });
-
-    try {
-      const thumbnailFile = await createChatThumbnail(item.file);
-
-      if (thumbnailFile) {
-        updateAttachment(item.id, { progress: 94 });
-        const thumbnailIntentResponse = await fetch("/api/chat/upload-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: thumbnailFile.name,
-            mimeType: thumbnailFile.type,
-            sizeBytes: thumbnailFile.size
-          })
-        });
-        const thumbnailIntent = (await thumbnailIntentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
-
-        if (thumbnailIntentResponse.ok && thumbnailIntent.uploadUrl && thumbnailIntent.storageKey) {
-          await uploadWithResilientFallback({
-            uploadUrl: thumbnailIntent.uploadUrl,
-            storageKey: thumbnailIntent.storageKey,
-            file: thumbnailFile,
-            onProgress: () => updateAttachment(item.id, { progress: 98 })
-          });
-          thumbnailStorageKey = thumbnailIntent.storageKey;
-        }
-      }
-    } catch {
-      thumbnailStorageKey = undefined;
-    }
+    await putPrivateUpload(intent.uploadUrl, intent.uploadHeaders, item.file, (progress) =>
+      updateAttachment(item.id, { progress })
+    );
 
     const completeResponse = await fetch("/api/chat/complete-upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        intentId: intent.intentId,
         storageKey: intent.storageKey,
-        thumbnailStorageKey,
         fileName: item.file.name,
         mimeType: item.file.type || "application/octet-stream",
         sizeBytes: item.file.size
@@ -542,13 +613,14 @@ export function MessagesClient({
     });
     const complete = (await completeResponse.json()) as { error?: string; attachment?: Omit<ChatAttachmentView, "id"> };
 
-    if (!completeResponse.ok || !complete.attachment) {
+    if (!completeResponse.ok || !complete.attachment?.mediaAssetId) {
       throw new Error(complete.error ?? "Could not save attachment.");
     }
 
     updateAttachment(item.id, { status: "done", progress: 100 });
     return {
       ...complete.attachment,
+      mediaAssetId: complete.attachment.mediaAssetId,
       publicUrl: complete.attachment.publicUrl ?? undefined
     };
   }
@@ -603,7 +675,15 @@ export function MessagesClient({
         const uploaded = [];
 
         for (const item of attachments) {
-          uploaded.push(await uploadAttachment(item));
+          try {
+            uploaded.push(await uploadAttachment(item));
+          } catch (caught) {
+            updateAttachment(item.id, {
+              status: "error",
+              error: caught instanceof Error ? caught.message : "Upload failed."
+            });
+            throw caught;
+          }
         }
 
         const response = await fetch("/api/chat/messages", {
@@ -612,7 +692,7 @@ export function MessagesClient({
           body: JSON.stringify({
             threadId: selectedThread.id,
             body: bodyToSend,
-            attachments: uploaded
+            attachments: uploaded.map((attachment) => ({ mediaAssetId: attachment.mediaAssetId }))
           })
         });
         const payload = (await response.json()) as { error?: string; message?: ChatMessageView };
@@ -798,6 +878,11 @@ export function MessagesClient({
         </section>
 
         <section className="chat-thread-list">
+          {error && !selectedThread ? (
+            <p className="mb-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">
+              {error}
+            </p>
+          ) : null}
           {!isSearching ? (
             <>
               {filteredThreads.length === 0 ? (
@@ -821,7 +906,11 @@ export function MessagesClient({
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
                   {chatStartMode === "GROUP" ? "Members to add" : "People"}
                 </p>
-                {visibleContacts.length > 0 ? (
+                {isSearchingContacts ? (
+                  <p className="rounded-md border border-[var(--line)] p-4 text-sm text-[var(--muted)]" role="status">
+                    Searching members...
+                  </p>
+                ) : visibleContacts.length > 0 ? (
                   visibleContacts.map(renderContactCard)
                 ) : (
                   <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm text-[var(--muted)]">No people match.</p>
@@ -919,6 +1008,23 @@ export function MessagesClient({
             </header>
 
             <div className="chat-message-list" ref={messageListRef}>
+              {hasOlderMessages ? (
+                <div className="flex justify-center pb-3">
+                  <button
+                    className="btn-secondary min-h-11 px-4 py-2 text-sm"
+                    disabled={isLoadingOlder}
+                    onClick={() => void loadOlderMessages()}
+                    type="button"
+                  >
+                    {isLoadingOlder ? "Loading earlier messages..." : "Load earlier messages"}
+                  </button>
+                </div>
+              ) : null}
+              {isLoadingThread ? (
+                <p className="py-3 text-center text-sm text-[var(--muted)]" role="status">
+                  Opening chat...
+                </p>
+              ) : null}
               {selectedThread.messages.length === 0 ? (
                 <div className="chat-empty-state">
                   <h3 className="text-xl font-semibold text-[var(--gold)]">No messages yet</h3>
@@ -992,6 +1098,7 @@ export function MessagesClient({
                   multiple
                   onChange={(event) => {
                     if (event.target.files) addFiles(event.target.files);
+                    event.currentTarget.value = "";
                   }}
                   type="file"
                 />
@@ -1026,6 +1133,7 @@ export function MessagesClient({
                       )}
                       <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
                       <span className="text-xs text-[var(--muted)]">{item.progress}%</span>
+                      {item.error ? <span className="text-xs text-red-300">{item.error}</span> : null}
                       <button
                         className="btn-secondary px-3 py-1 text-xs"
                         data-tooltip="Remove this attachment."

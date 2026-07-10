@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { GroupsDirectoryClient } from "@/components/groups/groups-directory-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
-import { safeListGroups } from "@/modules/groups/groups.service";
+import { listGroupsPage } from "@/modules/groups/groups.service";
 import { groupDirectoryModeSchema, type GroupDirectoryMode } from "@/modules/groups/types";
 
 export default async function GroupsPage({ searchParams }: { searchParams: { mode?: string; q?: string } }) {
@@ -15,7 +15,7 @@ export default async function GroupsPage({ searchParams }: { searchParams: { mod
 
   const activeActor = await getActiveAccountActor(session.user.id);
   const mode = groupDirectoryModeSchema.catch("joined").parse(searchParams.mode ?? "joined") as GroupDirectoryMode;
-  const groups = await safeListGroups({
+  const groupPage = await listGroupsPage({
     viewerUserId: activeActor.actorUserId,
     mode,
     query: searchParams.q
@@ -23,7 +23,11 @@ export default async function GroupsPage({ searchParams }: { searchParams: { mod
 
   return (
     <AppShell>
-      <GroupsDirectoryClient initialGroups={groups} initialMode={mode} />
+      <GroupsDirectoryClient
+        initialGroups={groupPage.groups}
+        initialMode={mode}
+        initialNextCursor={groupPage.nextCursor}
+      />
     </AppShell>
   );
 }

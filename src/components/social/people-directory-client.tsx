@@ -81,10 +81,15 @@ export function PeopleDirectoryClient({
           type="search"
           value={query}
         />
-        {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+        {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
       </section>
 
-      {people.length > 0 ? (
+      {loading ? (
+        <section className="surface rounded-md p-8 text-center" role="status">
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Searching people...</h2>
+          <p className="mt-2 text-[var(--muted)]">Checking visible member profiles.</p>
+        </section>
+      ) : people.length > 0 ? (
         <PeopleGrid initialView={initialView} people={people} surface="people" />
       ) : (
         <section className="surface rounded-md p-8 text-center">

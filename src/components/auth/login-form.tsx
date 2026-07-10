@@ -17,20 +17,24 @@ export function LoginForm({ callbackUrl = "/home" }: { callbackUrl?: string }) {
     setError("");
 
     startTransition(async () => {
-      const result = await signIn("credentials", {
-        identifier,
-        password,
-        redirect: false,
-        callbackUrl
-      });
+      try {
+        const result = await signIn("credentials", {
+          identifier,
+          password,
+          redirect: false,
+          callbackUrl
+        });
 
-      if (result?.error) {
-        setError("Invalid email/handle or password.");
-        return;
+        if (result?.error) {
+          setError("Invalid email/handle or password.");
+          return;
+        }
+
+        router.push(result?.url ?? callbackUrl);
+        router.refresh();
+      } catch {
+        setError("Could not log in. Check your connection and try again.");
       }
-
-      router.push(result?.url ?? callbackUrl);
-      router.refresh();
     });
   }
 
@@ -57,7 +61,7 @@ export function LoginForm({ callbackUrl = "/home" }: { callbackUrl?: string }) {
           required
         />
       </label>
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
         {isPending ? "Checking..." : "Log in"}
       </button>
@@ -65,7 +69,13 @@ export function LoginForm({ callbackUrl = "/home" }: { callbackUrl?: string }) {
         <Link className="text-[var(--gold)]" href="/reset-password">
           Forgot password?
         </Link>
-        <Link className="text-[var(--gold)]" href="/signup">
+        <Link
+          aria-label="Have an invite? Open account creation in a new tab"
+          className="text-[var(--gold)]"
+          href="/signup"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
           Have an invite?
         </Link>
       </div>

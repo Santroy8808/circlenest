@@ -6,7 +6,7 @@ import { isAdminRole } from "@/lib/platform/roles";
 import {
   getMailPreference,
   getMailThread,
-  safeListMailThreads
+  listMailThreadsPage
 } from "@/modules/mail/mail.service";
 import { mailFolderSchema, type MailFolder } from "@/modules/mail/types";
 
@@ -18,8 +18,8 @@ export default async function MailPage({ searchParams }: { searchParams: { folde
   }
 
   const folder = mailFolderSchema.catch("inbox").parse(searchParams.folder ?? "inbox") as MailFolder;
-  const [threads, preference] = await Promise.all([
-    safeListMailThreads(session.user.id, folder),
+  const [threadPage, preference] = await Promise.all([
+    listMailThreadsPage(session.user.id, folder),
     getMailPreference(session.user.id)
   ]);
   const selected = searchParams.thread ? await getMailThread(session.user.id, searchParams.thread) : null;
@@ -27,10 +27,12 @@ export default async function MailPage({ searchParams }: { searchParams: { folde
   return (
     <AppShell>
       <MailClient
+        currentUserId={session.user.id}
         initialFolder={folder}
+        initialNextCursor={threadPage.nextCursor}
         initialPreference={preference}
         initialSelectedThread={selected?.ok ? selected.thread : null}
-        initialThreads={threads}
+        initialThreads={threadPage.threads}
         isAdmin={isAdminRole(session.user.role)}
       />
     </AppShell>

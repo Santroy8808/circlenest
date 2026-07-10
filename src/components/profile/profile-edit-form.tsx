@@ -17,12 +17,12 @@ async function uploadAvatarOrBanner(
   file: File,
   options: { fileNamePrefix: string; onProgress: (progress: number) => void }
 ): Promise<string> {
-  if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
-    throw new Error("Use JPG, PNG, GIF, or WEBP images.");
+  if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+    throw new Error("Use a JPG, PNG, or WEBP image.");
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error("Image must be 10MB or smaller.");
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("Image must be 8MB or smaller.");
   }
 
   const intentResponse = await fetch("/api/media/upload-intent", {
@@ -32,23 +32,27 @@ async function uploadAvatarOrBanner(
       fileName: `${options.fileNamePrefix}-${file.name}`,
       mimeType: file.type,
       sizeBytes: file.size,
-      visibility: MediaVisibility.PRIVATE
+      visibility: MediaVisibility.PRIVATE,
+      source: "PROFILE_MEDIA"
     })
   });
 
   const intent = (await intentResponse.json()) as {
     error?: string;
+    intentId?: string;
     uploadUrl?: string;
+    uploadHeaders?: Record<string, string>;
     storageKey?: string;
   };
 
-  if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+  if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
     throw new Error(intent.error ?? "Could not prepare upload.");
   }
 
   await uploadWithResilientFallback({
     uploadUrl: intent.uploadUrl,
     storageKey: intent.storageKey,
+    uploadHeaders: intent.uploadHeaders,
     file,
     onProgress: options.onProgress
   });
@@ -57,11 +61,13 @@ async function uploadAvatarOrBanner(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      intentId: intent.intentId,
       storageKey: intent.storageKey,
       fileName: `${options.fileNamePrefix}-${file.name}`,
       mimeType: file.type,
       sizeBytes: file.size,
       visibility: MediaVisibility.PRIVATE,
+      source: "PROFILE_MEDIA",
       tags: []
     })
   });
@@ -226,7 +232,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
       <section className="grid gap-4 rounded-md border border-[var(--line)] bg-black/10 p-4 md:grid-cols-2">
         <div className="grid gap-3">
           <span className="form-label">Avatar</span>
-          <p className="text-sm text-[var(--muted)]">JPG/PNG/GIF/WEBP, up to 10MB.</p>
+          <p className="text-sm text-[var(--muted)]">JPG, PNG, or WEBP, up to 8MB.</p>
           <button
             className="btn-secondary"
             type="button"
@@ -237,7 +243,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
             Upload avatar
           </button>
           <input
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/webp"
             className="sr-only"
             ref={avatarInputRef}
             type="file"
@@ -262,7 +268,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
 
         <div className="grid gap-3">
           <span className="form-label">Banner</span>
-          <p className="text-sm text-[var(--muted)]">JPG/PNG/GIF/WEBP, up to 10MB.</p>
+          <p className="text-sm text-[var(--muted)]">JPG, PNG, or WEBP, up to 8MB.</p>
           <button
             className="btn-secondary"
             type="button"
@@ -273,7 +279,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
             Upload banner
           </button>
           <input
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/webp"
             className="sr-only"
             ref={bannerInputRef}
             type="file"

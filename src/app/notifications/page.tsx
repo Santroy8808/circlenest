@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { NoticeCenterClient, type NoticeCenterItem } from "@/components/notifications/notice-center-client";
 import { AppShell } from "@/components/platform/app-shell";
-import { listAlerts, listNotifications } from "@/modules/notifications-alerts/notifications-alerts.service";
+import { listAlertsPage, listNotificationsPage } from "@/modules/notifications-alerts/notifications-alerts.service";
 
 export default async function NotificationsPage({ searchParams }: { searchParams?: { view?: string } }) {
   const session = await auth();
@@ -11,10 +11,13 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     redirect("/login?callbackUrl=/notifications");
   }
 
-  const [notifications, alerts] = await Promise.all([listNotifications(session.user.id), listAlerts(session.user.id)]);
+  const [notificationPage, alertPage] = await Promise.all([
+    listNotificationsPage(session.user.id),
+    listAlertsPage(session.user.id)
+  ]);
   const items: NoticeCenterItem[] = [
-    ...alerts.map((item) => ({ ...item, kind: "alert" as const })),
-    ...notifications.map((item) => ({ ...item, kind: "notification" as const }))
+    ...alertPage.items.map((item) => ({ ...item, kind: "alert" as const })),
+    ...notificationPage.items.map((item) => ({ ...item, kind: "notification" as const }))
   ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   const initialFilter = searchParams?.view === "alerts" ? "alert" : searchParams?.view === "notifications" ? "notification" : "all";
 
@@ -29,7 +32,12 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         </p>
       </section>
       <div className="mt-5">
-        <NoticeCenterClient initialFilter={initialFilter} initialItems={items} />
+        <NoticeCenterClient
+          initialAlertCursor={alertPage.nextCursor}
+          initialFilter={initialFilter}
+          initialItems={items}
+          initialNotificationCursor={notificationPage.nextCursor}
+        />
       </div>
     </AppShell>
   );

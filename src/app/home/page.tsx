@@ -9,7 +9,15 @@ import { isAdminRole } from "@/lib/platform/roles";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { safeListChatThreads } from "@/modules/chat-messages/chat-messages.service";
-import { safeListFeedPosts } from "@/modules/feed-stream/feed-stream.service";
+import { listFeedPostsPage } from "@/modules/feed-stream/feed-stream.service";
+
+async function safeHomeFeedPage(viewerUserId: string) {
+  try {
+    return await listFeedPostsPage({ limit: 20 }, viewerUserId);
+  } catch {
+    return { pinnedItems: [], items: [], nextCursor: null, hasMore: false };
+  }
+}
 
 export default async function AppHomePage() {
   const session = await timeServerStep("home.auth", auth());
@@ -18,8 +26,8 @@ export default async function AppHomePage() {
     redirect("/login?callbackUrl=/home");
   }
   const activeActor = await timeServerStep("home.actor", getActiveAccountActor(session.user.id));
-  const [posts, profile, actorUser, latestAlert, scienceProfile, privateProfile, chatThreads] = await Promise.all([
-    timeServerStep("home.feed-posts", safeListFeedPosts(20, activeActor.actorUserId)),
+  const [feedPage, profile, actorUser, latestAlert, chatThreads] = await Promise.all([
+    timeServerStep("home.feed-posts", safeHomeFeedPage(activeActor.actorUserId)),
     timeServerStep("home.profile", prisma.profile.findUnique({
       where: { userId: activeActor.actorUserId },
       select: {
@@ -48,21 +56,10 @@ export default async function AppHomePage() {
         href: true
       }
     })),
-    timeServerStep("home.scientology-profile", prisma.scientologyProfile.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true }
-    })),
-    timeServerStep("home.private-profile", prisma.profile.findUnique({
-      where: { userId: session.user.id },
-      select: { userId: true }
-    })),
     timeServerStep("home.chat-threads", safeListChatThreads(activeActor.actorUserId))
   ]);
 
-  if (!scienceProfile && privateProfile) {
-    redirect("/profile/edit?next=/profile/scientology");
-  }
-
+  const posts = [...feedPage.pinnedItems, ...feedPage.items];
   await timeServerStep("home.record-feed-units", recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, "DESKTOP"));
   const reservedStreamAds = await timeServerStep("home.reserved-stream-ads", getAdPlacementPool({
     viewerUserId: session.user.id,
@@ -82,6 +79,8 @@ export default async function AppHomePage() {
           username: actorUser?.username ?? session.user.username
         }}
         initialChatThreads={chatThreads}
+        initialFeedHasMore={feedPage.hasMore}
+        initialFeedNextCursor={feedPage.nextCursor}
         initialReservedStreamAds={reservedStreamAds}
         initialPosts={posts}
         isAdmin={isAdminRole(session.user.role)}

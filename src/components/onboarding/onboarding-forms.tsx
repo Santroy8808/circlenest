@@ -3,6 +3,7 @@
 import { ScientologyClassification } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { scientologyProcessingStatuses, scientologyTrainingLevels } from "@/modules/my-scientology/types";
 
 type ProfileDefaults = {
@@ -103,22 +104,22 @@ export function OnboardingProfileForm({ defaults }: { defaults: ProfileDefaults 
 
   return (
     <OnboardingShell
-      description="Start with the basics other members will recognize. This step is recommended, but you can skip it and finish your profile later."
-      eyebrow="Step 1 of 4"
-      title="Set up your profile"
+      description="This profile step is optional. Add a few details now, or skip it and finish your profile later in settings."
+      eyebrow="Step 1 of 4 · Optional"
+      title="Set up your profile (optional)"
     >
       <form className="surface grid gap-4 rounded-md p-5" onSubmit={handleSubmit}>
         <label className="grid gap-2">
           <span className="form-label">Email</span>
-          <input className="form-field opacity-80" disabled value={defaults.email} />
+          <input aria-readonly="true" className="form-field" readOnly value={defaults.email} />
         </label>
         <label className="grid gap-2">
           <span className="form-label">Full name</span>
-          <input className="form-field" defaultValue={defaults.displayName} name="displayName" required />
+          <input autoComplete="name" className="form-field" defaultValue={defaults.displayName} name="displayName" required />
         </label>
         <label className="grid gap-2">
           <span className="form-label">Location</span>
-          <input className="form-field" defaultValue={defaults.location} name="location" placeholder="City, State or general area" required />
+          <input autoComplete="address-level2" className="form-field" defaultValue={defaults.location} name="location" placeholder="City, state, or general area" required />
         </label>
         <label className="grid gap-2">
           <span className="form-label">Tagline</span>
@@ -128,13 +129,13 @@ export function OnboardingProfileForm({ defaults }: { defaults: ProfileDefaults 
           <span className="form-label">Bio</span>
           <textarea className="form-field min-h-36" defaultValue={defaults.bio} name="bio" placeholder="A little about who you are." />
         </label>
-        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Continue"}
+            {isPending ? "Saving..." : "Save and continue"}
           </button>
           <button className="btn-secondary" disabled={isPending} onClick={skipStep} type="button">
-            Skip for now
+            Skip this optional step
           </button>
         </div>
       </form>
@@ -185,9 +186,9 @@ export function OnboardingScientologyForm({ defaults }: { defaults: ScientologyD
 
   return (
     <OnboardingShell
-      description="Theta-Space is private membership. These fields are recommended and stay private unless you later choose otherwise. You can skip this page and finish it later."
-      eyebrow="Step 2 of 4"
-      title="Fill in My Scientology"
+      description="This step is optional. Details stay private unless you later change their visibility, and you can add them after onboarding."
+      eyebrow="Step 2 of 4 · Optional"
+      title="Add Scientology details (optional)"
     >
       <form className="surface grid gap-4 rounded-md p-5" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
@@ -241,13 +242,13 @@ export function OnboardingScientologyForm({ defaults }: { defaults: ScientologyD
           <span className="form-label">Notes, optional</span>
           <textarea className="form-field min-h-28" defaultValue={defaults.educationNotes} name="educationNotes" />
         </label>
-        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Continue"}
+            {isPending ? "Saving..." : "Save and continue"}
           </button>
           <button className="btn-secondary" disabled={isPending} onClick={skipStep} type="button">
-            Skip for now
+            Skip this optional step
           </button>
         </div>
       </form>
@@ -257,16 +258,24 @@ export function OnboardingScientologyForm({ defaults }: { defaults: ScientologyD
 
 export function OnboardingGoodStandingForm() {
   const router = useRouter();
+  const [answer, setAnswer] = useState<boolean | null>(null);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function submitGoodStanding(isInGoodStanding: boolean) {
+  function submitGoodStanding(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError("");
+
+    if (answer === null) {
+      setError("Choose Yes or No to continue.");
+      return;
+    }
+
     startTransition(async () => {
       try {
         const nextPath = await submitStep({
           step: "good-standing",
-          isInGoodStanding
+          isInGoodStanding: answer
         });
         router.push(nextPath);
       } catch (caught) {
@@ -277,22 +286,51 @@ export function OnboardingGoodStandingForm() {
 
   return (
     <OnboardingShell
-      description="This confirmation is required before Terms of Service. If you cannot attest this, the application ends here."
-      eyebrow="Step 3 of 4"
-      title="Good-standing attestation"
+      description="This confirmation is required to activate membership. If you select No, automatic account activation ends."
+      eyebrow="Step 3 of 4 · Required"
+      title="Confirm good standing"
     >
-      <section className="surface grid gap-4 rounded-md p-5">
-        <p className="leading-7 text-[var(--muted)]">I attest that I am currently active as a Scientologist and in good standing with the Church of Scientology.</p>
-        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-        <div className="flex flex-wrap gap-3">
-          <button className="btn-primary" disabled={isPending} onClick={() => submitGoodStanding(true)} type="button">
-            Yes, I attest
-          </button>
-          <button className="btn-secondary" disabled={isPending} onClick={() => submitGoodStanding(false)} type="button">
-            No, I cannot attest this
-          </button>
-        </div>
-      </section>
+      <form className="surface grid gap-5 rounded-md p-5" onSubmit={submitGoodStanding}>
+        <fieldset aria-describedby="good-standing-help" className="grid gap-3">
+          <legend className="font-semibold leading-7">
+            I attest that I am currently active as a Scientologist and in good standing with the Church of Scientology.
+          </legend>
+          <p className="text-sm leading-6 text-[var(--muted)]" id="good-standing-help">
+            Choose the truthful answer. You will review your choice before it is submitted.
+          </p>
+          <label className="flex items-start gap-3 rounded-md border border-[var(--line)] p-3">
+            <input
+              checked={answer === true}
+              className="mt-1"
+              name="goodStanding"
+              onChange={() => setAnswer(true)}
+              type="radio"
+              value="yes"
+            />
+            <span>Yes, I can make this attestation.</span>
+          </label>
+          <label className="flex items-start gap-3 rounded-md border border-[var(--line)] p-3">
+            <input
+              checked={answer === false}
+              className="mt-1"
+              name="goodStanding"
+              onChange={() => setAnswer(false)}
+              type="radio"
+              value="no"
+            />
+            <span>No, I cannot make this attestation.</span>
+          </label>
+        </fieldset>
+        {answer === false ? (
+          <p className="rounded-md border border-[var(--line)] bg-black/20 p-3 text-sm leading-6 text-[var(--muted)]">
+            Submitting No ends automatic activation for this account.
+          </p>
+        ) : null}
+        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
+        <button className="btn-primary" disabled={isPending || answer === null} type="submit">
+          {isPending ? "Submitting..." : answer === false ? "Submit No and end activation" : "Continue to terms"}
+        </button>
+      </form>
     </OnboardingShell>
   );
 }
@@ -323,23 +361,35 @@ export function OnboardingTermsForm() {
 
   return (
     <OnboardingShell
-      description="This placeholder exists now so usage is gated correctly. Final legal text can replace it without changing the flow."
-      eyebrow="Step 4 of 4"
-      title="Terms of Service"
+      description="Review the required membership agreement, then accept it to activate your account."
+      eyebrow="Step 4 of 4 · Required"
+      title="Review and accept the Terms of Service"
     >
       <form className="surface grid gap-4 rounded-md p-5" onSubmit={handleSubmit}>
-        <section className="max-h-72 overflow-y-auto rounded-md border border-[var(--line)] bg-black/20 p-4 leading-7 text-[var(--muted)]">
+        <section className="rounded-md border border-[var(--line)] bg-black/20 p-4 leading-7 text-[var(--muted)]" id="onboarding-terms-summary">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Theta-Space Terms of Service</h2>
           <p className="mt-3">
-            Final Terms of Service will be inserted here. By continuing, you agree to follow the private membership rules, community standards,
-            account-security requirements, and platform policies for Theta-Space.
+            Final Terms of Service will be inserted here. By continuing, you agree to follow:
           </p>
+          <ul className="mt-3 list-disc space-y-2 pl-5">
+            <li>the private membership rules and community standards;</li>
+            <li>account-security requirements; and</li>
+            <li>Theta-Space platform policies.</li>
+          </ul>
         </section>
-        <label className="flex items-start gap-3 text-sm text-[var(--muted)]">
-          <input checked={accepted} className="mt-1" onChange={(event) => setAccepted(event.target.checked)} type="checkbox" />
+        <label className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]">
+          <input
+            aria-describedby="onboarding-terms-summary"
+            checked={accepted}
+            className="mt-1"
+            name="accepted"
+            onChange={(event) => setAccepted(event.target.checked)}
+            required
+            type="checkbox"
+          />
           <span>I have read and agree to the Theta-Space Terms of Service.</span>
         </label>
-        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <button className="btn-primary" disabled={isPending || !accepted} type="submit">
           {isPending ? "Activating..." : "Agree and enter Theta-Space"}
         </button>
@@ -351,12 +401,17 @@ export function OnboardingTermsForm() {
 export function OnboardingApplicationComplete() {
   return (
     <OnboardingShell
-      description="Your application cannot continue through automatic onboarding at this time."
+      description="Automatic account activation has ended because the required attestation was not confirmed."
       eyebrow="Application"
-      title="Thank you for your application"
+      title="Application complete"
     >
-      <section className="surface rounded-md p-5">
-        <p className="leading-7 text-[var(--muted)]">Thank you for your application.</p>
+      <section className="surface grid gap-4 rounded-md p-5">
+        <p className="leading-7 text-[var(--muted)]">
+          This account cannot enter member areas through automatic onboarding. You can safely log out below.
+        </p>
+        <div>
+          <LogoutButton />
+        </div>
       </section>
     </OnboardingShell>
   );

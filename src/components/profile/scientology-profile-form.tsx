@@ -3,6 +3,7 @@
 import { ScientologyClassification, ScientologyVisibility, type MediaAsset, type ScientologyCommendation, type ScientologyProfile } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   scientologyAdditionalProcessingServices,
   scientologyCourseCompletions,
@@ -136,6 +137,7 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
   const [uploadError, setUploadError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   function checkedValues(formData: FormData, key: SelectionKey) {
     return formData.getAll(key).filter((value): value is string => typeof value === "string");
@@ -183,9 +185,10 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
 
   async function uploadCommendation(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setUploadError("");
     setUploadMessage("");
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const file = formData.get("commendationFile");
     const title = typeof formData.get("commendationTitle") === "string" ? String(formData.get("commendationTitle")) : "";
 
@@ -205,6 +208,7 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
     }
 
     setIsUploading(true);
+    setUploadProgress(1);
 
     try {
       const intentResponse = await fetch("/api/profile/scientology/commendations/upload-intent", {
@@ -216,26 +220,31 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
           sizeBytes: file.size
         })
       });
-      const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+      const intent = (await intentResponse.json()) as {
+        error?: string;
+        intentId?: string;
+        uploadUrl?: string;
+        uploadHeaders?: Record<string, string>;
+        storageKey?: string;
+      };
 
-      if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+      if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
         throw new Error(intent.error ?? "Could not prepare upload.");
       }
 
-      const uploadResponse = await fetch(intent.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file
+      await uploadWithResilientFallback({
+        uploadUrl: intent.uploadUrl,
+        storageKey: intent.storageKey,
+        uploadHeaders: intent.uploadHeaders,
+        file,
+        onProgress: setUploadProgress
       });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Could not upload commendation to storage.");
-      }
 
       const completeResponse = await fetch("/api/profile/scientology/commendations/complete-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          intentId: intent.intentId,
           storageKey: intent.storageKey,
           fileName: file.name,
           mimeType: file.type,
@@ -251,8 +260,9 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
       }
 
       setUploadMessage("Commendation uploaded.");
+      setUploadProgress(100);
       router.refresh();
-      event.currentTarget.reset();
+      form.reset();
     } catch (uploadIssue) {
       setUploadError(uploadIssue instanceof Error ? uploadIssue.message : "Could not upload commendation.");
     } finally {
@@ -382,8 +392,9 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
             {isUploading ? "Uploading..." : "Upload"}
           </button>
         </form>
-        {uploadError ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{uploadError}</p> : null}
-        {uploadMessage ? <p className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{uploadMessage}</p> : null}
+        {isUploading ? <p aria-live="polite" className="mt-3 text-sm text-[var(--muted)]">Uploading: {uploadProgress}%</p> : null}
+        {uploadError ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{uploadError}</p> : null}
+        {uploadMessage ? <p aria-live="polite" className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{uploadMessage}</p> : null}
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           {profile?.commendations?.length ? (
             profile.commendations.map((commendation) => (

@@ -24,14 +24,13 @@ const homeSection: NavSection = {
     { label: "My Stream", href: "/home" },
     { label: "My Pics", href: "/profile/gallery" },
     { label: "Search", href: "/search" },
-    { label: "Membership", href: "/membership" },
     { label: "Logout", action: "logout" }
   ]
 };
 
 const communicationsSection: NavSection = {
   href: "/messages",
-  label: "Comm",
+  label: "Connect",
   items: [
     { label: "Messages", href: "/messages", countKey: "messages" },
     { label: "Mail", href: "/mail", countKey: "mail" },
@@ -50,16 +49,23 @@ const peopleSection: NavSection = {
   ]
 };
 
-const productionZoneSection: NavSection = {
+const exploreSection: NavSection = {
   href: "/market",
-  label: "Market",
+  label: "Explore",
   items: [
     { label: "The Market", href: "/market" },
+    { label: "Events", href: "/events" },
     { label: "Find a Job", href: "/jobs" },
-    { label: "Find an Auditor", href: "/auditors" },
+    { label: "Find an Auditor", href: "/auditors" }
+  ]
+};
+
+const advancedToolsSection: NavSection = {
+  href: "/business-center",
+  label: "Tools",
+  items: [
     { label: "Business Center", href: "/business-center" },
     { label: "Ads", href: "/ads" },
-    { label: "Events", href: "/events" },
     { label: "Writers Corner", href: "/writers-corner" },
     { label: "Fundraisers", href: "/fundraisers" }
   ]
@@ -72,6 +78,7 @@ const settingsSection: NavSection = {
     { label: "Profile", href: "/profile" },
     { label: "My Scientology", href: "/profile/scientology" },
     { label: "My Resume", href: "/settings/profile/resume" },
+    { label: "Membership", href: "/membership" },
     { label: "Settings", href: "/settings" }
   ]
 };
@@ -130,9 +137,9 @@ function getNavSections(input: {
     ];
   }
 
-  const memberSections = input.isBusinessAccount
-    ? [homeSection, communicationsSection, productionZoneSection, peopleSection, settingsSection]
-    : [homeSection, communicationsSection, peopleSection, productionZoneSection, settingsSection];
+  const memberSections = [homeSection, communicationsSection, peopleSection, exploreSection];
+  if (input.isBusinessAccount || input.isAdmin) memberSections.push(advancedToolsSection);
+  memberSections.push(settingsSection);
 
   const sections: NavSection[] = [
     ...memberSections,
@@ -146,7 +153,7 @@ function getNavSections(input: {
       href: input.isAdmin ? "/health" : undefined,
       items: input.isAdmin
         ? [
-            { label: "Dev Status", href: "/" },
+            { label: "Dev Status", href: "/dev/status-page" },
             { label: "Health", href: "/health" },
             { label: "Cutover", href: "/cutover" },
             { label: "Docs", href: "/docs" },

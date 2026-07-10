@@ -1,14 +1,20 @@
 import { AuthCard } from "@/components/auth/auth-card";
 import { PasswordResetForm } from "@/components/auth/password-reset-form";
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordPage({
+  searchParams
+}: {
+  searchParams?: { token?: string };
+}) {
+  const token = searchParams?.token?.trim() ?? "";
+
   return (
     <AuthCard
       eyebrow="Security"
-      title="Reset password"
-      subtitle="Request a reset and apply the reset token. Confirming a reset revokes existing sessions."
+      title={token ? "Choose a new password" : "Reset your password"}
+      subtitle={token ? "This secure link lets you set a new password." : "We will send reset instructions if the account can be found."}
     >
-      <PasswordResetForm />
+      <PasswordResetForm initialToken={token} />
     </AuthCard>
   );
 }

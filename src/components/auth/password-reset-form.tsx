@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
-export function PasswordResetForm() {
+export function PasswordResetForm({ initialToken = "" }: { initialToken?: string }) {
   const [requestMessage, setRequestMessage] = useState("");
   const [confirmMessage, setConfirmMessage] = useState("");
   const [error, setError] = useState("");
@@ -10,94 +11,137 @@ export function PasswordResetForm() {
 
   function requestReset(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setError("");
     setRequestMessage("");
-    const formData = new FormData(event.currentTarget);
 
     startTransition(async () => {
-      const response = await fetch("/api/auth/password-reset/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: formData.get("identifier") })
-      });
-      const payload = (await response.json()) as { error?: string; devToken?: string };
+      try {
+        const response = await fetch("/api/auth/password-reset/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: formData.get("identifier") })
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
-      if (!response.ok) {
-        setError(payload.error ?? "Could not request reset.");
-        return;
+        if (!response.ok) {
+          setError(payload.error ?? "Could not request a reset link. Try again shortly.");
+          return;
+        }
+
+        form.reset();
+        setRequestMessage("If an account matches, a password reset link will be sent by email.");
+      } catch {
+        setError("Could not request a reset link. Check your connection and try again.");
       }
-
-      setRequestMessage(
-        payload.devToken
-          ? `Reset requested. Dev token: ${payload.devToken}`
-          : "If that account exists, a reset link will be sent."
-      );
     });
   }
 
   function confirmReset(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setError("");
     setConfirmMessage("");
-    const formData = new FormData(event.currentTarget);
 
     startTransition(async () => {
-      const response = await fetch("/api/auth/password-reset/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: formData.get("token"),
-          password: formData.get("password")
-        })
-      });
-      const payload = (await response.json()) as { error?: string };
+      try {
+        const response = await fetch("/api/auth/password-reset/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: initialToken,
+            password: formData.get("password")
+          })
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
-      if (!response.ok) {
-        setError(payload.error ?? "Could not reset password.");
-        return;
+        if (!response.ok) {
+          setError(payload.error ?? "This reset link could not be used. Request a new link and try again.");
+          return;
+        }
+
+        form.reset();
+        setConfirmMessage("Your password is updated. For your security, existing sessions were signed out.");
+      } catch {
+        setError("Could not update your password. Check your connection and try again.");
       }
-
-      setConfirmMessage("Password updated. Existing sessions have been revoked.");
-      event.currentTarget.reset();
     });
   }
 
-  return (
-    <div className="grid gap-6">
-      <form className="grid gap-4 rounded-md border border-[var(--line)] p-4" onSubmit={requestReset}>
-        <div>
-          <h2 className="text-xl font-semibold text-[var(--gold)]">Request reset</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Enter an email or username. Production email delivery comes later.</p>
+  if (initialToken) {
+    if (confirmMessage) {
+      return (
+        <div className="grid gap-4" aria-live="polite">
+          <p className="rounded-md border border-green-400/40 bg-green-950/30 p-4 text-sm leading-6 text-green-100">
+            {confirmMessage}
+          </p>
+          <Link className="btn-primary text-center" href="/login">
+            Log in with new password
+          </Link>
         </div>
-        <label className="grid gap-2">
-          <span className="form-label">Email or username</span>
-          <input className="form-field" name="identifier" required />
-        </label>
-        <button className="btn-secondary" disabled={isPending} type="submit">
-          Request reset
-        </button>
-        {requestMessage ? <p className="text-sm text-green-100">{requestMessage}</p> : null}
-      </form>
+      );
+    }
 
-      <form className="grid gap-4 rounded-md border border-[var(--line)] p-4" onSubmit={confirmReset}>
-        <div>
-          <h2 className="text-xl font-semibold text-[var(--gold)]">Use reset token</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">This is mostly for local/dev until email templates are wired.</p>
-        </div>
-        <label className="grid gap-2">
-          <span className="form-label">Reset token</span>
-          <input className="form-field" name="token" required />
-        </label>
+    return (
+      <form className="grid gap-4" onSubmit={confirmReset}>
+        <p className="text-sm leading-6 text-[var(--muted)]">Choose a new password for your account.</p>
         <label className="grid gap-2">
           <span className="form-label">New password</span>
-          <input className="form-field" name="password" type="password" autoComplete="new-password" required />
+          <input
+            aria-describedby="reset-password-help"
+            autoComplete="new-password"
+            className="form-field"
+            minLength={12}
+            name="password"
+            required
+            type="password"
+          />
+          <span className="text-xs text-[var(--muted)]" id="reset-password-help">
+            Use 12 or more characters. A long passphrase is easier to remember and harder to guess.
+          </span>
         </label>
-        {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
-        {confirmMessage ? <p className="text-sm text-green-100">{confirmMessage}</p> : null}
+        {error ? (
+          <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">
+            {error}
+          </p>
+        ) : null}
         <button className="btn-primary" disabled={isPending} type="submit">
-          Update password
+          {isPending ? "Updating..." : "Update password"}
         </button>
+        <Link className="btn-secondary text-center" href="/reset-password">
+          Request a new link
+        </Link>
       </form>
-    </div>
+    );
+  }
+
+  return (
+    <form className="grid gap-4" onSubmit={requestReset}>
+      <p className="text-sm leading-6 text-[var(--muted)]">
+        Enter your account email or username. We will email a reset link if it matches an account.
+      </p>
+      <label className="grid gap-2">
+        <span className="form-label">Email or username</span>
+        <input autoComplete="username" className="form-field" name="identifier" required />
+      </label>
+      {error ? (
+        <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {requestMessage ? (
+        <p className="rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm leading-6 text-green-100" aria-live="polite">
+          {requestMessage}
+        </p>
+      ) : null}
+      <button className="btn-primary" disabled={isPending} type="submit">
+        {isPending ? "Sending..." : "Email reset link"}
+      </button>
+      <Link className="btn-secondary text-center" href="/login">
+        Back to login
+      </Link>
+    </form>
   );
 }

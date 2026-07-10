@@ -47,19 +47,30 @@ export function FamilyTagButton({
 
   return (
     <div className="family-tag-control">
-      <button className="btn-secondary family-action-button" disabled={disabled || isPending || sent} onClick={() => setIsOpen((current) => !current)} type="button">
-        {disabled || sent ? "Pending" : isPending ? "Sending..." : "Family"}
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        className="btn-secondary family-action-button min-h-11"
+        disabled={disabled || isPending || sent}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        {disabled || sent ? "Family request sent" : isPending ? "Sending..." : "Add family"}
       </button>
       {isOpen && !disabled && !sent ? (
         <div className="family-choice-popover" role="menu">
           {quickFamilyRelationshipLabels.map((option) => (
-            <button disabled={isPending} key={option} onClick={() => requestTag(option)} type="button">
+            <button className="min-h-11" disabled={isPending} key={option} onClick={() => requestTag(option)} role="menuitem" type="button">
               {option}
             </button>
           ))}
         </div>
       ) : null}
-      {message ? <p className="text-xs text-[var(--muted)]">{message}</p> : null}
+      {message ? (
+        <p className={sent ? "text-xs text-[var(--muted)]" : "text-xs text-red-300"} role={sent ? "status" : "alert"}>
+          {message}
+        </p>
+      ) : null}
     </div>
   );
 }

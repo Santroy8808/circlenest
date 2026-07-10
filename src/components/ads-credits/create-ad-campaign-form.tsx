@@ -2,13 +2,18 @@
 
 import { AdDestinationKind, AdPlacement, InterestCategory, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
+  adAgeRangeOptions,
   adPlacementOptions,
+  adSexOptions,
   interestCategoryOptions,
+  normalizeAdTargetHashtag,
   type AdCampaignCardView,
+  type AdAgeRangeValue,
+  type AdSexValue,
   type AdsManagerView
 } from "@/modules/ads-credits/types";
 
@@ -30,14 +35,44 @@ export type InitialAdCampaignDraft = {
   customDestinationUrl?: string;
   subscriberTargetManuscriptId?: string;
   targetInterestCategories?: InterestCategory[];
+  targetAgeRanges?: AdAgeRangeValue[];
+  targetSexes?: AdSexValue[];
+  targetHashtags?: string[];
 };
 
 type WizardStepKey = "heading" | "text" | "image" | "destination" | "audience" | "budget" | "preview";
 
+type StoredAdWizardDraft = {
+  stepIndex?: number;
+  hasVisitedPreview?: boolean;
+  title?: string;
+  body?: string;
+  destinationKind?: AdDestinationKind;
+  marketListingId?: string;
+  businessArticleId?: string;
+  customDestinationUrl?: string;
+  subscriberTargetManuscriptId?: string;
+  placement?: AdPlacement;
+  pricingRuleKey?: string;
+  campaignCredits?: number;
+  campaignDurationDays?: number;
+  targetLocation?: string;
+  targetInterestCategories?: InterestCategory[];
+  targetAgeRanges?: AdAgeRangeValue[];
+  targetSexes?: AdSexValue[];
+  targetHashtags?: string[];
+  externalImageUrl?: string;
+  abTestingEnabled?: boolean;
+  variantBTitle?: string;
+  variantBBody?: string;
+  variantBExternalImageUrl?: string;
+};
+
 const MAX_AD_IMAGE_BYTES = 10 * 1024 * 1024;
-const AD_IMAGE_GUIDANCE = "Recommended: 1200 x 675px, minimum 600 x 338px. JPG, PNG, GIF, or WEBP up to 10MB.";
+const AD_IMAGE_GUIDANCE = "Recommended: 1200 x 675px, minimum 600 x 338px. JPG, PNG, or WEBP up to 10MB.";
 const CREDIT_BUDGET_PRESETS = [10, 25, 50, 100, 250, 500];
 const CAMPAIGN_DURATION_PRESETS = [1, 3, 7, 14, 30, 60, 90];
+const AD_WIZARD_DRAFT_KEY = "theta-space.ad-wizard.draft.v1";
 
 const wizardSteps: Array<{ key: WizardStepKey; label: string; title: string; helper: string }> = [
   {
@@ -61,8 +96,9 @@ const wizardSteps: Array<{ key: WizardStepKey; label: string; title: string; hel
   {
     key: "destination",
     label: "Click Target",
-    title: "Choose where the ad opens",
-    helper: "The ad should only land on your storefront, your content, your listing, or a trusted URL."
+    title: "Choose where the ad opens when clicked",
+    helper:
+      'Pick where you want your ad to route your traffic when the ad is clicked. If you do not have one of these, click "Create one" on the card below to create a landing page for the ad click. Clicking a card sets the category. If you already have a storefront, market listing, article, or URL, select it from the dropdown.'
   },
   {
     key: "audience",
@@ -100,15 +136,22 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
       source: "AD_CREATIVE"
     })
   });
-  const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+  const intent = (await intentResponse.json()) as {
+    error?: string;
+    intentId?: string;
+    uploadUrl?: string;
+    uploadHeaders?: Record<string, string>;
+    storageKey?: string;
+  };
 
-  if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+  if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
     throw new Error(intent.error ?? "Could not prepare ad image upload.");
   }
 
   await uploadWithResilientFallback({
     uploadUrl: intent.uploadUrl,
     storageKey: intent.storageKey,
+    uploadHeaders: intent.uploadHeaders,
     file: image.file,
     onProgress: (progress) => onUpdate({ progress })
   });
@@ -117,6 +160,7 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      intentId: intent.intentId,
       storageKey: intent.storageKey,
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
@@ -194,6 +238,11 @@ export function CreateAdCampaignForm({
   const [campaignDurationDays, setCampaignDurationDays] = useState(() => packageDurationDays(initialPricingPackage));
   const [targetLocation, setTargetLocation] = useState("");
   const [targetInterestCategories, setTargetInterestCategories] = useState<InterestCategory[]>(initialDraft?.targetInterestCategories ?? []);
+  const [targetAgeRanges, setTargetAgeRanges] = useState<AdAgeRangeValue[]>(initialDraft?.targetAgeRanges ?? []);
+  const [targetSexes, setTargetSexes] = useState<AdSexValue[]>(initialDraft?.targetSexes ?? []);
+  const [targetHashtags, setTargetHashtags] = useState<string[]>(initialDraft?.targetHashtags ?? []);
+  const [hashtagQuery, setHashtagQuery] = useState("");
+  const [hashtagSuggestions, setHashtagSuggestions] = useState<Array<{ value: string; label: string }>>([]);
   const [image, setImage] = useState<AdImageAttachment | null>(null);
   const [externalImageUrl, setExternalImageUrl] = useState("");
   const [abTestingEnabled, setAbTestingEnabled] = useState(false);
@@ -202,6 +251,11 @@ export function CreateAdCampaignForm({
   const [variantBExternalImageUrl, setVariantBExternalImageUrl] = useState("");
   const [error, setError] = useState(adsManager.canCreate ? "" : adsManager.reason ?? "This account cannot create ads.");
   const [isPending, startTransition] = useTransition();
+  const restoredDraftRef = useRef(false);
+  const hasInitialDraft = Boolean(
+    initialDraft &&
+      Object.values(initialDraft).some((value) => (Array.isArray(value) ? value.length > 0 : Boolean(value)))
+  );
   const currentStep = wizardSteps[stepIndex] ?? wizardSteps[0];
   const placementPackages = useMemo(
     () => adsManager.pricingPackages.filter((pricingPackage) => pricingPackage.placement === placement),
@@ -229,6 +283,135 @@ export function CreateAdCampaignForm({
     (destinationKind === AdDestinationKind.MARKET_LISTING && marketListingId.length > 0) ||
     (destinationKind === AdDestinationKind.BUSINESS_ARTICLE && businessArticleId.length > 0) ||
     (destinationKind === AdDestinationKind.EXTERNAL_URL && customDestinationUrl.trim().length > 0);
+  const adWizardReturnHref = successHref.startsWith("/business-center") ? "/business-center/create-ad" : "/ads/create";
+  const creationReturnQuery = `next=${encodeURIComponent(adWizardReturnHref)}`;
+  const createStorefrontHref = `/business-center/storefront?${creationReturnQuery}`;
+  const createListingHref = `/market/create?${creationReturnQuery}`;
+  const createArticleHref = `/writers-corner/create?${creationReturnQuery}`;
+  const targetingFilterCount =
+    targetInterestCategories.length +
+    targetAgeRanges.length +
+    targetSexes.length +
+    targetHashtags.length +
+    (targetLocation.trim() ? 1 : 0) +
+    (subscriberTargetManuscriptId ? 1 : 0);
+
+  useEffect(() => {
+    if (restoredDraftRef.current || hasInitialDraft || typeof window === "undefined") return;
+    restoredDraftRef.current = true;
+
+    try {
+      const rawDraft = window.localStorage.getItem(AD_WIZARD_DRAFT_KEY);
+      if (!rawDraft) return;
+
+      const draft = JSON.parse(rawDraft) as StoredAdWizardDraft;
+      if (typeof draft.stepIndex === "number") setStepIndex(Math.max(0, Math.min(wizardSteps.length - 1, draft.stepIndex)));
+      if (typeof draft.hasVisitedPreview === "boolean") setHasVisitedPreview(draft.hasVisitedPreview);
+      if (typeof draft.title === "string") setTitle(draft.title);
+      if (typeof draft.body === "string") setBody(draft.body);
+      if (draft.destinationKind) setDestinationKind(draft.destinationKind);
+      if (typeof draft.marketListingId === "string") setMarketListingId(draft.marketListingId);
+      if (typeof draft.businessArticleId === "string") setBusinessArticleId(draft.businessArticleId);
+      if (typeof draft.customDestinationUrl === "string") setCustomDestinationUrl(draft.customDestinationUrl);
+      if (typeof draft.subscriberTargetManuscriptId === "string") setSubscriberTargetManuscriptId(draft.subscriberTargetManuscriptId);
+      if (draft.placement) setPlacement(draft.placement);
+      if (typeof draft.pricingRuleKey === "string") setPricingRuleKey(draft.pricingRuleKey);
+      if (typeof draft.campaignCredits === "number") setCampaignCredits(draft.campaignCredits);
+      if (typeof draft.campaignDurationDays === "number") setCampaignDurationDays(draft.campaignDurationDays);
+      if (typeof draft.targetLocation === "string") setTargetLocation(draft.targetLocation);
+      if (Array.isArray(draft.targetInterestCategories)) setTargetInterestCategories(draft.targetInterestCategories);
+      if (Array.isArray(draft.targetAgeRanges)) setTargetAgeRanges(draft.targetAgeRanges);
+      if (Array.isArray(draft.targetSexes)) setTargetSexes(draft.targetSexes);
+      if (Array.isArray(draft.targetHashtags)) setTargetHashtags(draft.targetHashtags.map(normalizeAdTargetHashtag).filter(Boolean));
+      if (typeof draft.externalImageUrl === "string") setExternalImageUrl(draft.externalImageUrl);
+      if (typeof draft.abTestingEnabled === "boolean") setAbTestingEnabled(draft.abTestingEnabled);
+      if (typeof draft.variantBTitle === "string") setVariantBTitle(draft.variantBTitle);
+      if (typeof draft.variantBBody === "string") setVariantBBody(draft.variantBBody);
+      if (typeof draft.variantBExternalImageUrl === "string") setVariantBExternalImageUrl(draft.variantBExternalImageUrl);
+    } catch {
+      window.localStorage.removeItem(AD_WIZARD_DRAFT_KEY);
+    }
+  }, [hasInitialDraft]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const draft: StoredAdWizardDraft = {
+      stepIndex,
+      hasVisitedPreview,
+      title,
+      body,
+      destinationKind,
+      marketListingId,
+      businessArticleId,
+      customDestinationUrl,
+      subscriberTargetManuscriptId,
+      placement,
+      pricingRuleKey,
+      campaignCredits,
+      campaignDurationDays,
+      targetLocation,
+      targetInterestCategories,
+      targetAgeRanges,
+      targetSexes,
+      targetHashtags,
+      externalImageUrl,
+      abTestingEnabled,
+      variantBTitle,
+      variantBBody,
+      variantBExternalImageUrl
+    };
+
+    window.localStorage.setItem(AD_WIZARD_DRAFT_KEY, JSON.stringify(draft));
+  }, [
+    abTestingEnabled,
+    body,
+    businessArticleId,
+    campaignCredits,
+    campaignDurationDays,
+    customDestinationUrl,
+    destinationKind,
+    externalImageUrl,
+    hasVisitedPreview,
+    marketListingId,
+    placement,
+    pricingRuleKey,
+    stepIndex,
+    subscriberTargetManuscriptId,
+    targetAgeRanges,
+    targetHashtags,
+    targetInterestCategories,
+    targetLocation,
+    targetSexes,
+    title,
+    variantBBody,
+    variantBExternalImageUrl,
+    variantBTitle
+  ]);
+
+  useEffect(() => {
+    const normalized = normalizeAdTargetHashtag(hashtagQuery);
+    if (normalized.length < 2) {
+      setHashtagSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/ads/targeting/hashtags?q=${encodeURIComponent(normalized)}`, { signal: controller.signal });
+        const result = (await response.json()) as { hashtags?: Array<{ value: string; label: string }> };
+        setHashtagSuggestions((result.hashtags ?? []).filter((hashtag) => !targetHashtags.includes(hashtag.value)));
+      } catch {
+        if (!controller.signal.aborted) setHashtagSuggestions([]);
+      }
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [hashtagQuery, targetHashtags]);
 
   const publishBlockers = useMemo(() => {
     const blockers: string[] = [];
@@ -287,8 +470,8 @@ export function CreateAdCampaignForm({
 
   function updateImage(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Choose a JPG, PNG, GIF, or WEBP image.");
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      setError("Choose a JPG, PNG, or WEBP image.");
       return;
     }
     if (file.size > MAX_AD_IMAGE_BYTES) {
@@ -311,8 +494,28 @@ export function CreateAdCampaignForm({
 
   function toggleInterest(category: InterestCategory) {
     setTargetInterestCategories((current) =>
-      current.includes(category) ? current.filter((value) => value !== category) : [...current, category].slice(0, 6)
+      current.includes(category) ? current.filter((value) => value !== category) : [...current, category].slice(0, 12)
     );
+  }
+
+  function toggleAgeRange(ageRange: AdAgeRangeValue) {
+    setTargetAgeRanges((current) => (current.includes(ageRange) ? current.filter((value) => value !== ageRange) : [...current, ageRange]));
+  }
+
+  function toggleSex(sex: AdSexValue) {
+    setTargetSexes((current) => (current.includes(sex) ? current.filter((value) => value !== sex) : [...current, sex]));
+  }
+
+  function addHashtag(value = hashtagQuery) {
+    const normalized = normalizeAdTargetHashtag(value);
+    if (!normalized) return;
+    setTargetHashtags((current) => (current.includes(normalized) ? current : [...current, normalized].slice(0, 20)));
+    setHashtagQuery("");
+    setHashtagSuggestions([]);
+  }
+
+  function removeHashtag(value: string) {
+    setTargetHashtags((current) => current.filter((hashtag) => hashtag !== value));
   }
 
   function applyPricingPreset(pricingPackage: AdsManagerView["pricingPackages"][number] | undefined) {
@@ -355,6 +558,9 @@ export function CreateAdCampaignForm({
           pricingRuleKey: selectedPricingPackage?.key,
           targetLocation,
           targetInterestCategories,
+          targetAgeRanges,
+          targetSexes,
+          targetHashtags,
           campaignDurationDays
         };
 
@@ -393,6 +599,7 @@ export function CreateAdCampaignForm({
           });
         }
 
+        window.localStorage.removeItem(AD_WIZARD_DRAFT_KEY);
         window.location.href = successHref;
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Could not create ad campaign.";
@@ -514,7 +721,7 @@ export function CreateAdCampaignForm({
         {currentStep.key === "image" ? (
           <div className="ad-wizard-two-column">
             <input
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               className="sr-only"
               onChange={(event) => updateImage(event.target.files?.[0])}
               ref={imageInputRef}
@@ -561,41 +768,61 @@ export function CreateAdCampaignForm({
         {currentStep.key === "destination" ? (
           <div className="ad-wizard-destination">
             <div className="ad-wizard-choice-grid">
-              <button
-                className={`destination-choice ${destinationKind === AdDestinationKind.STOREFRONT ? "is-active" : ""}`}
-                disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.storefronts.length === 0}
-                onClick={() => setDestinationKind(AdDestinationKind.STOREFRONT)}
-                type="button"
-              >
-                <span>Storefront</span>
-                <small>{adsManager.destinationOptions.storefronts[0]?.label ?? "Publish a storefront first"}</small>
-              </button>
-              <button
-                className={`destination-choice ${destinationKind === AdDestinationKind.MARKET_LISTING ? "is-active" : ""}`}
-                disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.marketListings.length === 0}
-                onClick={() => setDestinationKind(AdDestinationKind.MARKET_LISTING)}
-                type="button"
-              >
-                <span>Listing</span>
-                <small>{adsManager.destinationOptions.marketListings.length} active listing(s)</small>
-              </button>
-              <button
-                className={`destination-choice ${destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? "is-active" : ""}`}
-                disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.businessArticles.length === 0}
-                onClick={() => setDestinationKind(AdDestinationKind.BUSINESS_ARTICLE)}
-                type="button"
-              >
-                <span>Article</span>
-                <small>{adsManager.destinationOptions.businessArticles.length} published article(s)</small>
-              </button>
-              <button
-                className={`destination-choice ${destinationKind === AdDestinationKind.EXTERNAL_URL ? "is-active" : ""}`}
-                onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)}
-                type="button"
-              >
-                <span>URL</span>
-                <small>External site or owned internal page</small>
-              </button>
+              <article className="destination-choice-card">
+                <button
+                  className={`destination-choice ${destinationKind === AdDestinationKind.STOREFRONT ? "is-active" : ""}`}
+                  disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.storefronts.length === 0}
+                  onClick={() => setDestinationKind(AdDestinationKind.STOREFRONT)}
+                  type="button"
+                >
+                  <span>Storefront</span>
+                  <small>{adsManager.destinationOptions.storefronts[0]?.label ?? "No storefront yet"}</small>
+                </button>
+                <Link className="destination-choice-action" href={createStorefrontHref}>
+                  Create one
+                </Link>
+              </article>
+              <article className="destination-choice-card">
+                <button
+                  className={`destination-choice ${destinationKind === AdDestinationKind.MARKET_LISTING ? "is-active" : ""}`}
+                  disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.marketListings.length === 0}
+                  onClick={() => setDestinationKind(AdDestinationKind.MARKET_LISTING)}
+                  type="button"
+                >
+                  <span>Listing</span>
+                  <small>{adsManager.destinationOptions.marketListings.length} active listing(s)</small>
+                </button>
+                <Link className="destination-choice-action" href={createListingHref}>
+                  Create one
+                </Link>
+              </article>
+              <article className="destination-choice-card">
+                <button
+                  className={`destination-choice ${destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? "is-active" : ""}`}
+                  disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.businessArticles.length === 0}
+                  onClick={() => setDestinationKind(AdDestinationKind.BUSINESS_ARTICLE)}
+                  type="button"
+                >
+                  <span>Article</span>
+                  <small>{adsManager.destinationOptions.businessArticles.length} published article(s)</small>
+                </button>
+                <Link className="destination-choice-action" href={createArticleHref}>
+                  Create one
+                </Link>
+              </article>
+              <article className="destination-choice-card">
+                <button
+                  className={`destination-choice ${destinationKind === AdDestinationKind.EXTERNAL_URL ? "is-active" : ""}`}
+                  onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)}
+                  type="button"
+                >
+                  <span>URL</span>
+                  <small>External site or owned internal page</small>
+                </button>
+                <button className="destination-choice-action" onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)} type="button">
+                  Enter URL
+                </button>
+              </article>
             </div>
 
             {destinationKind === AdDestinationKind.MARKET_LISTING ? (
@@ -644,8 +871,8 @@ export function CreateAdCampaignForm({
         ) : null}
 
         {currentStep.key === "audience" ? (
-          <div className="ad-wizard-two-column">
-            <label className="grid gap-2">
+          <div className="ad-wizard-audience-grid">
+            <label className="ad-wizard-target-card">
               <span className="form-label">Location</span>
               <input
                 className="form-field"
@@ -653,9 +880,82 @@ export function CreateAdCampaignForm({
                 placeholder="Optional city, state, region, or leave blank"
                 value={targetLocation}
               />
-              <small className="text-[var(--muted)]">Location is broad text targeting. Leave it blank for wider delivery.</small>
+              <small>Use city, state, region, or country. Leave blank for broader delivery.</small>
             </label>
-            <div>
+
+            <section className="ad-wizard-target-card">
+              <span className="form-label">Age ranges</span>
+              <div className="ad-wizard-chip-row">
+                {adAgeRangeOptions.map((option) => {
+                  const active = targetAgeRanges.includes(option.value);
+
+                  return (
+                    <button className={`interest-chip ${active ? "is-active" : ""}`} key={option.value} onClick={() => toggleAgeRange(option.value)} type="button">
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <small>Optional. Leave blank to include all ages allowed on the platform.</small>
+            </section>
+
+            <section className="ad-wizard-target-card">
+              <span className="form-label">Audience sex</span>
+              <div className="ad-wizard-chip-row">
+                {adSexOptions.map((option) => {
+                  const active = targetSexes.includes(option.value);
+
+                  return (
+                    <button className={`interest-chip ${active ? "is-active" : ""}`} key={option.value} onClick={() => toggleSex(option.value)} type="button">
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <small>Optional. Use only when the ad honestly needs it.</small>
+            </section>
+
+            <section className="ad-wizard-target-card ad-wizard-span">
+              <span className="form-label">Hashtags</span>
+              <div className="ad-wizard-hashtag-row">
+                <input
+                  className="form-field"
+                  onChange={(event) => setHashtagQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addHashtag();
+                    }
+                  }}
+                  placeholder="#family, #dogs, #auditing"
+                  value={hashtagQuery}
+                />
+                <button className="btn btn-secondary" onClick={() => addHashtag()} type="button">
+                  Add
+                </button>
+              </div>
+              {hashtagSuggestions.length > 0 ? (
+                <div className="ad-wizard-suggestions" aria-label="Hashtag suggestions">
+                  {hashtagSuggestions.map((hashtag) => (
+                    <button key={hashtag.value} onClick={() => addHashtag(hashtag.value)} type="button">
+                      {hashtag.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {targetHashtags.length > 0 ? (
+                <div className="ad-wizard-selected-tags">
+                  {targetHashtags.map((hashtag) => (
+                    <button key={hashtag} onClick={() => removeHashtag(hashtag)} type="button">
+                      #{hashtag} <span>Remove</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <small>Targets people who used or reacted to matching hashtags. Hashtags are searchable as the site learns from posts.</small>
+            </section>
+
+            <section className="ad-wizard-target-card ad-wizard-span">
               <span className="form-label">Interest categories</span>
               <div className="ad-wizard-interest-grid">
                 {interestCategoryOptions.map((option) => {
@@ -668,10 +968,11 @@ export function CreateAdCampaignForm({
                   );
                 })}
               </div>
-              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">Choose up to 6 categories, or leave blank for broad delivery.</p>
-            </div>
+              <small>Choose up to 12 categories, or leave blank for broad delivery.</small>
+            </section>
+
             {adsManager.destinationOptions.writerManuscripts.length > 0 ? (
-              <label className="ad-wizard-span grid gap-2">
+              <label className="ad-wizard-target-card ad-wizard-span">
                 <span className="form-label">Subscriber audience</span>
                 <select className="form-field" onChange={(event) => setSubscriberTargetManuscriptId(event.target.value)} value={subscriberTargetManuscriptId}>
                   <option value="">No subscriber audience</option>
@@ -798,7 +1099,7 @@ export function CreateAdCampaignForm({
                   <strong>{previewDestinationLabel}</strong>
                   <small>
                     {selectedPricingPackage
-                      ? `${campaignDailyWeight.toFixed(1)} credits/day weight | ${targetInterestCategories.length} interest filter${targetInterestCategories.length === 1 ? "" : "s"}`
+                      ? `${campaignDailyWeight.toFixed(1)} credits/day weight | ${targetingFilterCount} targeting filter${targetingFilterCount === 1 ? "" : "s"}`
                       : "Choose an active ad package"}
                   </small>
                 </div>

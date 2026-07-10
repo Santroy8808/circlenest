@@ -10,6 +10,7 @@ import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
+import type { FeedCursor } from "@/modules/feed-stream/feed-pagination";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
 
 type FeedImageAttachment = {
@@ -21,6 +22,14 @@ type FeedImageAttachment = {
 };
 
 type FeedImageSource = "STREAM_POST" | "STREAM_REPLY";
+
+type DurableUploadIntentResponse = {
+  error?: string;
+  intentId?: string;
+  uploadUrl?: string;
+  uploadHeaders?: Record<string, string>;
+  storageKey?: string;
+};
 
 type FeedCurrentAuthor = {
   id?: string;
@@ -40,6 +49,10 @@ type ReplyTarget = {
 type TextFormat = "bold" | "italic" | "bulletList" | "numberedList" | "link";
 
 type FeedCachePayload = {
+  error?: string;
+  hasMore?: boolean;
+  items?: FeedPostView[];
+  nextCursor?: FeedCursor | null;
   posts?: FeedPostView[];
   reservedStreamAds?: AdPlacementCardView[];
 };
@@ -82,6 +95,28 @@ const RESERVED_STREAM_SLOT_INDEX = 5;
 const IMPRESSION_EVENT = "IMPRESSION";
 const CLICK_EVENT = "CLICK";
 const FEED_THUMBNAIL_MAX_EDGE = 420;
+
+function mergeUniquePosts(current: FeedPostView[], incoming: FeedPostView[]) {
+  const seen = new Set(current.map((post) => post.id));
+  return [
+    ...current,
+    ...incoming.filter((post) => {
+      if (seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    })
+  ];
+}
+
+function readFeedCache(key: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return JSON.parse(window.sessionStorage.getItem(key) ?? "null") as FeedCachePayload | null;
+  } catch {
+    return null;
+  }
+}
 
 function reactionMeta(type: FeedReactionType) {
   return quickReactions.find((reaction) => reaction.type === type) ?? quickReactions[0];
@@ -148,6 +183,7 @@ async function createFeedThumbnail(file: File) {
 
 async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Partial<FeedImageAttachment>) => void, source: FeedImageSource) {
   onUpdate({ status: "uploading", progress: 1, error: undefined });
+  let thumbnailIntentId: string | undefined;
   let thumbnailStorageKey: string | undefined;
 
   const intentResponse = await fetch("/api/media/upload-intent", {
@@ -157,19 +193,20 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
-      visibility: MediaVisibility.MEMBERS,
+      visibility: MediaVisibility.PRIVATE,
       source
     })
   });
-  const intent = (await intentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+  const intent = (await intentResponse.json()) as DurableUploadIntentResponse;
 
-  if (!intentResponse.ok || !intent.uploadUrl || !intent.storageKey) {
+  if (!intentResponse.ok || !intent.intentId || !intent.uploadUrl || !intent.uploadHeaders || !intent.storageKey) {
     throw new Error(intent.error ?? "Could not prepare image upload.");
   }
 
   await uploadWithResilientFallback({
     uploadUrl: intent.uploadUrl,
     storageKey: intent.storageKey,
+    uploadHeaders: intent.uploadHeaders,
     file: image.file,
     onProgress: (progress) => onUpdate({ progress })
   });
@@ -186,23 +223,32 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
           fileName: thumbnailFile.name,
           mimeType: thumbnailFile.type,
           sizeBytes: thumbnailFile.size,
-          visibility: MediaVisibility.MEMBERS,
+          visibility: MediaVisibility.PRIVATE,
           source
         })
       });
-      const thumbnailIntent = (await thumbnailIntentResponse.json()) as { error?: string; uploadUrl?: string; storageKey?: string };
+      const thumbnailIntent = (await thumbnailIntentResponse.json()) as DurableUploadIntentResponse;
 
-      if (thumbnailIntentResponse.ok && thumbnailIntent.uploadUrl && thumbnailIntent.storageKey) {
+      if (
+        thumbnailIntentResponse.ok &&
+        thumbnailIntent.intentId &&
+        thumbnailIntent.uploadUrl &&
+        thumbnailIntent.uploadHeaders &&
+        thumbnailIntent.storageKey
+      ) {
         await uploadWithResilientFallback({
           uploadUrl: thumbnailIntent.uploadUrl,
           storageKey: thumbnailIntent.storageKey,
+          uploadHeaders: thumbnailIntent.uploadHeaders,
           file: thumbnailFile,
           onProgress: () => onUpdate({ progress: 98 })
         });
+        thumbnailIntentId = thumbnailIntent.intentId;
         thumbnailStorageKey = thumbnailIntent.storageKey;
       }
     }
   } catch {
+    thumbnailIntentId = undefined;
     thumbnailStorageKey = undefined;
   }
 
@@ -210,12 +256,14 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      intentId: intent.intentId,
       storageKey: intent.storageKey,
+      thumbnailIntentId,
       thumbnailStorageKey,
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
-      visibility: MediaVisibility.MEMBERS,
+      visibility: MediaVisibility.PRIVATE,
       caption: "",
       source,
       tags: []
@@ -970,6 +1018,8 @@ function shouldIgnoreCardClick(target: EventTarget | null) {
 export function FeedClient({
   currentAuthor,
   defaultExpanded = false,
+  initialHasMore,
+  initialNextCursor,
   initialReplyPostId,
   initialPosts,
   initialReservedStreamAds = [],
@@ -981,6 +1031,8 @@ export function FeedClient({
 }: {
   currentAuthor?: FeedCurrentAuthor;
   defaultExpanded?: boolean;
+  initialHasMore?: boolean;
+  initialNextCursor?: FeedCursor | null;
   initialReplyPostId?: string;
   initialPosts: FeedPostView[];
   initialReservedStreamAds?: AdPlacementCardView[];
@@ -992,24 +1044,29 @@ export function FeedClient({
 }) {
   const router = useRouter();
   const feedCacheKey = `theta-space.feed-cache:${refreshPath}`;
+  const [initialFeedCache] = useState(() => readFeedCache(feedCacheKey));
   const [posts, setPosts] = useState<FeedPostView[]>(() => {
-    if (typeof window === "undefined") return initialPosts;
-    try {
-      const cached = JSON.parse(window.sessionStorage.getItem(feedCacheKey) ?? "{}") as FeedCachePayload;
-      return cached.posts?.length ? cached.posts : initialPosts;
-    } catch {
-      return initialPosts;
-    }
+    return initialFeedCache?.posts?.length ? initialFeedCache.posts : initialPosts;
   });
   const [reservedStreamAds, setReservedStreamAds] = useState<AdPlacementCardView[]>(() => {
-    if (typeof window === "undefined") return initialReservedStreamAds;
-    try {
-      const cached = JSON.parse(window.sessionStorage.getItem(feedCacheKey) ?? "{}") as FeedCachePayload;
-      return cached.reservedStreamAds ?? initialReservedStreamAds;
-    } catch {
-      return initialReservedStreamAds;
-    }
+    return initialFeedCache?.reservedStreamAds ?? initialReservedStreamAds;
   });
+  const usedCachedPosts = Boolean(initialFeedCache?.posts?.length);
+  const [nextCursor, setNextCursor] = useState<FeedCursor | null>(() =>
+    usedCachedPosts ? initialFeedCache?.nextCursor ?? null : initialNextCursor ?? null
+  );
+  const [hasMore, setHasMore] = useState(() =>
+    usedCachedPosts
+      ? Boolean(initialFeedCache?.hasMore && initialFeedCache.nextCursor)
+      : Boolean(initialHasMore && initialNextCursor)
+  );
+  const [paginationReady, setPaginationReady] = useState(() =>
+    usedCachedPosts
+      ? Boolean(initialFeedCache && ("hasMore" in initialFeedCache || "nextCursor" in initialFeedCache))
+      : initialHasMore !== undefined
+  );
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [feedMode, setFeedMode] = useState<FeedMode>("latest");
   const [body, setBody] = useState("");
   const [postFormatState, setPostFormatState] = useState<ComposerFormatState>({});
@@ -1060,16 +1117,59 @@ export function FeedClient({
   const refreshFeed = useCallback(async () => {
     const response = await fetch(refreshPath, { cache: "no-store" });
     const payload = (await response.json()) as FeedCachePayload;
+    if (!response.ok) throw new Error(payload.error ?? "Could not refresh the stream.");
+
     if (payload.posts) setPosts(payload.posts);
     if (payload.reservedStreamAds) setReservedStreamAds(payload.reservedStreamAds);
+    setNextCursor(payload.nextCursor ?? null);
+    setHasMore(Boolean(payload.hasMore && payload.nextCursor));
+    setPaginationReady(true);
+    setLoadMoreError("");
   }, [refreshPath]);
+
+  async function loadMorePosts() {
+    if (!nextCursor || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    setLoadMoreError("");
+
+    try {
+      const url = new URL(refreshPath, window.location.origin);
+      url.searchParams.set("cursorCreatedAt", nextCursor.createdAt);
+      url.searchParams.set("cursorId", nextCursor.id);
+      url.searchParams.set("limit", "20");
+      const response = await fetch(`${url.pathname}${url.search}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as FeedCachePayload;
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not load more posts.");
+      }
+
+      const incoming = payload.items ?? payload.posts ?? [];
+      setPosts((current) => mergeUniquePosts(current, incoming));
+      setNextCursor(payload.nextCursor ?? null);
+      setHasMore(Boolean(payload.hasMore && payload.nextCursor && incoming.length > 0));
+      setPaginationReady(true);
+    } catch (caught) {
+      setLoadMoreError(caught instanceof Error ? caught.message : "Could not load more posts.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(feedCacheKey, JSON.stringify({ posts, reservedStreamAds }));
+      window.sessionStorage.setItem(
+        feedCacheKey,
+        JSON.stringify({
+          posts,
+          reservedStreamAds,
+          ...(paginationReady ? { hasMore, nextCursor } : {})
+        })
+      );
     } catch {
     }
-  }, [feedCacheKey, posts, reservedStreamAds]);
+  }, [feedCacheKey, hasMore, nextCursor, paginationReady, posts, reservedStreamAds]);
 
   useEffect(() => {
     void refreshFeed().catch(() => undefined);
@@ -1542,7 +1642,7 @@ export function FeedClient({
         </section>
       ) : null}
 
-      <div className="feed-entry-list">
+      <div className="feed-entry-list" id="feed-entry-list">
         {visiblePosts.map((post, index) => {
           const commentsExpanded = Boolean(expandedComments[post.id]);
           const replyTarget = replyTargets[post.id];
@@ -1753,6 +1853,35 @@ export function FeedClient({
           );
         })}
       </div>
+      {showThreadLinks && paginationReady && posts.length > 0 ? (
+        <section
+          aria-busy={isLoadingMore}
+          aria-label="Stream pagination"
+          className="surface mt-4 rounded-md p-4 text-center"
+        >
+          {loadMoreError ? (
+            <p className="mb-3 text-sm text-red-100" id="feed-load-more-error" role="alert">
+              {loadMoreError}
+            </p>
+          ) : null}
+          {hasMore && nextCursor ? (
+            <button
+              aria-controls="feed-entry-list"
+              aria-describedby={loadMoreError ? "feed-load-more-error" : undefined}
+              className="btn-secondary"
+              disabled={isLoadingMore}
+              onClick={() => void loadMorePosts()}
+              type="button"
+            >
+              {isLoadingMore ? "Loading more posts..." : loadMoreError ? "Try loading more" : "Load more posts"}
+            </button>
+          ) : (
+            <p className="text-sm text-[var(--muted)]" role="status">
+              You have reached the end of this stream.
+            </p>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -45,7 +45,7 @@ export function CreateGroupForm() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Create Group</p>
         <h1 className="mt-3 text-3xl font-semibold">Set up the group profile</h1>
         <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-          Create the group profile, then manage discussions, photos, docs, and members from the group page.
+          Start with a name and who can find the group. You can add members and open discussions after creation.
         </p>
       </div>
 
@@ -74,16 +74,31 @@ export function CreateGroupForm() {
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
           <span className="form-label">Visibility</span>
-          <select className="form-field" onChange={(event) => setVisibility(event.target.value as GroupVisibility)} value={visibility}>
-            <option value={GroupVisibility.PUBLIC}>Public</option>
-            <option value={GroupVisibility.PRIVATE}>Private</option>
+          <select
+            className="form-field"
+            onChange={(event) => {
+              const nextVisibility = event.target.value as GroupVisibility;
+              setVisibility(nextVisibility);
+              if (nextVisibility === GroupVisibility.PRIVATE) setJoinPolicy(GroupJoinPolicy.APPROVAL);
+            }}
+            value={visibility}
+          >
+            <option value={GroupVisibility.PUBLIC}>Public — members can discover it</option>
+            <option value={GroupVisibility.PRIVATE}>Private — added members only</option>
           </select>
         </label>
         <label className="grid gap-2">
           <span className="form-label">Join policy</span>
-          <select className="form-field" onChange={(event) => setJoinPolicy(event.target.value as GroupJoinPolicy)} value={joinPolicy}>
-            <option value={GroupJoinPolicy.OPEN}>Open join</option>
-            <option value={GroupJoinPolicy.APPROVAL}>Approval required</option>
+          <select
+            className="form-field"
+            disabled={visibility === GroupVisibility.PRIVATE}
+            onChange={(event) => setJoinPolicy(event.target.value as GroupJoinPolicy)}
+            value={joinPolicy}
+          >
+            <option value={GroupJoinPolicy.OPEN}>Any member can join</option>
+            <option value={GroupJoinPolicy.APPROVAL}>
+              {visibility === GroupVisibility.PRIVATE ? "Members are added by a moderator" : "A moderator approves each request"}
+            </option>
           </select>
         </label>
       </div>

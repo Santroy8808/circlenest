@@ -7,6 +7,7 @@ import { FeedClient } from "@/components/feed/feed-client";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { ChatMessageView, ChatPersonView, ChatThreadDetailView, ChatThreadView } from "@/modules/chat-messages/types";
+import type { FeedCursor } from "@/modules/feed-stream/feed-pagination";
 import type { FeedPostView } from "@/modules/feed-stream/types";
 
 type CurrentAuthor = {
@@ -26,6 +27,8 @@ type HomeStreamWorkspaceProps = {
   bannerUrl?: string | null;
   currentAuthor: CurrentAuthor;
   initialChatThreads: ChatThreadView[];
+  initialFeedHasMore: boolean;
+  initialFeedNextCursor: FeedCursor | null;
   initialPosts: FeedPostView[];
   initialReservedStreamAds: AdPlacementCardView[];
   isAdmin?: boolean;
@@ -365,6 +368,8 @@ export function HomeStreamWorkspace({
   bannerUrl,
   currentAuthor,
   initialChatThreads,
+  initialFeedHasMore,
+  initialFeedNextCursor,
   initialPosts,
   initialReservedStreamAds,
   isAdmin = false,
@@ -440,7 +445,15 @@ export function HomeStreamWorkspace({
           </button>
         </div>
         <section className="mt-5">
-          <FeedClient currentAuthor={currentAuthor} initialReservedStreamAds={initialReservedStreamAds} initialPosts={initialPosts} isAdmin={isAdmin} showComposerTrigger={false} />
+          <FeedClient
+            currentAuthor={currentAuthor}
+            initialHasMore={initialFeedHasMore}
+            initialNextCursor={initialFeedNextCursor}
+            initialReservedStreamAds={initialReservedStreamAds}
+            initialPosts={initialPosts}
+            isAdmin={isAdmin}
+            showComposerTrigger={false}
+          />
         </section>
       </div>
 
