@@ -1147,23 +1147,26 @@ model AdminAction {
 }
 
 model PublicAnnouncement {
-  id                       String   @id @default(cuid())
+  id                       String    @id @default(cuid())
   createdByUserId          String
   title                    String
   body                     String
   audienceKind             String
   audienceValue            String?
-  channels                 String[] @default([])
-  recipientCount           Int      @default(0)
-  chatDeliveryCount        Int      @default(0)
-  mailDeliveryCount        Int      @default(0)
-  popupDeliveryCount       Int      @default(0)
-  globalPostDeliveryCount  Int      @default(0)
-  personalEmailQueuedCount Int      @default(0)
+  channels                 String[]  @default([])
+  recipientCount           Int       @default(0)
+  chatDeliveryCount        Int       @default(0)
+  mailDeliveryCount        Int       @default(0)
+  popupDeliveryCount       Int       @default(0)
+  globalPostDeliveryCount  Int       @default(0)
+  personalEmailQueuedCount Int       @default(0)
   feedPostId               String?
   metadata                 Json?
-  createdAt                DateTime @default(now())
+  dismissedAt              DateTime?
+  dismissedByUserId        String?
+  createdAt                DateTime  @default(now())
 
+  @@index([dismissedAt, createdAt])
   @@index([createdByUserId, createdAt])
   @@index([audienceKind, createdAt])
 }

@@ -39,6 +39,8 @@ function toAnnouncementResult(announcement: {
   globalPostDeliveryCount: number;
   personalEmailQueuedCount: number;
   feedPostId: string | null;
+  dismissedAt: Date | null;
+  dismissedByUserId: string | null;
   createdAt: Date;
 }): AdminAnnouncementResult {
   return {
@@ -51,6 +53,8 @@ function toAnnouncementResult(announcement: {
     globalPostDeliveryCount: announcement.globalPostDeliveryCount,
     personalEmailQueuedCount: announcement.personalEmailQueuedCount,
     feedPostId: announcement.feedPostId,
+    dismissedAt: announcement.dismissedAt?.toISOString() ?? null,
+    dismissedByUserId: announcement.dismissedByUserId,
     createdAt: announcement.createdAt.toISOString()
   };
 }
@@ -390,4 +394,98 @@ export async function listRecentPublicAnnouncements(actorUserId?: string) {
   });
 
   return announcements.map(toAnnouncementResult);
+}
+
+export async function dismissPublicAnnouncement(actorUserId: string, announcementId: string) {
+  if (!(await isAdminUser(actorUserId))) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+
+  const announcement = await prisma.publicAnnouncement.findUnique({
+    where: { id: announcementId }
+  });
+
+  if (!announcement) {
+    return { ok: false as const, error: "Announcement not found." };
+  }
+
+  if (announcement.dismissedAt) {
+    return { ok: true as const, announcement: toAnnouncementResult(announcement), alreadyDismissed: true };
+  }
+
+  const dismissedAt = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const nextAnnouncement = await tx.publicAnnouncement.update({
+      where: { id: announcement.id },
+      data: {
+        dismissedAt,
+        dismissedByUserId: actorUserId
+      }
+    });
+
+    if (announcement.feedPostId) {
+      await tx.feedPost.updateMany({
+        where: {
+          id: announcement.feedPostId,
+          isAdminAnnouncement: true
+        },
+        data: {
+          isAdminAnnouncement: false,
+          visibility: FeedVisibility.PRIVATE,
+          pinnedUntil: null
+        }
+      });
+    }
+
+    if (announcement.popupDeliveryCount > 0) {
+      await tx.alert.updateMany({
+        where: {
+          title: announcement.title,
+          body: announcement.body,
+          href: "/alerts",
+          readAt: null
+        },
+        data: {
+          readAt: dismissedAt
+        }
+      });
+    }
+
+    await tx.adminAction.create({
+      data: {
+        actorUserId,
+        actionKey: "announcements",
+        module: MODULE_KEY,
+        status: "dismissed",
+        metadata: {
+          announcementId: announcement.id,
+          feedPostId: announcement.feedPostId,
+          channels: announcement.channels
+        } as Prisma.InputJsonObject
+      }
+    });
+
+    return nextAnnouncement;
+  });
+
+  await writeAuditLog({
+    actorUserId,
+    module: MODULE_KEY,
+    action: "announcement.dismissed",
+    targetType: "PublicAnnouncement",
+    targetId: updated.id,
+    severity: "warning",
+    metadata: {
+      channels: updated.channels,
+      feedPostId: updated.feedPostId,
+      recipientCount: updated.recipientCount
+    }
+  });
+  await diagnostics.info(MODULE_KEY, "Public announcement dismissed.", {
+    actorUserId,
+    announcementId: updated.id,
+    feedPostId: updated.feedPostId
+  });
+
+  return { ok: true as const, announcement: toAnnouncementResult(updated), alreadyDismissed: false };
 }

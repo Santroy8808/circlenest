@@ -53,6 +53,7 @@ export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnounc
   const [published, setPublished] = useState<AdminAnnouncementResult | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const selectedChannelText = useMemo(() => channels.map((channel) => channelLabels[channel]).join(", "), [channels]);
 
@@ -104,6 +105,33 @@ export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnounc
       setPublished(payload.announcement);
       setAnnouncements((current) => [payload.announcement!, ...current].slice(0, 10));
       setMessage("Announcement published and audited.");
+    });
+  }
+
+  function dismissAnnouncement(announcementId: string) {
+    setMessage("");
+    setError("");
+    setDismissingId(announcementId);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/admin/announcements/${announcementId}/dismiss`, {
+          method: "POST"
+        });
+        const payload = (await response.json()) as { announcement?: AdminAnnouncementResult; error?: string };
+
+        if (!response.ok || !payload.announcement) {
+          setError(payload.error ?? "Could not dismiss announcement.");
+          return;
+        }
+
+        setAnnouncements((current) => current.map((announcement) => (announcement.id === announcementId ? payload.announcement! : announcement)));
+        setMessage("Announcement dismissed. Pinned stream posts and unread login pop-ups were cleared where applicable.");
+      } catch {
+        setError("Could not dismiss announcement.");
+      } finally {
+        setDismissingId(null);
+      }
     });
   }
 
@@ -289,8 +317,29 @@ export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnounc
             announcements.map((announcement) => (
               <article className="module-card rounded-md p-4" key={announcement.id}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <strong>{announcement.title}</strong>
-                  <span className="text-sm text-[var(--muted)]">{new Date(announcement.createdAt).toLocaleString()}</span>
+                  <div>
+                    <strong>{announcement.title}</strong>
+                    {announcement.dismissedAt ? (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                        Dismissed {new Date(announcement.dismissedAt).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-sm text-[var(--muted)]">{new Date(announcement.createdAt).toLocaleString()}</span>
+                    {announcement.dismissedAt ? (
+                      <span className="pill rounded-full px-3 py-1 text-xs">Dismissed</span>
+                    ) : (
+                      <button
+                        className="btn-secondary px-3 py-2 text-xs"
+                        disabled={isPending || dismissingId === announcement.id}
+                        onClick={() => dismissAnnouncement(announcement.id)}
+                        type="button"
+                      >
+                        {dismissingId === announcement.id ? "Dismissing..." : "Dismiss"}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[var(--muted)]">
                   {resultLine("Recipients", announcement.recipientCount)}
