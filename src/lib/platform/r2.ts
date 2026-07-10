@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readPlatformEnv } from "@/lib/platform/env";
 
@@ -174,6 +174,32 @@ export async function getR2Object(storageKey: string, access: R2ObjectAccess = "
     new GetObjectCommand({
       Bucket: bucket,
       Key: storageKey
+    })
+  );
+}
+
+function encodeCopySource(bucket: string, storageKey: string) {
+  const encodedBucket = encodeURIComponent(bucket);
+  const encodedKey = storageKey
+    .replace(/^\/+/, "")
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+
+  return `${encodedBucket}/${encodedKey}`;
+}
+
+export async function copyR2Object(storageKey: string, fromAccess: R2ObjectAccess, toAccess: R2ObjectAccess) {
+  const r2 = readR2Config();
+  const sourceBucket = bucketForAccess(r2, fromAccess);
+  const targetBucket = bucketForAccess(r2, toAccess);
+
+  return getR2Client().send(
+    new CopyObjectCommand({
+      Bucket: targetBucket,
+      CopySource: encodeCopySource(sourceBucket, storageKey),
+      Key: storageKey,
+      MetadataDirective: "COPY"
     })
   );
 }

@@ -7,7 +7,7 @@ import {
   UploadIntentPurpose,
   UploadIntentStatus
 } from "@prisma/client";
-import { deleteR2Object, getR2PublicUrl } from "@/lib/platform/r2";
+import { copyR2Object, deleteR2Object, getR2PublicUrl, type R2ObjectAccess } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { canAccessMedia, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
@@ -124,6 +124,14 @@ type GalleryAssetMetadata = {
   thumbnailStorageKey?: string | null;
   thumbnailUrl?: string | null;
 };
+
+function storageAccessForVisibility(visibility: MediaVisibility): R2ObjectAccess {
+  return visibility === MediaVisibility.PUBLIC ? "public" : "private";
+}
+
+function publicUrlForVisibility(storageKey: string, visibility: MediaVisibility) {
+  return visibility === MediaVisibility.PUBLIC ? getR2PublicUrl(storageKey) : null;
+}
 
 type GalleryReactionRecord = {
   type: FeedReactionType;
@@ -678,25 +686,109 @@ export async function updateGalleryAssetSettings(userId: string, input: unknown)
     return { ok: false as const, error: "Photo not found." };
   }
 
-  if (parsed.data.visibility !== asset.visibility) {
-    return {
-      ok: false as const,
-      error: "Changing photo privacy is temporarily unavailable. Re-upload the photo with the visibility you want."
-    };
-  }
-
   const metadata = (asset.metadata as GalleryAssetMetadata | null) ?? {};
   const commentsEnabled = parsed.data.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled;
+  const fromAccess = storageAccessForVisibility(asset.visibility);
+  const toAccess = storageAccessForVisibility(parsed.data.visibility);
+  const storageKeys = [asset.storageKey, metadata.thumbnailStorageKey].filter((key): key is string => Boolean(key));
+  const copiedKeys: string[] = [];
 
-  await prisma.mediaAsset.update({
-    where: { id: asset.id },
-    data: {
-      visibility: parsed.data.visibility,
-      metadata: {
-        ...metadata,
-        commentsEnabled
+  if (fromAccess !== toAccess) {
+    try {
+      for (const storageKey of storageKeys) {
+        await copyR2Object(storageKey, fromAccess, toAccess);
+        copiedKeys.push(storageKey);
+      }
+
+      if (fromAccess === "public" && toAccess === "private") {
+        await Promise.all(storageKeys.map((storageKey) => deleteR2Object(storageKey, fromAccess)));
+      }
+    } catch (error) {
+      await diagnostics.error(MODULE_KEY, "Gallery visibility storage move failed.", {
+        userId,
+        mediaAssetId: asset.id,
+        fromVisibility: asset.visibility,
+        toVisibility: parsed.data.visibility,
+        storageKeys,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+
+      await Promise.all(copiedKeys.map((storageKey) => deleteR2Object(storageKey, toAccess).catch(() => null)));
+
+      return { ok: false as const, error: "Could not move that photo to the selected visibility. Try again." };
+    }
+  }
+
+  const nextMetadata: GalleryAssetMetadata = {
+    ...metadata,
+    commentsEnabled,
+    thumbnailUrl: metadata.thumbnailStorageKey ? publicUrlForVisibility(metadata.thumbnailStorageKey, parsed.data.visibility) : null
+  };
+
+  try {
+    await prisma.mediaAsset.update({
+      where: { id: asset.id },
+      data: {
+        visibility: parsed.data.visibility,
+        publicUrl: publicUrlForVisibility(asset.storageKey, parsed.data.visibility),
+        metadata: nextMetadata
+      }
+    });
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Gallery visibility database update failed.", {
+      userId,
+      mediaAssetId: asset.id,
+      fromVisibility: asset.visibility,
+      toVisibility: parsed.data.visibility,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+
+    if (fromAccess !== toAccess) {
+      if (toAccess === "public") {
+        await Promise.all(copiedKeys.map((storageKey) => deleteR2Object(storageKey, toAccess).catch(() => null)));
+      } else {
+        await Promise.all(
+          copiedKeys.map(async (storageKey) => {
+            try {
+              await copyR2Object(storageKey, toAccess, fromAccess);
+              await deleteR2Object(storageKey, toAccess);
+            } catch (rollbackError) {
+              await diagnostics.error(MODULE_KEY, "Gallery visibility storage rollback failed.", {
+                userId,
+                mediaAssetId: asset.id,
+                storageKey,
+                error: rollbackError instanceof Error ? rollbackError.message : "unknown"
+              });
+            }
+          })
+        );
       }
     }
+
+    return { ok: false as const, error: "Could not save that photo visibility. Try again." };
+  }
+
+  if (fromAccess === "private" && toAccess === "public") {
+    await Promise.all(
+      storageKeys.map((storageKey) =>
+        deleteR2Object(storageKey, fromAccess).catch(async (error) => {
+          await diagnostics.error(MODULE_KEY, "Gallery private object cleanup failed after public move.", {
+            userId,
+            mediaAssetId: asset.id,
+            storageKey,
+            error: error instanceof Error ? error.message : "unknown"
+          });
+        })
+      )
+    );
+  }
+
+  await diagnostics.info(MODULE_KEY, "Gallery asset visibility updated.", {
+    userId,
+    mediaAssetId: asset.id,
+    fromVisibility: asset.visibility,
+    toVisibility: parsed.data.visibility,
+    movedStorage: fromAccess !== toAccess
   });
 
   return { ok: true as const };
