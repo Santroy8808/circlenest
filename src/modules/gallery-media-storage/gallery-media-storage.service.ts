@@ -147,6 +147,15 @@ type GalleryReactionRecord = {
   };
 };
 
+type GalleryAssetCommentBaseRecord = Prisma.GalleryAssetCommentGetPayload<{
+  include: { author: { include: { profile: true } }; reactions: ReturnType<typeof galleryReactionInclude> };
+}>;
+
+interface GalleryAssetCommentRecord extends GalleryAssetCommentBaseRecord {
+  replies?: GalleryAssetCommentRecord[];
+  _count?: { replies: number };
+}
+
 function galleryReactionInclude() {
   return {
     include: {
@@ -231,15 +240,12 @@ function isSystemGalleryAsset(asset: GalleryAssetView) {
   return asset.tags.some((tag) => SYSTEM_GALLERY_TAGS.has(tag.trim().toLowerCase()));
 }
 
-function toGalleryAssetCommentView(
-  comment: Prisma.GalleryAssetCommentGetPayload<{
-    include: { author: { include: { profile: true } }; reactions: ReturnType<typeof galleryReactionInclude> };
-  }>
-): GalleryAssetCommentView {
+function toGalleryAssetCommentView(comment: GalleryAssetCommentRecord): GalleryAssetCommentView {
   const reactionSummary = summarizeReactions(comment.reactions);
 
   return {
     id: comment.id,
+    parentCommentId: comment.parentCommentId,
     body: comment.body,
     createdAt: comment.createdAt.toISOString(),
     author: {
@@ -249,7 +255,9 @@ function toGalleryAssetCommentView(
       avatarUrl: comment.author.profile?.avatarUrl
     },
     reactions: reactionSummary.counts,
-    reactionReactors: reactionSummary.reactors
+    reactionReactors: reactionSummary.reactors,
+    replyCount: comment._count?.replies ?? comment.replies?.length ?? 0,
+    replies: comment.replies?.map(toGalleryAssetCommentView)
   };
 }
 
@@ -646,6 +654,7 @@ export async function getMyPicViewer(userId: string, mediaAssetId: string): Prom
     prisma.galleryAssetComment.findMany({
       where: {
         mediaAssetId: asset.id,
+        parentCommentId: null,
         deletedAt: null
       },
       include: {
@@ -654,7 +663,34 @@ export async function getMyPicViewer(userId: string, mediaAssetId: string): Prom
             profile: true
           }
         },
-        reactions: galleryReactionInclude()
+        reactions: galleryReactionInclude(),
+        replies: {
+          where: {
+            deletedAt: null
+          },
+          include: {
+            author: {
+              include: {
+                profile: true
+              }
+            },
+            reactions: galleryReactionInclude(),
+            _count: {
+              select: {
+                replies: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: "asc"
+          },
+          take: 50
+        },
+        _count: {
+          select: {
+            replies: true
+          }
+        }
       },
       orderBy: {
         createdAt: "asc"
@@ -1010,10 +1046,34 @@ export async function createGalleryAssetComment(userId: string, input: unknown) 
     return { ok: false as const, error: "Comments are not enabled for this photo." };
   }
 
+  let parentCommentId: string | null = null;
+
+  if (parsed.data.parentCommentId) {
+    const parent = await prisma.galleryAssetComment.findFirst({
+      where: {
+        id: parsed.data.parentCommentId,
+        mediaAssetId: asset.id,
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        authorUserId: true,
+        parentCommentId: true
+      }
+    });
+
+    if (!parent) {
+      return { ok: false as const, error: "The comment you are replying to is not available." };
+    }
+
+    parentCommentId = parent.parentCommentId ?? parent.id;
+  }
+
   const comment = await prisma.galleryAssetComment.create({
     data: {
       mediaAssetId: asset.id,
       authorUserId: userId,
+      parentCommentId,
       body: parsed.data.body
     },
     include: {
@@ -1022,7 +1082,12 @@ export async function createGalleryAssetComment(userId: string, input: unknown) 
           profile: true
         }
       },
-      reactions: galleryReactionInclude()
+      reactions: galleryReactionInclude(),
+      _count: {
+        select: {
+          replies: true
+        }
+      }
     }
   });
 
@@ -1030,9 +1095,9 @@ export async function createGalleryAssetComment(userId: string, input: unknown) 
     await prisma.notification.create({
       data: {
         userId: asset.ownerUserId,
-        title: "New photo comment",
-        body: "Someone commented on one of your photos.",
-        href: `/profile/gallery/${asset.id}`
+        title: parentCommentId ? "New photo reply" : "New photo comment",
+        body: parentCommentId ? "Someone replied in a photo thread." : "Someone commented on one of your photos.",
+        href: `/profile/gallery/${asset.id}#comment-${comment.id}`
       }
     });
   }

@@ -48,6 +48,7 @@ export const updateGalleryAssetSettingsSchema = z.object({
 
 export const createGalleryAssetCommentSchema = z.object({
   mediaAssetId: z.string().min(1),
+  parentCommentId: z.string().min(1).optional().nullable(),
   body: z.string().trim().min(1, "Write a comment first.").max(1000, "Comment is too long.")
 });
 
@@ -110,6 +111,7 @@ export type GalleryAssetViewer = {
 
 export type GalleryAssetCommentView = {
   id: string;
+  parentCommentId?: string | null;
   body: string;
   createdAt: string;
   author: {
@@ -120,6 +122,8 @@ export type GalleryAssetCommentView = {
   };
   reactions: Partial<Record<FeedReactionType, number>>;
   reactionReactors: GalleryReactionReactorsView;
+  replyCount: number;
+  replies?: GalleryAssetCommentView[];
 };
 
 export type GalleryReactionUserView = {

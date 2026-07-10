@@ -1309,19 +1309,24 @@ model UserHashtagSignal {
 }
 
 model GalleryAssetComment {
-  id           String                        @id @default(cuid())
-  mediaAssetId String
-  authorUserId String
-  body         String
-  deletedAt    DateTime?
-  createdAt    DateTime                      @default(now())
-  updatedAt    DateTime                      @updatedAt
-  mediaAsset   MediaAsset                    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
-  author       User                          @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  reactions    GalleryAssetCommentReaction[]
+  id              String                        @id @default(cuid())
+  mediaAssetId    String
+  authorUserId    String
+  parentCommentId String?
+  body            String
+  deletedAt       DateTime?
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  mediaAsset      MediaAsset                    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  author          User                          @relation("GalleryAssetCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  parent          GalleryAssetComment?          @relation("GalleryAssetCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         GalleryAssetComment[]         @relation("GalleryAssetCommentReplies")
+  reactions       GalleryAssetCommentReaction[]
 
   @@index([mediaAssetId, deletedAt, createdAt])
+  @@index([mediaAssetId, parentCommentId, deletedAt, createdAt])
   @@index([authorUserId, createdAt])
+  @@index([parentCommentId, deletedAt, createdAt])
 }
 
 model GalleryAssetReaction {

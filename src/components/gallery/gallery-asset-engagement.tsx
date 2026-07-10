@@ -3,7 +3,7 @@
 import { FeedReactionType, MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type {
@@ -83,57 +83,156 @@ function nextReactionState(
 }
 
 function GalleryReactionControls({
+  compact = false,
   currentUser,
   onReact,
   state
 }: {
+  compact?: boolean;
   currentUser: GalleryReactionUserView;
   onReact: (reactionType: FeedReactionType) => void;
   state: GalleryReactionState;
 }) {
   const selectedType = currentReaction(state.reactors, currentUser.id);
-  const selectedReaction = galleryReactionChoices.find((reaction) => reaction.type === selectedType) ?? galleryReactionChoices[0];
-  const visibleCounts = publicGalleryReactionChoices.filter((reaction) => (state.counts[reaction.type] ?? 0) > 0);
 
   return (
-    <div className="gallery-reaction-controls">
-      {visibleCounts.length ? (
-        <div className="gallery-reaction-counts" aria-label="Photo reactions">
-          {visibleCounts.map((reaction) => (
-            <span className="feed-reaction-count-chip" key={reaction.type} title={reactionTooltip(reaction)}>
-              <GalleryReactionIcon reaction={reaction} />
-              <strong>{state.counts[reaction.type]}</strong>
-            </span>
+    <div className={compact ? "gallery-reaction-controls is-compact" : "gallery-reaction-controls"} aria-label="Reaction options">
+      {publicGalleryReactionChoices.map((reaction) => {
+        const count = state.counts[reaction.type] ?? 0;
+        const selected = selectedType === reaction.type;
+
+        return (
+          <button
+            aria-label={reactionTooltip(reaction)}
+            aria-pressed={selected}
+            className={selected ? "gallery-reaction-button is-selected" : "gallery-reaction-button"}
+            key={reaction.type}
+            onClick={() => onReact(reaction.type)}
+            title={reactionTooltip(reaction)}
+            type="button"
+          >
+            <GalleryReactionIcon reaction={reaction} />
+            {!compact ? <span>{reaction.label}</span> : null}
+            {count > 0 ? <strong>{count}</strong> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+type GalleryReplyTarget = {
+  id: string;
+  authorDisplayName: string;
+  authorUsername: string;
+};
+
+function mapCommentTree(
+  comments: GalleryAssetCommentView[],
+  commentId: string,
+  update: (comment: GalleryAssetCommentView) => GalleryAssetCommentView
+): GalleryAssetCommentView[] {
+  return comments.map((comment) => {
+    if (comment.id === commentId) return update(comment);
+
+    if (comment.replies?.length) {
+      return {
+        ...comment,
+        replies: mapCommentTree(comment.replies, commentId, update)
+      };
+    }
+
+    return comment;
+  });
+}
+
+function appendCommentToThread(comments: GalleryAssetCommentView[], comment: GalleryAssetCommentView) {
+  if (!comment.parentCommentId) return [...comments, comment];
+
+  let inserted = false;
+  const next = comments.map((candidate) => {
+    if (candidate.id !== comment.parentCommentId) return candidate;
+
+    inserted = true;
+    const replies = [...(candidate.replies ?? []), comment];
+
+    return {
+      ...candidate,
+      replyCount: Math.max(candidate.replyCount + 1, replies.length),
+      replies
+    };
+  });
+
+  return inserted ? next : [...comments, comment];
+}
+
+function GalleryCommentThreadItem({
+  canReply,
+  comment,
+  currentUser,
+  onReact,
+  onReply,
+  onShare,
+  depth = 0
+}: {
+  canReply: boolean;
+  comment: GalleryAssetCommentView;
+  currentUser: GalleryReactionUserView;
+  onReact: (commentId: string, reactionType: FeedReactionType) => void;
+  onReply: (comment: GalleryAssetCommentView) => void;
+  onShare: (commentId: string) => void;
+  depth?: number;
+}) {
+  const replies = comment.replies ?? [];
+
+  return (
+    <article className={depth > 0 ? "gallery-comment is-reply" : "gallery-comment"} id={`comment-${comment.id}`}>
+      <div className="gallery-comment-main">
+        <Link className="profile-inline-link" href={`/profile/${comment.author.username}`}>
+          <strong>{comment.author.displayName}</strong>
+        </Link>
+        <span>
+          <Link className="profile-inline-link" href={`/profile/${comment.author.username}`}>
+            @{comment.author.username}
+          </Link>{" "}
+          | {new Date(comment.createdAt).toLocaleDateString()}
+          {comment.replyCount > 0 ? ` | ${comment.replyCount} repl${comment.replyCount === 1 ? "y" : "ies"}` : ""}
+        </span>
+        <p>{comment.body}</p>
+        <div className="gallery-comment-actions">
+          <GalleryReactionControls
+            compact
+            currentUser={currentUser}
+            onReact={(reactionType) => onReact(comment.id, reactionType)}
+            state={{ counts: comment.reactions, reactors: comment.reactionReactors }}
+          />
+          {canReply ? (
+            <button className="gallery-comment-action-button" onClick={() => onReply(comment)} type="button">
+              Reply
+            </button>
+          ) : null}
+          <button className="gallery-comment-action-button is-share" onClick={() => onShare(comment.id)} type="button">
+            Share
+          </button>
+        </div>
+      </div>
+      {replies.length > 0 ? (
+        <div className="gallery-comment-replies">
+          {replies.map((reply) => (
+            <GalleryCommentThreadItem
+              canReply={canReply}
+              comment={reply}
+              currentUser={currentUser}
+              depth={depth + 1}
+              key={reply.id}
+              onReact={onReact}
+              onReply={onReply}
+              onShare={onShare}
+            />
           ))}
         </div>
       ) : null}
-      <div className="feed-reaction-menu gallery-reaction-menu">
-        <button
-          aria-label={reactionTooltip(selectedReaction)}
-          className={selectedType ? "feed-reaction-trigger is-selected" : "feed-reaction-trigger"}
-          data-tooltip={reactionTooltip(selectedReaction)}
-          onClick={() => onReact(FeedReactionType.LIKE)}
-          type="button"
-        >
-          <GalleryReactionIcon reaction={selectedReaction} />
-        </button>
-        <div className="feed-reaction-popover" role="menu">
-          {galleryReactionChoices.map((reaction) => (
-            <button
-              aria-label={reactionTooltip(reaction)}
-              className="feed-reaction-choice"
-              key={reaction.type}
-              onClick={() => onReact(reaction.type)}
-              role="menuitem"
-              type="button"
-            >
-              <GalleryReactionIcon reaction={reaction} />
-              <span>{reaction.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+    </article>
   );
 }
 
@@ -215,14 +314,20 @@ export function GalleryAssetEngagement({
 }) {
   const router = useRouter();
   const [comments, setComments] = useState(initialComments);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const [assetReactions, setAssetReactions] = useState<GalleryReactionState>({
     counts: asset.reactions,
     reactors: asset.reactionReactors
   });
   const [body, setBody] = useState("");
+  const [replyTarget, setReplyTarget] = useState<GalleryReplyTarget | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const threadItemCount = useMemo(
+    () => comments.reduce((count, comment) => count + 1 + (comment.replies?.length ?? 0), 0),
+    [comments]
+  );
 
   async function reactToPhoto(reactionType: FeedReactionType) {
     setAssetReactions((current) => nextReactionState(current, reactionType, currentUser));
@@ -244,24 +349,19 @@ export function GalleryAssetEngagement({
 
   async function reactToComment(commentId: string, reactionType: FeedReactionType) {
     setComments((current) =>
-      current.map((comment) =>
-        comment.id === commentId
-          ? {
-              ...comment,
-              ...(() => {
-                const next = nextReactionState(
-                  { counts: comment.reactions, reactors: comment.reactionReactors },
-                  reactionType,
-                  currentUser
-                );
-                return {
-                  reactions: next.counts,
-                  reactionReactors: next.reactors
-                };
-              })()
-            }
-          : comment
-      )
+      mapCommentTree(current, commentId, (comment) => {
+        const next = nextReactionState(
+          { counts: comment.reactions, reactors: comment.reactionReactors },
+          reactionType,
+          currentUser
+        );
+
+        return {
+          ...comment,
+          reactions: next.counts,
+          reactionReactors: next.reactors
+        };
+      })
     );
 
     const response = await fetch(`/api/media/assets/${asset.id}/comments/${commentId}/reactions`, {
@@ -279,6 +379,36 @@ export function GalleryAssetEngagement({
     router.refresh();
   }
 
+  function startReply(comment: GalleryAssetCommentView) {
+    setReplyTarget({
+      id: comment.parentCommentId ?? comment.id,
+      authorDisplayName: comment.author.displayName,
+      authorUsername: comment.author.username
+    });
+    setMessage("");
+    setError("");
+    window.requestAnimationFrame(() => commentInputRef.current?.focus());
+  }
+
+  async function shareComment(commentId: string) {
+    setError("");
+    setMessage("");
+    const url = `${window.location.origin}/profile/gallery/${asset.id}#comment-${commentId}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Theta-Space photo comment", url });
+        setMessage("Comment shared.");
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      setMessage("Comment link copied.");
+    } catch {
+      setError("Could not share that comment from this browser.");
+    }
+  }
+
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -288,7 +418,7 @@ export function GalleryAssetEngagement({
       const response = await fetch(`/api/media/assets/${asset.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body })
+        body: JSON.stringify({ body, parentCommentId: replyTarget?.id ?? null })
       });
       const payload = (await response.json()) as { error?: string; comment?: GalleryAssetCommentView };
 
@@ -297,9 +427,10 @@ export function GalleryAssetEngagement({
         return;
       }
 
-      setComments((current) => [...current, payload.comment as GalleryAssetCommentView]);
+      setComments((current) => appendCommentToThread(current, payload.comment as GalleryAssetCommentView));
       setBody("");
-      setMessage("Comment added.");
+      setReplyTarget(null);
+      setMessage(replyTarget ? "Reply added." : "Comment added.");
     });
   }
 
@@ -307,7 +438,7 @@ export function GalleryAssetEngagement({
     <section className="gallery-engagement surface rounded-md p-5">
       <div className="gallery-engagement-heading">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Comments</p>
-        <span className="text-xs text-[var(--muted)]">{comments.length} thread item{comments.length === 1 ? "" : "s"}</span>
+        <span className="text-xs text-[var(--muted)]">{threadItemCount} thread item{threadItemCount === 1 ? "" : "s"}</span>
       </div>
 
       <div className="gallery-photo-reactions mt-5">
@@ -318,23 +449,15 @@ export function GalleryAssetEngagement({
         <div className="gallery-comment-list">
           {comments.length ? (
             comments.map((comment) => (
-              <article className="gallery-comment" key={comment.id}>
-                <Link className="profile-inline-link" href={`/profile/${comment.author.username}`}>
-                  <strong>{comment.author.displayName}</strong>
-                </Link>
-                <span>
-                  <Link className="profile-inline-link" href={`/profile/${comment.author.username}`}>
-                    @{comment.author.username}
-                  </Link>{" "}
-                  | {new Date(comment.createdAt).toLocaleDateString()}
-                </span>
-                <p>{comment.body}</p>
-                <GalleryReactionControls
-                  currentUser={currentUser}
-                  onReact={(reactionType) => reactToComment(comment.id, reactionType)}
-                  state={{ counts: comment.reactions, reactors: comment.reactionReactors }}
-                />
-              </article>
+              <GalleryCommentThreadItem
+                canReply={asset.commentsEnabled}
+                comment={comment}
+                currentUser={currentUser}
+                key={comment.id}
+                onReact={reactToComment}
+                onReply={startReply}
+                onShare={(commentId) => void shareComment(commentId)}
+              />
             ))
           ) : (
             <p className="text-sm text-[var(--muted)]">No comments yet.</p>
@@ -343,11 +466,22 @@ export function GalleryAssetEngagement({
 
         {asset.commentsEnabled ? (
           <form className="grid gap-3" onSubmit={submitComment}>
+            {replyTarget ? (
+              <div className="gallery-reply-context">
+                <span>
+                  Replying to <strong>@{replyTarget.authorUsername}</strong>
+                </span>
+                <button onClick={() => setReplyTarget(null)} type="button">
+                  Cancel
+                </button>
+              </div>
+            ) : null}
             <textarea
+              ref={commentInputRef}
               className="form-field min-h-20 resize-y"
               disabled={isPending}
               onChange={(event) => setBody(event.target.value)}
-              placeholder="Write a comment..."
+              placeholder={replyTarget ? `Reply to @${replyTarget.authorUsername}...` : "Write a comment..."}
               value={body}
             />
             <button
