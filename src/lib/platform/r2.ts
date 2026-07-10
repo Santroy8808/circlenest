@@ -132,6 +132,10 @@ export async function createPresignedR2PutRequest(input: R2PutInput) {
   const checksumSha256 = normalizeSha256Checksum(input.checksumSha256);
   const checksumBase64 = checksumSha256 ? sha256HexToBase64(checksumSha256) : undefined;
   const metadata = normalizeR2Metadata(input.metadata);
+  const xAmzUploadHeaders = new Set<string>([
+    ...(checksumBase64 ? ["x-amz-checksum-sha256"] : []),
+    ...Object.keys(metadata).map((key) => `x-amz-meta-${key}`)
+  ]);
 
   const command = new PutObjectCommand({
     Bucket: bucket,
@@ -143,7 +147,8 @@ export async function createPresignedR2PutRequest(input: R2PutInput) {
   });
 
   const url = await getSignedUrl(getR2Client(), command, {
-    expiresIn: input.expiresInSeconds ?? 300
+    expiresIn: input.expiresInSeconds ?? 300,
+    unhoistableHeaders: xAmzUploadHeaders
   });
 
   return {
