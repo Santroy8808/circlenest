@@ -55,10 +55,21 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
             </div>
             <MarkdownRichText className="market-listing-description mt-6" value={listing.description} />
           </div>
-          {listing.viewerCanManage ? (
-            <aside className="market-listing-owner-contact">
-              <h2 className="text-xl font-semibold text-[var(--gold)]">Contact details</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Only you can see the contact details saved for this listing.</p>
+          <aside className="market-listing-owner-contact">
+            <h2 className="text-xl font-semibold text-[var(--gold)]">{listing.viewerCanManage ? "Contact details" : "Seller"}</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              {listing.viewerCanManage ? "Only you can see the contact details saved for this listing." : "Contact this seller through Theta-Space."}
+            </p>
+            <div className="market-contact-seller mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--gold)]">Seller</p>
+              <Link className="profile-inline-link mt-2 block" href={`/profile/${listing.seller.username}`}>
+                {listing.seller.displayName}
+              </Link>
+              <Link className="profile-inline-link mt-1 block text-sm" href={`/profile/${listing.seller.username}`}>
+                @{listing.seller.username}
+              </Link>
+            </div>
+            {listing.viewerCanManage ? (
               <div className="market-contact-card mt-4">
                 {listing.contactEmail ? (
                   <a className="market-contact-line" href={`mailto:${listing.contactEmail}?subject=${encodeURIComponent(`Theta-Space Market: ${listing.title}`)}`}>
@@ -71,8 +82,12 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
                   <p className="market-contact-line">No contact details added.</p>
                 ) : null}
               </div>
-            </aside>
-          ) : null}
+            ) : listing.allowMessages ? (
+              <div className="mt-4">
+                <MarketSellerMessageButton sellerUserId={listing.seller.id} />
+              </div>
+            ) : null}
+          </aside>
         </div>
       </section>
 
@@ -96,35 +111,19 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
         </section>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="surface rounded-md p-5">
-          <h2 className="text-xl font-semibold text-[var(--gold)]">Seller</h2>
-          <Link className="profile-inline-link mt-2 block" href={`/profile/${listing.seller.username}`}>
-            {listing.seller.displayName}
+      <section className="surface rounded-md p-5">
+        <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+          Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
+        </p>
+        {listing.viewerCanPromote ? (
+          <Link
+            className="btn-secondary mt-4 inline-block"
+            href={`/ads/create?destinationKind=${AdDestinationKind.MARKET_LISTING}&marketListingId=${listing.id}&title=${encodeURIComponent(`Promote ${listing.title}`)}&body=${encodeURIComponent(listing.description.slice(0, 220) || `View ${listing.title} in The Market.`)}&targetInterestCategories=${InterestCategory.MARKET}`}
+          >
+            Create listing ad
           </Link>
-          <Link className="profile-inline-link mt-1 block text-sm" href={`/profile/${listing.seller.username}`}>
-            @{listing.seller.username}
-          </Link>
-          {listing.allowMessages ? (
-            <div className="mt-4">
-              <MarketSellerMessageButton sellerUserId={listing.seller.id} />
-            </div>
-          ) : null}
-        </article>
-        <article className="surface rounded-md p-5">
-          <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
-          </p>
-          {listing.viewerCanPromote ? (
-            <Link
-              className="btn-secondary mt-4 inline-block"
-              href={`/ads/create?destinationKind=${AdDestinationKind.MARKET_LISTING}&marketListingId=${listing.id}&title=${encodeURIComponent(`Promote ${listing.title}`)}&body=${encodeURIComponent(listing.description.slice(0, 220) || `View ${listing.title} in The Market.`)}&targetInterestCategories=${InterestCategory.MARKET}`}
-            >
-              Create listing ad
-            </Link>
-          ) : null}
-        </article>
+        ) : null}
       </section>
     </div>
   );

@@ -31,7 +31,7 @@ const homeSection: NavSection = {
 
 const communicationsSection: NavSection = {
   href: "/messages",
-  label: "Connect",
+  label: "Comm Center",
   items: [
     { label: "Messages", href: "/messages", countKey: "messages" },
     { label: "Mail", href: "/mail", countKey: "mail" },

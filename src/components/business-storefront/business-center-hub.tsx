@@ -44,6 +44,13 @@ export function BusinessCenterHub({ adsManager, businessCenter }: { adsManager: 
       description: "Manage your public storefront profile, banner, articles, inquiries, gallery, and published business information.",
       href: "/business-center/storefront",
       meta: hasStorefront ? "Public storefront enabled" : "Storefront draft"
+    },
+    {
+      title: "Writers Corner",
+      eyebrow: "Publish",
+      description: "Create and manage manuscripts, chapters, and member-facing writing projects.",
+      href: "/writers-corner",
+      meta: "Create and edit manuscripts"
     }
   ];
 
