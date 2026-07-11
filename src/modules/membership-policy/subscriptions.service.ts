@@ -38,6 +38,15 @@ export type SubscriptionUpgradePlanView = {
   checkoutReady: boolean;
 };
 
+export type SubscriptionBillingSummary = {
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  subscriptionStatus: MembershipSubscriptionStatus;
+  subscriptionCurrentPeriodEnd: string | null;
+  subscriptionCancelAtPeriodEnd: boolean;
+  canManageBilling: boolean;
+};
+
 function activeEligibilityWhere(userId: string, tier: MembershipTier) {
   return {
     userId,
@@ -63,6 +72,28 @@ function stripePeriodEnd(subscription: Stripe.Subscription) {
 
 function canActivateStatus(status: MembershipSubscriptionStatus) {
   return status === MembershipSubscriptionStatus.ACTIVE || status === MembershipSubscriptionStatus.TRIALING;
+}
+
+export async function getSubscriptionBillingSummary(userId: string): Promise<SubscriptionBillingSummary> {
+  const membership = await prisma.membership.findUnique({
+    where: { userId },
+    select: {
+      stripeCustomerId: true,
+      stripeSubscriptionId: true,
+      subscriptionStatus: true,
+      subscriptionCurrentPeriodEnd: true,
+      subscriptionCancelAtPeriodEnd: true
+    }
+  });
+
+  return {
+    stripeCustomerId: membership?.stripeCustomerId ?? null,
+    stripeSubscriptionId: membership?.stripeSubscriptionId ?? null,
+    subscriptionStatus: membership?.subscriptionStatus ?? MembershipSubscriptionStatus.NONE,
+    subscriptionCurrentPeriodEnd: membership?.subscriptionCurrentPeriodEnd?.toISOString() ?? null,
+    subscriptionCancelAtPeriodEnd: membership?.subscriptionCancelAtPeriodEnd ?? false,
+    canManageBilling: Boolean(membership?.stripeCustomerId)
+  };
 }
 
 export async function listAvailableSubscriptionUpgradePlans(userId: string): Promise<SubscriptionUpgradePlanView[]> {
@@ -276,6 +307,138 @@ export async function createSubscriptionCheckoutSession(input: {
     userId: user.id,
     targetTier: input.targetTier,
     checkoutSessionId: session.id
+  });
+
+  return { ok: true as const, url: session.url };
+}
+
+async function ensureCustomerPortalConfiguration(origin: string) {
+  const stripe = await getStripeClient();
+  const config = await getStripeRuntimeConfig();
+  const activePlans = (await listAvailablePortalPlans()).filter((plan) => plan.stripePriceId);
+  const prices = await Promise.all(
+    activePlans.map(async (plan) => {
+      const price = await stripe.prices.retrieve(plan.stripePriceId as string);
+      return {
+        priceId: price.id,
+        productId: typeof price.product === "string" ? price.product : price.product.id
+      };
+    })
+  );
+  const products = Array.from(
+    prices.reduce<Map<string, string[]>>((acc, price) => {
+      acc.set(price.productId, [...(acc.get(price.productId) ?? []), price.priceId]);
+      return acc;
+    }, new Map())
+  ).map(([product, priceIds]) => ({
+    product,
+    prices: priceIds,
+    adjustable_quantity: { enabled: false }
+  }));
+  const portalName = `Theta-Space membership portal (${config.mode.toLowerCase()})`;
+  const existing = await stripe.billingPortal.configurations.list({ active: true, limit: 100 });
+  const portalConfig = existing.data.find(
+    (item) =>
+      item.metadata?.app === "theta-space" &&
+      item.metadata?.purpose === "membership-portal" &&
+      item.metadata?.mode === config.mode
+  );
+  const termsOfServiceUrl = origin.startsWith("https:") ? `${origin}/terms` : undefined;
+  const params = {
+    name: portalName,
+    default_return_url: `${origin}/settings/subscription?portal=return`,
+    business_profile: {
+      headline: "Manage your Theta-Space billing.",
+      terms_of_service_url: termsOfServiceUrl
+    },
+    features: {
+      customer_update: {
+        enabled: true,
+        allowed_updates: ["email", "name", "address", "phone"] as Array<"email" | "name" | "address" | "phone">
+      },
+      invoice_history: { enabled: true },
+      payment_method_update: { enabled: true },
+      subscription_cancel: {
+        enabled: true,
+        mode: "at_period_end" as const,
+        cancellation_reason: {
+          enabled: true,
+          options: ["too_expensive", "missing_features", "unused", "other"] as Array<"too_expensive" | "missing_features" | "unused" | "other">
+        }
+      },
+      subscription_update: {
+        enabled: products.length > 0,
+        default_allowed_updates: ["price"] as Array<"price">,
+        products,
+        proration_behavior: "create_prorations" as const
+      }
+    },
+    metadata: {
+      app: "theta-space",
+      purpose: "membership-portal",
+      mode: config.mode
+    }
+  };
+
+  if (portalConfig) {
+    const updated = await stripe.billingPortal.configurations.update(portalConfig.id, params);
+    return updated.id;
+  }
+
+  const created = await stripe.billingPortal.configurations.create(params, {
+    idempotencyKey: `theta-membership-portal-${config.mode.toLowerCase()}`
+  });
+  return created.id;
+}
+
+async function listAvailablePortalPlans() {
+  await ensureLaunchDefaults();
+  return prisma.subscriptionPlanRule.findMany({
+    where: {
+      active: true,
+      tier: { not: MembershipTier.FREE },
+      stripePriceId: { not: null }
+    },
+    orderBy: { standardPriceCents: "asc" },
+    select: {
+      stripePriceId: true
+    }
+  });
+}
+
+export async function createCustomerPortalSession(input: {
+  userId: string;
+  origin: string;
+}) {
+  const config = await getStripeRuntimeConfig();
+
+  if (!config.secretKey) {
+    return { ok: false as const, error: "Stripe billing is not configured." };
+  }
+
+  const membership = await prisma.membership.findUnique({
+    where: { userId: input.userId },
+    select: {
+      stripeCustomerId: true
+    }
+  });
+
+  if (!membership?.stripeCustomerId) {
+    return { ok: false as const, error: "No Stripe customer is attached to this account yet." };
+  }
+
+  const stripe = await getStripeClient();
+  const origin = resolveCheckoutOrigin(input.origin);
+  const configuration = await ensureCustomerPortalConfiguration(origin);
+  const session = await stripe.billingPortal.sessions.create({
+    customer: membership.stripeCustomerId,
+    configuration,
+    return_url: `${origin}/settings/subscription?portal=return`
+  });
+
+  await diagnostics.info(MODULE_KEY, "Stripe customer portal session created.", {
+    userId: input.userId,
+    stripeCustomerId: membership.stripeCustomerId
   });
 
   return { ok: true as const, url: session.url };
