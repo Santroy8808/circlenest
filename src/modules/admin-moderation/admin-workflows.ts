@@ -76,9 +76,9 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               href: "/admin/actions/status-change",
               title: "Membership Management",
               category: "Account Management",
-              description: "Change an account's permanent membership tier without changing role or real-money balances.",
-              badge: "tier",
-              keywords: ["membership", "tier", "status change", "free", "contributor", "professional", "auditor"]
+              description: "Change an account's membership tier or use the protected suspend, restore, and permanent-delete controls.",
+              badge: "tier/access",
+              keywords: ["membership", "tier", "status change", "suspend", "restore", "delete account", "free", "contributor", "professional", "auditor"]
             },
             {
               href: "/admin/actions/platform-credits",

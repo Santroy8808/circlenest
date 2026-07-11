@@ -9,6 +9,7 @@ type StatusChangeAccount = {
   username: string;
   displayName: string;
   role: string;
+  suspended: boolean;
   tier: MembershipTier;
   tierName: string;
   orgUpgradeEligible: boolean;
@@ -91,6 +92,55 @@ export function AdminStatusChangeWizard() {
     });
   }
 
+  function runLifecycleAction(action: "suspend" | "restore" | "delete") {
+    if (!account) return;
+
+    if (action === "suspend" && !window.confirm(`Suspend @${account.username}? They will be signed out and unable to log in until restored.`)) return;
+    if (action === "restore" && !window.confirm(`Restore @${account.username}'s access?`)) return;
+
+    let confirmation: string | undefined;
+    if (action === "delete") {
+      const acknowledged = window.confirm(
+        `PERMANENT DELETION WARNING\n\nThis permanently deletes @${account.username}, their account data, and associated media. This cannot be undone. Continue?`
+      );
+      if (!acknowledged) return;
+      confirmation = window.prompt(`Type DELETE ${account.username} exactly to confirm permanent deletion.`) ?? undefined;
+      if (confirmation !== `DELETE ${account.username}`) {
+        setMessage("Deletion cancelled. The confirmation phrase did not match.");
+        return;
+      }
+    }
+
+    setMessage("");
+    startTransition(async () => {
+      const response = await fetch("/api/admin/account-lifecycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          userIdentifier: account.username,
+          reason: action === "delete" ? "Admin permanently deleted account." : action === "suspend" ? "Admin suspended account." : "Admin restored account.",
+          ...(confirmation ? { confirmation } : {})
+        })
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string; action?: string; cleanupFailures?: number } | null;
+
+      if (!response.ok) {
+        setMessage(payload?.error ?? "Could not update account access.");
+        return;
+      }
+
+      if (action === "delete") {
+        setAccount(null);
+        setMessage(payload?.cleanupFailures ? "Account deleted. Some media cleanup requires follow-up." : "Account permanently deleted.");
+        return;
+      }
+
+      setAccount((current) => (current ? { ...current, suspended: action === "suspend" } : current));
+      setMessage(action === "suspend" ? "Account suspended and existing sessions revoked." : "Account restored. The member must sign in again.");
+    });
+  }
+
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
@@ -114,9 +164,10 @@ export function AdminStatusChangeWizard() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="text-xl font-semibold">{account.displayName}</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  @{account.username} - {account.email} - {account.role}
-                </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              @{account.username} - {account.email} - {account.role}
+            </p>
+            {account.suspended ? <p className="mt-2 text-sm font-semibold text-red-200">Suspended - sign-in and member activity are blocked.</p> : null}
               </div>
               <span className="pill rounded-full px-3 py-1 text-xs">{account.tierName}</span>
             </div>
@@ -166,6 +217,30 @@ export function AdminStatusChangeWizard() {
           </button>
           {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
         </div>
+      </section>
+
+      <section className="rounded-md border border-red-400/50 bg-red-950/20 p-5">
+        <h2 className="text-2xl font-semibold text-red-200">4. Account controls</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-red-100/80">
+          These controls affect account access. Suspension can be reversed. Deletion is permanent and removes the account, associated records, and stored media where cleanup succeeds.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          {account?.suspended ? (
+            <button className="rounded-full border border-red-300/70 px-5 py-3 font-semibold text-red-100 transition hover:bg-red-900/40 disabled:opacity-60" disabled={isPending || !account} onClick={() => runLifecycleAction("restore")} type="button">
+              {isPending ? "Working..." : "Restore account"}
+            </button>
+          ) : (
+            <button className="rounded-full border border-red-300/70 px-5 py-3 font-semibold text-red-100 transition hover:bg-red-900/40 disabled:opacity-60" disabled={isPending || !account} onClick={() => runLifecycleAction("suspend")} type="button">
+              {isPending ? "Working..." : "Suspend account"}
+            </button>
+          )}
+          <button className="rounded-full border border-red-300 bg-red-700/80 px-5 py-3 font-semibold text-white transition hover:bg-red-600 disabled:opacity-60" disabled={isPending || !account} onClick={() => runLifecycleAction("delete")} type="button">
+            {isPending ? "Working..." : "Delete account permanently"}
+          </button>
+        </div>
+        <p className="mt-4 text-xs leading-5 text-red-100/70">
+          Delete requires two confirmations, including typing the exact phrase <strong>DELETE username</strong>. Admin and God accounts cannot be changed here.
+        </p>
       </section>
     </div>
   );

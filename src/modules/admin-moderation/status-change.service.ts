@@ -42,6 +42,7 @@ export async function findStatusChangeAccount(identifier: string) {
       email: true,
       username: true,
       role: true,
+      deactivatedAt: true,
       profile: {
         select: {
           displayName: true
@@ -79,6 +80,7 @@ export async function findStatusChangeAccount(identifier: string) {
     username: user.username,
     displayName: user.profile?.displayName ?? user.username,
     role: user.role,
+    suspended: Boolean(user.deactivatedAt),
     tier: currentTier,
     tierName: policy.displayName,
     orgUpgradeEligible: user.tierUpgradeEligibilities.length > 0,
