@@ -6,6 +6,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { sendSmtpMail } from "@/lib/platform/smtp";
+import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "free-account-invites";
@@ -87,22 +88,87 @@ function userLabel(user?: { email: string; username: string; profile?: { display
   return user?.profile?.displayName ?? user?.username ?? user?.email ?? null;
 }
 
-function inviteEmailText(code: string) {
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character] ?? character);
+}
+
+function inviteEmailDetails(code: string, expiresAt: Date) {
+  const normalizedCode = normalizeFreeAccountInviteCode(code);
+  const env = readPlatformEnv();
+  const origin = env.APP_ORIGIN || env.NEXTAUTH_URL || "https://theta-space.net";
+  const signupUrl = `${new URL(origin).origin}/signup`;
+  const expirationLabel = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long",
+    timeZone: "UTC"
+  }).format(expiresAt);
+
+  return { normalizedCode, signupUrl, expirationLabel };
+}
+
+function inviteEmailText(code: string, expiresAt: Date) {
+  const { normalizedCode, signupUrl, expirationLabel } = inviteEmailDetails(code, expiresAt);
+
   return [
-    "You have been invited to create a free Theta-Space account.",
+    "You’re invited to Theta-Space.",
     "",
-    `Invite code: ${normalizeFreeAccountInviteCode(code)}`,
+    "Theta-Space is an invite-only community for thoughtful connection, communication, and shared discovery.",
     "",
-    "Use this code during signup. This code can only be used once."
+    `Your one-time invite code: ${normalizedCode}`,
+    "",
+    `Create your account: ${signupUrl}`,
+    "",
+    `This invitation expires on ${expirationLabel} (UTC) and can only be used once.`,
+    "",
+    "If you did not expect this invitation, you can safely ignore this email.",
+    "",
+    "— The Theta-Space team"
   ].join("\n");
 }
 
-async function sendInviteEmail(recipientEmail: string, code: string) {
+function inviteEmailHtml(code: string, expiresAt: Date) {
+  const { normalizedCode, signupUrl, expirationLabel } = inviteEmailDetails(code, expiresAt);
+  const safeCode = escapeHtml(normalizedCode);
+  const safeSignupUrl = escapeHtml(signupUrl);
+  const safeExpirationLabel = escapeHtml(expirationLabel);
+
+  return `<!doctype html>
+<html lang="en">
+  <body style="margin:0;background:#0b1018;color:#d9e1ef;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1018;padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111a28;border:1px solid #806b2c;border-radius:14px;overflow:hidden;">
+          <tr><td style="padding:28px 32px 20px;background:#0f1724;border-bottom:1px solid #806b2c;">
+            <div style="font-size:13px;letter-spacing:3px;font-weight:bold;color:#ffd34e;">THETA-SPACE</div>
+            <h1 style="margin:18px 0 0;color:#f3f6fb;font-size:30px;line-height:1.2;">You’re invited.</h1>
+          </td></tr>
+          <tr><td style="padding:30px 32px;">
+            <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">You’ve been invited to join Theta-Space, an invite-only community for thoughtful connection, communication, and shared discovery.</p>
+            <p style="margin:0 0 10px;font-size:14px;color:#aeb9ca;">Your one-time invite code</p>
+            <div style="margin:0 0 24px;padding:18px;text-align:center;background:#1a2639;border:1px solid #d3ad3d;border-radius:10px;color:#ffd34e;font-size:24px;font-weight:bold;letter-spacing:3px;">${safeCode}</div>
+            <p style="margin:0 0 24px;text-align:center;"><a href="${safeSignupUrl}" style="display:inline-block;padding:13px 24px;background:#5d82f5;border-radius:999px;color:#07101e;font-size:16px;font-weight:bold;text-decoration:none;">Create your account</a></p>
+            <p style="margin:0;color:#aeb9ca;font-size:14px;line-height:1.6;">This invitation expires on <strong style="color:#d9e1ef;">${safeExpirationLabel} (UTC)</strong> and can only be used once.</p>
+            <p style="margin:22px 0 0;color:#aeb9ca;font-size:14px;line-height:1.6;">If you did not expect this invitation, you can safely ignore this email.</p>
+          </td></tr>
+          <tr><td style="padding:18px 32px;background:#0f1724;color:#7f8da3;font-size:12px;line-height:1.5;">The Theta-Space team</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date) {
   await sendSmtpMail({
     to: recipientEmail,
-    subject: "Your Theta-Space invite code",
-    text: inviteEmailText(code),
-    html: `<p>You have been invited to create a free Theta-Space account.</p><p><strong>Invite code:</strong> ${normalizeFreeAccountInviteCode(code)}</p><p>Use this code during signup. This code can only be used once.</p>`
+    subject: "You’re invited to Theta-Space",
+    text: inviteEmailText(code, expiresAt),
+    html: inviteEmailHtml(code, expiresAt)
   });
 }
 
@@ -226,7 +292,7 @@ export async function createMemberFreeAccountInviteCode(actorUserId: string, inp
 
   if (parsed.data.sendEmail && recipientEmail) {
     try {
-      await sendInviteEmail(recipientEmail, code);
+      await sendInviteEmail(recipientEmail, code, expiresAt);
       await prisma.freeAccountInviteCode.update({
         where: { id: invite.id },
         data: { emailedAt: new Date() }
@@ -324,7 +390,7 @@ export async function createFreeAccountInviteCode(actorUserId: string, input: un
 
   if (parsed.data.sendEmail && recipientEmail) {
     try {
-      await sendInviteEmail(recipientEmail, code);
+      await sendInviteEmail(recipientEmail, code, expiresAt);
       await prisma.freeAccountInviteCode.update({
         where: { id: invite.id },
         data: { emailedAt: new Date() }
@@ -398,7 +464,7 @@ export async function emailFreeAccountInviteCode(actorUserId: string, input: unk
   const recipientEmail = normalizeOptionalEmail(parsed.data.recipientEmail);
 
   try {
-    await sendInviteEmail(recipientEmail!, parsed.data.inviteCode);
+    await sendInviteEmail(recipientEmail!, parsed.data.inviteCode, invite.expiresAt);
   } catch (error) {
     await diagnostics.warn(MODULE_KEY, "Free account invite SMTP resend failed.", {
       inviteId: invite.id,
