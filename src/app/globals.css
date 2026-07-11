@@ -7405,6 +7405,29 @@ html.theta-theme-light .listing-view-switcher {
   width: 100%;
 }
 
+.market-detail-content {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+}
+
+.market-detail-main {
+  min-width: 0;
+}
+
+.market-listing-owner-contact {
+  align-self: start;
+  border: 1px solid rgba(214, 178, 74, 0.24);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+@media (max-width: 840px) {
+  .market-detail-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 html.theta-theme-light .listing-square-card,
 html.theta-theme-light .market-card {
   color: #fffaf0;

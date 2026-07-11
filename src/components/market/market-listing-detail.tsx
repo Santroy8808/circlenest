@@ -30,29 +30,49 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
             <span>{listing.categoryLabel}</span>
           )}
         </div>
-        <div className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{listing.categoryLabel}</p>
-              <h1 className="mt-3 text-4xl font-semibold">{listing.title}</h1>
-              <div className="mt-3">
-                <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
+        <div className="market-detail-content p-6">
+          <div className="market-detail-main">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{listing.categoryLabel}</p>
+                <h1 className="mt-3 text-4xl font-semibold">{listing.title}</h1>
+                <div className="mt-3">
+                  <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
+                </div>
+                <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
+                <p className="mt-3 text-[var(--muted)]">{listing.location || "City TBD"}</p>
               </div>
-              <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
-              <p className="mt-3 text-[var(--muted)]">{listing.location || "City TBD"}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {listing.viewerCanManage ? (
-                <Link className="btn-secondary" href={`/market/${listing.slug}/edit`}>
-                  Edit listing
+              <div className="flex flex-wrap gap-2">
+                {listing.viewerCanManage ? (
+                  <Link className="btn-secondary" href={`/market/${listing.slug}/edit`}>
+                    Edit listing
+                  </Link>
+                ) : null}
+                <Link className="btn-secondary" href="/market">
+                  Back to Market
                 </Link>
-              ) : null}
-              <Link className="btn-secondary" href="/market">
-                Back to Market
-              </Link>
+              </div>
             </div>
+            <MarkdownRichText className="market-listing-description mt-6" value={listing.description} />
           </div>
-          <MarkdownRichText className="market-listing-description mt-6" value={listing.description} />
+          {listing.viewerCanManage ? (
+            <aside className="market-listing-owner-contact">
+              <h2 className="text-xl font-semibold text-[var(--gold)]">Contact details</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Only you can see the contact details saved for this listing.</p>
+              <div className="market-contact-card mt-4">
+                {listing.contactEmail ? (
+                  <a className="market-contact-line" href={`mailto:${listing.contactEmail}?subject=${encodeURIComponent(`Theta-Space Market: ${listing.title}`)}`}>
+                    Email: {listing.contactEmail}
+                  </a>
+                ) : null}
+                {listing.contactPhone ? <p className="market-contact-line">Phone: {listing.contactPhone}</p> : null}
+                {listing.contactNotes ? <p className="market-contact-line">{listing.contactNotes}</p> : null}
+                {!listing.contactEmail && !listing.contactPhone && !listing.contactNotes ? (
+                  <p className="market-contact-line">No contact details added.</p>
+                ) : null}
+              </div>
+            </aside>
+          ) : null}
         </div>
       </section>
 
@@ -85,18 +105,6 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
           <Link className="profile-inline-link mt-1 block text-sm" href={`/profile/${listing.seller.username}`}>
             @{listing.seller.username}
           </Link>
-          <div className="market-contact-card mt-4">
-            {listing.contactEmail ? (
-              <a className="market-contact-line" href={`mailto:${listing.contactEmail}?subject=${encodeURIComponent(`Theta-Space Market: ${listing.title}`)}`}>
-                Email: {listing.contactEmail}
-              </a>
-            ) : null}
-            {listing.contactPhone ? <p className="market-contact-line">Phone: {listing.contactPhone}</p> : null}
-            {listing.contactNotes ? <p className="market-contact-line">{listing.contactNotes}</p> : null}
-            {!listing.contactEmail && !listing.contactPhone && !listing.contactNotes ? (
-              <p className="market-contact-line">No public contact info listed.</p>
-            ) : null}
-          </div>
           {listing.allowMessages ? (
             <div className="mt-4">
               <MarketSellerMessageButton sellerUserId={listing.seller.id} />
