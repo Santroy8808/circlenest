@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { MailClient } from "@/components/mail/mail-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
   getMailPreference,
   getMailThread,
+  isInternalMailEnabled,
   listMailThreadsPage
 } from "@/modules/mail/mail.service";
 import { mailFolderSchema, type MailFolder } from "@/modules/mail/types";
@@ -15,6 +17,14 @@ export default async function MailPage({ searchParams }: { searchParams: { folde
 
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/mail");
+  }
+
+  if (!isInternalMailEnabled()) {
+    return (
+      <AppShell>
+        <FeatureUnavailableNotice backHref="/messages" backLabel="Back to Messages" featureLabel="Mail" />
+      </AppShell>
+    );
   }
 
   const folder = mailFolderSchema.catch("inbox").parse(searchParams.folder ?? "inbox") as MailFolder;

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { readJsonRequest } from "@/lib/platform/api-request";
-import { deleteMailThread, getMailThread, setMailThreadArchived } from "@/modules/mail/mail.service";
+import {
+  INTERNAL_MAIL_UNAVAILABLE_ERROR,
+  deleteMailThread,
+  getMailThread,
+  isInternalMailEnabled,
+  setMailThreadArchived
+} from "@/modules/mail/mail.service";
 
 export async function GET(request: NextRequest, { params }: { params: { threadId: string } }) {
   const session = await auth();
@@ -9,6 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: { threadId
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const cursor = request.nextUrl.searchParams.get("cursor");
   const rawLimit = request.nextUrl.searchParams.get("limit");
@@ -31,6 +38,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { thread
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const parsedBody = await readJsonRequest(request, 4 * 1024);
   if (!parsedBody.ok) return parsedBody.response;
@@ -54,6 +62,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { thre
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const result = await deleteMailThread(session.user.id, params.threadId);
   return result.ok

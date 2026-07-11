@@ -41,7 +41,13 @@ function resultLine(label: string, value: number) {
   );
 }
 
-export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnouncements: AdminAnnouncementResult[] }) {
+export function AdminAnnouncementWizard({
+  internalMailEnabled,
+  recentAnnouncements
+}: {
+  internalMailEnabled: boolean;
+  recentAnnouncements: AdminAnnouncementResult[];
+}) {
   const [step, setStep] = useState(0);
   const [audienceKind, setAudienceKind] = useState<AnnouncementAudienceKind>("ALL_ACTIVE");
   const [audienceValue, setAudienceValue] = useState("");
@@ -56,6 +62,10 @@ export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnounc
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const selectedChannelText = useMemo(() => channels.map((channel) => channelLabels[channel]).join(", "), [channels]);
+  const availableChannels = useMemo(
+    () => (internalMailEnabled ? Object.keys(channelLabels) : Object.keys(channelLabels).filter((channel) => channel !== "MAIL")) as AnnouncementDeliveryChannel[],
+    [internalMailEnabled]
+  );
 
   function toggleChannel(channel: AnnouncementDeliveryChannel) {
     setChannels((current) => (current.includes(channel) ? current.filter((item) => item !== channel) : [...current, channel]));
@@ -228,7 +238,7 @@ export function AdminAnnouncementWizard({ recentAnnouncements }: { recentAnnounc
               <p className="mt-2 text-[var(--muted)]">Check one or more delivery paths. Personal email means external email, not internal Mail.</p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              {(Object.keys(channelLabels) as AnnouncementDeliveryChannel[]).map((channel) => (
+              {availableChannels.map((channel) => (
                 <label className="module-card flex cursor-pointer gap-3 rounded-md p-4" key={channel}>
                   <input checked={channels.includes(channel)} onChange={() => toggleChannel(channel)} type="checkbox" />
                   <span>

@@ -40,6 +40,7 @@ const MODULE_KEY = "mail";
 const MAIL_DB_TIMEOUT_MS = 2500;
 const DEFAULT_MAIL_PAGE_SIZE = 30;
 const MAX_MAIL_PAGE_SIZE = 50;
+export const INTERNAL_MAIL_UNAVAILABLE_ERROR = "Internal Mail is currently unavailable.";
 
 class MailAccessError extends Error {}
 
@@ -695,6 +696,10 @@ export async function getMailThread(
 }
 
 export async function sendMail(senderUserId: string, input: unknown) {
+  if (!isInternalMailEnabled()) {
+    return { ok: false as const, error: INTERNAL_MAIL_UNAVAILABLE_ERROR };
+  }
+
   const parsed = sendMailSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -1181,6 +1186,10 @@ export async function updateMailPreference(userId: string, input: unknown) {
 }
 
 export async function createMailUploadIntent(userId: string, input: unknown) {
+  if (!isInternalMailEnabled()) {
+    return { ok: false as const, error: INTERNAL_MAIL_UNAVAILABLE_ERROR };
+  }
+
   const parsed = createMailUploadIntentSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -1210,6 +1219,10 @@ export async function createMailUploadIntent(userId: string, input: unknown) {
 }
 
 export async function completeMailUpload(userId: string, input: unknown) {
+  if (!isInternalMailEnabled()) {
+    return { ok: false as const, error: INTERNAL_MAIL_UNAVAILABLE_ERROR };
+  }
+
   const parsed = completeMailUploadSchema.safeParse(input);
 
   if (!parsed.success) {

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import { uploadIntentFailureResponse } from "@/lib/platform/upload-intent-response";
-import { completeMailUpload, createMailUploadIntent } from "@/modules/mail/mail.service";
+import { INTERNAL_MAIL_UNAVAILABLE_ERROR, completeMailUpload, createMailUploadIntent, isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 export async function POST(request: NextRequest) {
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });

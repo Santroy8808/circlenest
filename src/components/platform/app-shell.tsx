@@ -13,6 +13,7 @@ import { prisma } from "@/lib/platform/db";
 import { isAdminRole } from "@/lib/platform/roles";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
@@ -106,6 +107,7 @@ function getNavSections(input: {
   isAdmin: boolean;
   isBusinessAccount: boolean;
   isSignedIn: boolean;
+  mailEnabled: boolean;
 }): NavSection[] {
   if (!input.isSignedIn) {
     return [
@@ -129,7 +131,7 @@ function getNavSections(input: {
         href: "/auditors",
         items: [
           { label: "Find an Auditor", href: "/auditors" },
-          { label: "Mail", href: "/mail", countKey: "mail" },
+          ...(input.mailEnabled ? [{ label: "Mail", href: "/mail", countKey: "mail" } as const] : []),
           { label: "Profile", href: "/profile" },
           { label: "Logout", action: "logout" }
         ]
@@ -137,7 +139,13 @@ function getNavSections(input: {
     ];
   }
 
-  const memberSections = [homeSection, communicationsSection, peopleSection, exploreSection];
+  const visibleCommunicationsSection = input.mailEnabled
+    ? communicationsSection
+    : {
+        ...communicationsSection,
+        items: communicationsSection.items.filter((item) => item.href !== "/mail" && item.countKey !== "mail")
+      };
+  const memberSections = [homeSection, visibleCommunicationsSection, peopleSection, exploreSection];
   if (input.isBusinessAccount || input.isAdmin) memberSections.push(advancedToolsSection);
   memberSections.push(settingsSection);
 
@@ -172,7 +180,7 @@ function getNavSections(input: {
 }
 
 function isAllowedAuditorSeekerPath(currentPath: string) {
-  return ["/auditors", "/mail", "/profile", "/settings/profile", "/api/profile", "/api/mail"].some(
+  return ["/auditors", "/profile", "/settings/profile", "/api/profile"].some(
     (path) => currentPath === path || currentPath.startsWith(`${path}/`)
   );
 }
@@ -267,11 +275,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     actorPicker.activeKind === "AUDITOR" ||
     session?.user?.tier === MembershipTier.PROFESSIONAL ||
     session?.user?.tier === MembershipTier.ORG;
+  const mailEnabled = isInternalMailEnabled();
   const isAndroidApp = isAndroidAppRequest();
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
-  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn });
+  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn, mailEnabled });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
 
@@ -324,7 +333,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </section>
         </aside>
       ) : null}
-      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} sections={navSections} /> : null}
+      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} mailEnabled={mailEnabled} sections={navSections} /> : null}
       </ShellCountsProvider>
     </div>
   );

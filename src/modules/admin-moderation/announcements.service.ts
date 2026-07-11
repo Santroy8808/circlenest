@@ -17,6 +17,7 @@ import {
   type AdminAnnouncementResult
 } from "@/modules/admin-moderation/types";
 import { isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 const MODULE_KEY = "admin-moderation";
 
@@ -193,6 +194,7 @@ async function deliverChat(actorUserId: string, title: string, body: string, rec
 }
 
 async function deliverMail(actorUserId: string, title: string, body: string, recipientUserIds: string[]) {
+  if (!isInternalMailEnabled()) return 0;
   if (recipientUserIds.length === 0) return 0;
 
   const thread = await prisma.mailThread.create({
@@ -278,6 +280,10 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
   const parsed = publicAnnouncementSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid announcement." };
+  }
+
+  if (parsed.data.channels.includes("MAIL") && !isInternalMailEnabled()) {
+    return { ok: false as const, error: "Internal Mail is currently unavailable." };
   }
 
   let recipients;

@@ -11,6 +11,7 @@ type CountKey = "messages" | "mail" | "notifications" | "alerts";
 
 type AndroidAppControlsProps = {
   counts: Record<CountKey, number>;
+  mailEnabled: boolean;
   sections: NavSection[];
 };
 
@@ -173,13 +174,17 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-export function AndroidAppControls({ counts, sections }: AndroidAppControlsProps) {
+export function AndroidAppControls({ counts, mailEnabled, sections }: AndroidAppControlsProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const primarySections = useMemo(() => sections.filter((section) => section.items.length > 0), [sections]);
+  const visibleBottomActions = useMemo(
+    () => (mailEnabled ? bottomActions : bottomActions.filter((action) => action.href !== "/mail" && action.countKey !== "mail")),
+    [mailEnabled]
+  );
 
   useEffect(() => {
     setSheetOpen(false);
@@ -239,7 +244,7 @@ export function AndroidAppControls({ counts, sections }: AndroidAppControlsProps
         <button aria-label="Control panel shortcuts" className="android-bottom-nav-button" onClick={() => setSheetOpen((open) => !open)} title="Shortcuts" type="button">
           <Icon name="up" />
         </button>
-        {bottomActions.map((action) => {
+        {visibleBottomActions.map((action) => {
           const count = countForAction(liveCounts, action.countKey);
           return (
             <Link

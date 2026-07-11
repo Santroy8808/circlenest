@@ -20,6 +20,7 @@ import { getPlatformCreditsAdminView } from "@/modules/admin-moderation/platform
 import { getStripeSetupAdminView } from "@/modules/billing/stripe-admin.service";
 import { listLaunchAccessAdminView } from "@/modules/membership-policy/launch-access.service";
 import { getGodTierPolicyEditorView } from "@/modules/membership-policy/membership-policy.service";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { listPlatformCostRules } from "@/modules/platform-pricing/platform-pricing.service";
 
 export default async function AdminActionPage({
@@ -130,7 +131,7 @@ export default async function AdminActionPage({
 
     return (
       <AppShell>
-        <AdminAnnouncementWizard recentAnnouncements={recentAnnouncements} />
+        <AdminAnnouncementWizard internalMailEnabled={isInternalMailEnabled()} recentAnnouncements={recentAnnouncements} />
       </AppShell>
     );
   }

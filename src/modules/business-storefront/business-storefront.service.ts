@@ -17,6 +17,7 @@ import { sendSmtpMail } from "@/lib/platform/smtp";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { listStorefrontForumTopics } from "@/modules/storefront-forum/storefront-forum.service";
 import type { StorefrontForumTopicListItemView } from "@/modules/storefront-forum/types";
 import {
@@ -920,8 +921,8 @@ export async function createBusinessInquiry(slug: string, input: unknown) {
     return { ok: false as const, error: "Storefront not found." };
   }
 
+  const mailEnabled = isInternalMailEnabled();
   const inquiry = await prisma.$transaction(async (tx) => {
-    const systemSender = await ensureStorefrontInquirySender(tx);
     const subject = `Inquiry: ${profile.businessName}`;
     const bodyText = [
       `Storefront inquiry for ${profile.businessName}`,
@@ -931,48 +932,55 @@ export async function createBusinessInquiry(slug: string, input: unknown) {
       "",
       parsed.data.message
     ].join("\n");
-    const thread = await tx.mailThread.create({
-      data: {
-        subject,
-        deliveryKind: MailDeliveryKind.INQUIRY,
-        createdByUserId: systemSender.id,
-        messages: {
-          create: {
-            senderUserId: systemSender.id,
-            subject,
-            bodyText,
-            recipients: {
-              create: {
-                userId: profile.ownerUserId,
-                type: MailRecipientType.TO
+    let mailThreadId: string | null = null;
+
+    if (mailEnabled) {
+      const systemSender = await ensureStorefrontInquirySender(tx);
+      const thread = await tx.mailThread.create({
+        data: {
+          subject,
+          deliveryKind: MailDeliveryKind.INQUIRY,
+          createdByUserId: systemSender.id,
+          messages: {
+            create: {
+              senderUserId: systemSender.id,
+              subject,
+              bodyText,
+              recipients: {
+                create: {
+                  userId: profile.ownerUserId,
+                  type: MailRecipientType.TO
+                }
               }
             }
           }
+        },
+        include: {
+          messages: {
+            select: {
+              createdAt: true
+            },
+            take: 1
+          }
         }
-      },
-      include: {
-        messages: {
-          select: {
-            createdAt: true
-          },
-          take: 1
-        }
-      }
-    });
+      });
 
-    await tx.mailThread.update({
-      where: {
-        id: thread.id
-      },
-      data: {
-        lastMessageAt: thread.messages[0]?.createdAt ?? new Date()
-      }
-    });
+      await tx.mailThread.update({
+        where: {
+          id: thread.id
+        },
+        data: {
+          lastMessageAt: thread.messages[0]?.createdAt ?? new Date()
+        }
+      });
+
+      mailThreadId = thread.id;
+    }
 
     return tx.businessInquiry.create({
       data: {
         businessProfileId: profile.id,
-        mailThreadId: thread.id,
+        mailThreadId,
         senderName: parsed.data.senderName,
         senderEmail: parsed.data.senderEmail || null,
         message: parsed.data.message
@@ -985,7 +993,7 @@ export async function createBusinessInquiry(slug: string, input: unknown) {
       userId: profile.ownerUserId,
       title: `New storefront inquiry for ${profile.businessName}`,
       body: `${parsed.data.senderName} sent an inquiry.`,
-      href: "/mail"
+      href: "/business-center/storefront"
     }
   });
 

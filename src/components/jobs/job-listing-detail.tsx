@@ -1,8 +1,11 @@
 import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import type { JobListingDetailView } from "@/modules/jobs/types";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 export function JobListingDetail({ job }: { job: JobListingDetailView }) {
+  const mailEnabled = isInternalMailEnabled();
+
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
@@ -28,10 +31,14 @@ export function JobListingDetail({ job }: { job: JobListingDetailView }) {
           <h2 className="text-xl font-semibold text-[var(--gold)]">Contact</h2>
           {job.contactEmail ? <p className="mt-2 text-[var(--muted)]">{job.contactEmail}</p> : null}
           {job.contactInstructions ? <p className="mt-3 whitespace-pre-wrap text-[var(--muted)]">{job.contactInstructions}</p> : null}
-          {!job.contactEmail && !job.contactInstructions ? <p className="mt-2 text-[var(--muted)]">Contact through Theta-Space Mail.</p> : null}
-          <Link className="btn-secondary mt-4 inline-block" href="/mail">
-            Open Mail
-          </Link>
+          {!job.contactEmail && !job.contactInstructions ? (
+            <p className="mt-2 text-[var(--muted)]">{mailEnabled ? "Contact through Theta-Space Mail." : "No public contact details listed."}</p>
+          ) : null}
+          {mailEnabled ? (
+            <Link className="btn-secondary mt-4 inline-block" href="/mail">
+              Open Mail
+            </Link>
+          ) : null}
         </article>
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>

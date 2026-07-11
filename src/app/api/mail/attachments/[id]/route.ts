@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import { getR2Object } from "@/lib/platform/r2";
-import { getMailAttachment } from "@/modules/mail/mail.service";
+import { getMailAttachment, isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 export const runtime = "nodejs";
 
@@ -21,6 +21,8 @@ function notFound() {
 }
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  if (!isInternalMailEnabled()) return notFound();
+
   const session = await auth();
   let userId = session?.user && !session.user.revoked ? session.user.id : null;
 

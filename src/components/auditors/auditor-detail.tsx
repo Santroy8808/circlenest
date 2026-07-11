@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { AuditorProfileView } from "@/modules/auditors/types";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 export function AuditorDetail({ auditor }: { auditor: AuditorProfileView }) {
+  const mailEnabled = isInternalMailEnabled();
+
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
@@ -59,9 +62,11 @@ export function AuditorDetail({ auditor }: { auditor: AuditorProfileView }) {
           {auditor.website ? <p>{auditor.website}</p> : null}
           <p>{auditor.willingToTravel ? "Willing to travel" : "Local availability only"}</p>
         </div>
-        <Link className="btn-secondary mt-4 inline-block" href="/mail">
-          Open Mail
-        </Link>
+        {mailEnabled ? (
+          <Link className="btn-secondary mt-4 inline-block" href="/mail">
+            Open Mail
+          </Link>
+        ) : null}
       </section>
     </div>
   );

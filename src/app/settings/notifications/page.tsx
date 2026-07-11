@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
 import { SecureActionGrid } from "@/components/settings-secure-areas/secure-action-grid";
 import { SecureSettingsPanel } from "@/components/settings-secure-areas/secure-settings-panel";
+import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 export default async function NotificationSettingsPage() {
   const session = await auth();
@@ -11,9 +12,14 @@ export default async function NotificationSettingsPage() {
     redirect("/login?callbackUrl=/settings/notifications");
   }
 
+  const mailEnabled = isInternalMailEnabled();
+
   return (
     <AppShell>
-      <SecureSettingsPanel title="Notification Rules" description="Open the working notification and alert inboxes. Mail recipient controls are managed inside Mail.">
+      <SecureSettingsPanel
+        title="Notification Rules"
+        description={mailEnabled ? "Open the working notification and alert inboxes. Mail recipient controls are managed inside Mail." : "Open the working notification and alert inboxes."}
+      >
         <SecureActionGrid
           actions={[
             {
@@ -28,12 +34,16 @@ export default async function NotificationSettingsPage() {
               href: "/alerts",
               badge: "critical"
             },
-            {
-              title: "Mail",
-              description: "Manage formal internal mail, recipients, and message threads.",
-              href: "/mail",
-              badge: "mail"
-            }
+            ...(mailEnabled
+              ? [
+                  {
+                    title: "Mail",
+                    description: "Manage formal internal mail, recipients, and message threads.",
+                    href: "/mail",
+                    badge: "mail"
+                  }
+                ]
+              : [])
           ]}
         />
       </SecureSettingsPanel>

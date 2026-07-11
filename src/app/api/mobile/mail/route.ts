@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import {
+  INTERNAL_MAIL_UNAVAILABLE_ERROR,
   deleteMailThread,
   getMailThread,
+  isInternalMailEnabled,
   listMailThreadsPage,
   markMailThreadRead,
   sendMail,
@@ -13,6 +15,7 @@ import {
 export async function GET(request: NextRequest) {
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
@@ -43,6 +46,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
@@ -65,6 +69,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
+  if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
