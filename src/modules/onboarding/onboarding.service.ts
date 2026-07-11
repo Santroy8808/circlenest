@@ -1,6 +1,7 @@
 import { ScientologyClassification, ScientologyVisibility, TermsEmailDeliveryStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
+import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import {
@@ -53,6 +54,52 @@ function escapeHtml(value: string) {
 function truncateError(value: unknown) {
   const message = value instanceof Error ? value.message : "Could not send SMTP email.";
   return message.slice(0, 500);
+}
+
+function termsAcceptanceEmailHtml(input: {
+  signerName: string;
+  acceptedAtLabel: string;
+  termsVersion: string;
+  effectiveDateLabel: string;
+  pdfSha256: string;
+  termsPagePath: string;
+}) {
+  const env = readPlatformEnv();
+  const origin = env.APP_ORIGIN || env.NEXTAUTH_URL || "https://theta-space.net";
+  const termsUrl = `${new URL(origin).origin}${input.termsPagePath}`;
+
+  return `<!doctype html>
+<html lang="en">
+  <body style="margin:0;background:#0b1018;color:#d9e1ef;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1018;padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111a28;border:1px solid #806b2c;border-radius:14px;overflow:hidden;">
+          <tr><td style="padding:28px 32px 20px;background:#0f1724;border-bottom:1px solid #806b2c;">
+            <div style="font-size:13px;letter-spacing:3px;font-weight:bold;color:#ffd34e;">THETA-SPACE</div>
+            <h1 style="margin:18px 0 0;color:#f3f6fb;font-size:30px;line-height:1.2;">Your Terms are attached.</h1>
+          </td></tr>
+          <tr><td style="padding:30px 32px;">
+            <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Hello ${escapeHtml(input.signerName)},</p>
+            <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">Thank you for completing your Theta-Space membership agreement. The Terms of Service PDF you accepted is attached for your records.</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#1a2639;border:1px solid #d3ad3d;border-radius:10px;">
+              <tr><td style="padding:18px 20px;">
+                <div style="margin-bottom:12px;color:#ffd34e;font-size:13px;font-weight:bold;letter-spacing:2px;">ACCEPTANCE RECORD</div>
+                <div style="margin-bottom:7px;color:#d9e1ef;font-size:14px;line-height:1.5;"><strong>Terms version:</strong> ${escapeHtml(input.termsVersion)}</div>
+                <div style="margin-bottom:7px;color:#d9e1ef;font-size:14px;line-height:1.5;"><strong>Effective date:</strong> ${escapeHtml(input.effectiveDateLabel)}</div>
+                <div style="color:#d9e1ef;font-size:14px;line-height:1.5;"><strong>Accepted:</strong> ${escapeHtml(input.acceptedAtLabel)} UTC</div>
+              </td></tr>
+            </table>
+            <p style="margin:0 0 24px;text-align:center;"><a href="${escapeHtml(termsUrl)}" style="display:inline-block;padding:13px 24px;background:#5d82f5;border-radius:999px;color:#07101e;font-size:16px;font-weight:bold;text-decoration:none;">Review Terms online</a></p>
+            <p style="margin:0 0 8px;color:#aeb9ca;font-size:13px;line-height:1.5;">PDF verification</p>
+            <p style="margin:0;color:#7f8da3;font-family:Consolas,Monaco,monospace;font-size:11px;line-height:1.5;overflow-wrap:anywhere;word-break:break-all;">SHA-256: ${escapeHtml(input.pdfSha256)}</p>
+            <p style="margin:22px 0 0;color:#aeb9ca;font-size:14px;line-height:1.6;">Keep this email and the attached PDF for your records.</p>
+          </td></tr>
+          <tr><td style="padding:18px 32px;background:#0f1724;color:#7f8da3;font-size:12px;line-height:1.5;">The Theta-Space team</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
 }
 
 export async function getOnboardingState(userId: string) {
@@ -328,30 +375,37 @@ export async function acceptOnboardingTerms(userId: string, input: unknown) {
   });
 
   try {
+    const acceptedAtLabel = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "long",
+      timeStyle: "short",
+      timeZone: "UTC"
+    }).format(acceptedAt);
     const sent = await sendSmtpMail({
       to: signerEmail,
       subject: "Your Theta-Space Terms of Service",
       text: [
         `Hello ${signerName},`,
         "",
-        `Attached is the Theta-Space Terms of Service PDF you accepted on ${acceptedAt.toISOString()}.`,
+        "Thank you for completing your Theta-Space membership agreement.",
+        "The Terms of Service PDF you accepted is attached for your records.",
+        "",
         `Terms version: ${terms.version}`,
         `Effective date: ${terms.effectiveDateLabel}`,
+        `Accepted: ${acceptedAtLabel} UTC`,
         `PDF SHA-256: ${pdfSha256}`,
         "",
         "Keep this email for your records.",
         "",
         "Theta-Space"
       ].join("\n"),
-      html: [
-        `<p>Hello ${escapeHtml(signerName)},</p>`,
-        `<p>Attached is the Theta-Space Terms of Service PDF you accepted on ${escapeHtml(acceptedAt.toISOString())}.</p>`,
-        `<p><strong>Terms version:</strong> ${escapeHtml(terms.version)}<br />`,
-        `<strong>Effective date:</strong> ${escapeHtml(terms.effectiveDateLabel)}<br />`,
-        `<strong>PDF SHA-256:</strong> ${escapeHtml(pdfSha256)}</p>`,
-        "<p>Keep this email for your records.</p>",
-        "<p>Theta-Space</p>"
-      ].join(""),
+      html: termsAcceptanceEmailHtml({
+        signerName,
+        acceptedAtLabel,
+        termsVersion: terms.version,
+        effectiveDateLabel: terms.effectiveDateLabel,
+        pdfSha256,
+        termsPagePath: terms.pagePath
+      }),
       attachments: [
         {
           filename: terms.pdfFilename,
