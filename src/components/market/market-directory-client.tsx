@@ -19,13 +19,11 @@ function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currenc
 
 export function MarketDirectoryClient({
   initialListings,
-  myListings,
   createState,
   initialView,
   isAdmin = false
 }: {
   initialListings: MarketListingCardView[];
-  myListings: MarketListingCardView[];
   createState: MarketCreateState;
   initialView: ListingViewMode;
   isAdmin?: boolean;
@@ -61,17 +59,17 @@ export function MarketDirectoryClient({
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
               Find member listings, then open one for details and seller contact options.
             </p>
-            {createState.viewerCanCreate && createState.listingLimit !== null ? (
-              <p className="mt-3 text-sm text-[var(--gold)]">
-                {createState.listingsRemaining} of {createState.listingLimit} Contributor listings left this 14-day period.
-              </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link className="btn-secondary" href="/market/my-listings">
+              My Listings
+            </Link>
+            {createState.viewerCanCreate ? (
+              <Link className="btn-primary" href="/market/create">
+                Create Listing
+              </Link>
             ) : null}
           </div>
-          {createState.viewerCanCreate ? (
-            <Link className="btn-primary" href="/market/create">
-              Create Listing
-            </Link>
-          ) : null}
         </div>
         <div className="market-directory-controls mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
           <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search The Market..." value={query} />
@@ -85,36 +83,6 @@ export function MarketDirectoryClient({
           </select>
           <ListingViewSwitcher onChange={setView} surface="market" value={view} />
         </div>
-      </section>
-
-      <section className="surface market-management-panel rounded-md p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Seller tools</p>
-            <h2 className="mt-2 text-2xl font-semibold">My listings</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Choose a listing below to open its edit form.</p>
-          </div>
-          {createState.viewerCanCreate ? (
-            <Link className="btn-secondary" href="/market/create">
-              Create listing
-            </Link>
-          ) : null}
-        </div>
-        {myListings.length > 0 ? (
-          <div className="market-management-list mt-4">
-            {myListings.map((listing) => (
-              <Link className="market-management-row" href={`/market/${listing.slug}/edit`} key={listing.id}>
-                <span className="min-w-0">
-                  <strong>{listing.title}</strong>
-                  <small>{listing.categoryLabel} · {listing.location || "City TBD"}</small>
-                </span>
-                <span className="market-management-row-action">Edit</span>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 rounded-md border border-[var(--line)] p-4 text-sm text-[var(--muted)]">You do not have any listings yet.</p>
-        )}
       </section>
 
       {listings.length === 0 ? (
