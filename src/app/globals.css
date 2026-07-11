@@ -1744,6 +1744,9 @@ a {
 }
 
 .profile-banner {
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   min-height: 198px;
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.24), transparent 20rem),
@@ -1863,7 +1866,7 @@ a {
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
   display: grid;
   gap: 4px;
-  min-width: 170px;
+  min-width: 230px;
   padding: 8px;
   position: absolute;
   right: 0;
@@ -2481,6 +2484,15 @@ a {
   position: sticky;
   scrollbar-width: none;
   top: 18px;
+}
+
+.family-choice-prompt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
 }
 
 .gallery-detail-sidebar::-webkit-scrollbar,

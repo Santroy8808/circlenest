@@ -18,7 +18,19 @@ export const familyRelationshipLabels = [
   "Other family"
 ] as const;
 
-export const quickFamilyRelationshipLabels = ["Spouse", "Sibling", "Cousin", "Family", "Parent", "Progeny"] as const;
+export const quickFamilyRelationshipLabels = [
+  "Spouse",
+  "Sibling",
+  "Parent",
+  "Child",
+  "Grandparent",
+  "Grandchild",
+  "Aunt/Uncle",
+  "Niece/Nephew",
+  "Cousin",
+  "In-law",
+  "Other family"
+] as const;
 
 export const familyRelationshipRequestSchema = z.object({
   targetUserId: cuidIdSchema,

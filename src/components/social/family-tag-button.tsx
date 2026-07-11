@@ -59,6 +59,7 @@ export function FamilyTagButton({
       </button>
       {isOpen && !disabled && !sent ? (
         <div className="family-choice-popover" role="menu">
+          <p className="family-choice-prompt">Is this person your...</p>
           {quickFamilyRelationshipLabels.map((option) => (
             <button className="min-h-11" disabled={isPending} key={option} onClick={() => requestTag(option)} role="menuitem" type="button">
               {option}

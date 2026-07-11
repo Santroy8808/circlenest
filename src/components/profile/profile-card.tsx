@@ -13,7 +13,7 @@ function initials(displayName: string) {
 
 export function ProfileCard({ profile, ownerControls = false }: { profile: ProfileCardView; ownerControls?: boolean }) {
   return (
-    <article className="profile-card overflow-hidden rounded-md">
+    <article className="profile-card rounded-md">
       <div
         className="profile-banner"
         style={profile.bannerUrl ? { backgroundImage: `url(${profile.bannerUrl})` } : undefined}

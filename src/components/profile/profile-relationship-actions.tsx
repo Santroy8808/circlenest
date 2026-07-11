@@ -109,6 +109,7 @@ export function ProfileRelationshipActions({
           </button>
           {familyPickerOpen && !familyPending ? (
             <div className="profile-family-options" role="menu">
+              <p className="family-choice-prompt">Is this person your...</p>
               {quickFamilyRelationshipLabels.map((option) => (
                 <button disabled={isPending} key={option} onClick={() => requestFamily(option)} type="button">
                   {option}
