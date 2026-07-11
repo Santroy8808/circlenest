@@ -7221,6 +7221,65 @@ html.theta-theme-light .listing-view-switcher {
   z-index: 2;
 }
 
+.market-card-quick-action {
+  left: 12px;
+  position: absolute;
+  top: 12px;
+  z-index: 3;
+}
+
+.market-card-contact-button {
+  font-size: 0.78rem;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
+.market-management-list {
+  display: grid;
+  gap: 8px;
+}
+
+.market-management-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 12px 14px;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.market-management-row:hover,
+.market-management-row:focus-visible {
+  background: rgba(214, 178, 74, 0.08);
+  border-color: rgba(214, 178, 74, 0.58);
+  transform: translateY(-1px);
+}
+
+.market-management-row strong,
+.market-management-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-management-row small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-top: 3px;
+}
+
+.market-management-row-action {
+  color: var(--gold);
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .listing-card--row .listing-square-top-badge {
   top: 16px;
 }

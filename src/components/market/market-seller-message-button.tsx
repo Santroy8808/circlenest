@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function MarketSellerMessageButton({ sellerUserId }: { sellerUserId: string }) {
+export function MarketSellerMessageButton({ sellerUserId, compact = false }: { sellerUserId: string; compact?: boolean }) {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,8 +31,8 @@ export function MarketSellerMessageButton({ sellerUserId }: { sellerUserId: stri
 
   return (
     <div className="grid gap-2">
-      <button className="btn-secondary" disabled={isPending} onClick={startMessage} type="button">
-        {isPending ? "Opening..." : "Message seller"}
+      <button className={compact ? "btn-secondary market-card-contact-button" : "btn-secondary"} disabled={isPending} onClick={startMessage} type="button">
+        {isPending ? "Opening..." : compact ? "Contact seller" : "Message seller"}
       </button>
       {error ? <p className="text-sm text-red-200">{error}</p> : null}
     </div>

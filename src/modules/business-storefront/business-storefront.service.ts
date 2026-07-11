@@ -202,6 +202,7 @@ function toStorefrontMarketListingView(listing: StorefrontMarketListingPayload):
     expiresAt: listing.expiresAt?.toISOString(),
     createdAt: listing.createdAt.toISOString(),
     thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
+    allowMessages: listing.allowMessages,
     seller: {
       id: listing.seller.id,
       username: listing.seller.username,

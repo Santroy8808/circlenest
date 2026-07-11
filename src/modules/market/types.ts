@@ -64,6 +64,7 @@ export type MarketListingCardView = {
   expiresAt?: string | null;
   createdAt: string;
   thumbnailUrl?: string | null;
+  allowMessages: boolean;
   seller: {
     id: string;
     username: string;

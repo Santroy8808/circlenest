@@ -207,6 +207,7 @@ function toMarketCardView(listing: MarketListingPayload): MarketListingCardView 
     expiresAt: listing.expiresAt?.toISOString(),
     createdAt: listing.createdAt.toISOString(),
     thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
+    allowMessages: listing.allowMessages,
     seller: sellerView(listing.seller)
   };
 }
@@ -265,6 +266,52 @@ export async function safeListMarketListings(input?: { query?: string | null; ca
     return await listMarketListings(input);
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not list Market listings.", {
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return [];
+  }
+}
+
+export async function listOwnedMarketListings(userId: string) {
+  const listings = await withMarketDbTimeout(
+    prisma.marketListing.findMany({
+      where: {
+        sellerUserId: userId,
+        status: {
+          not: MarketListingStatus.ARCHIVED
+        }
+      },
+      include: {
+        seller: {
+          include: {
+            profile: true
+          }
+        },
+        photos: {
+          include: {
+            mediaAsset: true
+          },
+          orderBy: {
+            sortOrder: "asc"
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    }),
+    "owned Market listings lookup"
+  );
+
+  return listings.map(toMarketCardView);
+}
+
+export async function safeListOwnedMarketListings(userId: string) {
+  try {
+    return await listOwnedMarketListings(userId);
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not list owned Market listings.", {
+      userId,
       error: error instanceof Error ? error.message : "unknown"
     });
     return [];

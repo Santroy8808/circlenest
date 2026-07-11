@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { ListingViewSwitcher } from "@/components/listings/listing-view-switcher";
+import { MarketSellerMessageButton } from "@/components/market/market-seller-message-button";
 import type { ListingViewMode } from "@/modules/listing-preferences/types";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingCardView } from "@/modules/market/types";
+import { useRouter } from "next/navigation";
 
 function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currency">) {
   if (listing.priceCents === null || listing.priceCents === undefined) return "Contact";
@@ -17,15 +19,18 @@ function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currenc
 
 export function MarketDirectoryClient({
   initialListings,
+  myListings,
   createState,
   initialView,
   isAdmin = false
 }: {
   initialListings: MarketListingCardView[];
+  myListings: MarketListingCardView[];
   createState: MarketCreateState;
   initialView: ListingViewMode;
   isAdmin?: boolean;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [view, setView] = useState<ListingViewMode>(initialView);
@@ -37,6 +42,14 @@ export function MarketDirectoryClient({
     const matchesCategory = category ? listing.category === category : true;
     return matchesQuery && matchesCategory;
   });
+
+  function openListing(listing: MarketListingCardView) {
+    router.push(`/market/${listing.slug}`);
+  }
+
+  function isQuickActionTarget(target: EventTarget | null) {
+    return target instanceof Element && Boolean(target.closest("a, button"));
+  }
 
   return (
     <div className="grid gap-5">
@@ -74,6 +87,36 @@ export function MarketDirectoryClient({
         </div>
       </section>
 
+      <section className="surface market-management-panel rounded-md p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Seller tools</p>
+            <h2 className="mt-2 text-2xl font-semibold">My listings</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Choose a listing below to open its edit form.</p>
+          </div>
+          {createState.viewerCanCreate ? (
+            <Link className="btn-secondary" href="/market/create">
+              Create listing
+            </Link>
+          ) : null}
+        </div>
+        {myListings.length > 0 ? (
+          <div className="market-management-list mt-4">
+            {myListings.map((listing) => (
+              <Link className="market-management-row" href={`/market/${listing.slug}/edit`} key={listing.id}>
+                <span className="min-w-0">
+                  <strong>{listing.title}</strong>
+                  <small>{listing.categoryLabel} · {listing.location || "City TBD"}</small>
+                </span>
+                <span className="market-management-row-action">Edit</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-[var(--line)] p-4 text-sm text-[var(--muted)]">You do not have any listings yet.</p>
+        )}
+      </section>
+
       {listings.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No listings yet</h2>
@@ -82,7 +125,22 @@ export function MarketDirectoryClient({
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>
           {listings.map((listing) => (
-            <article className={`listing-square-card listing-card--${view} market-card`} key={listing.id}>
+            <article
+              aria-label={`Open listing: ${listing.title}`}
+              className={`listing-square-card listing-card--${view} market-card`}
+              key={listing.id}
+              onClick={(event) => {
+                if (!isQuickActionTarget(event.target)) openListing(listing);
+              }}
+              onKeyDown={(event) => {
+                if ((event.key === "Enter" || event.key === " ") && !isQuickActionTarget(event.target)) {
+                  event.preventDefault();
+                  openListing(listing);
+                }
+              }}
+              role="link"
+              tabIndex={0}
+            >
               <div className="listing-square-visual">
                 {listing.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -92,11 +150,14 @@ export function MarketDirectoryClient({
                 )}
               </div>
               <span className="listing-square-top-badge">{priceLabel(listing)}</span>
+              {listing.allowMessages ? (
+                <div className="market-card-quick-action" onClick={(event) => event.stopPropagation()}>
+                  <MarketSellerMessageButton compact sellerUserId={listing.seller.id} />
+                </div>
+              ) : null}
               <div className="listing-square-meta">
                 <p className="listing-square-kicker">{listing.categoryLabel}</p>
-                <Link href={`/market/${listing.slug}`}>
-                  <h2>{listing.title}</h2>
-                </Link>
+                <h2>{listing.title}</h2>
                 <p className="listing-square-subtitle">
                   By{" "}
                   <Link
