@@ -11,6 +11,7 @@ import {
   UserRole
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { isEnabled } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
@@ -53,6 +54,10 @@ function withMailDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T
 
 function attachmentKindForMime(mimeType: string) {
   return mimeType.startsWith("image/") ? MailAttachmentKind.IMAGE : MailAttachmentKind.FILE;
+}
+
+export function isInternalMailEnabled(input: NodeJS.ProcessEnv = process.env) {
+  return isEnabled(input.INTERNAL_MAIL_ENABLED, false);
 }
 
 type MailPersonRecord = {
@@ -1294,6 +1299,7 @@ export async function completeMailUpload(userId: string, input: unknown) {
 }
 
 export async function countUnreadMail(userId?: string) {
+  if (!isInternalMailEnabled()) return 0;
   if (!userId) return 0;
 
   try {

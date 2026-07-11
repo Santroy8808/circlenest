@@ -31,6 +31,7 @@ export const envSchema = z.object({
   APP_ORIGIN: optionalUrl,
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(8).default(1),
   AUTH_SIGNUP_PREVERIFIED: z.enum(["true", "false"]).default("false"),
+  INTERNAL_MAIL_ENABLED: z.enum(["true", "false"]).default("false"),
   UPLOAD_PROXY_FALLBACK_ENABLED: z.enum(["true", "false"]).default("false"),
   MOBILE_AUTH_SECRET: z.string().min(32).optional(),
   IP_HASH_SECRET: z.string().min(32).optional(),
