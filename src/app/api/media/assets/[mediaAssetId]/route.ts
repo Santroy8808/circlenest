@@ -148,7 +148,15 @@ async function hasAuthorizedPrivateContext(
                   { members: { some: { userId: viewerUserId } } }
                 ]
               },
-              { assets: { some: { mediaAssetId, deletedAt: null } } }
+              { assets: { some: { mediaAssetId, deletedAt: null } } },
+              {
+                forumThreads: {
+                  none: {
+                    deletedAt: null,
+                    posts: { some: { mediaAssetId, deletedAt: null } }
+                  }
+                }
+              }
             ]
           },
           {
