@@ -204,6 +204,7 @@ export function GroupForumThreadClient({
   }
 
   function deleteThread() {
+    if (!window.confirm("Permanently delete this ended thread and all of its replies?")) return;
     setError("");
     startTransition(async () => {
       const response = await fetch(`/api/groups/${group.slug}/forum/threads/${thread.id}/delete`, { method: "POST" });
