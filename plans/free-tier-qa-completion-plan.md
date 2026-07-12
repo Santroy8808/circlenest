@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `04-people-and-trust`
-- Current case: `FT-035`
-- Last completed case: `FT-030`
-- Passed this completion run: 20 / 69
+- Current cycle: `05-stream`
+- Current case: `FT-044`
+- Last completed case: `FT-042`
+- Passed this completion run: 26 / 69
 - Failed or blocked: 0
-- Last deployed commit: `f019397`
-- Next action: send and decline a fresh friend request, then verify no relationship is created.
+- Last deployed commit: `1df5b66`
+- Next action: create a Members-only stream post and verify authenticated cross-user visibility.
 
 ## Cycle 01 — Identity and email
 
@@ -87,19 +87,19 @@ Cases: 8
 
 ## Cycle 04 — People and trust
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 6
 
-- [ ] `FT-035` Decline a friend request without creating a relationship.
-- [ ] `FT-036` Unfriend and verify removal for both users.
-- [ ] `FT-038` Send and accept a Sibling family relationship.
-- [ ] `FT-040` Block a QA user and enforce isolation.
-- [ ] `FT-041` Unblock and restore allowed interactions.
-- [ ] `FT-042` Submit one report and show truthful confirmation.
+- [x] `FT-035` Decline a friend request without creating a relationship. Cross-user production verified 2026-07-12.
+- [x] `FT-036` Unfriend and verify removal for both users. Added missing UI; cross-user production verified and friendship restored 2026-07-12.
+- [x] `FT-038` Send and accept a Sibling family relationship. Cross-user production verified 2026-07-12.
+- [x] `FT-040` Block a QA user and enforce isolation. Cross-user production verified 2026-07-12.
+- [x] `FT-041` Unblock and restore allowed interactions. Fixed API contract; cross-user production verified 2026-07-12.
+- [x] `FT-042` Submit one report and show truthful confirmation. Production verified 2026-07-12.
 
 ## Cycle 05 — Stream
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 9
 
 - [ ] `FT-044` Members-only text post visibility.
