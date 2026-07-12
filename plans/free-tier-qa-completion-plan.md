@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `07-groups`
-- Current case: `FT-070`
-- Last completed case: `FT-063`
-- Passed this completion run: 38 / 69
+- Current cycle: `08-gallery`
+- Current case: `FT-083`
+- Last completed case: `FT-079`
+- Passed this completion run: 47 / 69
 - Failed or blocked: 0
-- Last deployed commit: `bcf36ce`
-- Next action: create a restricted group, submit a join request, and approve it as owner.
+- Last deployed commit: `eb79b2b`
+- Next action: verify a gallery upload survives navigation and completes in the background.
 
 ## Cycle 01 — Identity and email
 
@@ -123,22 +123,22 @@ Cases: 3
 
 ## Cycle 07 — Groups
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 9
 
-- [ ] `FT-070` Restricted-group join request and owner approval.
-- [ ] `FT-071` Each member creates a group post.
-- [ ] `FT-072` Group image post.
-- [ ] `FT-073` Group comments and replies.
-- [ ] `FT-075` Group media upload, viewing, comment, and deletion.
-- [ ] `FT-076` Owner removes seeded QA member content.
-- [ ] `FT-077` Member leaves a group.
-- [ ] `FT-078` Non-owner moderation attempt is denied.
-- [ ] `FT-079` Non-member cannot open private group/media URLs.
+- [x] `FT-070` Restricted-group join request and owner approval. Cross-user production verified 2026-07-12.
+- [x] `FT-071` Each member creates a group post. Three-user production verified 2026-07-12.
+- [x] `FT-072` Group image post. Cross-user production verified 2026-07-12.
+- [x] `FT-073` Group comments and replies. Added nested reply UI and three-user production verified 2026-07-12.
+- [x] `FT-075` Group media upload, viewing, comment, and deletion. Cross-user production verified 2026-07-12.
+- [x] `FT-076` Owner removes seeded QA member content. Added delete confirmation and cross-user production verified 2026-07-12.
+- [x] `FT-077` Member leaves a group. C left successfully, lost forum access, and disappeared from the owner roster in production 2026-07-12.
+- [x] `FT-078` Non-owner moderation attempt is denied. Member UI hid management and forged remove/role requests were denied without changing ownership in production 2026-07-12.
+- [x] `FT-079` Non-member cannot open private group/forum media URLs. Fixed public-group forum attachments inheriting public group-asset access; C sees the public group page but receives 404 for its forum and forum image in production 2026-07-12.
 
 ## Cycle 08 — Gallery
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 14
 
 - [ ] `FT-083` Background upload survives navigation.
