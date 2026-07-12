@@ -31,17 +31,17 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `01-identity`
-- Current case: `FT-011`
-- Last completed case: `FT-009`
-- Passed this completion run: 6 / 69
+- Current cycle: `02-shell`
+- Current case: `FT-015`
+- Last completed case: `FT-012`
+- Passed this completion run: 8 / 69
 - Failed or blocked: 0
-- Last deployed commit: `7eda096`
-- Next action: accept the current Terms as the verified QA account, validate the downloaded PDF, mailbox delivery, and audit record.
+- Last deployed commit: `aeffa33`
+- Next action: generate a cross-user message and notification, then verify shell unread counts without hidden Mail noise.
 
 ## Cycle 01 — Identity and email
 
-Status: IN PROGRESS
+Status: COMPLETED
 Cases: 8
 
 - [x] `FT-001` Invite-only signup rejects missing invite with clear guidance. Production verified 2026-07-12.
@@ -50,8 +50,8 @@ Cases: 8
 - [x] `FT-004` Reused and altered verification tokens are rejected safely. Production verified 2026-07-12.
 - [x] `FT-008` Existing-account password reset returns generic success and delivers email. Production verified 2026-07-12.
 - [x] `FT-009` Unknown-account password reset does not disclose account existence. Production verified 2026-07-12.
-- [ ] `FT-011` Terms acceptance sends the branded PDF email and creates an audit record.
-- [ ] `FT-012` Password reset or suspension revokes an existing session.
+- [x] `FT-011` Terms acceptance sends the branded PDF email and creates an audit record. PDF rendering defect fixed in `aeffa33`; SMTP, IMAP, PDF hash/text/layout, acceptance, and audit verified 2026-07-12.
+- [x] `FT-012` Password reset revokes an existing session and invalidates the old password. Production verified 2026-07-12.
 
 Evidence requirements: SMTP/IMAP delivery, message headers, PDF attachment readability, invite consumption, verification state, reset behavior, session rejection, and non-disclosing UI copy. Use only QA accounts plus the two authorized external inboxes.
 
@@ -63,7 +63,7 @@ Evidence requirements: SMTP/IMAP delivery, message headers, PDF attachment reada
 
 ## Cycle 02 — Shell
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 4
 
 - [ ] `FT-015` Cross-user unread badges reflect messages and available notifications without hidden Mail noise.
