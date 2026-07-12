@@ -1435,6 +1435,22 @@ export function FeedClient({
     setTrustMessage("Post hidden from this view.");
   }
 
+  function deletePost(postId: string) {
+    if (!window.confirm("Delete this post permanently? This also removes its comments and reactions.")) return;
+
+    startTransition(async () => {
+      const response = await fetch(`/api/feed/posts/${postId}`, { method: "DELETE" });
+      if (!response.ok) {
+        setTrustMessage("That post could not be deleted.");
+        return;
+      }
+
+      setPosts((current) => current.filter((post) => post.id !== postId));
+      setTrustMessage("Post deleted.");
+      if (!showThreadLinks) window.location.assign("/home");
+    });
+  }
+
   function dismissPinnedAnnouncement(postId: string) {
     setHiddenPostIds((current) => ({ ...current, [postId]: true }));
 
@@ -1729,6 +1745,11 @@ export function FeedClient({
                       <button onClick={() => hidePost(post.id)} type="button">
                         Hide this post
                       </button>
+                      {composerIdentity.id === post.author.id ? (
+                        <button className="text-red-300" onClick={() => deletePost(post.id)} type="button">
+                          Delete post
+                        </button>
+                      ) : null}
                       {composerIdentity.id && post.author.id !== composerIdentity.id ? (
                         <>
                           <button onClick={() => applyAuthorTrustAction(post, "MUTE")} type="button">
