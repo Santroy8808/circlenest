@@ -203,6 +203,7 @@ function toStorefrontMarketListingView(listing: StorefrontMarketListingPayload):
     createdAt: listing.createdAt.toISOString(),
     thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
     allowMessages: listing.allowMessages,
+    carouselEnabled: listing.carouselEnabled,
     seller: {
       id: listing.seller.id,
       username: listing.seller.username,

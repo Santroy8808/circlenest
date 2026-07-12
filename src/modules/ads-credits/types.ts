@@ -115,7 +115,9 @@ export const createAdCampaignSchema = z.object({
   title: z.string().trim().min(2).max(120),
   body: z.string().trim().min(8).max(280),
   imageMediaAssetId: optionalEntityIdSchema,
+  imageMediaAssetIds: z.array(cuidIdSchema).max(10).default([]),
   externalImageUrl: optionalHttpsUrlSchema,
+  carouselEnabled: z.boolean().default(false),
   destinationKind: z.nativeEnum(AdDestinationKind).default(AdDestinationKind.STOREFRONT),
   marketListingId: optionalEntityIdSchema,
   businessArticleId: optionalEntityIdSchema,
@@ -144,7 +146,8 @@ export const createAdCampaignSchema = z.object({
   campaignDurationDays: z.coerce.number().int().min(1).max(365).optional(),
   dailyBudgetCredits: z.coerce.number().int().min(0).max(100000).optional().nullable()
 }).superRefine((value, context) => {
-  const hasOwnedImage = Boolean(value.imageMediaAssetId);
+  const ownedImageCount = new Set([value.imageMediaAssetId, ...value.imageMediaAssetIds].filter(Boolean)).size;
+  const hasOwnedImage = ownedImageCount > 0;
   const hasExternalImage = Boolean(value.externalImageUrl);
 
   if (hasOwnedImage === hasExternalImage) {
@@ -152,6 +155,15 @@ export const createAdCampaignSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Choose exactly one ad image source.",
       path: ["imageMediaAssetId"]
+    });
+  }
+
+
+  if (value.carouselEnabled && ownedImageCount < 2) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Choose at least two uploaded images for an ad carousel.",
+      path: ["imageMediaAssetIds"]
     });
   }
 
@@ -178,6 +190,8 @@ export type AdCampaignCardView = {
   body: string;
   destinationUrl: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
+  carouselEnabled: boolean;
   destinationKind: AdDestinationKind;
   placement: AdPlacement;
   placementLabel: string;
@@ -211,6 +225,9 @@ export type AdPlacementCardView = {
   body: string;
   destinationUrl: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
+  carouselEnabled: boolean;
+  minimumCarouselHoldMs: number;
   imageAlt: string;
   totalBudgetCredits: number;
   spentCredits: number;

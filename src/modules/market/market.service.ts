@@ -208,6 +208,7 @@ function toMarketCardView(listing: MarketListingPayload): MarketListingCardView 
     createdAt: listing.createdAt.toISOString(),
     thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
     allowMessages: listing.allowMessages,
+    carouselEnabled: listing.carouselEnabled,
     seller: sellerView(listing.seller)
   };
 }

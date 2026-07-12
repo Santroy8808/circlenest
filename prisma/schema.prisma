@@ -1192,6 +1192,7 @@ model MediaAsset {
   galleryComments         GalleryAssetComment[]
   galleryReactions        GalleryAssetReaction[]
   adCampaignImages        AdCampaign[]             @relation("AdCampaignImage")
+  adCarouselItems         AdCampaignCreative[]     @relation("AdCampaignCreativeImage")
   businessArticleCovers   BusinessArticle[]        @relation("BusinessArticleCover")
   chatAttachments         ChatAttachment[]
   mailAttachments         MailAttachment[]
@@ -2035,26 +2036,27 @@ model EventRsvp {
 }
 
 model MarketListing {
-  id            String                @id @default(cuid())
-  slug          String                @unique
-  sellerUserId  String
-  title         String
-  description   String
-  category      MarketListingCategory
-  location      String?
-  contactEmail  String?
-  contactPhone  String?
-  contactNotes  String?
-  allowMessages Boolean               @default(true)
-  priceCents    Int?
-  currency      String                @default("USD")
-  status        MarketListingStatus   @default(ACTIVE)
-  expiresAt     DateTime?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  seller        User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
-  photos        MarketListingPhoto[]
-  adCampaigns   AdCampaign[]
+  id              String                @id @default(cuid())
+  slug            String                @unique
+  sellerUserId    String
+  title           String
+  description     String
+  category        MarketListingCategory
+  location        String?
+  contactEmail    String?
+  contactPhone    String?
+  contactNotes    String?
+  allowMessages   Boolean               @default(true)
+  carouselEnabled Boolean               @default(false)
+  priceCents      Int?
+  currency        String                @default("USD")
+  status          MarketListingStatus   @default(ACTIVE)
+  expiresAt       DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  seller          User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
+  photos          MarketListingPhoto[]
+  adCampaigns     AdCampaign[]
 
   @@index([status, category, createdAt])
   @@index([sellerUserId, createdAt])
@@ -2332,6 +2334,7 @@ model AdCampaign {
   subscriberTargetManuscriptId String?
   imageMediaAssetId            String?
   externalImageUrl             String?
+  carouselEnabled              Boolean                    @default(false)
   title                        String
   body                         String
   destinationUrl               String?
@@ -2355,6 +2358,7 @@ model AdCampaign {
   businessArticle              BusinessArticle?           @relation(fields: [businessArticleId], references: [id], onDelete: SetNull)
   subscriberTargetManuscript   WriterManuscript?          @relation("AdSubscriberTargetManuscript", fields: [subscriberTargetManuscriptId], references: [id], onDelete: SetNull)
   imageMediaAsset              MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
+  carouselItems                AdCampaignCreative[]
   deliveryLogs                 AdDeliveryLog[]
   targetInterests              AdCampaignInterestTarget[]
   displayScheduleSlots         AdDisplayScheduleSlot[]
@@ -2366,6 +2370,20 @@ model AdCampaign {
   @@index([businessArticleId, createdAt])
   @@index([subscriberTargetManuscriptId, createdAt])
   @@index([imageMediaAssetId])
+}
+
+model AdCampaignCreative {
+  id           String     @id @default(cuid())
+  campaignId   String
+  mediaAssetId String
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  campaign     AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset @relation("AdCampaignCreativeImage", fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, mediaAssetId])
+  @@index([campaignId, sortOrder])
+  @@index([mediaAssetId, createdAt])
 }
 
 model AdCampaignInterestTarget {

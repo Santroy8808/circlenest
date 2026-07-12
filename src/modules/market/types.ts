@@ -41,6 +41,7 @@ export const createMarketListingSchema = z.object({
   contactPhone: z.string().max(60).optional().or(z.literal("")),
   contactNotes: z.string().max(400).optional().or(z.literal("")),
   allowMessages: z.boolean().default(true),
+  carouselEnabled: z.boolean().default(false),
   priceCents: z.number().int().min(0).max(100000000).optional().nullable(),
   photoMediaAssetIds: z.array(z.string().min(1)).max(PROFESSIONAL_MARKET_PHOTO_CAP).default([])
 });
@@ -65,6 +66,7 @@ export type MarketListingCardView = {
   createdAt: string;
   thumbnailUrl?: string | null;
   allowMessages: boolean;
+  carouselEnabled: boolean;
   seller: {
     id: string;
     username: string;
