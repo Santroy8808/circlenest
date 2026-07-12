@@ -45,7 +45,9 @@ export function AuditorsDirectoryClient({
               <Link className="btn-primary" href="/auditors/im-an-auditor">
                 I&apos;m an Auditor
               </Link>
-            ) : null}
+            ) : (
+              <span className="pill rounded-full px-4 py-3 text-sm font-semibold text-[var(--gold)]">Auditor profiles — Coming Soon</span>
+            )}
           </div>
         </div>
         <input className="form-field mt-6" onChange={(event) => setQuery(event.target.value)} placeholder="Search auditors..." value={query} />

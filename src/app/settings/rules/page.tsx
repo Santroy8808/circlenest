@@ -13,12 +13,12 @@ export default async function RulesSettingsPage() {
 
   return (
     <AppShell>
-      <SecureSettingsPanel title="Rules" description="Control how Theta-Space notifies you and how routine communication rules behave.">
+      <SecureSettingsPanel title="Rules" description="Review the notification and alert controls currently available on Theta-Space.">
         <SecureActionGrid
           actions={[
             {
               title: "Notification Rules",
-              description: "Review notifications, alerts, mail routing, quiet preferences, and cleanup behavior.",
+              description: "Review notifications, alerts, and cleanup behavior.",
               href: "/settings/notifications",
               badge: "notices"
             }

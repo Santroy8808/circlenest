@@ -51,8 +51,9 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
   if (!data.canCreate) {
     return (
       <section className="surface rounded-md p-8 text-center">
-        <h1 className="text-3xl font-semibold text-[var(--gold)]">I&apos;m an Auditor</h1>
-        <p className="mt-3 text-[var(--muted)]">{error}</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Auditor profiles</p>
+        <h1 className="mt-3 text-3xl font-semibold text-[var(--gold)]">Coming Soon</h1>
+        <p className="mt-3 text-[var(--muted)]">Auditor profile creation is not currently available for this membership.</p>
         <Link className="btn-secondary mt-5 inline-block" href="/auditors">
           Find an Auditor
         </Link>

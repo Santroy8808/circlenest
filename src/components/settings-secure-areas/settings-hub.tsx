@@ -56,11 +56,11 @@ const settingShortcuts: SettingsSearchEntry[] = [
   },
   {
     title: "Notification Rules",
-    description: "Tune notification dings, quiet rules, mail opt-outs, and alert preferences.",
+    description: "Review notification and alert behavior.",
     href: "/secure-area?next=/settings/notifications",
     badge: "secure",
     sensitive: true,
-    keywords: ["notifications", "dings", "quiet", "mail opt out", "alerts", "sounds"]
+    keywords: ["notifications", "alerts", "mobile app"]
   },
   {
     title: "Create Invite",

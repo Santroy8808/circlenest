@@ -17,14 +17,14 @@ export const settingsCards: SettingsCard[] = [
   },
   {
     title: "Rules",
-    description: "Notification rules, alert cleanup, mail preferences, and stream behavior settings.",
+    description: "Notification rules, alert cleanup, and stream behavior settings.",
     href: "/secure-area?next=/settings/rules",
     sensitive: true,
     badge: "Rules"
   },
   {
     title: "Subscription",
-    description: "Current subscription, upgrade or downgrade options, receipts, and available credits.",
+    description: "Your currently enabled membership, billing status, storage, and available credits.",
     href: "/secure-area?next=/settings/subscription",
     sensitive: true,
     badge: "Account"

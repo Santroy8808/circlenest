@@ -12,6 +12,7 @@ type StatusChangeAccount = {
   suspended: boolean;
   tier: MembershipTier;
   tierName: string;
+  canSendInvites: boolean;
   orgUpgradeEligible: boolean;
   storageLimitBytes: string;
   platformCredits: number;
@@ -89,6 +90,31 @@ export function AdminStatusChangeWizard() {
       setAccount(payload.account);
       setTargetTier(payload.account.tier);
       setMessage(targetTier === MembershipTier.ORG ? "Org upgrade option revealed. The member must complete Stripe checkout to activate it." : "Membership status changed.");
+    });
+  }
+
+  function setInvitePermission(allowed: boolean) {
+    if (!account) return;
+    setMessage("");
+
+    startTransition(async () => {
+      const response = await fetch("/api/admin/status-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "invite-permission",
+          userIdentifier: account.username,
+          allowed,
+          reason
+        })
+      });
+      const payload = (await response.json().catch(() => null)) as { account?: StatusChangeAccount; error?: string } | null;
+      if (!response.ok || !payload?.account) {
+        setMessage(payload?.error ?? "Could not update invite permission.");
+        return;
+      }
+      setAccount(payload.account);
+      setMessage(allowed ? "Invite creation granted to this member." : "Invite creation revoked for this member.");
     });
   }
 
@@ -175,6 +201,7 @@ export function AdminStatusChangeWizard() {
               Storage limit: {bytesLabel(account.storageLimitBytes)} - Platform credits: {account.platformCredits}
             </p>
             {account.orgUpgradeEligible ? <p className="mt-2 text-sm text-[var(--gold)]">Org upgrade option is visible to this account.</p> : null}
+            <p className="mt-2 text-sm text-[var(--muted)]">Invite creation: {account.canSendInvites ? "Allowed" : "Not allowed"}</p>
           </article>
         ) : null}
       </section>
@@ -206,7 +233,22 @@ export function AdminStatusChangeWizard() {
       </section>
 
       <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">3. Confirm reason</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">3. Invite permission</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          Grant or revoke this individual member&apos;s ability to create membership invites without changing their tier.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button className="btn-primary" disabled={isPending || !account || account.canSendInvites || reason.trim().length < 5} onClick={() => setInvitePermission(true)} type="button">
+            Grant invite creation
+          </button>
+          <button className="btn-secondary" disabled={isPending || !account || !account.canSendInvites || reason.trim().length < 5} onClick={() => setInvitePermission(false)} type="button">
+            Revoke invite creation
+          </button>
+        </div>
+      </section>
+
+      <section className="surface rounded-md p-5">
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">4. Confirm reason</h2>
         <label className="mt-4 grid gap-2">
           <span className="form-label">Audit reason</span>
           <textarea className="form-field min-h-24" onChange={(event) => setReason(event.target.value)} value={reason} />
@@ -220,7 +262,7 @@ export function AdminStatusChangeWizard() {
       </section>
 
       <section className="rounded-md border border-red-400/50 bg-red-950/20 p-5">
-        <h2 className="text-2xl font-semibold text-red-200">4. Account controls</h2>
+        <h2 className="text-2xl font-semibold text-red-200">5. Account controls</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-red-100/80">
           These controls affect account access. Suspension can be reversed. Deletion is permanent and removes the account, associated records, and stored media where cleanup succeeds.
         </p>
