@@ -49,6 +49,19 @@ Feed, groups, events, mail, chat, billing, admin.
 
 Hover lift must preserve text visibility and border spacing.
 
+## Mobile App Enablement List
+
+Notifications are primarily a mobile-app experience. Before mobile launch, enable and verify:
+
+- Push-notification permission request, denial recovery, and device-token registration.
+- Per-device push enable/disable controls without exposing unavailable internal-mail preferences.
+- Deep links from pushes to posts, replies, messages, family requests, alerts, and admin announcements.
+- Foreground notification banners, background delivery, unread badge synchronization, and mark-read synchronization.
+- Quiet hours, notification sounds, vibration, and operating-system notification-channel settings.
+- Device-token rotation, logout cleanup, revoked-session cleanup, duplicate-push prevention, and delivery retry handling.
+- Privacy-safe push text for private posts, private galleries, groups, and message conversations.
+- Multi-device behavior, offline recovery, expired-content handling, and accessibility testing.
+
 ## Smoke Checklist
 
 - Control panel counts update.

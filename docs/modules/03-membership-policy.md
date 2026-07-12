@@ -4,13 +4,13 @@
 
 Define which account tiers can see, create, moderate, invite, advertise, and manage resources.
 
-Free-tier access is anchored by `docs/core-functions.md`. The Free tier must keep Stream posting, group creation/posting, messages and group messages, Market and job listings, business profile/account switching, and Gallery.
+Free-tier access is anchored by `docs/core-functions.md`. The Free tier keeps Stream posting, group creation/posting, messages and group messages, personal Market and job listings, Auditor Directory browsing, and Gallery. Business profiles, identity switching, Events, and auditor-profile creation are not Free features.
 
 ## User-Facing Surfaces
 
-- `/membership` public membership comparison.
-- `/settings/subscription` authenticated subscription state and upgrade checkout.
-- Tier-aware controls and upgrade prompts across feature surfaces.
+- `/membership` authenticated current-membership summary.
+- `/settings/subscription` authenticated current subscription state.
+- Tier-aware controls that remain hidden when unavailable, except explicitly labeled Coming Soon surfaces.
 - Admin override and Org eligibility tooling.
 
 ## Primary Code Areas
@@ -48,13 +48,14 @@ Free-tier access is anchored by `docs/core-functions.md`. The Free tier must kee
 - Central tier matrix in `src/modules/membership-policy/policy.ts`.
 - Effective policy resolution with role, tier, and per-user overrides.
 - Audit-logged policy override service.
+- Admin account management can individually grant or revoke membership-invite creation.
 - Stripe-ready subscription checkout for paid membership tiers.
 - Stripe webhook sync for active, trialing, past-due, canceled, and unpaid subscription states.
 - Hidden Org upgrade eligibility that admins can reveal without activating the tier directly.
 - Public matrix API at `/api/membership-policy/matrix`.
 - Authenticated feature evaluation API at `/api/membership-policy/evaluate`.
-- Membership comparison page at `/membership`.
-- Subscription checkout page at `/settings/subscription`.
+- Current-membership page at `/membership`.
+- Current subscription-status page at `/settings/subscription`; unavailable upgrade choices are not displayed.
 - Billing endpoints at `/api/billing/checkout` and `/api/billing/stripe/webhook`.
 - Admin Stripe setup endpoint at `/api/admin/stripe-setup`.
 
@@ -88,7 +89,7 @@ These may be replaced or supplemented by Admin Stripe Setup for saved keys and p
 
 - Tier matrix checks cover Free, Contributor, Professional, Auditor, Admin, and confirm Free keeps the core functions in `docs/core-functions.md`.
 - Locked controls never submit privileged API actions.
-- `/settings/subscription` shows only public paid tiers plus hidden Org when admin-approved.
+- `/membership` and `/settings/subscription` show only the member's current access, not unavailable tiers or controls.
 - Checkout refuses tiers without Stripe price IDs instead of faking success.
 - Stripe webhook updates `Membership.subscriptionStatus`, Stripe IDs, billing period end, and effective tier.
 - Admin Stripe Setup can update subscription price IDs without code changes.
