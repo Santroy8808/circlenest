@@ -11,12 +11,15 @@ export function FriendRequestButton({
   pending?: boolean;
   targetUserId: string;
 }) {
+  const [friends, setFriends] = useState(isFriend);
   const [sent, setSent] = useState(Boolean(pending));
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function sendRequest() {
     setError("");
+    setMessage("");
     startTransition(async () => {
       const response = await fetch("/api/social-graph/friend-requests", {
         method: "POST",
@@ -32,16 +35,39 @@ export function FriendRequestButton({
     });
   }
 
+  function removeFriend() {
+    setError("");
+    setMessage("");
+    if (!window.confirm("Remove this person from your friends? You can send a new friend request later.")) return;
+
+    startTransition(async () => {
+      const response = await fetch("/api/social-graph/relationships", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toUserId: targetUserId, type: "FRIEND" })
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error ?? "Could not remove this friend.");
+        return;
+      }
+      setFriends(false);
+      setSent(false);
+      setMessage("Friend removed.");
+    });
+  }
+
   return (
     <div className="grid gap-1">
       <button
-        className="btn-secondary family-action-button min-h-11"
-        disabled={isFriend || sent || isPending}
-        onClick={sendRequest}
+        className={`btn-secondary family-action-button min-h-11${friends ? " border-red-400/60 text-red-200" : ""}`}
+        disabled={sent || isPending}
+        onClick={friends ? removeFriend : sendRequest}
         type="button"
       >
-        {isFriend ? "Friends" : sent ? "Request sent" : isPending ? "Sending..." : "Add friend"}
+        {friends ? (isPending ? "Removing..." : "Remove friend") : sent ? "Request sent" : isPending ? "Sending..." : "Add friend"}
       </button>
+      {message ? <p className="max-w-40 text-xs text-[var(--muted)]" role="status">{message}</p> : null}
       {error ? (
         <p className="max-w-40 text-xs text-red-300" role="alert">
           {error}
