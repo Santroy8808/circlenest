@@ -14,7 +14,10 @@ export default function TermsPage() {
   const text = readCurrentTermsText();
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] px-4 py-8 text-[var(--text)]">
+    <main
+      className="h-[100dvh] min-h-[100svh] touch-pan-y overflow-y-auto overscroll-y-contain bg-[var(--bg)] px-4 py-8 text-[var(--text)]"
+      style={{ WebkitOverflowScrolling: "touch" }}
+    >
       <div className="mx-auto grid max-w-4xl gap-5">
         <section className="surface rounded-md p-6">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Legal</p>
