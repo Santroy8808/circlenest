@@ -7,7 +7,7 @@ import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
-import type { GroupForumThreadDetailView } from "@/modules/group-forum/types";
+import type { GroupForumPostView, GroupForumThreadDetailView } from "@/modules/group-forum/types";
 
 const quickReactions = [
   GroupForumReactionType.LIKE,
@@ -64,6 +64,7 @@ export function GroupForumThreadClient({
   const [thread, setThread] = useState(initialThread);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
+  const [replyTarget, setReplyTarget] = useState<GroupForumPostView | null>(null);
   const [photo, setPhoto] = useState<{ file: File; previewUrl: string; progress: number } | null>(null);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -167,7 +168,7 @@ export function GroupForumThreadClient({
       const response = await fetch(`/api/groups/${group.slug}/forum/threads/${thread.id}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body, mediaAssetId })
+          body: JSON.stringify({ body, mediaAssetId, parentPostId: replyTarget?.id ?? "" })
       });
       const payload = (await response.json()) as { error?: string };
 
@@ -177,6 +178,7 @@ export function GroupForumThreadClient({
       }
 
       setBody("");
+        setReplyTarget(null);
         if (photo?.previewUrl) URL.revokeObjectURL(photo.previewUrl);
         setPhoto(null);
       await refreshThread();
@@ -298,7 +300,7 @@ export function GroupForumThreadClient({
         <div className="mt-5 grid gap-3">
           {thread.posts.length === 0 ? <p className="text-[var(--muted)]">No replies yet.</p> : null}
           {thread.posts.map((post) => (
-            <article className="forum-reply-bubble" key={post.id}>
+            <article className={post.parentPostId ? "forum-reply-bubble ml-8 border-l-2 border-[var(--gold)]/40" : "forum-reply-bubble"} key={post.id}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <Link className="profile-inline-link font-semibold" href={`/profile/${post.author.username}`}>
@@ -331,6 +333,11 @@ export function GroupForumThreadClient({
                     <GroupReactionDisplay reaction={reaction} /> <span>{post.reactions[reaction] ?? 0}</span>
                   </button>
                 ))}
+                {viewerCanPost ? (
+                  <button className="btn-secondary px-3 py-2 text-sm" onClick={() => setReplyTarget(post)} type="button">
+                    Reply
+                  </button>
+                ) : null}
               </div>
             </article>
           ))}
@@ -340,6 +347,12 @@ export function GroupForumThreadClient({
       {viewerCanPost ? (
         <form className="surface rounded-md p-5" onSubmit={reply}>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Reply</p>
+          {replyTarget ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--line)] p-3 text-sm">
+              <span>Replying to {replyTarget.author.displayName}</span>
+              <button className="btn-secondary px-3 py-1 text-xs" onClick={() => setReplyTarget(null)} type="button">Cancel reply</button>
+            </div>
+          ) : null}
           <textarea
             className="form-field mt-3 min-h-28 resize-y"
             onChange={(event) => setBody(event.target.value)}
