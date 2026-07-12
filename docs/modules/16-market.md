@@ -28,13 +28,14 @@ Provide The Market as a clean marketplace of clickable product/service thumbnail
 - Browse thumbnail cards with title and price only.
 - Open full detail page for description, photos, and seller.
 - Upload listing photos directly to R2 before listing creation.
+- Free members have 3 listing slots per rolling 14-day period and up to 3 photos per listing.
 - Contributor has limited 14-day listing slots and capped photos.
 - Professional has unlimited listing slots and storefront handoff.
 - Promote listing through future ad system only; no ads inside listing bodies.
 
 ## Access Rules
 
-- Free browses only and sees no create-listing controls.
+- Free can create up to 3 listings per rolling 14-day period, with up to 3 photos per listing.
 - Contributor can create within the 14-day posting limit.
 - Professional can create unlimited listings.
 - Auditor does not create Market listings unless given an override.

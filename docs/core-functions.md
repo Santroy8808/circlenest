@@ -7,7 +7,7 @@ Core functions are the baseline product surface every Free account must be able 
 1. Posting on the main Stream, including replies and reactions.
 2. Creating groups and posting inside joined groups.
 3. Direct messages and group messages.
-4. Market listings and job listings.
+4. Market listings and job listings. Free members may publish up to 3 Market listings in each rolling 14-day period, with up to 3 photos per listing.
 5. Gallery upload, tagging, filtering, commenting, and deletion.
 
 ## Paid/Expanded Functions

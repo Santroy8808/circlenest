@@ -88,7 +88,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     }),
     limits: {
       groupMemberCap: null,
-      marketListingsPer14Days: 6,
+      marketListingsPer14Days: 3,
       marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
       storageLimitBytes: 200 * 1024 * 1024
