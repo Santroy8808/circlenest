@@ -2,6 +2,7 @@ import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ImageCarousel } from "@/components/media/image-carousel";
 import { MarketSellerMessageButton } from "@/components/market/market-seller-message-button";
 import { MarkdownRichText } from "@/components/rich-text/markdown-rich-text";
 import type { MarketListingDetailView } from "@/modules/market/types";
@@ -22,7 +23,13 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
           aria-label="Listing photos"
           className="grid min-h-[180px] items-center justify-center gap-4 overflow-hidden bg-[#172133] p-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),420px))]"
         >
-          {listing.photos.length > 0 ? (
+          {listing.carouselEnabled && listing.photos.filter((photo) => photo.publicUrl).length > 1 ? (
+            <ImageCarousel
+              className="market-listing-carousel"
+              imageClassName="h-full max-h-[360px] w-full object-contain"
+              images={listing.photos.flatMap((photo) => photo.publicUrl ? [{ id: photo.id, src: photo.publicUrl, alt: photo.originalName ?? listing.title }] : [])}
+            />
+          ) : listing.photos.length > 0 ? (
             listing.photos.map((photo) =>
               photo.publicUrl ? (
                 <InAppImageViewer

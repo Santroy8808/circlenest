@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { AdCreditCheckoutButton } from "@/components/ads-credits/ad-credit-checkout-button";
 import { EndAdCampaignButton } from "@/components/ads-credits/end-ad-campaign-button";
+import { ImageCarousel } from "@/components/media/image-carousel";
 import type { AdsManagerView } from "@/modules/ads-credits/types";
 
 function isExternalUrl(value: string) {
@@ -72,8 +73,12 @@ export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsMan
                 <div className="grid gap-4 md:grid-cols-[160px_minmax(0,1fr)]">
                   {campaign.imageUrl ? (
                     <a className="ad-manager-image" href={campaign.destinationUrl ?? "#"} rel={campaign.destinationUrl && isExternalUrl(campaign.destinationUrl) ? "noreferrer" : undefined} target={campaign.destinationUrl && isExternalUrl(campaign.destinationUrl) ? "_blank" : undefined}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img alt={campaign.title} src={campaign.imageUrl} />
+                      {campaign.carouselEnabled && campaign.imageUrls.length > 1 ? (
+                        <ImageCarousel images={campaign.imageUrls.map((src, index) => ({ id: `${campaign.id}-${index}`, src, alt: `${campaign.title} ${index + 1}` }))} showControls={false} />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img alt={campaign.title} src={campaign.imageUrl} />
+                      )}
                     </a>
                   ) : (
                     <div className="ad-manager-image is-empty">No image</div>

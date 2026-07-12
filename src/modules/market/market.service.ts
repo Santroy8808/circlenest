@@ -574,7 +574,7 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
       contactPhone: parsed.data.contactPhone || null,
       contactNotes: parsed.data.contactNotes || null,
       allowMessages: parsed.data.allowMessages ?? true,
-      carouselEnabled: Boolean(parsed.data.carouselEnabled) && listing.photos.length + newPhotoIds.length > 1,
+      carouselEnabled: (parsed.data.carouselEnabled ?? listing.carouselEnabled) && listing.photos.length + newPhotoIds.length > 1,
       priceCents: parsed.data.priceCents ?? null,
       photos: newPhotoIds.length
         ? {

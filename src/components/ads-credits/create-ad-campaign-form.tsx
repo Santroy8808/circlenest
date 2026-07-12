@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { ImageCarousel } from "@/components/media/image-carousel";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   adAgeRangeOptions,
@@ -63,6 +64,7 @@ type StoredAdWizardDraft = {
   targetSexes?: AdSexValue[];
   targetHashtags?: string[];
   externalImageUrl?: string;
+  carouselEnabled?: boolean;
   abTestingEnabled?: boolean;
   variantBTitle?: string;
   variantBBody?: string;
@@ -244,7 +246,8 @@ export function CreateAdCampaignForm({
   const [targetHashtags, setTargetHashtags] = useState<string[]>(initialDraft?.targetHashtags ?? []);
   const [hashtagQuery, setHashtagQuery] = useState("");
   const [hashtagSuggestions, setHashtagSuggestions] = useState<Array<{ value: string; label: string }>>([]);
-  const [image, setImage] = useState<AdImageAttachment | null>(null);
+  const [images, setImages] = useState<AdImageAttachment[]>([]);
+  const [carouselEnabled, setCarouselEnabled] = useState(false);
   const [externalImageUrl, setExternalImageUrl] = useState("");
   const [abTestingEnabled, setAbTestingEnabled] = useState(false);
   const [variantBTitle, setVariantBTitle] = useState("");
@@ -267,7 +270,7 @@ export function CreateAdCampaignForm({
   const campaignDailyWeight = campaignDurationDays > 0 ? campaignCredits / campaignDurationDays : 0;
   const canAffordBudget = selectedPricingPackage ? adsManager.platformCredits >= campaignCredits : false;
   const placementLabel = adPlacementOptions.find((option) => option.value === placement)?.label ?? "Ad placement";
-  const previewImageUrl = image?.previewUrl ?? externalImageUrl.trim();
+  const previewImageUrls = images.length > 0 ? images.map((image) => image.previewUrl) : externalImageUrl.trim() ? [externalImageUrl.trim()] : [];
   const previewTitle = title.trim() || "Your ad headline";
   const previewBody = body.trim() || "Your ad text will appear here.";
   const previewDestinationLabel =
@@ -325,6 +328,7 @@ export function CreateAdCampaignForm({
       if (Array.isArray(draft.targetSexes)) setTargetSexes(draft.targetSexes);
       if (Array.isArray(draft.targetHashtags)) setTargetHashtags(draft.targetHashtags.map(normalizeAdTargetHashtag).filter(Boolean));
       if (typeof draft.externalImageUrl === "string") setExternalImageUrl(draft.externalImageUrl);
+      if (typeof draft.carouselEnabled === "boolean") setCarouselEnabled(draft.carouselEnabled);
       if (typeof draft.abTestingEnabled === "boolean") setAbTestingEnabled(draft.abTestingEnabled);
       if (typeof draft.variantBTitle === "string") setVariantBTitle(draft.variantBTitle);
       if (typeof draft.variantBBody === "string") setVariantBBody(draft.variantBBody);
@@ -357,6 +361,7 @@ export function CreateAdCampaignForm({
       targetSexes,
       targetHashtags,
       externalImageUrl,
+      carouselEnabled,
       abTestingEnabled,
       variantBTitle,
       variantBBody,
@@ -373,6 +378,7 @@ export function CreateAdCampaignForm({
     customDestinationUrl,
     destinationKind,
     externalImageUrl,
+    carouselEnabled,
     hasVisitedPreview,
     marketListingId,
     placement,
@@ -418,7 +424,8 @@ export function CreateAdCampaignForm({
     const blockers: string[] = [];
     if (title.trim().length < 2) blockers.push("Add a headline.");
     if (body.trim().length < 8) blockers.push("Write at least 8 characters of ad text.");
-    if (!image && !externalImageUrl.trim()) blockers.push("Upload an ad image or enter an image URL.");
+    if (images.length === 0 && !externalImageUrl.trim()) blockers.push("Upload an ad image or enter an image URL.");
+    if (carouselEnabled && images.length < 2) blockers.push("Upload at least two images for the carousel.");
     if (!hasDestination) blockers.push("Choose a valid click target.");
     if (!selectedPricingPackage) blockers.push("Choose an active ad package.");
     if (campaignCredits < 1 || campaignCredits > 100000) blockers.push("Choose a credit budget between 1 and 100,000 credits.");
@@ -437,7 +444,8 @@ export function CreateAdCampaignForm({
     canAffordBudget,
     externalImageUrl,
     hasDestination,
-    image,
+    carouselEnabled,
+    images,
     selectedPricingPackage,
     title,
     variantBBody,
@@ -447,7 +455,7 @@ export function CreateAdCampaignForm({
   function stepNote(stepKey: WizardStepKey) {
     if (stepKey === "heading" && title.trim().length < 2) return "Needed before publishing: a clear headline.";
     if (stepKey === "text" && body.trim().length < 8) return "Needed before publishing: a short ad message.";
-    if (stepKey === "image" && !image && !externalImageUrl.trim()) return "Needed before publishing: an uploaded image or image URL.";
+    if (stepKey === "image" && images.length === 0 && !externalImageUrl.trim()) return "Needed before publishing: an uploaded image or image URL.";
     if (stepKey === "destination" && !hasDestination) return "Needed before publishing: a valid click target.";
     if (stepKey === "budget" && !canAffordBudget) return "Needed before publishing: a budget covered by your available credits.";
     if (stepKey === "budget" && !selectedPricingPackage) return "Needed before publishing: an active package.";
@@ -469,28 +477,23 @@ export function CreateAdCampaignForm({
     if (wizardSteps[nextIndex]?.key === "preview") setHasVisitedPreview(true);
   }
 
-  function updateImage(file?: File) {
-    if (!file) return;
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+  function updateImages(files?: FileList | null) {
+    if (!files) return;
+    const candidates = Array.from(files).slice(0, 10 - images.length);
+    if (candidates.some((file) => !/^image\/(jpeg|png|webp)$/.test(file.type))) {
       setError("Choose a JPG, PNG, or WEBP image.");
       return;
     }
-    if (file.size > MAX_AD_IMAGE_BYTES) {
+    if (candidates.some((file) => file.size > MAX_AD_IMAGE_BYTES)) {
       setError("Ad images can be up to 10MB.");
       return;
     }
-    if (image?.previewUrl) URL.revokeObjectURL(image.previewUrl);
-    setImage({
-      file,
-      previewUrl: URL.createObjectURL(file),
-      progress: 0,
-      status: "ready"
-    });
+    setImages((current) => [...current, ...candidates.map((file) => ({ file, previewUrl: URL.createObjectURL(file), progress: 0, status: "ready" as const }))]);
     setError("");
   }
 
-  function patchImage(patch: Partial<AdImageAttachment>) {
-    setImage((current) => (current ? { ...current, ...patch } : current));
+  function patchImage(index: number, patch: Partial<AdImageAttachment>) {
+    setImages((current) => current.map((image, imageIndex) => imageIndex === index ? { ...image, ...patch } : image));
   }
 
   function toggleInterest(category: InterestCategory) {
@@ -546,7 +549,11 @@ export function CreateAdCampaignForm({
 
     startTransition(async () => {
       try {
-        const imageMediaAssetId = image ? await uploadAdImage(image, patchImage) : "";
+        const imageMediaAssetIds: string[] = [];
+        for (const [imageIndex, image] of images.entries()) {
+          imageMediaAssetIds.push(await uploadAdImage(image, (patch) => patchImage(imageIndex, patch)));
+        }
+        const imageMediaAssetId = imageMediaAssetIds[0] ?? "";
         const primaryBudgetCredits = abTestingEnabled ? Math.ceil(campaignCredits / 2) : campaignCredits;
         const secondaryBudgetCredits = campaignCredits - primaryBudgetCredits;
         const sharedPayload = {
@@ -585,6 +592,8 @@ export function CreateAdCampaignForm({
           title: abTestingEnabled ? variantCampaignTitle("A", title) : title,
           body,
           imageMediaAssetId,
+          imageMediaAssetIds,
+          carouselEnabled: carouselEnabled && imageMediaAssetIds.length > 1,
           externalImageUrl: imageMediaAssetId ? "" : externalImageUrl,
           totalBudgetCredits: primaryBudgetCredits
         });
@@ -595,6 +604,8 @@ export function CreateAdCampaignForm({
             title: variantCampaignTitle("B", variantBTitle),
             body: variantBBody,
             imageMediaAssetId: variantBExternalImageUrl.trim() ? "" : imageMediaAssetId,
+            imageMediaAssetIds: variantBExternalImageUrl.trim() ? [] : imageMediaAssetIds,
+            carouselEnabled: carouselEnabled && !variantBExternalImageUrl.trim() && imageMediaAssetIds.length > 1,
             externalImageUrl: variantBExternalImageUrl.trim() || (imageMediaAssetId ? "" : externalImageUrl),
             totalBudgetCredits: secondaryBudgetCredits
           });
@@ -604,7 +615,7 @@ export function CreateAdCampaignForm({
         window.location.href = successHref;
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Could not create ad campaign.";
-        patchImage({ status: "error", error: message });
+        setImages((current) => current.map((image) => ({ ...image, status: "error", error: message })));
         setError(message);
       }
     });
@@ -724,16 +735,28 @@ export function CreateAdCampaignForm({
             <input
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
-              onChange={(event) => updateImage(event.target.files?.[0])}
+              multiple
+              onChange={(event) => updateImages(event.target.files)}
               ref={imageInputRef}
               type="file"
             />
             <div className="ad-wizard-image-control">
-              <span className="form-label">Ad image</span>
-              <p>{AD_IMAGE_GUIDANCE}</p>
+              <span className="form-label">Ad images</span>
+              <p>{AD_IMAGE_GUIDANCE} Add up to 10 images.</p>
               <button className="btn-primary" onClick={() => imageInputRef.current?.click()} type="button">
-                {image ? "Change" : "Upload"}
+                {images.length > 0 ? "Add images" : "Upload images"}
               </button>
+              {images.length > 1 ? (
+                <label className="market-message-toggle">
+                  <input checked={carouselEnabled} onChange={(event) => setCarouselEnabled(event.target.checked)} type="checkbox" />
+                  <span>Use a carousel. Each image displays for 3 seconds.</span>
+                </label>
+              ) : null}
+              {carouselEnabled ? (
+                <p className="text-sm text-[var(--gold)]">
+                  Full cycle: {images.length * 3} seconds. Current paid placements provide 30-second display slots, so up to 10 images complete a full cycle.
+                </p>
+              ) : null}
               <label className="grid gap-2">
                 <span className="form-label">Image URL fallback</span>
                 <input
@@ -745,23 +768,22 @@ export function CreateAdCampaignForm({
               </label>
             </div>
             <div className="ad-wizard-image-preview">
-              {previewImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img alt="Selected ad creative preview" src={previewImageUrl} />
+              {previewImageUrls.length > 0 ? (
+                <ImageCarousel
+                  images={(carouselEnabled ? previewImageUrls : previewImageUrls.slice(0, 1)).map((src, index) => ({ id: `${index}-${src}`, src, alt: `Selected ad creative ${index + 1}` }))}
+                  showControls={carouselEnabled}
+                />
               ) : (
                 <span>Image preview</span>
               )}
-              {image ? (
-                <div>
+              {images.map((image, index) => (
+                <div key={`${image.file.name}-${index}`}>
                   <strong>{image.file.name}</strong>
                   <small>{Math.max(1, Math.round(image.file.size / 1024))} KB</small>
-                  {image.status === "uploading" ? (
-                    <div className="feed-upload-meter">
-                      <span style={{ width: `${image.progress}%` }} />
-                    </div>
-                  ) : null}
+                  {image.status === "uploading" ? <div className="feed-upload-meter"><span style={{ width: `${image.progress}%` }} /></div> : null}
+                  <button className="btn-secondary px-3 py-1 text-xs" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))} type="button">Remove</button>
                 </div>
-              ) : null}
+              ))}
             </div>
           </div>
         ) : null}
@@ -1104,9 +1126,13 @@ export function CreateAdCampaignForm({
                   </small>
                 </div>
                 <article className="ad-placement-card ad-render-card">
-                  {previewImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="Ad preview creative" className="ad-placement-image" src={previewImageUrl} />
+                  {previewImageUrls.length > 0 ? (
+                    <ImageCarousel
+                      className="ad-placement-image"
+                      imageClassName="h-full w-full object-cover"
+                      images={(carouselEnabled ? previewImageUrls : previewImageUrls.slice(0, 1)).map((src, index) => ({ id: `${index}-${src}`, src, alt: `Ad preview creative ${index + 1}` }))}
+                      showControls={false}
+                    />
                   ) : (
                     <div className="ad-render-image-placeholder">
                       <span>Creative</span>

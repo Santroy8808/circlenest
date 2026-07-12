@@ -2,12 +2,32 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { ImageCarousel } from "@/components/media/image-carousel";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 
 const AD_POOL_REFRESH_MS = 45000;
 const RIGHT_STREAM_PLACEMENT = "RIGHT_STREAM";
 const IMPRESSION_EVENT = "IMPRESSION";
 const CLICK_EVENT = "CLICK";
+
+function AdCreative({ ad }: { ad: AdPlacementCardView }) {
+  const canCycle = ad.carouselEnabled && ad.imageUrls.length > 1 && ad.rotationHoldMs >= ad.minimumCarouselHoldMs;
+  if (canCycle) {
+    return (
+      <ImageCarousel
+        autoAdvanceMs={3000}
+        className="ad-placement-image"
+        imageClassName="h-full w-full object-cover"
+        images={ad.imageUrls.map((src, index) => ({ id: `${ad.id}-${index}`, src, alt: `${ad.imageAlt} ${index + 1}` }))}
+        showControls={false}
+      />
+    );
+  }
+  return ad.imageUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img alt={ad.imageAlt} className="ad-placement-image" src={ad.imageUrl} />
+  ) : null;
+}
 
 function visibleSlotCount(totalAds: number) {
   if (totalAds <= 2) return 1;
@@ -138,10 +158,7 @@ export function AdRailRotator({ initialAds, isAdmin = false }: { initialAds: AdP
       {visibleAds.map((ad, slot) =>
         ad.destinationUrl ? (
           <a className="ad-placement-card" href={ad.destinationUrl} key={`${ad.id}-${slot}`} onClick={() => postDeliveryEvent(ad, CLICK_EVENT, slot)}>
-            {ad.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt={ad.imageAlt} className="ad-placement-image" src={ad.imageUrl} />
-            ) : null}
+            <AdCreative ad={ad} />
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
             <strong className="mt-2 block">{ad.title}</strong>
             <div className="mt-2">
@@ -152,10 +169,7 @@ export function AdRailRotator({ initialAds, isAdmin = false }: { initialAds: AdP
           </a>
         ) : (
           <article className="ad-placement-card" key={`${ad.id}-${slot}`}>
-            {ad.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt={ad.imageAlt} className="ad-placement-image" src={ad.imageUrl} />
-            ) : null}
+            <AdCreative ad={ad} />
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Sponsored</span>
             <strong className="mt-2 block">{ad.title}</strong>
             <div className="mt-2">

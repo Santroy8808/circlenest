@@ -46,6 +46,7 @@ export function CreateMarketListingForm({
   const [contactPhone, setContactPhone] = useState(initialListing?.contactPhone ?? "");
   const [contactNotes, setContactNotes] = useState(initialListing?.contactNotes ?? "");
   const [allowMessages, setAllowMessages] = useState(initialListing?.allowMessages ?? true);
+  const [carouselEnabled, setCarouselEnabled] = useState(initialListing?.carouselEnabled ?? false);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [error, setError] = useState(createState.viewerCanCreate ? "" : createState.reason ?? "This tier cannot create Market listings.");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,6 +160,7 @@ export function CreateMarketListingForm({
           contactPhone,
           contactNotes,
           allowMessages,
+          carouselEnabled,
           priceCents: parsePriceCents(price),
           photoMediaAssetIds
         })
@@ -286,6 +288,13 @@ export function CreateMarketListingForm({
             type="file"
           />
         </div>
+
+        {existingPhotoCount + items.length > 1 ? (
+          <label className="market-message-toggle mt-4">
+            <input checked={carouselEnabled} onChange={(event) => setCarouselEnabled(event.target.checked)} type="checkbox" />
+            <span>Display these photos as an automatically advancing carousel. Visitors can also use the left and right controls.</span>
+          </label>
+        ) : null}
 
         {items.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-3">

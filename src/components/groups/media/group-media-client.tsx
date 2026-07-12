@@ -4,6 +4,7 @@ import { GroupAssetKind } from "@prisma/client";
 import { useRef, useState } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ImageCarousel } from "@/components/media/image-carousel";
 import type { GroupAssetView } from "@/modules/group-media-docs/types";
 
 type UploadItem = {
@@ -57,6 +58,7 @@ export function GroupMediaClient({
   const inputRef = useRef<HTMLInputElement>(null);
   const [assets, setAssets] = useState(initialAssets);
   const [selectedKind, setSelectedKind] = useState<GroupAssetKind>(GroupAssetKind.PHOTO);
+  const [photoView, setPhotoView] = useState<"grid" | "carousel">("grid");
   const [storageUsedBytes, setStorageUsedBytes] = useState(initialStorageUsedBytes);
   const [storageLimitBytes, setStorageLimitBytes] = useState(group.storageLimitBytes);
   const [storageLimitInputMb, setStorageLimitInputMb] = useState(() => String(Math.round(Number(group.storageLimitBytes) / 1024 / 1024)));
@@ -72,6 +74,11 @@ export function GroupMediaClient({
   const [isUploading, setIsUploading] = useState(false);
 
   const visibleAssets = assets.filter((asset) => asset.kind === selectedKind);
+  const photoCarouselImages = visibleAssets.flatMap((asset) =>
+    asset.kind === GroupAssetKind.PHOTO && asset.publicUrl
+      ? [{ id: asset.id, src: asset.publicUrl, alt: asset.originalName ?? asset.headline ?? "Group photo" }]
+      : []
+  );
   const storageLimit = Number(storageLimitBytes);
   const storageUsed = Number(storageUsedBytes);
   const storagePercent = storageLimit > 0 ? Math.min(100, Math.round((storageUsed / storageLimit) * 100)) : 0;
@@ -384,6 +391,12 @@ export function GroupMediaClient({
               {kindLabel(kind)}
             </button>
           ))}
+          {selectedKind === GroupAssetKind.PHOTO && photoCarouselImages.length > 1 ? (
+            <>
+              <button className={photoView === "grid" ? "btn-primary" : "btn-secondary"} onClick={() => setPhotoView("grid")} type="button">Grid view</button>
+              <button className={photoView === "carousel" ? "btn-primary" : "btn-secondary"} onClick={() => setPhotoView("carousel")} type="button">Carousel view</button>
+            </>
+          ) : null}
         </div>
       </section>
 
@@ -481,7 +494,14 @@ export function GroupMediaClient({
         </section>
       ) : null}
 
-      <section className={selectedKind === GroupAssetKind.PHOTO ? "group-media-grid" : "grid gap-3"}>
+      {selectedKind === GroupAssetKind.PHOTO && photoView === "carousel" && photoCarouselImages.length > 1 ? (
+        <section className="surface rounded-md p-4">
+          <ImageCarousel className="group-photo-carousel" imageClassName="h-full max-h-[640px] w-full object-contain" images={photoCarouselImages} />
+          <p className="mt-3 text-center text-sm text-[var(--muted)]">Switch to Grid view to comment on, open, or manage an individual photo.</p>
+        </section>
+      ) : null}
+
+      <section className={selectedKind === GroupAssetKind.PHOTO ? (photoView === "carousel" ? "hidden" : "group-media-grid") : "grid gap-3"}>
         {visibleAssets.map((asset) => (
           <article className={selectedKind === GroupAssetKind.PHOTO ? "group-media-photo-card" : "group-media-doc-card"} key={asset.id}>
             {asset.kind === GroupAssetKind.PHOTO ? (
