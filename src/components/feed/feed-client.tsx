@@ -1248,13 +1248,14 @@ export function FeedClient({
 
     if (!author) return { reactors, counts: undefined };
 
+    const removeCurrentReaction = (reactors[type] ?? []).some((reactor) => reactor.id === author.id);
     const nextReactors = publicQuickReactions.reduce<FeedReactionReactorsView>((acc, reaction) => {
       const existing = reactors[reaction.type] ?? [];
       acc[reaction.type] = existing.filter((reactor) => reactor.id !== author.id);
       return acc;
     }, {});
 
-    if (type !== FeedReactionType.DISLIKE) {
+    if (type !== FeedReactionType.DISLIKE && !removeCurrentReaction) {
       nextReactors[type] = [author, ...(nextReactors[type] ?? [])];
     }
 

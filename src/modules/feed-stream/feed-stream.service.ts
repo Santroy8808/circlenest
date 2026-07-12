@@ -1011,6 +1011,15 @@ export async function reactToFeedPost(userId: string, input: unknown) {
 
     if (!post) return null;
 
+    const existingReaction = await tx.feedPostReaction.findUnique({
+      where: { postId_userId: { postId: parsed.data.postId, userId } }
+    });
+
+    if (existingReaction?.type === parsed.data.type) {
+      await tx.feedPostReaction.delete({ where: { id: existingReaction.id } });
+      return { post, reaction: null, removed: true };
+    }
+
     const reaction = await tx.feedPostReaction.upsert({
       where: {
         postId_userId: {
@@ -1029,16 +1038,16 @@ export async function reactToFeedPost(userId: string, input: unknown) {
     const notificationResult = await notifyFeedPostReaction(userId, parsed.data.postId, tx);
     if (!notificationResult.ok) throw new Error(notificationResult.error);
 
-    return { post, reaction };
+    return { post, reaction, removed: false };
   });
 
   if (!authorizedReaction) {
     return { ok: false as const, error: "Post not found or not available to you." };
   }
 
-  const { reaction } = authorizedReaction;
+  const { reaction, removed } = authorizedReaction;
 
-  await recordPostReactionSignals(userId, parsed.data.postId, parsed.data.type);
+  if (!removed) await recordPostReactionSignals(userId, parsed.data.postId, parsed.data.type);
 
   return { ok: true as const, reaction };
 }
@@ -1093,6 +1102,15 @@ export async function reactToFeedComment(userId: string, input: unknown) {
 
     if (!comment) return null;
 
+    const existingReaction = await tx.feedCommentReaction.findUnique({
+      where: { commentId_userId: { commentId: parsed.data.commentId, userId } }
+    });
+
+    if (existingReaction?.type === parsed.data.type) {
+      await tx.feedCommentReaction.delete({ where: { id: existingReaction.id } });
+      return { comment, reaction: null, removed: true };
+    }
+
     const reaction = await tx.feedCommentReaction.upsert({
       where: {
         commentId_userId: {
@@ -1111,16 +1129,16 @@ export async function reactToFeedComment(userId: string, input: unknown) {
     const notificationResult = await notifyFeedCommentReaction(userId, parsed.data.commentId, tx);
     if (!notificationResult.ok) throw new Error(notificationResult.error);
 
-    return { comment, reaction };
+    return { comment, reaction, removed: false };
   });
 
   if (!authorizedReaction) {
     return { ok: false as const, error: "Comment not found or not available to you." };
   }
 
-  const { reaction } = authorizedReaction;
+  const { reaction, removed } = authorizedReaction;
 
-  await recordCommentReactionSignals(userId, parsed.data.commentId, parsed.data.type);
+  if (!removed) await recordCommentReactionSignals(userId, parsed.data.commentId, parsed.data.type);
 
   return { ok: true as const, reaction };
 }
