@@ -4,6 +4,7 @@ import { GroupAssetKind } from "@prisma/client";
 import { useRef, useState } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { CarouselGuidance } from "@/components/media/carousel-guidance";
 import { ImageCarousel } from "@/components/media/image-carousel";
 import type { GroupAssetView } from "@/modules/group-media-docs/types";
 
@@ -399,6 +400,15 @@ export function GroupMediaClient({
           ) : null}
         </div>
       </section>
+
+      {selectedKind === GroupAssetKind.PHOTO ? (
+        <CarouselGuidance
+          firstImageText="It is the first photo shown when Carousel view opens."
+          imageCount={photoCarouselImages.length}
+          orderText="The carousel follows the group photo library order. Use Grid view when you need to open, comment on, or delete one photo."
+          title="Viewing group photos as a carousel"
+        />
+      ) : null}
 
       {isUploadOpen && viewerCanUpload ? (
         <section className="surface rounded-md p-6">

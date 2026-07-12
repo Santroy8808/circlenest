@@ -10669,6 +10669,34 @@ body,
   background: rgba(0, 0, 0, 0.2);
 }
 
+.carousel-guidance {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--gold) 7%, transparent);
+  padding: 1rem;
+  color: var(--muted);
+}
+
+.carousel-guidance h3 {
+  color: var(--gold);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.carousel-guidance ul {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  padding-left: 1.2rem;
+  list-style: disc;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.carousel-guidance strong { color: var(--text); }
+
 .image-carousel > img {
   display: block;
   max-width: 100%;

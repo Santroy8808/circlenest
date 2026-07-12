@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { ImageCarousel } from "@/components/media/image-carousel";
+import { CarouselGuidance } from "@/components/media/carousel-guidance";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   adAgeRangeOptions,
@@ -752,11 +753,15 @@ export function CreateAdCampaignForm({
                   <span>Use a carousel. Each image displays for 3 seconds.</span>
                 </label>
               ) : null}
-              {carouselEnabled ? (
-                <p className="text-sm text-[var(--gold)]">
-                  Full cycle: {images.length * 3} seconds. Current paid placements provide 30-second display slots, so up to 10 images complete a full cycle.
-                </p>
-              ) : null}
+              <CarouselGuidance
+                firstImageText="It is the static fallback and the first creative viewers see."
+                imageCount={images.length}
+                maxImages={10}
+                orderText="Images play in upload order. Arrange the files before selecting them if sequence matters."
+                paidSlotSeconds={30}
+                title="Plan the ad carousel"
+              />
+              {carouselEnabled && images.length > 0 ? <p className="text-sm font-semibold text-[var(--gold)]">This carousel uses {images.length * 3} of the 30 paid seconds for one complete cycle.</p> : null}
               <label className="grid gap-2">
                 <span className="form-label">Image URL fallback</span>
                 <input

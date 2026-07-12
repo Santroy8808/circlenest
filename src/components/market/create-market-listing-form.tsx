@@ -4,6 +4,7 @@ import { MarketListingCategory } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { CarouselGuidance } from "@/components/media/carousel-guidance";
 import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
@@ -288,6 +289,14 @@ export function CreateMarketListingForm({
             type="file"
           />
         </div>
+
+        <CarouselGuidance
+          firstImageText="It becomes the Market thumbnail and is the first carousel image visitors see."
+          imageCount={existingPhotoCount + items.length}
+          maxImages={createState.photoCap}
+          orderText="Photos appear in the order you add them. New photos added while editing go at the end."
+          title="Plan your listing photos"
+        />
 
         {existingPhotoCount + items.length > 1 ? (
           <label className="market-message-toggle mt-4">
