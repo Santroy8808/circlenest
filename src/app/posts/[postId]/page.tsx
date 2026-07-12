@@ -23,7 +23,7 @@ export default async function FeedPostThreadPage({
 
   const activeActor = await getActiveAccountActor(session.user.id);
   const [post, actorUser] = await Promise.all([
-    safeGetFeedPostThread(params.postId),
+    safeGetFeedPostThread(params.postId, activeActor.actorUserId),
     prisma.user.findUnique({
       where: { id: activeActor.actorUserId },
       include: { profile: true }
