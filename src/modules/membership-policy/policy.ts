@@ -83,7 +83,6 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "groups.create": true,
       "market.createListing": true,
       "jobs.createListing": true,
-      "auditors.createProfile": true,
       "moderation.siteEligible": true
     }),
     limits: {

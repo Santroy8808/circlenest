@@ -12,6 +12,6 @@ Core functions are the baseline product surface every Free account must be able 
 
 ## Paid/Expanded Functions
 
-Paid and special tiers may still add business profiles and identity switching, higher limits, advertising, fundraisers, events, Writers Corner, auditor profiles, mass mail, Org-only profiles, larger storage, or moderation eligibility.
+Paid and special tiers may still add business profiles and identity switching, higher limits, advertising, fundraisers, events, Writers Corner, auditor profiles, mass mail, Org-only profiles, larger storage, or moderation eligibility. Free members may browse the Auditor Directory, but auditor-profile creation is Coming Soon and is not part of Free access.
 
 The Free tier must not lose the core functions above when paid-tier features change.
