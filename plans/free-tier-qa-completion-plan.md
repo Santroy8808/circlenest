@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `02-shell`
-- Current case: `FT-015`
-- Last completed case: `FT-012`
-- Passed this completion run: 8 / 69
+- Current cycle: `03-profile`
+- Current case: `FT-023`
+- Last completed case: `FT-020`
+- Passed this completion run: 12 / 69
 - Failed or blocked: 0
 - Last deployed commit: `aeffa33`
-- Next action: generate a cross-user message and notification, then verify shell unread counts without hidden Mail noise.
+- Next action: edit the QA profile identity fields, then verify persistence and cross-user discovery.
 
 ## Cycle 01 — Identity and email
 
@@ -63,17 +63,17 @@ Evidence requirements: SMTP/IMAP delivery, message headers, PDF attachment reada
 
 ## Cycle 02 — Shell
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 4
 
-- [ ] `FT-015` Cross-user unread badges reflect messages and available notifications without hidden Mail noise.
-- [ ] `FT-018` Keyboard-only navigation works with visible focus.
-- [ ] `FT-019` Long pages and nested panels scroll without visible scrollbar tracks.
-- [ ] `FT-020` Icon tooltips are readable and not clipped.
+- [x] `FT-015` Cross-user unread badges reflect messages and available notifications without hidden Mail noise. Production verified 2026-07-12.
+- [x] `FT-018` Keyboard-only navigation works with visible focus. Production verified 2026-07-12.
+- [x] `FT-019` Long pages and nested panels scroll without visible scrollbar tracks. Production verified 2026-07-12.
+- [x] `FT-020` Icon tooltips are readable and not clipped. Production verified 2026-07-12.
 
 ## Cycle 03 — Profile
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 8
 
 - [ ] `FT-023` Edit display name, introduction, and city; verify persistence and discovery.
