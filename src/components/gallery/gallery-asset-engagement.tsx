@@ -60,6 +60,7 @@ function nextReactionState(
   reactionType: FeedReactionType,
   currentUser: GalleryReactionUserView
 ): GalleryReactionState {
+  const selectedType = currentReaction(state.reactors, currentUser.id);
   const reactors: GalleryReactionReactorsView = {};
 
   publicGalleryReactionChoices.forEach((reaction) => {
@@ -69,7 +70,7 @@ function nextReactionState(
     }
   });
 
-  if (reactionType !== FeedReactionType.DISLIKE) {
+  if (reactionType !== FeedReactionType.DISLIKE && selectedType !== reactionType) {
     reactors[reactionType] = [...(reactors[reactionType] ?? []), currentUser];
   }
 

@@ -1150,13 +1150,22 @@ export async function reactToGalleryAsset(userId: string, input: unknown) {
     return { ok: false as const, error: "Photo not found." };
   }
 
-  const reaction = await prisma.galleryAssetReaction.upsert({
+  const existing = await prisma.galleryAssetReaction.findUnique({
     where: {
       mediaAssetId_userId: {
         mediaAssetId: asset.id,
         userId
       }
-    },
+    }
+  });
+
+  if (existing?.type === parsed.data.type) {
+    await prisma.galleryAssetReaction.delete({ where: { id: existing.id } });
+    return { ok: true as const, reaction: null, removed: true as const };
+  }
+
+  const reaction = await prisma.galleryAssetReaction.upsert({
+    where: { mediaAssetId_userId: { mediaAssetId: asset.id, userId } },
     update: {
       type: parsed.data.type
     },
@@ -1167,7 +1176,7 @@ export async function reactToGalleryAsset(userId: string, input: unknown) {
     }
   });
 
-  return { ok: true as const, reaction };
+  return { ok: true as const, reaction, removed: false as const };
 }
 
 export async function reactToGalleryAssetComment(userId: string, input: unknown) {
@@ -1197,13 +1206,22 @@ export async function reactToGalleryAssetComment(userId: string, input: unknown)
     return { ok: false as const, error: "Comment not found." };
   }
 
-  const reaction = await prisma.galleryAssetCommentReaction.upsert({
+  const existing = await prisma.galleryAssetCommentReaction.findUnique({
     where: {
       commentId_userId: {
         commentId: comment.id,
         userId
       }
-    },
+    }
+  });
+
+  if (existing?.type === parsed.data.type) {
+    await prisma.galleryAssetCommentReaction.delete({ where: { id: existing.id } });
+    return { ok: true as const, reaction: null, removed: true as const };
+  }
+
+  const reaction = await prisma.galleryAssetCommentReaction.upsert({
+    where: { commentId_userId: { commentId: comment.id, userId } },
     update: {
       type: parsed.data.type
     },
@@ -1214,7 +1232,7 @@ export async function reactToGalleryAssetComment(userId: string, input: unknown)
     }
   });
 
-  return { ok: true as const, reaction };
+  return { ok: true as const, reaction, removed: false as const };
 }
 
 export async function createGalleryAlbum(userId: string, name: string) {
