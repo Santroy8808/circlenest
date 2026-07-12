@@ -42,6 +42,7 @@ const MODULE_KEY = "ads-credits";
 const AD_SCHEDULE_TIME_ZONE = "America/Los_Angeles";
 const AD_SCHEDULE_SLOT_SECONDS = 30;
 const AD_SCHEDULE_SLOT_MS = AD_SCHEDULE_SLOT_SECONDS * 1000;
+const AD_CAROUSEL_SLIDE_MS = 3000;
 const AD_SCHEDULE_LOOKAHEAD_MS = 90 * 60 * 1000;
 const MAX_CONSECUTIVE_SCHEDULE_SLOTS = 4;
 const MAX_AD_HOLD_MS = 120000;
@@ -173,6 +174,7 @@ async function getAdCreateAccess(userId: string) {
 type AdCampaignPayload = Prisma.AdCampaignGetPayload<{
   include: {
     imageMediaAsset: true;
+    carouselItems: { include: { mediaAsset: true } };
     targetInterests: true;
     subscriberTargetManuscript: {
       select: {
@@ -187,6 +189,10 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
     ? campaign.imageMediaAsset.publicUrl ?? `/api/media/assets/${campaign.imageMediaAsset.id}`
     : campaign.externalImageUrl;
   const remainingCredits = Math.max(campaign.totalBudgetCredits - campaign.spentCredits, 0);
+  const imageUrls = campaign.carouselItems
+    .sort((first, second) => first.sortOrder - second.sortOrder)
+    .map((item) => item.mediaAsset.publicUrl ?? `/api/media/assets/${item.mediaAsset.id}`);
+  if (imageUrls.length === 0 && imageUrl) imageUrls.push(imageUrl);
 
   return {
     id: campaign.id,
@@ -194,8 +200,8 @@ function toCampaignCard(campaign: AdCampaignPayload): AdCampaignCardView {
     body: campaign.body,
     destinationUrl: campaign.destinationUrl,
     imageUrl,
-    imageUrls: imageUrl ? [imageUrl] : [],
-    carouselEnabled: campaign.carouselEnabled,
+    imageUrls,
+    carouselEnabled: campaign.carouselEnabled && imageUrls.length > 1,
     destinationKind: campaign.destinationKind,
     placement: campaign.placement,
     placementLabel: adPlacementLabels[campaign.placement],
@@ -229,6 +235,11 @@ function toPlacementCard(
   const imageUrl = campaign.imageMediaAsset
     ? campaign.imageMediaAsset.publicUrl ?? `/api/media/assets/${campaign.imageMediaAsset.id}`
     : campaign.externalImageUrl;
+  const imageUrls = campaign.carouselItems
+    .sort((first, second) => first.sortOrder - second.sortOrder)
+    .map((item) => item.mediaAsset.publicUrl ?? `/api/media/assets/${item.mediaAsset.id}`);
+  if (imageUrls.length === 0 && imageUrl) imageUrls.push(imageUrl);
+  const minimumCarouselHoldMs = imageUrls.length * AD_CAROUSEL_SLIDE_MS;
 
   return {
     id: campaign.id,
@@ -236,9 +247,9 @@ function toPlacementCard(
     body: campaign.body,
     destinationUrl: campaign.destinationUrl,
     imageUrl,
-    imageUrls: imageUrl ? [imageUrl] : [],
-    carouselEnabled: campaign.carouselEnabled,
-    minimumCarouselHoldMs: 3000,
+    imageUrls,
+    carouselEnabled: campaign.carouselEnabled && imageUrls.length > 1,
+    minimumCarouselHoldMs,
     imageAlt: campaign.imageMediaAsset?.originalName ?? campaign.title,
     totalBudgetCredits: campaign.totalBudgetCredits,
     spentCredits: campaign.spentCredits,
@@ -315,6 +326,7 @@ type ScheduledAdCampaignPayload = Prisma.AdCampaignGetPayload<{
       };
     };
     imageMediaAsset: true;
+    carouselItems: { include: { mediaAsset: true } };
     targetInterests: true;
     subscriberTargetManuscript: {
       select: {
@@ -335,6 +347,7 @@ type ScheduledAdSlotPayload = Prisma.AdDisplayScheduleSlotGetPayload<{
           };
         };
         imageMediaAsset: true;
+        carouselItems: { include: { mediaAsset: true } };
         targetInterests: true;
         subscriberTargetManuscript: {
           select: {
@@ -472,6 +485,7 @@ async function rebuildAdDisplaySchedule(input: {
         }
       },
       imageMediaAsset: true,
+      carouselItems: { include: { mediaAsset: true }, orderBy: { sortOrder: "asc" } },
       targetInterests: true,
       subscriberTargetManuscript: {
         select: {
@@ -801,6 +815,7 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
       where: { ownerUserId: userId },
       include: {
         imageMediaAsset: true,
+        carouselItems: { include: { mediaAsset: true }, orderBy: { sortOrder: "asc" } },
         targetInterests: true,
         subscriberTargetManuscript: {
           select: {
@@ -979,6 +994,7 @@ export async function getAdPlacementPool(input: {
             }
           },
           imageMediaAsset: true,
+          carouselItems: { include: { mediaAsset: true }, orderBy: { sortOrder: "asc" } },
           targetInterests: true,
           subscriberTargetManuscript: {
             select: {
@@ -1560,12 +1576,13 @@ async function resolveSubscriberTargetManuscript(userId: string, manuscriptId?: 
   return { ok: true as const, manuscriptId: manuscript.id, title: manuscript.title };
 }
 
-async function verifyAdImage(userId: string, imageMediaAssetId?: string) {
-  if (!imageMediaAssetId) return { ok: true as const, imageMediaAssetId: null };
+async function verifyAdImages(userId: string, imageMediaAssetIds: string[]) {
+  const uniqueIds = [...new Set(imageMediaAssetIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return { ok: true as const, imageMediaAssetIds: [] as string[] };
 
-  const image = await prisma.mediaAsset.findFirst({
+  const images = await prisma.mediaAsset.findMany({
     where: {
-      id: imageMediaAssetId,
+      id: { in: uniqueIds },
       ownerUserId: userId,
       status: MediaAssetStatus.READY,
       mimeType: { in: ["image/jpeg", "image/png", "image/webp", "image/gif"] }
@@ -1575,11 +1592,11 @@ async function verifyAdImage(userId: string, imageMediaAssetId?: string) {
     }
   });
 
-  if (!image) {
-    return { ok: false as const, error: "That ad image could not be used." };
+  if (images.length !== uniqueIds.length) {
+    return { ok: false as const, error: "One or more ad images could not be used." };
   }
 
-  return { ok: true as const, imageMediaAssetId: image.id };
+  return { ok: true as const, imageMediaAssetIds: uniqueIds };
 }
 
 export async function createAdCampaign(userId: string, input: unknown) {
@@ -1654,14 +1671,22 @@ export async function createAdCampaign(userId: string, input: unknown) {
     return subscriberTarget;
   }
 
-  const image = await verifyAdImage(userId, parsed.data.imageMediaAssetId || undefined);
+  const image = await verifyAdImages(userId, [parsed.data.imageMediaAssetId || "", ...parsed.data.imageMediaAssetIds]);
 
   if (!image.ok) {
     return image;
   }
 
-  if (!image.imageMediaAssetId) {
+  if (image.imageMediaAssetIds.length === 0) {
     return { ok: false as const, error: "Upload a verified image for this ad." };
+  }
+
+  const minimumCarouselHoldMs = image.imageMediaAssetIds.length * AD_CAROUSEL_SLIDE_MS;
+  if (parsed.data.carouselEnabled && minimumCarouselHoldMs > AD_SCHEDULE_SLOT_MS) {
+    return {
+      ok: false as const,
+      error: `This carousel needs at least ${Math.ceil(minimumCarouselHoldMs / 1000)} seconds of paid display time. Purchase a longer placement or use fewer images.`
+    };
   }
 
   const externalImageUrl = null;
@@ -1711,8 +1736,9 @@ export async function createAdCampaign(userId: string, input: unknown) {
           marketListingId: destination.marketListingId,
           businessArticleId: destination.businessArticleId,
           subscriberTargetManuscriptId: subscriberTarget.manuscriptId,
-          imageMediaAssetId: image.imageMediaAssetId,
+          imageMediaAssetId: image.imageMediaAssetIds[0],
           externalImageUrl,
+          carouselEnabled: parsed.data.carouselEnabled && image.imageMediaAssetIds.length > 1,
           placement: parsed.data.placement,
           targetLocation: parsed.data.targetLocation || null,
           targetAgeRanges,
@@ -1722,6 +1748,9 @@ export async function createAdCampaign(userId: string, input: unknown) {
           dailyBudgetCredits: null,
           startsAt,
           endsAt,
+          carouselItems: {
+            create: image.imageMediaAssetIds.map((mediaAssetId, sortOrder) => ({ mediaAssetId, sortOrder }))
+          },
           targetInterests:
             targetInterestCategories.length > 0
               ? {
@@ -1733,6 +1762,7 @@ export async function createAdCampaign(userId: string, input: unknown) {
         },
         include: {
           imageMediaAsset: true,
+          carouselItems: { include: { mediaAsset: true }, orderBy: { sortOrder: "asc" } },
           targetInterests: true,
           subscriberTargetManuscript: {
             select: {
@@ -1881,6 +1911,7 @@ export async function endAdCampaign(userId: string, campaignId: string) {
     },
     include: {
       imageMediaAsset: true,
+      carouselItems: { include: { mediaAsset: true }, orderBy: { sortOrder: "asc" } },
       targetInterests: true,
       subscriberTargetManuscript: {
         select: {
@@ -1913,6 +1944,7 @@ export async function endAdCampaign(userId: string, campaignId: string) {
     },
     include: {
       imageMediaAsset: true,
+      carouselItems: { include: { mediaAsset: true }, orderBy: { sortOrder: "asc" } },
       targetInterests: true,
       subscriberTargetManuscript: {
         select: {

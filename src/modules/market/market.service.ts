@@ -467,6 +467,7 @@ export async function createMarketListing(userId: string, input: unknown) {
       contactPhone: parsed.data.contactPhone || null,
       contactNotes: parsed.data.contactNotes || null,
       allowMessages: parsed.data.allowMessages,
+      carouselEnabled: parsed.data.carouselEnabled && parsed.data.photoMediaAssetIds.length > 1,
       priceCents: parsed.data.priceCents ?? null,
       expiresAt: cappedListingWindow ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
       photos: {
@@ -573,6 +574,7 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
       contactPhone: parsed.data.contactPhone || null,
       contactNotes: parsed.data.contactNotes || null,
       allowMessages: parsed.data.allowMessages ?? true,
+      carouselEnabled: Boolean(parsed.data.carouselEnabled) && listing.photos.length + newPhotoIds.length > 1,
       priceCents: parsed.data.priceCents ?? null,
       photos: newPhotoIds.length
         ? {
