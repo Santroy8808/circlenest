@@ -267,7 +267,7 @@ export function NoticeCenterClient({
 
   function openNotice(item: NoticeCenterItem) {
     if (item.href) {
-      router.push(item.href);
+      window.location.assign(item.href);
     }
   }
 
