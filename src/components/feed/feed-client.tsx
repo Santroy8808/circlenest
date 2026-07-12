@@ -676,7 +676,7 @@ const FeedRichTextInput = forwardRef<
   }
 >(function FeedRichTextInput({ ariaLabel, autoFocus, className, onChange, onFormatStateChange, placeholder, value }, ref) {
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const lastMarkdownRef = useRef(value);
+  const lastMarkdownRef = useRef("");
 
   const emitFormatState = useCallback(() => {
     const editor = editorRef.current;
