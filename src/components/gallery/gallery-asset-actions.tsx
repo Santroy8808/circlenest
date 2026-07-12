@@ -31,7 +31,6 @@ export function GalleryAssetActions({ mediaAssetId }: { mediaAssetId: string }) 
 
       setMessage(target === "avatar" ? "Done! Avatar pic" : "Done! Banner pic");
       setActiveTarget(target);
-      router.refresh();
     });
   }
 
