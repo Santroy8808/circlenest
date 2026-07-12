@@ -10,6 +10,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { consumeRateLimit } from "@/lib/platform/rate-limit";
+import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import {
   createPresignedR2PutRequest,
   deleteR2Object,
@@ -140,6 +141,7 @@ export type UploadIntentErrorCode =
   | "PURPOSE_MISMATCH"
   | "OBJECT_REJECTED"
   | "CONFLICT"
+  | "QUOTA_EXCEEDED"
   | "RATE_LIMITED"
   | "STORAGE_UNAVAILABLE";
 
@@ -289,7 +291,7 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + UPLOAD_INTENT_TTL_MS);
-  const [owner, activeIntents] = await Promise.all([
+  const [owner, activeIntents, storedAssets, effectivePolicy] = await Promise.all([
     prisma.user.findFirst({
       where: { id: cleanOwnerUserId, deactivatedAt: null },
       select: { id: true }
@@ -304,14 +306,28 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
       },
       _count: { _all: true },
       _sum: { declaredSizeBytes: true }
-    })
+    }),
+    prisma.mediaAsset.aggregate({
+      where: { ownerUserId: cleanOwnerUserId, status: "READY" },
+      _sum: { sizeBytes: true }
+    }),
+    getEffectivePolicyForUser(cleanOwnerUserId)
   ]);
 
   if (!owner) {
     return failure("INVALID_UPLOAD", "An active member is required.");
   }
 
+  if (!effectivePolicy) {
+    return failure("INVALID_UPLOAD", "An active membership is required.");
+  }
+
   const activeDeclaredBytes = activeIntents._sum.declaredSizeBytes ?? BigInt(0);
+  const storedBytes = storedAssets._sum.sizeBytes ?? BigInt(0);
+  const storageLimitBytes = BigInt(effectivePolicy.limits.storageLimitBytes);
+  if (storedBytes + activeDeclaredBytes + BigInt(parsed.data.sizeBytes) > storageLimitBytes) {
+    return failure("QUOTA_EXCEEDED", "This upload would exceed your account storage limit.");
+  }
   if (
     activeIntents._count._all >= MAX_ACTIVE_UPLOAD_INTENTS_PER_OWNER ||
     activeDeclaredBytes + BigInt(parsed.data.sizeBytes) > MAX_ACTIVE_DECLARED_UPLOAD_BYTES_PER_OWNER
@@ -594,6 +610,11 @@ export async function consumeVerifiedUploadIntent<T>(input: {
   consume: (transaction: Prisma.TransactionClient, intent: VerifiedUploadIntent) => Promise<T>;
 }) {
   const now = new Date();
+  const effectivePolicy = await getEffectivePolicyForUser(input.ownerUserId);
+  if (!effectivePolicy) {
+    return failure("INVALID_UPLOAD", "An active membership is required.");
+  }
+  const storageLimitBytes = BigInt(effectivePolicy.limits.storageLimitBytes);
   const outcome = await prisma.$transaction(async (transaction) => {
     const intent = await transaction.uploadIntent.findUnique({ where: { id: input.intentId } });
 
@@ -628,6 +649,14 @@ export async function consumeVerifiedUploadIntent<T>(input: {
       return expired.count === 1
         ? { kind: "expired" as const, intent }
         : { kind: "result" as const, result: failure("CONFLICT", "Upload intent changed while it was being used.") };
+    }
+
+    const storedAssets = await transaction.mediaAsset.aggregate({
+      where: { ownerUserId: input.ownerUserId, status: "READY" },
+      _sum: { sizeBytes: true }
+    });
+    if ((storedAssets._sum.sizeBytes ?? BigInt(0)) + intent.declaredSizeBytes > storageLimitBytes) {
+      return { kind: "result" as const, result: failure("QUOTA_EXCEEDED", "This upload would exceed your account storage limit.") };
     }
 
     const claimed = await transaction.uploadIntent.updateMany({

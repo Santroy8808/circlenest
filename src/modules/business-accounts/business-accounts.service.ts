@@ -1,5 +1,6 @@
 import { BusinessProfileKind, MembershipTier, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 
 export const ACCOUNT_ACTOR_COOKIE_NAME = "theta_active_actor_user_id";
 
@@ -75,9 +76,10 @@ function actorView(input: {
 }
 
 export async function listAccountActors(privateUserId: string): Promise<AccountActorView[]> {
-  const user = await prisma.user.findUnique({
-    where: { id: privateUserId },
-    include: {
+  const [user, businessAccess] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: privateUserId },
+      include: {
       profile: true,
       privateAuditorAccounts: {
         where: { active: true },
@@ -112,15 +114,19 @@ export async function listAccountActors(privateUserId: string): Promise<AccountA
         },
         orderBy: { createdAt: "asc" }
       }
-    }
-  });
+      }
+    }),
+    canUserAccessFeature(privateUserId, "market.storefront")
+  ]);
 
   if (!user) return [];
 
   return [
     actorView({ user, kind: "PERSONAL" }),
     ...user.privateAuditorAccounts.map((account) => actorView({ user: account.auditorUser, kind: "AUDITOR" })),
-    ...user.privateBusinessAccounts.map((account) => actorView({ user: account.businessUser, kind: "BUSINESS" }))
+    ...(businessAccess.allowed
+      ? user.privateBusinessAccounts.map((account) => actorView({ user: account.businessUser, kind: "BUSINESS" }))
+      : [])
   ];
 }
 
@@ -142,6 +148,11 @@ export async function resolveAccountActorUserId(privateUserId: string, requested
 
   if (auditorAccount) {
     return { ok: true as const, actorUserId: auditorAccount.auditorUserId, kind: "AUDITOR" as const };
+  }
+
+  const businessAccess = await canUserAccessFeature(privateUserId, "market.storefront");
+  if (!businessAccess.allowed) {
+    return { ok: false as const, error: "That account cannot be used from this login." };
   }
 
   const account = await prisma.businessAccount.findFirst({

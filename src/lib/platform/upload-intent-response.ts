@@ -12,6 +12,8 @@ export function uploadIntentFailureResponse(result: UploadIntentFailureLike) {
       ? 429
       : result.code === "STORAGE_UNAVAILABLE"
         ? 503
+        : result.code === "QUOTA_EXCEEDED"
+          ? 409
         : result.code === "NOT_FOUND"
           ? 404
           : result.code === "OBJECT_REJECTED"
