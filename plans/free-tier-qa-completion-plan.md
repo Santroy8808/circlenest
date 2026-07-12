@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `03-profile`
-- Current case: `FT-023`
-- Last completed case: `FT-020`
-- Passed this completion run: 12 / 69
+- Current cycle: `04-people-and-trust`
+- Current case: `FT-035`
+- Last completed case: `FT-030`
+- Passed this completion run: 20 / 69
 - Failed or blocked: 0
-- Last deployed commit: `aeffa33`
-- Next action: edit the QA profile identity fields, then verify persistence and cross-user discovery.
+- Last deployed commit: `f019397`
+- Next action: send and decline a fresh friend request, then verify no relationship is created.
 
 ## Cycle 01 — Identity and email
 
@@ -73,21 +73,21 @@ Cases: 4
 
 ## Cycle 03 — Profile
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 8
 
-- [ ] `FT-023` Edit display name, introduction, and city; verify persistence and discovery.
-- [ ] `FT-024` Set an owned gallery image as personal avatar.
-- [ ] `FT-025` Set an owned gallery image as personal banner.
-- [ ] `FT-026` Create a text post on the user's profile.
-- [ ] `FT-027` Create an image post on the user's profile.
-- [ ] `FT-028` Restrict profile visibility and verify cross-user enforcement.
-- [ ] `FT-029` Switch between personal and business actors across shell and content.
-- [ ] `FT-030` Set a business-owned gallery asset as the business avatar.
+- [x] `FT-023` Edit display name, introduction, and city; verify persistence and discovery. Production verified 2026-07-12.
+- [x] `FT-024` Set an owned gallery image as personal avatar. Production verified 2026-07-12.
+- [x] `FT-025` Set an owned gallery image as personal banner. Fixed hidden success feedback and production verified 2026-07-12.
+- [x] `FT-026` Create a text post on the user's profile. Cross-user production verified 2026-07-12.
+- [x] `FT-027` Create an image post on the user's profile. Cross-user production verified 2026-07-12.
+- [x] `FT-028` Restrict profile visibility and verify cross-user enforcement. Production verified and restored 2026-07-12.
+- [x] `FT-029` Switch between personal and business actors across shell and content. Production verified and personal actor restored 2026-07-12.
+- [x] `FT-030` Set a business-owned gallery asset as the business avatar. Production verified and personal actor restored 2026-07-12.
 
 ## Cycle 04 — People and trust
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 6
 
 - [ ] `FT-035` Decline a friend request without creating a relationship.
