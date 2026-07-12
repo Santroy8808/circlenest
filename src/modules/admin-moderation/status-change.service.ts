@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
+import { setMembershipPolicyOverride } from "@/modules/membership-policy/membership-policy.service";
 import { getTierPolicy } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "admin-status-change";
@@ -11,6 +12,12 @@ const MODULE_KEY = "admin-status-change";
 export const statusChangeSchema = z.object({
   userIdentifier: z.string().trim().min(1).max(160),
   targetTier: z.nativeEnum(MembershipTier),
+  reason: z.string().trim().min(5).max(500)
+});
+
+export const invitePermissionChangeSchema = z.object({
+  userIdentifier: z.string().trim().min(1).max(160),
+  allowed: z.boolean(),
   reason: z.string().trim().min(5).max(500)
 });
 
@@ -55,6 +62,14 @@ export async function findStatusChangeAccount(identifier: string) {
           platformCredits: true
         }
       },
+      membershipOverrides: {
+        where: {
+          featureKey: "invites.send",
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+        },
+        select: { allowed: true },
+        take: 1
+      },
       tierUpgradeEligibilities: {
         where: {
           tier: MembershipTier.ORG,
@@ -83,9 +98,41 @@ export async function findStatusChangeAccount(identifier: string) {
     suspended: Boolean(user.deactivatedAt),
     tier: currentTier,
     tierName: policy.displayName,
+    canSendInvites: user.membershipOverrides[0]?.allowed ?? policy.features["invites.send"],
     orgUpgradeEligible: user.tierUpgradeEligibilities.length > 0,
     storageLimitBytes: (user.membership?.storageLimitBytes ?? BigInt(policy.limits.storageLimitBytes)).toString(),
     platformCredits: user.membership?.platformCredits ?? 0
+  };
+}
+
+export async function changeInvitePermission(actorUserId: string, input: unknown) {
+  if (!(await isAdminUser(actorUserId))) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+
+  const parsed = invitePermissionChangeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid invite permission change." };
+  }
+
+  const target = await findStatusChangeAccount(parsed.data.userIdentifier);
+  if (!target) return { ok: false as const, error: "User was not found." };
+
+  const result = await setMembershipPolicyOverride({
+    actorUserId,
+    targetUserId: target.id,
+    featureKey: "invites.send",
+    allowed: parsed.data.allowed,
+    reason: parsed.data.reason
+  });
+  if (!result.ok) return result;
+
+  return {
+    ok: true as const,
+    account: {
+      ...target,
+      canSendInvites: parsed.data.allowed
+    }
   };
 }
 

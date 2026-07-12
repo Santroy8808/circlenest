@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
-import { changeMembershipStatus, findStatusChangeAccount } from "@/modules/admin-moderation/status-change.service";
+import { changeInvitePermission, changeMembershipStatus, findStatusChangeAccount } from "@/modules/admin-moderation/status-change.service";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -27,7 +27,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const result = await changeMembershipStatus(session.user.id, body);
+  const result = body?.action === "invite-permission"
+    ? await changeInvitePermission(session.user.id, body)
+    : await changeMembershipStatus(session.user.id, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
