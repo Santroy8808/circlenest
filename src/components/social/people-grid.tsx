@@ -29,12 +29,13 @@ function AcquaintanceButton({ person }: { person: PeopleCardView }) {
   const [error, setError] = useState("");
   const isAcquaintance = relationships.includes(SocialRelationshipType.ACQUAINTANCE);
 
-  async function markAcquaintance() {
+  async function toggleAcquaintance() {
+    if (isAcquaintance && !window.confirm(`Remove ${person.displayName} from your acquaintances?`)) return;
     setError("");
     setIsSaving(true);
     try {
       const response = await fetch("/api/social-graph/relationships", {
-        method: "POST",
+        method: isAcquaintance ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           toUserId: person.id,
@@ -44,12 +45,15 @@ function AcquaintanceButton({ person }: { person: PeopleCardView }) {
 
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setError(payload.error ?? "Could not save this relationship.");
+        setError(payload.error ?? "Could not update this relationship.");
         return;
       }
-      setRelationships((current) =>
-        current.includes(SocialRelationshipType.ACQUAINTANCE) ? current : [...current, SocialRelationshipType.ACQUAINTANCE]
+      setRelationships((current) => isAcquaintance
+        ? current.filter((relationship) => relationship !== SocialRelationshipType.ACQUAINTANCE)
+        : current.includes(SocialRelationshipType.ACQUAINTANCE) ? current : [...current, SocialRelationshipType.ACQUAINTANCE]
       );
+    } catch {
+      setError("Could not update this relationship.");
     } finally {
       setIsSaving(false);
     }
@@ -59,11 +63,12 @@ function AcquaintanceButton({ person }: { person: PeopleCardView }) {
     <div className="grid gap-1">
       <button
         className="btn-secondary family-action-button min-h-11"
-        disabled={isSaving || isAcquaintance}
-        onClick={markAcquaintance}
+        aria-pressed={isAcquaintance}
+        disabled={isSaving}
+        onClick={toggleAcquaintance}
         type="button"
       >
-        {isAcquaintance ? "Acquaintance" : isSaving ? "Saving..." : "Mark acquaintance"}
+        {isSaving ? "Saving..." : isAcquaintance ? "Remove acquaintance" : "Mark acquaintance"}
       </button>
       {error ? <p className="max-w-40 text-xs text-red-300" role="alert">{error}</p> : null}
     </div>
