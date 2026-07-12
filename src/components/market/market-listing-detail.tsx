@@ -15,17 +15,27 @@ function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "curre
 }
 
 export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: boolean; listing: MarketListingDetailView }) {
-  const hero = listing.photos[0];
-
   return (
     <div className="grid gap-5">
       <section className="surface overflow-hidden rounded-md">
-        <div className="market-detail-hero">
-          {hero?.publicUrl ? (
-            <InAppImageViewer alt={hero.originalName ?? listing.title} className="market-detail-image-trigger" src={hero.publicUrl}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt="" src={hero.publicUrl} />
-            </InAppImageViewer>
+        <div
+          aria-label="Listing photos"
+          className="grid min-h-[180px] items-center justify-center gap-4 overflow-hidden bg-[#172133] p-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),420px))]"
+        >
+          {listing.photos.length > 0 ? (
+            listing.photos.map((photo) =>
+              photo.publicUrl ? (
+                <InAppImageViewer
+                  alt={photo.originalName ?? listing.title}
+                  className="market-detail-image-trigger !h-auto !w-full aspect-[4/3] max-h-[360px] max-w-[420px]"
+                  key={photo.id}
+                  src={photo.publicUrl}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="" className="h-full w-full object-contain" src={photo.publicUrl} />
+                </InAppImageViewer>
+              ) : null
+            )
           ) : (
             <span>{listing.categoryLabel}</span>
           )}
@@ -90,26 +100,6 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
           </aside>
         </div>
       </section>
-
-      {listing.photos.length > 1 ? (
-        <section className="surface rounded-md p-5">
-          <h2 className="text-xl font-semibold text-[var(--gold)]">Photos</h2>
-          <div className="gallery-grid mt-4">
-            {listing.photos.map((photo) => (
-              <div className="gallery-tile" key={photo.id}>
-                {photo.publicUrl ? (
-                  <InAppImageViewer alt={photo.originalName ?? listing.title} className="gallery-tile-image-trigger" src={photo.publicUrl}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt="" src={photo.publicUrl} />
-                  </InAppImageViewer>
-                ) : (
-                  <span className="gallery-tile-fallback">{photo.originalName ?? "Photo"}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       {listing.viewerCanPromote ? (
         <section className="surface rounded-md p-5">
