@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `05-stream`
-- Current case: `FT-044`
-- Last completed case: `FT-042`
-- Passed this completion run: 26 / 69
+- Current cycle: `06-messages`
+- Current case: `FT-060`
+- Last completed case: `FT-055`
+- Passed this completion run: 35 / 69
 - Failed or blocked: 0
-- Last deployed commit: `1df5b66`
-- Next action: create a Members-only stream post and verify authenticated cross-user visibility.
+- Last deployed commit: `bcf36ce`
+- Next action: create a three-user group conversation and verify bidirectional participation.
 
 ## Cycle 01 — Identity and email
 
@@ -99,22 +99,22 @@ Cases: 6
 
 ## Cycle 05 — Stream
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 9
 
-- [ ] `FT-044` Members-only text post visibility.
-- [ ] `FT-047` Nested reply to another user's comment.
-- [ ] `FT-049` Add and remove a comment reaction.
-- [ ] `FT-050` Share another member's post.
-- [ ] `FT-051` Author deletes an ordinary post.
-- [ ] `FT-052` Non-author cannot delete another user's post.
-- [ ] `FT-053` Dismiss a feed item and preserve dismissal after refresh.
-- [ ] `FT-054` Create an allowed profile-targeted post.
-- [ ] `FT-055` Content visibility changes correctly across a block.
+- [x] `FT-044` Members-only text post visibility. Fixed viewer policy and cross-user production verified 2026-07-12.
+- [x] `FT-047` Nested reply to another user's comment. Three-user production verified 2026-07-12.
+- [x] `FT-049` Add and remove a comment reaction. Added toggle removal and production verified 2026-07-12.
+- [x] `FT-050` Share another member's post. Fixed echo composer population and cross-user production verified 2026-07-12.
+- [x] `FT-051` Author deletes an ordinary post. Added missing UI and cross-user production verified 2026-07-12.
+- [x] `FT-052` Non-author cannot delete another user's post. UI and forged-request production verified 2026-07-12.
+- [x] `FT-053` Dismiss a feed item and preserve dismissal after refresh. Per-user production verified 2026-07-12.
+- [x] `FT-054` Create an allowed profile-targeted post. Cross-user production verified 2026-07-12.
+- [x] `FT-055` Content visibility changes correctly across a block. Cross-user production verified and block removed 2026-07-12.
 
 ## Cycle 06 — Messages
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 3
 
 - [ ] `FT-060` Three-user group conversation.
