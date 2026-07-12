@@ -30,7 +30,7 @@ export function BlockedUsersClient({ initialBlockedUsers }: { initialBlockedUser
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          targetUserId: userId,
+          toUserId: userId,
           type: SocialRelationshipType.BLOCK
         })
       });
