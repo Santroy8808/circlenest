@@ -139,25 +139,26 @@ async function hasAuthorizedPrivateContext(
     prisma.group.findFirst({
       where: {
         archivedAt: null,
-        AND: [
+        OR: [
           {
-            OR: [
-              { visibility: "PUBLIC" },
-              { members: { some: { userId: viewerUserId } } }
+            AND: [
+              {
+                OR: [
+                  { visibility: "PUBLIC" },
+                  { members: { some: { userId: viewerUserId } } }
+                ]
+              },
+              { assets: { some: { mediaAssetId, deletedAt: null } } }
             ]
           },
           {
-            OR: [
-              { assets: { some: { mediaAssetId, deletedAt: null } } },
-              {
-                forumThreads: {
-                  some: {
-                    deletedAt: null,
-                    posts: { some: { mediaAssetId, deletedAt: null } }
-                  }
-                }
+            members: { some: { userId: viewerUserId } },
+            forumThreads: {
+              some: {
+                deletedAt: null,
+                posts: { some: { mediaAssetId, deletedAt: null } }
               }
-            ]
+            }
           }
         ]
       },
