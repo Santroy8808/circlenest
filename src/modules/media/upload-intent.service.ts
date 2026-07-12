@@ -10,7 +10,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { consumeRateLimit } from "@/lib/platform/rate-limit";
-import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
+import { canUserAccessFeature, getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import {
   createPresignedR2PutRequest,
   deleteR2Object,
@@ -267,6 +267,12 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
   }
 
   const policy = UPLOAD_INTENT_POLICIES[parsed.data.purpose];
+  if (parsed.data.purpose === UploadIntentPurpose.BUSINESS_MEDIA) {
+    const businessAccess = await canUserAccessFeature(cleanOwnerUserId, "market.storefront");
+    if (!businessAccess.allowed) {
+      return failure("INVALID_UPLOAD", businessAccess.reason ?? "Business media access required.");
+    }
+  }
   const mimeType = normalizeMimeType(parsed.data.mimeType);
   const visibility = parsed.data.visibility ?? policy.defaultVisibility;
 

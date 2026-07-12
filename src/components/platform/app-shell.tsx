@@ -156,15 +156,20 @@ function getNavSections(input: {
         items: communicationsSection.items.filter((item) => item.href !== "/mail" && item.countKey !== "mail")
       };
   const features = tierPolicies[input.tier].features;
+  const marketItems = exploreSection.items.filter(
+    (item) => item.href !== "/events" || input.tier !== MembershipTier.FREE || input.isAdmin
+  );
   const toolsItems = advancedToolsSection.items.filter((item) => {
     if (input.isAdmin) return true;
-    if (item.href === "/business-center") return input.isBusinessAccount || features["market.storefront"];
+    if (item.href === "/business-center") {
+      return input.tier !== MembershipTier.FREE && (input.isBusinessAccount || features["market.storefront"]);
+    }
     if (item.href === "/ads") return features["ads.createGeneral"] || features["ads.createFundraiser"];
     if (item.href === "/writers-corner") return features["writers.access"];
     if (item.href === "/fundraisers") return features["fundraisers.create"];
     return false;
   });
-  const memberSections = [homeSection, visibleCommunicationsSection, peopleSection, groupsSection, exploreSection];
+  const memberSections = [homeSection, visibleCommunicationsSection, peopleSection, groupsSection, { ...exploreSection, items: marketItems }];
   if (toolsItems.length > 0) memberSections.push({ ...advancedToolsSection, items: toolsItems });
   memberSections.push(settingsSection);
 
