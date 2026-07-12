@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `06-messages`
-- Current case: `FT-060`
-- Last completed case: `FT-055`
-- Passed this completion run: 35 / 69
+- Current cycle: `07-groups`
+- Current case: `FT-070`
+- Last completed case: `FT-063`
+- Passed this completion run: 38 / 69
 - Failed or blocked: 0
 - Last deployed commit: `bcf36ce`
-- Next action: create a three-user group conversation and verify bidirectional participation.
+- Next action: create a restricted group, submit a join request, and approve it as owner.
 
 ## Cycle 01 — Identity and email
 
@@ -114,16 +114,16 @@ Cases: 9
 
 ## Cycle 06 — Messages
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 3
 
-- [ ] `FT-060` Three-user group conversation.
-- [ ] `FT-062` Blocked messaging is denied.
-- [ ] `FT-063` Another thread's private attachment URL is denied.
+- [x] `FT-060` Three-user group conversation. Three-user production verified 2026-07-12.
+- [x] `FT-062` Blocked messaging is denied. UI discovery and forged-request production verified; block removed 2026-07-12.
+- [x] `FT-063` Another thread's private attachment URL is denied. Participant and outsider production verified 2026-07-12.
 
 ## Cycle 07 — Groups
 
-Status: PENDING
+Status: IN PROGRESS
 Cases: 9
 
 - [ ] `FT-070` Restricted-group join request and owner approval.
