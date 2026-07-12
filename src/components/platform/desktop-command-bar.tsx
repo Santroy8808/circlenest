@@ -30,6 +30,7 @@ type SummaryState = {
 
 type DesktopCommandBarProps = {
   avatarUrl?: string | null;
+  canCreateAd: boolean;
   counts: Counts;
   displayName: string;
   isAdmin: boolean;
@@ -71,7 +72,7 @@ const primaryNavItems: PrimaryNavItem[] = [
   { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
-  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Connect", tooltip: "Open messages without leaving the stream." }
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm Center", tooltip: "Open direct and group messages." }
 ];
 
 const initialSummaryState: Record<SummaryKind, SummaryState> = {
@@ -155,7 +156,7 @@ function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
   );
 }
 
-export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
+export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
@@ -281,16 +282,18 @@ export function DesktopCommandBar({ avatarUrl, counts, displayName, isAdmin, isS
             >
               <ThemeIcon theme={theme} />
             </button>
-            <Link className="desktop-command-create-ad" href="/ads/create" data-tooltip="Create an ad campaign.">
-              {theme === "light" ? (
-                <LightCommandImage alt="" src="/assets/nav/light/light-create-ad.png" />
-              ) : (
-                <>
-                  <span aria-hidden="true">+</span>
-                  <span>Create ad</span>
-                </>
-              )}
-            </Link>
+            {canCreateAd ? (
+              <Link className="desktop-command-create-ad" href="/ads/create" data-tooltip="Create an ad campaign.">
+                {theme === "light" ? (
+                  <LightCommandImage alt="" src="/assets/nav/light/light-create-ad.png" />
+                ) : (
+                  <>
+                    <span aria-hidden="true">+</span>
+                    <span>Create ad</span>
+                  </>
+                )}
+              </Link>
+            ) : null}
             <Link
               className="desktop-command-icon"
               href="/notifications"

@@ -111,20 +111,20 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
         </section>
       ) : null}
 
-      <section className="surface rounded-md p-5">
-        <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
-        </p>
-        {listing.viewerCanPromote ? (
+      {listing.viewerCanPromote ? (
+        <section className="surface rounded-md p-5">
+          <h2 className="text-xl font-semibold text-[var(--gold)]">Promotion</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
+          </p>
           <Link
             className="btn-secondary mt-4 inline-block"
             href={`/ads/create?destinationKind=${AdDestinationKind.MARKET_LISTING}&marketListingId=${listing.id}&title=${encodeURIComponent(`Promote ${listing.title}`)}&body=${encodeURIComponent(listing.description.slice(0, 220) || `View ${listing.title} in The Market.`)}&targetInterestCategories=${InterestCategory.MARKET}`}
           >
             Create listing ad
           </Link>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

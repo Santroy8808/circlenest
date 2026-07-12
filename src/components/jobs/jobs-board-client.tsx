@@ -57,7 +57,7 @@ export function JobsBoardClient({
       {listings.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No job listings yet</h2>
-          <p className="mt-2 text-[var(--muted)]">Professional members can post opportunities when ready.</p>
+          <p className="mt-2 text-[var(--muted)]">Members and business accounts can post opportunities when ready.</p>
         </section>
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>

@@ -57,7 +57,7 @@ function initialForm(profile: BusinessProfileView | null): FormState {
   };
 }
 
-export function BusinessCenterClient({ businessCenter }: { businessCenter: BusinessCenterView }) {
+export function BusinessCenterClient({ businessCenter, canUseWriters }: { businessCenter: BusinessCenterView; canUseWriters: boolean }) {
   const bannerImageInputRef = useRef<HTMLInputElement>(null);
   const bodyImageInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -547,7 +547,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
           </span>
         </label>
 
-        <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+        {canUseWriters ? <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
           <input checked={form.blogEnabled} className="mt-1" onChange={(event) => update("blogEnabled", event.target.checked)} type="checkbox" />
           <span>
             <span className="block font-semibold text-[var(--gold)]">Enable storefront blogs</span>
@@ -558,7 +558,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
               Open Writers Corner
             </Link>
           </span>
-        </label>
+        </label> : null}
 
         <section className="grid gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
           <label className="flex items-start gap-3">
@@ -631,7 +631,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
         </div>
       </section>
 
-      <section className="surface rounded-md p-6">
+      {canUseWriters ? <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-[var(--gold)]">Storefront blogs</h2>
@@ -694,7 +694,7 @@ export function BusinessCenterClient({ businessCenter }: { businessCenter: Busin
             </details>
           ) : null}
         </div>
-      </section>
+      </section> : null}
     </div>
   );
 }

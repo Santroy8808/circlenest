@@ -1521,15 +1521,6 @@ export function FeedClient({
     router.push(`/posts/${postId}`);
   }
 
-  function openThreadForReply(postId: string) {
-    if (!showThreadLinks) {
-      activateReply(postId);
-      return;
-    }
-
-    router.push(`/posts/${postId}?reply=op`);
-  }
-
   function handlePostClick(postId: string, event: MouseEvent<HTMLElement>) {
     if (shouldIgnoreCardClick(event.target)) return;
     openThread(postId);
@@ -1773,13 +1764,15 @@ export function FeedClient({
                     <span className="feed-engagement-empty" aria-hidden="true" />
                   )}
                 </div>
-                <button
-                  className="feed-engagement-comment-count"
-                  onClick={() => openThread(post.id)}
-                  type="button"
-                >
-                  {commentSummaryLabel}
-                </button>
+                {showThreadLinks ? (
+                  <Link className="feed-engagement-comment-count" href={`/posts/${post.id}`}>
+                    {commentSummaryLabel}
+                  </Link>
+                ) : (
+                  <button className="feed-engagement-comment-count" onClick={() => openThread(post.id)} type="button">
+                    {commentSummaryLabel}
+                  </button>
+                )}
               </div>
               <div className="feed-post-actions">
                 <ReactionButtons
@@ -1789,16 +1782,23 @@ export function FeedClient({
                   reactors={post.reactionReactors}
                   showCounts={false}
                 />
-                <button
-                  aria-label="Comment"
-                  className="feed-reply-button"
-                  onClick={() => openThreadForReply(post.id)}
-                  title="Comment"
-                  type="button"
-                >
-                  <span aria-hidden="true">{"\uD83D\uDDE8\uFE0E"}</span>
-                  {commentSummary > 0 ? <span>{commentSummary}</span> : null}
-                </button>
+                {showThreadLinks ? (
+                  <Link aria-label="Comment" className="feed-reply-button" href={`/posts/${post.id}?reply=op`} title="Comment">
+                    <span aria-hidden="true">{"\uD83D\uDDE8\uFE0E"}</span>
+                    {commentSummary > 0 ? <span>{commentSummary}</span> : null}
+                  </Link>
+                ) : (
+                  <button
+                    aria-label="Comment"
+                    className="feed-reply-button"
+                    onClick={() => activateReply(post.id)}
+                    title="Comment"
+                    type="button"
+                  >
+                    <span aria-hidden="true">{"\uD83D\uDDE8\uFE0E"}</span>
+                    {commentSummary > 0 ? <span>{commentSummary}</span> : null}
+                  </button>
+                )}
                 <div className="feed-share-menu">
                   <button
                     aria-expanded={Boolean(shareMenus[post.id])}

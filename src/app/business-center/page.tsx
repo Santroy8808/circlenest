@@ -6,6 +6,7 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 import { getBusinessCenterView } from "@/modules/business-storefront/business-storefront.service";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 
 export default async function BusinessCenterPage() {
   const session = await auth();
@@ -14,7 +15,11 @@ export default async function BusinessCenterPage() {
     redirect("/login?callbackUrl=/business-center");
   }
 
-  const [businessCenter, adsManager] = await Promise.all([getBusinessCenterView(session.user.id), getAdsManagerView(session.user.id)]);
+  const [businessCenter, adsManager, writersAccess] = await Promise.all([
+    getBusinessCenterView(session.user.id),
+    getAdsManagerView(session.user.id),
+    canUserAccessFeature(session.user.id, "writers.access")
+  ]);
 
   if (!businessCenter.canManage) {
     await logUnavailableFeatureClick({
@@ -35,7 +40,7 @@ export default async function BusinessCenterPage() {
 
   return (
     <AppShell>
-      <BusinessCenterHub adsManager={adsManager} businessCenter={businessCenter} />
+      <BusinessCenterHub adsManager={adsManager} businessCenter={businessCenter} canUseWriters={writersAccess.allowed} />
     </AppShell>
   );
 }

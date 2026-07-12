@@ -21,8 +21,13 @@ export function GroupForumClient({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [allowPhotoReplies, setAllowPhotoReplies] = useState(false);
+  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const cleanQuery = query.trim().toLowerCase();
+  const visibleThreads = cleanQuery
+    ? threads.filter((thread) => `${thread.title} ${thread.body} ${thread.author.displayName} ${thread.author.username}`.toLowerCase().includes(cleanQuery))
+    : threads;
 
   async function refreshThreads() {
     const response = await fetch(`/api/groups/${group.slug}/forum/threads`, { cache: "no-store" });
@@ -76,6 +81,23 @@ export function GroupForumClient({
         </div>
       </section>
 
+      <section className="surface rounded-md p-4 sm:p-5">
+        <label className="grid gap-2">
+          <span className="form-label">Live search</span>
+          <input
+            aria-label="Search group forum threads"
+            className="form-field"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search forum threads..."
+            type="search"
+            value={query}
+          />
+        </label>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          {visibleThreads.length} of {threads.length} thread{threads.length === 1 ? "" : "s"}
+        </p>
+      </section>
+
       {isCreating ? (
         <form className="surface grid gap-4 rounded-md p-5" onSubmit={createThread}>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Create Forum Thread</p>
@@ -103,13 +125,15 @@ export function GroupForumClient({
       ) : null}
 
       <section className="grid gap-3">
-        {threads.length === 0 ? (
+        {visibleThreads.length === 0 ? (
           <article className="surface rounded-md p-8 text-center">
-            <h2 className="text-2xl font-semibold text-[var(--gold)]">No forum threads yet</h2>
-            <p className="mt-2 text-[var(--muted)]">Create the first forum thread when you are ready.</p>
+            <h2 className="text-2xl font-semibold text-[var(--gold)]">{threads.length === 0 ? "No forum threads yet" : "No matching threads"}</h2>
+            <p className="mt-2 text-[var(--muted)]">
+              {threads.length === 0 ? "Create the first forum thread when you are ready." : "Try a different title, author, or keyword."}
+            </p>
           </article>
         ) : null}
-        {threads.map((thread) => (
+        {visibleThreads.map((thread) => (
           <article className="forum-thread-card" key={thread.id}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">

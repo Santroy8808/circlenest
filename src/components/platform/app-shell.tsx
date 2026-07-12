@@ -15,6 +15,7 @@ import { timeServerStep } from "@/lib/platform/server-timing";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
+import { tierPolicies } from "@/modules/membership-policy/policy";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
 
@@ -45,8 +46,16 @@ const peopleSection: NavSection = {
   label: "People",
   items: [
     { label: "Browse People", href: "/people" },
-    { label: "Friends", href: "/friends" },
-    { label: "Groups", href: "/groups" }
+    { label: "Friends", href: "/friends" }
+  ]
+};
+
+const groupsSection: NavSection = {
+  href: "/groups",
+  label: "Groups",
+  items: [
+    { label: "Browse Groups", href: "/groups" },
+    { label: "Create Group", href: "/groups/create" }
   ]
 };
 
@@ -108,6 +117,7 @@ function getNavSections(input: {
   isBusinessAccount: boolean;
   isSignedIn: boolean;
   mailEnabled: boolean;
+  tier: MembershipTier;
 }): NavSection[] {
   if (!input.isSignedIn) {
     return [
@@ -145,8 +155,17 @@ function getNavSections(input: {
         ...communicationsSection,
         items: communicationsSection.items.filter((item) => item.href !== "/mail" && item.countKey !== "mail")
       };
-  const memberSections = [homeSection, visibleCommunicationsSection, peopleSection, exploreSection];
-  if (input.isBusinessAccount || input.isAdmin) memberSections.push(advancedToolsSection);
+  const features = tierPolicies[input.tier].features;
+  const toolsItems = advancedToolsSection.items.filter((item) => {
+    if (input.isAdmin) return true;
+    if (item.href === "/business-center") return input.isBusinessAccount || features["market.storefront"];
+    if (item.href === "/ads") return features["ads.createGeneral"] || features["ads.createFundraiser"];
+    if (item.href === "/writers-corner") return features["writers.access"];
+    if (item.href === "/fundraisers") return features["fundraisers.create"];
+    return false;
+  });
+  const memberSections = [homeSection, visibleCommunicationsSection, peopleSection, groupsSection, exploreSection];
+  if (toolsItems.length > 0) memberSections.push({ ...advancedToolsSection, items: toolsItems });
   memberSections.push(settingsSection);
 
   const sections: NavSection[] = [
@@ -266,6 +285,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = isAdminRole(session?.user?.role);
+  const tier = session?.user?.tier ?? MembershipTier.FREE;
+  const tierFeatures = tierPolicies[tier].features;
+  const canCreateAd = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
   const actorPicker = isSignedIn && session?.user?.id
     ? await timeServerStep("shell.actor-picker", getAccountActorPicker(session.user.id), { path: currentPath })
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
@@ -280,7 +302,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
-  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn, mailEnabled });
+  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn, mailEnabled, tier });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
 
@@ -290,6 +312,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {isSignedIn ? <ActivityTracker /> : null}
       <DesktopCommandBar
         avatarUrl={shellProfile?.profile?.avatarUrl}
+        canCreateAd={canCreateAd}
         counts={counts}
         displayName={displayName}
         isAdmin={isAdmin}
@@ -323,9 +346,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ad Stream</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rotating paid placements on the right.</p>
               </div>
-              <Link className="ad-rail-create-link" href="/ads/create">
-                Create ad
-              </Link>
+              {canCreateAd ? (
+                <Link className="ad-rail-create-link" href="/ads/create">
+                  Create ad
+                </Link>
+              ) : null}
             </div>
             <div className="mt-5 grid gap-3">
               <AdRailRotator initialAds={[]} isAdmin={isAdmin} />

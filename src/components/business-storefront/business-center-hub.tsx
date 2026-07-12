@@ -10,49 +10,65 @@ type BusinessCenterHubCard = {
   meta: string;
 };
 
-export function BusinessCenterHub({ adsManager, businessCenter }: { adsManager: AdsManagerView; businessCenter: BusinessCenterView }) {
+export function BusinessCenterHub({
+  adsManager,
+  businessCenter,
+  canUseWriters
+}: {
+  adsManager: AdsManagerView;
+  businessCenter: BusinessCenterView;
+  canUseWriters: boolean;
+}) {
   const profile = businessCenter.profile;
   const activeCampaigns = adsManager.campaigns.filter((campaign) => campaign.status === "ACTIVE").length;
   const hasStorefront = Boolean(profile?.publicStorefrontEnabled);
 
-  const cards: BusinessCenterHubCard[] = [
-    {
+  const cards: BusinessCenterHubCard[] = [];
+
+  if (adsManager.canCreate) {
+    cards.push({
       title: "Create ad",
       eyebrow: "Promote",
       description:
         "Build a complete ad campaign with creative, destination, audience targeting, campaign length, credit investment, and optional A/B testing.",
       href: "/business-center/create-ad",
       meta: `${adsManager.platformCredits.toLocaleString()} credits available`
-    },
-    {
+    });
+  }
+
+  if (adsManager.canCreate || adsManager.campaigns.length > 0) {
+    cards.push({
       title: "Campaigns",
       eyebrow: "Manage",
       description: "Review running and historical campaigns, inspect destinations, remaining credits, targeting, and end active campaigns.",
       href: "/business-center/campaigns",
       meta: `${activeCampaigns} active, ${adsManager.campaigns.length} total`
-    },
-    {
+    }, {
       title: "Metrics",
       eyebrow: "Measure",
       description: "Filter campaign performance by timeframe, placement, status, city, interest audience, and subscriber audience.",
       href: "/business-center/metrics",
       meta: "Hourly, daily, weekly, monthly"
-    },
-    {
+    });
+  }
+
+  cards.push({
       title: "Storefront",
       eyebrow: "Presence",
       description: "Manage your public storefront profile, banner, articles, inquiries, gallery, and published business information.",
       href: "/business-center/storefront",
       meta: hasStorefront ? "Public storefront enabled" : "Storefront draft"
-    },
-    {
+    });
+
+  if (canUseWriters) {
+    cards.push({
       title: "Writers Corner",
       eyebrow: "Publish",
       description: "Create and manage manuscripts, chapters, and member-facing writing projects.",
       href: "/writers-corner",
       meta: "Create and edit manuscripts"
-    }
-  ];
+    });
+  }
 
   return (
     <div className="grid gap-5">

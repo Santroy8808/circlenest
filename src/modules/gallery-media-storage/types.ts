@@ -104,6 +104,13 @@ export type GalleryAssetNeighbor = {
 
 export type GalleryAssetViewer = {
   asset: GalleryAssetView;
+  owner: {
+    id: string;
+    displayName: string;
+    username: string;
+    avatarUrl?: string | null;
+    bannerUrl?: string | null;
+  };
   comments: GalleryAssetCommentView[];
   previous: GalleryAssetNeighbor | null;
   next: GalleryAssetNeighbor | null;

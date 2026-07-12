@@ -10541,3 +10541,119 @@ body,
     min-width: 44px;
   }
 }
+
+/* Compact signed-in navigation on phones so the page task is visible immediately. */
+@media (max-width: 860px) {
+  .side-nav {
+    align-items: center;
+    background: rgba(8, 12, 19, 0.97);
+    display: grid;
+    gap: 8px 12px;
+    grid-template-areas:
+      "profile actor"
+      "links links";
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    padding: 8px 12px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .side-nav-profile {
+    display: flex;
+    gap: 8px;
+    grid-area: profile;
+    justify-items: start;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .side-nav-avatar {
+    border-radius: 12px;
+    height: 44px;
+    width: 44px;
+  }
+
+  .side-nav-profile p,
+  .side-nav-profile .mt-1.text-xs {
+    display: none;
+  }
+
+  .side-nav-profile h1 {
+    font-size: 0.9rem;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .account-actor-switcher {
+    grid-area: actor;
+    margin: 0;
+    max-width: min(52vw, 250px);
+  }
+
+  .account-actor-switcher > span {
+    display: none;
+  }
+
+  .account-actor-switcher select {
+    min-height: 44px;
+  }
+
+  .control-panel-nav {
+    display: flex;
+    gap: 8px;
+    grid-area: links;
+    margin-top: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 1px 1px 3px;
+    scrollbar-width: none;
+  }
+
+  .control-panel-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .control-panel-main-link {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    min-height: 44px;
+    padding: 8px 12px;
+    width: auto;
+  }
+
+  .control-panel-utility-list {
+    border: 0;
+    display: flex;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  .main-surface {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .feed-post-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .feed-post-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .feed-visibility-chip {
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    padding: 4px 7px;
+  }
+}

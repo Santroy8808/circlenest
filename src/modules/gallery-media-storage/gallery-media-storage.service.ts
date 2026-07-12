@@ -600,24 +600,36 @@ export async function getMyPic(userId: string, mediaAssetId: string): Promise<Ga
   return asset ? toGalleryAssetView(asset) : null;
 }
 
-export async function getMyPicViewer(userId: string, mediaAssetId: string): Promise<GalleryAssetViewer | null> {
+export async function getGalleryAssetViewer(viewerUserId: string, mediaAssetId: string): Promise<GalleryAssetViewer | null> {
   const asset = await prisma.mediaAsset.findFirst({
     where: {
       id: mediaAssetId,
-      ownerUserId: userId,
       mimeType: {
         startsWith: "image/"
       }
     },
-    include: galleryAssetInclude()
+    include: {
+      ...galleryAssetInclude(),
+      owner: {
+        include: {
+          profile: true
+        }
+      }
+    }
   });
 
-  if (!asset) return null;
+  if (!asset || !canViewAsset(viewerUserId, asset)) return null;
+
+  const ownerVisibility =
+    asset.ownerUserId === viewerUserId
+      ? undefined
+      : { in: [MediaVisibility.PUBLIC, MediaVisibility.MEMBERS] };
 
   const [previous, next, comments] = await Promise.all([
     prisma.mediaAsset.findFirst({
       where: {
-        ownerUserId: userId,
+        ownerUserId: asset.ownerUserId,
+        visibility: ownerVisibility,
         mimeType: {
           startsWith: "image/"
         },
@@ -635,7 +647,8 @@ export async function getMyPicViewer(userId: string, mediaAssetId: string): Prom
     }),
     prisma.mediaAsset.findFirst({
       where: {
-        ownerUserId: userId,
+        ownerUserId: asset.ownerUserId,
+        visibility: ownerVisibility,
         mimeType: {
           startsWith: "image/"
         },
@@ -701,6 +714,13 @@ export async function getMyPicViewer(userId: string, mediaAssetId: string): Prom
 
   return {
     asset: toGalleryAssetView(asset),
+    owner: {
+      id: asset.owner.id,
+      displayName: asset.owner.profile?.displayName ?? asset.owner.username,
+      username: asset.owner.username,
+      avatarUrl: asset.owner.profile?.avatarUrl,
+      bannerUrl: asset.owner.profile?.bannerUrl
+    },
     comments: comments.map(toGalleryAssetCommentView),
     previous,
     next

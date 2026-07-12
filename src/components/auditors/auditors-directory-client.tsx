@@ -54,7 +54,7 @@ export function AuditorsDirectoryClient({
       {auditors.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No auditor profiles yet</h2>
-          <p className="mt-2 text-[var(--muted)]">Approved Auditor accounts can publish listings here.</p>
+          <p className="mt-2 text-[var(--muted)]">Members can create an auditor profile for review. Approved profiles appear here.</p>
         </section>
       ) : (
         <section className="auditor-grid">

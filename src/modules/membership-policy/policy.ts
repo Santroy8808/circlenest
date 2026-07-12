@@ -106,6 +106,9 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "groups.unlimitedSize": true,
       "market.createListing": true,
       "market.createAd": true,
+      "market.storefront": true,
+      "jobs.createListing": true,
+      "auditors.createProfile": true,
       "writers.access": true,
       "invites.send": true,
       "moderation.siteEligible": true

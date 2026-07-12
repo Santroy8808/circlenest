@@ -5,6 +5,7 @@ import Link from "next/link";
 import { flushSync } from "react-dom";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import {
@@ -49,28 +50,6 @@ function initials(name: string) {
 
 function isBrowserPreviewImage(mimeType: string) {
   return /^image\/(jpeg|png|webp|gif)$/.test(mimeType);
-}
-
-function putPrivateUpload(
-  uploadUrl: string,
-  uploadHeaders: Record<string, string>,
-  file: File,
-  onProgress: (progress: number) => void
-) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open("PUT", uploadUrl);
-    Object.entries(uploadHeaders).forEach(([name, value]) => request.setRequestHeader(name, value));
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-    };
-    request.onerror = () => reject(new Error("The attachment upload was interrupted. Try again."));
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) resolve();
-      else reject(new Error("The attachment could not be uploaded. Try again."));
-    };
-    request.send(file);
-  });
 }
 
 function messagePreview(message?: ChatMessageView | null) {
@@ -596,9 +575,13 @@ export function MessagesClient({
       throw new Error(intent.error ?? "Could not prepare attachment.");
     }
 
-    await putPrivateUpload(intent.uploadUrl, intent.uploadHeaders, item.file, (progress) =>
-      updateAttachment(item.id, { progress })
-    );
+    await uploadWithResilientFallback({
+      uploadUrl: intent.uploadUrl,
+      storageKey: intent.storageKey,
+      uploadHeaders: intent.uploadHeaders,
+      file: item.file,
+      onProgress: (progress) => updateAttachment(item.id, { progress })
+    });
 
     const completeResponse = await fetch("/api/chat/complete-upload", {
       method: "POST",
@@ -845,7 +828,7 @@ export function MessagesClient({
         <section className="chat-panel-section">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Chats</p>
           <h2 className="mt-2 text-2xl font-semibold">Messages</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Fast direct and group chat. Formal mail is separate.</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Fast direct and group conversations with members.</p>
           <input
             className="form-field mt-4"
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -1154,7 +1137,7 @@ export function MessagesClient({
           <div className="chat-empty-state h-full">
             <h2 className="text-3xl font-semibold text-[var(--gold)]">Select a chat</h2>
             <p className="mt-3 max-w-lg text-[var(--muted)]">
-              Pick an existing conversation or search for a member on the left. This is chat only; Mail gets its own client next.
+              Pick an existing conversation or search for a member on the left.
             </p>
           </div>
         )}

@@ -5,6 +5,7 @@ import { FeatureUnavailableNotice } from "@/components/feature-availability/feat
 import { AppShell } from "@/components/platform/app-shell";
 import { getBusinessCenterView } from "@/modules/business-storefront/business-storefront.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 
 export default async function BusinessCenterStorefrontPage() {
   const session = await auth();
@@ -13,7 +14,10 @@ export default async function BusinessCenterStorefrontPage() {
     redirect("/login?callbackUrl=/business-center/storefront");
   }
 
-  const businessCenter = await getBusinessCenterView(session.user.id);
+  const [businessCenter, writersAccess] = await Promise.all([
+    getBusinessCenterView(session.user.id),
+    canUserAccessFeature(session.user.id, "writers.access")
+  ]);
 
   if (!businessCenter.canManage) {
     await logUnavailableFeatureClick({
@@ -34,7 +38,7 @@ export default async function BusinessCenterStorefrontPage() {
 
   return (
     <AppShell>
-      <BusinessCenterClient businessCenter={businessCenter} />
+      <BusinessCenterClient businessCenter={businessCenter} canUseWriters={writersAccess.allowed} />
     </AppShell>
   );
 }

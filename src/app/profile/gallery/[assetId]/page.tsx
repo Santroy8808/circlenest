@@ -10,7 +10,7 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { timeServerStep } from "@/lib/platform/server-timing";
-import { getMyPicViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
+import { getGalleryAssetViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export default async function GalleryAssetPage({ params }: { params: { assetId: string } }) {
   const session = await timeServerStep("gallery-detail.auth", auth());
@@ -21,7 +21,7 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
 
   const activeActor = await timeServerStep("gallery-detail.actor", getActiveAccountActor(session.user.id));
   const [viewer, currentActorProfile] = await Promise.all([
-    timeServerStep("gallery-detail.media-viewer", getMyPicViewer(activeActor.actorUserId, params.assetId)),
+    timeServerStep("gallery-detail.media-viewer", getGalleryAssetViewer(activeActor.actorUserId, params.assetId)),
     prisma.user.findUnique({
       where: { id: activeActor.actorUserId },
       include: { profile: true }
@@ -32,19 +32,21 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
     notFound();
   }
 
-  const { asset, comments, next, previous } = viewer;
+  const { asset, comments, next, owner, previous } = viewer;
+  const isOwner = owner.id === activeActor.actorUserId;
   const imageUrl = asset.publicUrl ?? `/api/media/assets/${asset.id}`;
 
   return (
     <AppShell>
       <GalleryProfileBanner
         action={
-          <Link className="btn-secondary" href="/profile/gallery">
-            Back to gallery
+          <Link className="btn-secondary" href={isOwner ? "/profile/gallery" : `/profile/${owner.username}`}>
+            {isOwner ? "Back to gallery" : "Back to profile"}
           </Link>
         }
-        bannerUrl={currentActorProfile?.profile?.bannerUrl}
+        bannerUrl={owner.bannerUrl}
         subtitle="Photo viewer"
+        title={isOwner ? "My Pics" : `${owner.displayName}'s Pics`}
       />
 
       <div className="gallery-detail-layout mt-5">
@@ -82,9 +84,13 @@ export default async function GalleryAssetPage({ params }: { params: { assetId: 
             </summary>
             <div className="gallery-photo-options-content">
               <GalleryAssetInfo asset={asset} imageUrl={imageUrl} />
-              <GalleryAssetActions mediaAssetId={asset.id} />
-              <GalleryAssetTags asset={asset} />
-              <GalleryAssetVisibilityControls asset={asset} />
+              {isOwner ? (
+                <>
+                  <GalleryAssetActions mediaAssetId={asset.id} />
+                  <GalleryAssetTags asset={asset} />
+                  <GalleryAssetVisibilityControls asset={asset} />
+                </>
+              ) : null}
             </div>
           </details>
           <GalleryAssetEngagement
