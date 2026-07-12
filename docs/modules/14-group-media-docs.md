@@ -27,6 +27,9 @@ Provide simple group photos and document sharing without turning group files int
 
 ## Core Workflows
 
+- Group photo libraries with at least two images can switch between Grid and Carousel views.
+- Carousel view advances every 3 seconds and supports manual left/right, dot, keyboard, and swipe navigation.
+
 - View a simple group photo grid.
 - View a simple group documents list.
 - Upload photos or docs directly to R2, then complete the DB record.

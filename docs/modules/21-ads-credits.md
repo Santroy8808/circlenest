@@ -31,6 +31,11 @@ Provide transparent internal advertising that uses labeled reserved placements a
 
 ## Core Workflows
 
+- Ad creators may upload up to 10 ordered images and enable a 3-second-per-image carousel.
+- Ad carousel time is paid placement time, not free additional exposure. The full carousel cycle must fit within the purchased display slot.
+- Current ad slots are 30 seconds, allowing a complete cycle of up to 10 images. If a future package provides less time than the carousel needs, campaign creation is rejected until the creator chooses fewer images or purchases a longer placement.
+- When a viewer enters near the end of a paid slot and insufficient time remains for a full cycle, the placement displays the first creative as a static image instead of starting an incomplete carousel.
+
 - Eligible user opens Ads from Production Zone.
 - User creates a reserved-placement ad campaign.
 - Non-admin campaign creation reserves platform credits immediately.

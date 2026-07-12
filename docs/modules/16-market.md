@@ -28,6 +28,7 @@ Provide The Market as a clean marketplace of clickable product/service thumbnail
 - Browse thumbnail cards with title and price only.
 - Open full detail page for description, photos, and seller.
 - Upload listing photos directly to R2 before listing creation.
+- When a listing has at least two photos, the seller can choose a carousel that advances every 3 seconds and also provides manual left/right, dot, keyboard, and swipe navigation.
 - Free members have 3 listing slots per rolling 14-day period and up to 3 photos per listing.
 - Contributor has limited 14-day listing slots and capped photos.
 - Professional has unlimited listing slots and storefront handoff.
