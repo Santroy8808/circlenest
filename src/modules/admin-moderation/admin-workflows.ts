@@ -28,6 +28,32 @@ export type AdminWorkflowCategory = {
 export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminWorkflowCategory[] {
   return [
     {
+      key: "admin-hat",
+      href: "/admin/hat",
+      title: "Admin Hat",
+      eyebrow: "Manual",
+      description: "Administrator operating manual with definitions, table of contents, visual references, direct function links, and per-tool guidance.",
+      badge: "Manual",
+      keywords: ["admin hat", "manual", "guide", "documentation", "training", "administrator", "how to"],
+      groups: [
+        {
+          key: "manual",
+          title: "Manual",
+          description: "Open the floating administrator manual while working in Admin Tools.",
+          entries: [
+            {
+              href: "/admin/hat",
+              title: "Open Admin Hat",
+              category: "Admin Hat",
+              description: "Open the movable and resizable administrator manual.",
+              badge: "manual",
+              keywords: ["admin hat", "manual", "guide", "documentation", "training", "administrator", "how to"]
+            }
+          ]
+        }
+      ]
+    },
+    {
       key: "account-management",
       href: "/admin/workflows/account-management",
       title: "Account Management",

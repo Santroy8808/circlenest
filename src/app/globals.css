@@ -8928,6 +8928,459 @@ html.theta-theme-light .auditor-card:hover {
   background: rgba(8, 11, 16, 0.24);
 }
 
+.admin-hat-page {
+  min-height: 720px;
+}
+
+.admin-hat-window {
+  background:
+    linear-gradient(145deg, rgba(19, 28, 44, 0.98), rgba(7, 10, 16, 0.99)),
+    rgba(11, 16, 25, 0.98);
+  border: 1px solid rgba(255, 216, 95, 0.46);
+  border-radius: 24px;
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 216, 95, 0.08) inset;
+  color: var(--text);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  left: 0;
+  max-height: calc(100vh - 24px);
+  max-width: calc(100vw - 24px);
+  min-height: 460px;
+  min-width: 520px;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  z-index: 12020;
+}
+
+.admin-hat-titlebar {
+  align-items: center;
+  background: rgba(5, 8, 13, 0.72);
+  border-bottom: 1px solid rgba(255, 216, 95, 0.24);
+  cursor: grab;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 18px;
+  touch-action: none;
+  user-select: none;
+}
+
+.admin-hat-titlebar:active {
+  cursor: grabbing;
+}
+
+.admin-hat-titlebar p {
+  color: var(--gold);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.admin-hat-titlebar span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.82rem;
+  margin-top: 3px;
+}
+
+.admin-hat-window-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-hat-window-actions button,
+.admin-hat-toc button {
+  border: 1px solid rgba(255, 216, 95, 0.28);
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.admin-hat-window-actions button {
+  background: rgba(12, 18, 29, 0.9);
+}
+
+.admin-hat-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.admin-hat-toc {
+  background: rgba(5, 8, 13, 0.42);
+  border-right: 1px solid rgba(255, 216, 95, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  scrollbar-width: none;
+}
+
+.admin-hat-toc::-webkit-scrollbar,
+.admin-hat-content::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-hat-toc-title,
+.admin-hat-eyebrow {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.admin-hat-toc button {
+  background: rgba(15, 23, 36, 0.8);
+  text-align: left;
+}
+
+.admin-hat-toc button:hover,
+.admin-hat-toc button:focus-visible {
+  background: rgba(255, 216, 95, 0.12);
+  border-color: rgba(255, 216, 95, 0.56);
+}
+
+.admin-hat-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.admin-hat-content section {
+  scroll-margin-top: 18px;
+}
+
+.admin-hat-content section + section {
+  border-top: 1px solid rgba(255, 216, 95, 0.14);
+  margin-top: 30px;
+  padding-top: 30px;
+}
+
+.admin-hat-content h2 {
+  color: var(--text);
+  font-size: clamp(1.65rem, 3vw, 2.45rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin: 10px 0 12px;
+}
+
+.admin-hat-content h3,
+.admin-hat-content h4,
+.admin-hat-content h5 {
+  color: var(--gold);
+  font-weight: 900;
+  margin: 0;
+}
+
+.admin-hat-content p,
+.admin-hat-content li {
+  color: var(--muted);
+  line-height: 1.72;
+}
+
+.admin-hat-rule-box,
+.admin-hat-tool-card,
+.admin-hat-definition-grid article {
+  background: rgba(10, 15, 24, 0.72);
+  border: 1px solid rgba(255, 216, 95, 0.16);
+  border-radius: 18px;
+}
+
+.admin-hat-rule-box {
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.admin-hat-rule-box ol {
+  margin: 14px 0 0;
+  padding-left: 22px;
+}
+
+.admin-hat-definition-grid,
+.admin-hat-dashboard-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  margin-top: 18px;
+}
+
+.admin-hat-definition-grid article {
+  padding: 16px;
+}
+
+.admin-hat-definition-grid p {
+  margin: 8px 0 0;
+}
+
+.admin-hat-section-heading,
+.admin-hat-tool-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.admin-hat-tool-link {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.admin-hat-group {
+  margin-top: 22px;
+}
+
+.admin-hat-group > p {
+  margin: 8px 0 14px;
+}
+
+.admin-hat-tool-card {
+  padding: 18px;
+}
+
+.admin-hat-tool-card + .admin-hat-tool-card {
+  margin-top: 14px;
+}
+
+.admin-hat-tool-description {
+  margin: 12px 0 0;
+}
+
+.admin-hat-tool-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 16px;
+}
+
+.admin-hat-tool-grid > div {
+  background: rgba(16, 24, 38, 0.64);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.admin-hat-tool-grid p,
+.admin-hat-tool-grid ul {
+  margin: 8px 0 0;
+}
+
+.admin-hat-tool-grid ul {
+  padding-left: 18px;
+}
+
+.admin-hat-figure {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.14), transparent 32%),
+    linear-gradient(145deg, rgba(11, 18, 30, 0.96), rgba(4, 7, 12, 0.96));
+  border: 1px solid rgba(255, 216, 95, 0.2);
+  border-radius: 18px;
+  margin: 18px 0 0;
+  overflow: hidden;
+}
+
+.admin-hat-figure-topbar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 216, 95, 0.12);
+  display: flex;
+  gap: 7px;
+  padding: 10px 12px;
+}
+
+.admin-hat-figure-topbar span {
+  background: rgba(255, 216, 95, 0.68);
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  width: 8px;
+}
+
+.admin-hat-figure-stage {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(220px, 1.1fr);
+  padding: 16px;
+}
+
+.admin-hat-figure-panel {
+  border: 1px solid rgba(255, 216, 95, 0.26);
+  border-radius: 16px;
+  min-height: 160px;
+  padding: 16px;
+}
+
+.admin-hat-figure-heading {
+  color: var(--gold);
+  font-weight: 900;
+}
+
+.admin-hat-figure-line {
+  background: rgba(203, 213, 225, 0.26);
+  border-radius: 999px;
+  height: 12px;
+  margin-top: 14px;
+  width: 72%;
+}
+
+.admin-hat-figure-line.wide {
+  width: 100%;
+}
+
+.admin-hat-figure-line.short {
+  width: 48%;
+}
+
+.admin-hat-figure-callouts {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-hat-figure-callouts li {
+  align-items: flex-start;
+  background: rgba(15, 23, 36, 0.78);
+  border: 1px solid rgba(255, 216, 95, 0.14);
+  border-radius: 14px;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.admin-hat-figure-callouts span {
+  align-items: center;
+  background: var(--gold);
+  border-radius: 999px;
+  color: #05070b;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-weight: 900;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.admin-hat-figure figcaption {
+  border-top: 1px solid rgba(255, 216, 95, 0.12);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  padding: 12px 16px 14px;
+}
+
+.admin-hat-resize-handle {
+  background:
+    linear-gradient(135deg, transparent 45%, rgba(255, 216, 95, 0.4) 46%, rgba(255, 216, 95, 0.4) 54%, transparent 55%),
+    linear-gradient(135deg, transparent 60%, rgba(255, 216, 95, 0.7) 61%, rgba(255, 216, 95, 0.7) 69%, transparent 70%);
+  bottom: 8px;
+  cursor: nwse-resize;
+  height: 26px;
+  position: absolute;
+  right: 8px;
+  touch-action: none;
+  width: 26px;
+}
+
+html.theta-theme-light .admin-hat-window {
+  background:
+    linear-gradient(145deg, rgba(255, 252, 238, 0.99), rgba(243, 238, 219, 0.99)),
+    rgba(255, 252, 238, 0.98);
+  border-color: rgba(142, 111, 28, 0.48);
+  box-shadow:
+    0 28px 80px rgba(35, 28, 12, 0.24),
+    0 0 0 1px rgba(142, 111, 28, 0.1) inset;
+}
+
+html.theta-theme-light .admin-hat-titlebar,
+html.theta-theme-light .admin-hat-toc {
+  background: rgba(250, 244, 224, 0.86);
+}
+
+html.theta-theme-light .admin-hat-rule-box,
+html.theta-theme-light .admin-hat-tool-card,
+html.theta-theme-light .admin-hat-definition-grid article,
+html.theta-theme-light .admin-hat-tool-grid > div,
+html.theta-theme-light .admin-hat-figure-callouts li {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+html.theta-theme-light .admin-hat-figure {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(142, 111, 28, 0.12), transparent 32%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(244, 237, 213, 0.96));
+}
+
+@media (max-width: 760px) {
+  .admin-hat-window {
+    border-radius: 0;
+    height: 100dvh !important;
+    left: 0;
+    max-height: none;
+    max-width: none;
+    min-height: 100dvh;
+    min-width: 100vw;
+    top: 0;
+    transform: none !important;
+    width: 100vw !important;
+  }
+
+  .admin-hat-titlebar,
+  .admin-hat-section-heading,
+  .admin-hat-tool-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-hat-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-hat-toc {
+    border-bottom: 1px solid rgba(255, 216, 95, 0.16);
+    border-right: 0;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 12px;
+  }
+
+  .admin-hat-toc-title {
+    align-self: center;
+    flex: 0 0 auto;
+  }
+
+  .admin-hat-toc button {
+    flex: 0 0 auto;
+  }
+
+  .admin-hat-content {
+    padding: 16px;
+  }
+
+  .admin-hat-figure-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-hat-resize-handle {
+    display: none;
+  }
+}
+
 .settings-card-grid {
   display: grid;
   gap: 16px;
