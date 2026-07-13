@@ -342,7 +342,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         {isSignedIn ? <AccountActorSwitcher activeActorUserId={actorPicker.activeActorUserId} actors={actorPicker.actors} /> : null}
         <ControlPanelNav counts={counts} sections={navSections} />
       </aside>
-      <main className="main-surface">{children}</main>
+      <main aria-label="Main content" className="main-surface" tabIndex={0}>{children}</main>
       {showAdRail ? (
         <aside className="ad-rail">
           <section className="ad-rail-card">
