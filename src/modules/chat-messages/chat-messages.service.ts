@@ -1,7 +1,9 @@
 import { constants, createPublicKey, publicEncrypt } from "crypto";
 import {
   ChatAttachmentKind,
+  ChatReplyStyle,
   ChatThreadType,
+  FeedReactionType,
   MediaAssetStatus,
   MediaVisibility,
   ProfileVisibility,
@@ -29,6 +31,7 @@ import {
   MAX_CHAT_ATTACHMENTS_PER_MESSAGE,
   MAX_CHAT_MESSAGE_CHARACTERS,
   MAX_CHAT_TOTAL_ATTACHMENT_BYTES,
+  reactToChatMessageSchema,
   sendChatMessageSchema,
   type ChatAttachmentView,
   type ChatMessageView,
@@ -56,6 +59,36 @@ function chatAttachmentInclude() {
     },
     take: MAX_CHAT_ATTACHMENTS_PER_MESSAGE
   };
+}
+
+function chatMessageInclude() {
+  return {
+    sender: {
+      include: {
+        profile: true
+      }
+    },
+    attachments: chatAttachmentInclude(),
+    replyTo: {
+      include: {
+        sender: {
+          include: {
+            profile: true
+          }
+        },
+        attachments: {
+          select: { id: true },
+          take: 1
+        }
+      }
+    },
+    reactions: {
+      select: {
+        type: true,
+        userId: true
+      }
+    }
+  } as const;
 }
 
 function withChatDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
@@ -164,19 +197,39 @@ function toAttachmentView(
 }
 
 type ChatMessageRecord = Prisma.ChatMessageGetPayload<{
-  include: {
-    sender: { include: { profile: true } };
-    attachments: { include: { mediaAsset: true } };
-  };
+  include: ReturnType<typeof chatMessageInclude>;
 }>;
 
-function toMessageView(message: ChatMessageRecord): ChatMessageView {
+function chatReactionSummary(currentUserId: string, message: Pick<ChatMessageRecord, "reactions">) {
+  return Object.values(FeedReactionType)
+    .map((type) => {
+      const reactions = message.reactions.filter((reaction) => reaction.type === type);
+      return {
+        type,
+        count: reactions.length,
+        reactedByCurrentUser: reactions.some((reaction) => reaction.userId === currentUserId)
+      };
+    })
+    .filter((reaction) => reaction.count > 0);
+}
+
+function toMessageView(currentUserId: string, message: ChatMessageRecord): ChatMessageView {
   return {
     id: message.id,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
     sender: toPersonView(message.sender),
-    attachments: message.attachments.map(toAttachmentView)
+    attachments: message.attachments.map(toAttachmentView),
+    replyTo: message.replyTo
+      ? {
+          id: message.replyTo.id,
+          body: message.replyTo.body,
+          sender: toPersonView(message.replyTo.sender),
+          hasAttachments: message.replyTo.attachments.length > 0
+        }
+      : null,
+    replyStyle: message.replyStyle,
+    reactions: chatReactionSummary(currentUserId, message)
   };
 }
 
@@ -221,10 +274,7 @@ function toThreadView(
     include: {
       participants: { include: { user: { include: { profile: true } } } };
       messages: {
-        include: {
-          sender: { include: { profile: true } };
-          attachments: { include: { mediaAsset: true } };
-        };
+        include: ReturnType<typeof chatMessageInclude>;
       };
     };
   }>
@@ -240,7 +290,7 @@ function toThreadView(
     lastMessageAt: latestVisibleMessage?.createdAt.toISOString() ?? null,
     unread: threadUnreadForUser(currentUserId, thread.participants, latestVisibleMessage?.createdAt ?? null),
     participants: thread.participants.map((participant) => toPersonView(participant.user)),
-    lastMessage: latestVisibleMessage ? toMessageView(latestVisibleMessage) : null
+    lastMessage: latestVisibleMessage ? toMessageView(currentUserId, latestVisibleMessage) : null
   };
 }
 
@@ -250,10 +300,7 @@ function toThreadDetailView(
     include: {
       participants: { include: { user: { include: { profile: true } } } };
       messages: {
-        include: {
-          sender: { include: { profile: true } };
-          attachments: { include: { mediaAsset: true } };
-        };
+        include: ReturnType<typeof chatMessageInclude>;
       };
     };
   }>,
@@ -274,7 +321,7 @@ function toThreadDetailView(
   return {
     ...toThreadView(currentUserId, threadForSummary),
     messages: messages.map((message) => ({
-      ...toMessageView(message),
+      ...toMessageView(currentUserId, message),
       deliveryState: messageDeliveryState(currentUserId, message, thread.participants)
     })),
     messagePage: {
@@ -594,10 +641,7 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
         senderUserId: input.senderUserId,
         body
       },
-      include: {
-        sender: { include: { profile: true } },
-        attachments: chatAttachmentInclude()
-      }
+      include: chatMessageInclude()
     });
 
     await tx.chatThread.update({
@@ -658,14 +702,7 @@ export async function listChatThreads(userId: string): Promise<ChatThreadView[]>
           where: visibleChatMessageWhere(context),
           orderBy: { createdAt: "desc" },
           take: 1,
-          include: {
-            sender: {
-              include: {
-                profile: true
-              }
-            },
-            attachments: chatAttachmentInclude()
-          }
+          include: chatMessageInclude()
         }
       },
       orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
@@ -750,14 +787,7 @@ export async function getChatThread(userId: string, threadId: string, page?: unk
           where: visibleChatMessageWhere(context, pageQuery.where),
           orderBy: pageQuery.orderBy,
           take: pageQuery.take,
-          include: {
-            sender: {
-              include: {
-                profile: true
-              }
-            },
-            attachments: chatAttachmentInclude()
-          }
+          include: chatMessageInclude()
         }
       }
     }),
@@ -769,14 +799,7 @@ export async function getChatThread(userId: string, threadId: string, page?: unk
         }
       }),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      include: {
-        sender: {
-          include: {
-            profile: true
-          }
-        },
-        attachments: chatAttachmentInclude()
-      }
+      include: chatMessageInclude()
     })
   ]);
 
@@ -892,14 +915,7 @@ export async function findOrCreateDirectChatThread(currentUserId: string, input:
         }
       },
       messages: {
-        include: {
-          sender: {
-            include: {
-              profile: true
-            }
-          },
-          attachments: chatAttachmentInclude()
-        }
+        include: chatMessageInclude()
       }
     }
   });
@@ -969,14 +985,7 @@ export async function createGroupChatThread(currentUserId: string, input: unknow
         }
       },
       messages: {
-        include: {
-          sender: {
-            include: {
-              profile: true
-            }
-          },
-          attachments: chatAttachmentInclude()
-        }
+        include: chatMessageInclude()
       }
     }
   });
@@ -1001,6 +1010,22 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
 
   if (!context.userId) {
     return { ok: false as const, error: "Chat not found." };
+  }
+
+  const replyTarget = parsed.data.replyToMessageId
+    ? await prisma.chatMessage.findFirst({
+        where: {
+          id: parsed.data.replyToMessageId,
+          threadId: parsed.data.threadId,
+          deletedAt: null,
+          thread: scopeChatThreadWhere(context, "interact", {})
+        },
+        select: { id: true }
+      })
+    : null;
+
+  if (parsed.data.replyToMessageId && !replyTarget) {
+    return { ok: false as const, error: "The message you are replying to is no longer available." };
   }
 
   const mediaAssetIds = [...new Set(parsed.data.attachments.map((attachment) => attachment.mediaAssetId))];
@@ -1048,6 +1073,8 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
       data: {
         threadId: parsed.data.threadId,
         senderUserId,
+        replyToMessageId: replyTarget?.id,
+        replyStyle: replyTarget ? parsed.data.replyStyle ?? ChatReplyStyle.REPLY : null,
         body: parsed.data.body?.trim() || null,
         attachments: {
           create: parsed.data.attachments.map((attachment) => {
@@ -1065,14 +1092,7 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
           })
         }
       },
-      include: {
-        sender: {
-          include: {
-            profile: true
-          }
-        },
-        attachments: chatAttachmentInclude()
-      }
+      include: chatMessageInclude()
     });
 
     await tx.chatThread.update({
@@ -1139,7 +1159,83 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     attachmentCount: parsed.data.attachments.length
   });
 
-  return { ok: true as const, message: toMessageView(message) };
+  return { ok: true as const, message: toMessageView(senderUserId, message) };
+}
+
+export async function reactToChatMessage(userId: string, input: unknown) {
+  const parsed = reactToChatMessageSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid reaction." };
+  }
+
+  const context = await resolveChatAccessContext(userId);
+  if (!context.userId) {
+    return { ok: false as const, error: "Chat message not found." };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const message = await tx.chatMessage.findFirst({
+      where: {
+        id: parsed.data.messageId,
+        deletedAt: null,
+        thread: scopeChatThreadWhere(context, "interact", {})
+      },
+      select: { id: true }
+    });
+
+    if (!message) return null;
+
+    const existing = await tx.chatMessageReaction.findUnique({
+      where: {
+        messageId_userId: {
+          messageId: message.id,
+          userId
+        }
+      }
+    });
+
+    if (existing?.type === parsed.data.type) {
+      await tx.chatMessageReaction.delete({ where: { id: existing.id } });
+    } else {
+      await tx.chatMessageReaction.upsert({
+        where: {
+          messageId_userId: {
+            messageId: message.id,
+            userId
+          }
+        },
+        create: {
+          messageId: message.id,
+          userId,
+          type: parsed.data.type
+        },
+        update: {
+          type: parsed.data.type
+        }
+      });
+    }
+
+    return tx.chatMessageReaction.findMany({
+      where: { messageId: message.id },
+      select: { type: true, userId: true }
+    });
+  });
+
+  if (!result) {
+    return { ok: false as const, error: "Chat message not found or messaging is blocked." };
+  }
+
+  await diagnostics.info(MODULE_KEY, "Chat message reaction changed.", {
+    userId,
+    messageId: parsed.data.messageId,
+    type: parsed.data.type
+  });
+
+  return {
+    ok: true as const,
+    reactions: chatReactionSummary(userId, { reactions: result })
+  };
 }
 
 export async function markChatThreadRead(userId: string, threadId: string) {

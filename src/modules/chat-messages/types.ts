@@ -1,4 +1,4 @@
-import { ChatAttachmentKind, ChatThreadType } from "@prisma/client";
+import { ChatAttachmentKind, ChatReplyStyle, ChatThreadType, FeedReactionType } from "@prisma/client";
 import { z } from "zod";
 import { cuidIdSchema } from "@/lib/platform/validation";
 
@@ -27,11 +27,21 @@ export const sendChatMessageSchema = z
   .object({
     threadId: z.string().min(1),
     body: z.string().max(MAX_CHAT_MESSAGE_CHARACTERS).optional().or(z.literal("")),
-    attachments: z.array(sendChatAttachmentSchema).max(MAX_CHAT_ATTACHMENTS_PER_MESSAGE).default([])
+    attachments: z.array(sendChatAttachmentSchema).max(MAX_CHAT_ATTACHMENTS_PER_MESSAGE).default([]),
+    replyToMessageId: cuidIdSchema.optional().nullable(),
+    replyStyle: z.nativeEnum(ChatReplyStyle).optional().nullable()
   })
   .refine((value) => Boolean(value.body?.trim()) || value.attachments.length > 0, {
     message: "Write a message or attach a file."
+  })
+  .refine((value) => Boolean(value.replyToMessageId) || !value.replyStyle, {
+    message: "Choose a message before selecting a reply style."
   });
+
+export const reactToChatMessageSchema = z.object({
+  messageId: cuidIdSchema,
+  type: z.nativeEnum(FeedReactionType)
+});
 
 export const createChatUploadIntentSchema = z.object({
   checksumSha256: z.string().trim().max(160).optional().nullable(),
@@ -97,6 +107,18 @@ export type ChatMessageView = {
   createdAt: string;
   sender: ChatPersonView;
   attachments: ChatAttachmentView[];
+  replyTo?: {
+    id: string;
+    body?: string | null;
+    sender: ChatPersonView;
+    hasAttachments: boolean;
+  } | null;
+  replyStyle?: ChatReplyStyle | null;
+  reactions?: Array<{
+    type: FeedReactionType;
+    count: number;
+    reactedByCurrentUser: boolean;
+  }>;
   deliveryState?: "SENDING" | "SENT" | "SEEN" | "FAILED";
 };
 
