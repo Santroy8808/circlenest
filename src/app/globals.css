@@ -4446,12 +4446,10 @@ a {
   width: 100%;
 }
 
-.feed-reply-button > span:first-child,
-.feed-share-button > span:first-child {
-  color: var(--gold);
-  filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.32));
-  font-size: 2em;
-  line-height: 1;
+.feed-reply-button > .action-glyph,
+.feed-share-button > .action-glyph {
+  height: 2.6rem;
+  width: 2.6rem;
 }
 
 .feed-reaction-trigger:hover,
@@ -4491,17 +4489,33 @@ a {
   transform: translateY(-1px);
 }
 
-.theta-like-triangle {
-  color: var(--gold);
+.action-glyph {
   display: inline-block;
-  fill: none;
   filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.35));
-  height: 1.05em;
+  height: 2rem;
   line-height: 0;
-  stroke: currentColor;
-  stroke-linejoin: round;
-  stroke-width: 2.6;
-  width: 1.05em;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  width: 2rem;
+}
+
+.theta-like-triangle {
+  height: 2.2rem;
+  width: 2.2rem;
+}
+
+.action-glyph-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.action-glyph-button .action-glyph {
+  height: 1.85rem;
+  width: 1.85rem;
 }
 
 .group-reaction-button {
@@ -4512,6 +4526,8 @@ a {
 
 .group-reaction-button .theta-like-triangle {
   flex: 0 0 auto;
+  height: 1.7rem;
+  width: 1.7rem;
 }
 
 .feed-reaction-popover {
@@ -7837,13 +7853,20 @@ html.theta-theme-light .listing-square-facts {
 }
 
 .storefront-forum-action {
+  align-items: center;
   border: 1px solid rgba(214, 178, 74, 0.24);
   border-radius: 999px;
   color: var(--text);
+  display: inline-flex;
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1;
   padding: 7px 10px;
+}
+
+.storefront-forum-action .action-glyph {
+  height: 1.75rem;
+  width: 1.75rem;
 }
 
 .storefront-forum-action:hover {
@@ -10451,16 +10474,25 @@ body,
 }
 
 .gallery-comment-action-button {
+  align-items: center;
   background: rgba(8, 12, 20, 0.32);
   border: 1px solid rgba(214, 178, 74, 0.2);
   border-radius: 999px;
   color: var(--text);
   cursor: pointer;
+  display: inline-flex;
   font-size: 0.78rem;
   font-weight: 900;
   min-height: 31px;
+  min-width: 44px;
+  justify-content: center;
   padding: 5px 11px;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.gallery-comment-action-button .action-glyph {
+  height: 1.8rem;
+  width: 1.8rem;
 }
 
 .gallery-comment-action-button:hover,

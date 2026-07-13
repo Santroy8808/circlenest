@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
+import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type {
   GalleryAssetCommentView,
@@ -208,12 +209,12 @@ function GalleryCommentThreadItem({
             state={{ counts: comment.reactions, reactors: comment.reactionReactors }}
           />
           {canReply ? (
-            <button className="gallery-comment-action-button" onClick={() => onReply(comment)} type="button">
-              Reply
+            <button aria-label="Reply" className="gallery-comment-action-button" onClick={() => onReply(comment)} title="Reply" type="button">
+              <ActionGlyph kind="comment" />
             </button>
           ) : null}
-          <button className="gallery-comment-action-button is-share" onClick={() => onShare(comment.id)} type="button">
-            Share
+          <button aria-label="Share" className="gallery-comment-action-button is-share" onClick={() => onShare(comment.id)} title="Share" type="button">
+            <ActionGlyph kind="share" />
           </button>
         </div>
       </div>

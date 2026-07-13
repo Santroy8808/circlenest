@@ -8,6 +8,7 @@ import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { FeedCursor } from "@/modules/feed-stream/feed-pagination";
@@ -982,10 +983,10 @@ function FeedCommentRow({
               </button>
             ) : null}
             <button aria-label="Reply to comment" className="comment-reply-link comment-reply-icon-link" onClick={() => onReply(comment)} title="Reply" type="button">
-              <span aria-hidden="true">{"\u21A9"}</span>
+              <ActionGlyph kind="comment" />
             </button>
             <button aria-label="Share comment" className="comment-share-link comment-share-icon-link" onClick={() => onShare(comment.id)} title="Share" type="button">
-              <span aria-hidden="true">{"\u21AA"}</span>
+              <ActionGlyph kind="share" />
             </button>
           </div>
         </div>
@@ -1806,7 +1807,7 @@ export function FeedClient({
                 />
                 {showThreadLinks ? (
                   <Link aria-label="Comment" className="feed-reply-button" href={`/posts/${post.id}?reply=op`} title="Comment">
-                    <span aria-hidden="true">{"\uD83D\uDDE8\uFE0E"}</span>
+                    <ActionGlyph kind="comment" />
                     {commentSummary > 0 ? <span>{commentSummary}</span> : null}
                   </Link>
                 ) : (
@@ -1817,7 +1818,7 @@ export function FeedClient({
                     title="Comment"
                     type="button"
                   >
-                    <span aria-hidden="true">{"\uD83D\uDDE8\uFE0E"}</span>
+                    <ActionGlyph kind="comment" />
                     {commentSummary > 0 ? <span>{commentSummary}</span> : null}
                   </button>
                 )}
@@ -1830,7 +1831,7 @@ export function FeedClient({
                     title="Share"
                     type="button"
                   >
-                    <span aria-hidden="true">{"\u2934"}</span>
+                    <ActionGlyph kind="share" />
                   </button>
                   {shareMenus[post.id] ? (
                     <div className="feed-share-popover" role="menu">

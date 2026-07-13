@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
+import { ActionGlyph } from "@/components/reactions/action-glyph";
 import type { StorefrontForumPostView, StorefrontForumTopicDetailView, StorefrontForumView } from "@/modules/storefront-forum/types";
 
 type StorefrontForumTopicClientProps = {
@@ -63,8 +64,8 @@ function ForumPost({
         </a>
       ) : null}
       <div className="storefront-forum-actions">
-        <button className="storefront-forum-action" onClick={() => onReply(post)} type="button">
-          Reply
+        <button aria-label="Reply" className="storefront-forum-action action-glyph-button" onClick={() => onReply(post)} title="Reply" type="button">
+          <ActionGlyph kind="comment" />
         </button>
         <button
           className="storefront-forum-action"
@@ -72,9 +73,11 @@ function ForumPost({
             const url = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
             void navigator.clipboard?.writeText(url);
           }}
+          aria-label="Share"
+          title="Share"
           type="button"
         >
-          Share
+          <ActionGlyph kind="share" />
         </button>
         {post.viewerCanDelete ? (
           <button className="storefront-forum-action is-danger" onClick={() => onDelete(post.id)} type="button">
@@ -191,14 +194,16 @@ export function StorefrontForumTopicClient({ profile, topic, viewerCanManage }: 
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className="btn-secondary"
+              aria-label="Share topic"
+              className="btn-secondary action-glyph-button"
               onClick={() => {
                 void navigator.clipboard?.writeText(window.location.href);
                 setMessage("Topic link copied.");
               }}
+              title="Share"
               type="button"
             >
-              Share
+              <ActionGlyph kind="share" />
             </button>
             {viewerCanManage ? (
               <button className="btn-secondary" onClick={deleteTopic} type="button">

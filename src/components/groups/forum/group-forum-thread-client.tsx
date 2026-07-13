@@ -6,6 +6,7 @@ import { useRef, useState, useTransition } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type { GroupForumPostView, GroupForumThreadDetailView } from "@/modules/group-forum/types";
 
@@ -335,8 +336,8 @@ export function GroupForumThreadClient({
                   </button>
                 ))}
                 {viewerCanPost ? (
-                  <button className="btn-secondary px-3 py-2 text-sm" onClick={() => setReplyTarget(post)} type="button">
-                    Reply
+                  <button aria-label="Reply" className="btn-secondary action-glyph-button px-3 py-2 text-sm" onClick={() => setReplyTarget(post)} title="Reply" type="button">
+                    <ActionGlyph kind="comment" />
                   </button>
                 ) : null}
               </div>
