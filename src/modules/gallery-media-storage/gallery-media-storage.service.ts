@@ -106,6 +106,12 @@ function purposeForSource(source: UploadSource) {
   return UploadIntentPurpose.GALLERY;
 }
 
+function visibilityForSource(source: UploadSource, requestedVisibility: MediaVisibility) {
+  return source === "STREAM_POST" || source === "STREAM_REPLY"
+    ? MediaVisibility.PUBLIC
+    : requestedVisibility;
+}
+
 class GalleryUploadCompletionError extends Error {
   constructor(message: string) {
     super(message);
@@ -349,11 +355,12 @@ export async function createGalleryUploadIntent(userId: string, input: unknown) 
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload." };
   }
 
+  const visibility = visibilityForSource(parsed.data.source, parsed.data.visibility);
   const result = await createDurableUploadIntent(userId, {
     purpose: purposeForSource(parsed.data.source),
     mimeType: parsed.data.mimeType,
     sizeBytes: parsed.data.sizeBytes,
-    visibility: parsed.data.visibility,
+    visibility,
     checksumSha256: parsed.data.checksumSha256
   });
 
@@ -392,6 +399,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
   }
 
   const purpose = purposeForSource(parsed.data.source);
+  const visibility = visibilityForSource(parsed.data.source, parsed.data.visibility);
   const verification = await verifyDurableUploadIntent(userId, { intentId: parsed.data.intentId });
 
   if (!verification.ok) {
@@ -407,7 +415,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     verification.intent.storageKey !== parsed.data.storageKey ||
     verification.intent.mimeType !== parsed.data.mimeType ||
     verification.intent.sizeBytes !== String(parsed.data.sizeBytes) ||
-    verification.intent.visibility !== parsed.data.visibility
+    verification.intent.visibility !== visibility
   ) {
     return { ok: false as const, error: "Upload details did not match the original intent." };
   }
@@ -421,7 +429,7 @@ export async function completeGalleryUpload(userId: string, input: unknown) {
     if (
       thumbnailVerification.intent.purpose !== purpose ||
       thumbnailVerification.intent.storageKey !== parsed.data.thumbnailStorageKey ||
-      thumbnailVerification.intent.visibility !== parsed.data.visibility ||
+      thumbnailVerification.intent.visibility !== visibility ||
       thumbnailVerification.intent.mimeType !== "image/jpeg"
     ) {
       return { ok: false as const, error: "Thumbnail details did not match the original intent." };
