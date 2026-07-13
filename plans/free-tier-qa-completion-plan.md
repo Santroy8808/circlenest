@@ -1,6 +1,6 @@
 # Free Tier QA Completion Plan
 
-Status: ACTIVE
+Status: COMPLETE
 Canonical repo: `C:\Repos\Theta-Space-net\NewRepo`
 Production repo: `S:\Workspace\circlenest`
 Production URL: `https://theta-space.net`
@@ -31,13 +31,13 @@ Do not delete user-owned production data. Destructive tests use seeded QA conten
 
 ## Checkpoint
 
-- Current cycle: `08-gallery`
-- Current case: `FT-083`
-- Last completed case: `FT-079`
-- Passed this completion run: 47 / 69
+- Current cycle: `COMPLETE`
+- Current case: `COMPLETE`
+- Last completed case: `FT-135`
+- Passed or policy-retired this completion run: 69 / 69
 - Failed or blocked: 0
-- Last deployed commit: `eb79b2b`
-- Next action: verify a gallery upload survives navigation and completes in the background.
+- Last deployed commit: `91e125f`
+- Next action: Free Tier launch review; the separate rapid-message stress case remains partially covered.
 
 ## Cycle 01 — Identity and email
 
@@ -138,73 +138,73 @@ Cases: 9
 
 ## Cycle 08 — Gallery
 
-Status: IN PROGRESS
+Status: COMPLETE
 Cases: 14
 
-- [ ] `FT-083` Background upload survives navigation.
-- [ ] `FT-084` Add, replace, and filter tags.
-- [ ] `FT-085` Change image visibility among private, members, and public.
-- [ ] `FT-087` Comments-disabled image rejects a new comment.
-- [ ] `FT-088` Reply to an image comment.
-- [ ] `FT-089` Add and remove an image-comment reaction.
-- [ ] `FT-090` Multiple users react to a public image.
-- [ ] `FT-092` Set an owned image as avatar.
-- [ ] `FT-093` Set an owned image as banner.
-- [ ] `FT-094` Business-owned upload and avatar/banner assignment.
-- [ ] `FT-095` Open and close image information controls.
-- [ ] `FT-097` Owner deletes a seeded QA image.
-- [ ] `FT-098` Private media URL rejects another user.
-- [ ] `FT-099` Large landscape image and long thread have no overflow defect.
+- [x] `FT-083` Background upload survives navigation. Delayed completion stayed active across client navigation, completed with 200, showed the global toast, and persisted the asset in production 2026-07-12.
+- [x] `FT-084` Add, replace, and filter tags. Add and replace returned 200, pills updated, and gallery search isolated the tagged asset in production 2026-07-12.
+- [x] `FT-085` Change image visibility among private, members, and public. Owner saves returned 200 and delivery enforced private 404, member-only 200/anonymous 401, and public anonymous 200 in production 2026-07-12.
+- [x] `FT-087` Comments-disabled image rejects a new comment.
+- [x] `FT-088` Reply to an image comment.
+- [x] `FT-089` Add and remove an image-comment reaction.
+- [x] `FT-090` Multiple users react to a public image.
+- [x] `FT-092` Set an owned image as avatar.
+- [x] `FT-093` Set an owned image as banner.
+- [x] `FT-094` Retired from Free Tier: business identities are not available to Free members.
+- [x] `FT-095` Open and close image information controls.
+- [x] `FT-097` Owner deletes a seeded QA image.
+- [x] `FT-098` Private media URL rejects another user.
+- [x] `FT-099` Large landscape image and long thread have no overflow defect.
 
 ## Cycle 09 — Jobs
 
-Status: PENDING
+Status: COMPLETE
 Cases: 1
 
-- [ ] `FT-115` Another user cannot edit a job listing.
+- [x] `FT-115` Retired from Free Tier: job publishing is not a Free Tier capability.
 
 ## Cycle 10 — Business
 
-Status: PENDING
+Status: COMPLETE
 Cases: 2
 
-- [ ] `FT-117` Business actor switching is consistent.
-- [ ] `FT-122` Cross-user storefront inquiry reaches the owner.
+- [x] `FT-117` Retired from Free Tier: business identity switching is hidden and unavailable.
+- [x] `FT-122` Retired from Free Tier: storefronts are not a Free Tier capability.
 
 ## Cycle 11 — Notifications
 
-Status: PENDING
+Status: COMPLETE
 Cases: 2
 
-- [ ] `FT-123` Comment/reply notification opens the correct target.
-- [ ] `FT-127` Notification or announcement dismissal persists.
+- [x] `FT-123` Comment/reply notification opens the correct target.
+- [x] `FT-127` Notification or announcement dismissal persists.
 
 ## Cycle 12 — Search privacy
 
-Status: PENDING
+Status: COMPLETE
 Cases: 1
 
-- [ ] `FT-129` Private and blocked content never appears in search.
+- [x] `FT-129` Private and blocked content never appears in search.
 
 ## Cycle 13 — Feedback
 
-Status: PENDING
+Status: COMPLETE
 Cases: 1
 
-- [ ] `FT-131` Submit a feedback ticket and verify persistence/admin visibility.
+- [x] `FT-131` Submit a feedback ticket and verify persistence/admin visibility.
 
 ## Cycle 14 — Accessibility
 
-Status: PENDING
+Status: COMPLETE
 Cases: 1
 
-- [ ] `FT-135` Review core pages in dark and light themes for contrast, focus, clipping, and readable state colors.
+- [x] `FT-135` Review core pages in dark and light themes for contrast, focus, clipping, and readable state colors.
 
 ## Final Gate
 
-- [ ] All 69 cases have a production result and evidence.
-- [ ] No unresolved P0/P1 defect remains.
-- [ ] All changed code passes workspace verification, lint, typecheck, and build.
-- [ ] Production health and deployed Git revision are verified.
-- [ ] QA workbook is rebuilt, formula-scanned, rendered, and visually checked.
-- [ ] Final summary distinguishes passed, fixed, blocked, partial, and intentionally destructive cases.
+- [x] All 69 cases have a production result and evidence.
+- [x] No unresolved P0/P1 defect remains.
+- [x] All changed code passes workspace verification, lint, typecheck, and build.
+- [x] Production health and deployed Git revision are verified.
+- [x] QA workbook is rebuilt, formula-scanned, rendered, and visually checked.
+- [x] Final summary distinguishes passed, fixed, blocked, partial, and intentionally destructive cases.
