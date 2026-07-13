@@ -2,7 +2,7 @@
 
 import { ChatAttachmentKind, ChatReplyStyle, ChatThreadType, FeedReactionType } from "@prisma/client";
 import Link from "next/link";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
@@ -53,6 +53,13 @@ type ChatContactFilter = (typeof contactFilters)[number]["key"];
 type ChatReplyTarget = {
   message: ChatMessageView;
   style: ChatReplyStyle;
+};
+
+type ChatReactionMenu = {
+  messageId: string;
+  left: number;
+  openAbove: boolean;
+  top: number;
 };
 
 function initials(name: string) {
@@ -265,7 +272,7 @@ export function MessagesClient({
   const [groupParticipants, setGroupParticipants] = useState<ChatPersonView[]>([]);
   const [body, setBody] = useState("");
   const [replyTarget, setReplyTarget] = useState<ChatReplyTarget | null>(null);
-  const [reactionMenuMessageId, setReactionMenuMessageId] = useState<string | null>(null);
+  const [reactionMenu, setReactionMenu] = useState<ChatReactionMenu | null>(null);
   const [attachments, setAttachments] = useState<QueuedAttachment[]>([]);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -634,12 +641,12 @@ export function MessagesClient({
 
   function beginMessageReply(message: ChatMessageView, style: ChatReplyStyle) {
     setReplyTarget({ message, style });
-    setReactionMenuMessageId(null);
+    setReactionMenu(null);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   }
 
   async function reactToMessage(messageId: string, type: FeedReactionType) {
-    setReactionMenuMessageId(null);
+    setReactionMenu(null);
     setError("");
 
     try {
@@ -1174,31 +1181,55 @@ export function MessagesClient({
                       <div className="chat-message-actions">
                         <div className="chat-message-reaction-menu">
                           <button
-                            aria-expanded={reactionMenuMessageId === message.id}
+                            aria-expanded={reactionMenu?.messageId === message.id}
                             aria-label="React to message"
                             className="chat-message-action-button"
-                            onClick={() => setReactionMenuMessageId((current) => (current === message.id ? null : message.id))}
+                            onClick={(event) => {
+                              if (reactionMenu?.messageId === message.id) {
+                                setReactionMenu(null);
+                                return;
+                              }
+                              const bounds = event.currentTarget.getBoundingClientRect();
+                              const estimatedWidth = 286;
+                              setReactionMenu({
+                                messageId: message.id,
+                                left: Math.max(8, Math.min(bounds.left, window.innerWidth - estimatedWidth - 8)),
+                                openAbove: bounds.top >= 64,
+                                top: bounds.top >= 64 ? bounds.top - 8 : bounds.bottom + 8
+                              });
+                            }}
                             title="React"
                             type="button"
                           >
                             <ActionGlyph kind="react" />
                           </button>
-                          {reactionMenuMessageId === message.id ? (
-                            <div className="chat-message-reaction-popover" role="menu">
-                              {chatReactionChoices.map((reaction) => (
-                                <button
-                                  aria-label={reaction.label}
-                                  key={reaction.type}
-                                  onClick={() => void reactToMessage(message.id, reaction.type)}
-                                  role="menuitem"
-                                  title={reaction.label}
-                                  type="button"
+                          {reactionMenu?.messageId === message.id && typeof document !== "undefined"
+                            ? createPortal(
+                                <div
+                                  className={
+                                    reactionMenu.openAbove
+                                      ? "chat-message-reaction-popover is-floating opens-above"
+                                      : "chat-message-reaction-popover is-floating opens-below"
+                                  }
+                                  role="menu"
+                                  style={{ left: reactionMenu.left, top: reactionMenu.top }}
                                 >
-                                  <ChatReactionGlyph type={reaction.type} />
-                                </button>
-                              ))}
-                            </div>
-                          ) : null}
+                                  {chatReactionChoices.map((reaction) => (
+                                    <button
+                                      aria-label={reaction.label}
+                                      key={reaction.type}
+                                      onClick={() => void reactToMessage(message.id, reaction.type)}
+                                      role="menuitem"
+                                      title={reaction.label}
+                                      type="button"
+                                    >
+                                      <ChatReactionGlyph type={reaction.type} />
+                                    </button>
+                                  ))}
+                                </div>,
+                                document.body
+                              )
+                            : null}
                         </div>
                         <button
                           aria-label="Reply to message"

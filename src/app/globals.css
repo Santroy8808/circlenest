@@ -6436,8 +6436,8 @@ html.theta-theme-light .chat-message::before {
 }
 
 .chat-message-action-button .action-glyph {
-  height: 1.75rem;
-  width: 1.75rem;
+  height: 1.3125rem;
+  width: 1.3125rem;
 }
 
 .chat-message-action-button.is-quote {
@@ -6472,6 +6472,20 @@ html.theta-theme-light .chat-message::before {
   z-index: 20;
 }
 
+.chat-message-reaction-popover.is-floating {
+  bottom: auto;
+  position: fixed;
+  z-index: 10000;
+}
+
+.chat-message-reaction-popover.is-floating.opens-above {
+  transform: translateY(-100%);
+}
+
+.chat-message-reaction-popover.is-floating.opens-below {
+  transform: none;
+}
+
 .chat-message-group.is-mine .chat-message-reaction-popover {
   left: auto;
   right: 0;
@@ -6479,15 +6493,15 @@ html.theta-theme-light .chat-message::before {
 
 .chat-message-reaction-popover button {
   border: 0;
-  font-size: 1.2rem;
-  height: 38px;
-  width: 38px;
+  font-size: 0.9rem;
+  height: 30px;
+  width: 30px;
 }
 
 .chat-message-reaction-popover .theta-like-triangle,
 .chat-message-reaction-chip .theta-like-triangle {
-  height: 1.4rem;
-  width: 1.4rem;
+  height: 1.05rem;
+  width: 1.05rem;
 }
 
 .chat-message-reaction-chip {
