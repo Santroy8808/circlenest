@@ -4197,17 +4197,15 @@ a {
   --feed-stream-text-card-height: 360px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   padding: 16px 18px;
 }
 
 .feed-post.is-stream-card.has-media {
-  height: var(--feed-stream-image-card-height);
   min-height: var(--feed-stream-image-card-height);
 }
 
 .feed-post.is-stream-card.is-text-only {
-  height: var(--feed-stream-text-card-height);
   min-height: var(--feed-stream-text-card-height);
 }
 
@@ -4218,18 +4216,19 @@ a {
 .feed-post.is-stream-card .feed-post-body-preview {
   flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+  overflow-wrap: anywhere;
   padding-bottom: 2px;
 }
 
 .feed-post.is-stream-card.has-media .feed-post-body-preview {
-  max-height: calc(5.1em + 18px);
-  min-height: calc(3.4em + 10px);
+  max-height: none;
+  min-height: 0;
 }
 
 .feed-post.is-stream-card.is-text-only .feed-post-body-preview {
   flex: 1 1 auto;
-  max-height: 220px;
+  max-height: none;
 }
 
 .feed-post.is-stream-card .feed-read-more-button {
@@ -4275,12 +4274,12 @@ a {
 
 .feed-post.is-stream-card .feed-comment-preview {
   flex: 0 0 auto;
-  max-height: 150px;
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
 }
 
 .feed-post.is-stream-card.is-text-only .feed-comment-preview {
-  max-height: 110px;
+  max-height: none;
 }
 
 .feed-engagement-summary {
@@ -4828,6 +4827,15 @@ a {
   line-height: 1.28;
 }
 
+.feed-post.is-announcement .comment-bubble .feed-rich-text p,
+.feed-post.is-announcement .comment-bubble .feed-rich-text p:first-child {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.28;
+}
+
 .feed-comment-composer.is-quick-reply {
   border: 1px solid rgba(214, 178, 74, 0.14);
   border-radius: 18px;
@@ -4920,11 +4928,11 @@ a {
 }
 
 .feed-post.is-stream-card.has-media .feed-comment-preview {
-  max-height: 118px;
+  max-height: none;
 }
 
 .feed-post.is-stream-card.has-media .comment-bubble:nth-of-type(n+2) {
-  display: none;
+  display: block;
 }
 
 .people-grid {
