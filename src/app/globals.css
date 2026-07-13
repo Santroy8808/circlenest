@@ -3615,10 +3615,11 @@ a {
 
 .comment-bubble .feed-media-card img {
   border-radius: 12px;
-  height: 64px;
-  max-height: 64px;
-  object-fit: cover;
-  width: 64px;
+  height: auto;
+  max-height: 220px;
+  max-width: 100%;
+  object-fit: contain;
+  width: 160px;
 }
 
 .feed-image-preview {
