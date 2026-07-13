@@ -550,12 +550,6 @@ function ReactionButtons({
   const myReactionType = currentUserId
     ? publicQuickReactions.find((reaction) => reactors[reaction.type]?.some((reactor) => reactor.id === currentUserId))?.type
     : undefined;
-  const topReactionType =
-    myReactionType ??
-    publicQuickReactions.reduce<FeedReactionType>((current, reaction) => {
-      return (counts[reaction.type] ?? 0) > (counts[current] ?? 0) ? reaction.type : current;
-    }, publicQuickReactions[0].type);
-  const triggerReaction = reactionMeta(topReactionType);
   const detailReactors =
     detailsType === "ALL"
       ? publicQuickReactions.flatMap((reaction) => (reactors[reaction.type] ?? []).map((reactor) => ({ reaction, reactor })))
@@ -616,11 +610,11 @@ function ReactionButtons({
           aria-expanded={choicesOpen}
           aria-label="React"
           className={myReactionType ? "feed-reaction-trigger has-user-reaction" : "feed-reaction-trigger"}
-          data-tooltip={reactionTooltip(triggerReaction)}
+          data-tooltip="React"
           onClick={() => setChoicesOpen((open) => !open)}
           type="button"
         >
-          <ReactionIcon reaction={triggerReaction} />
+          <ThetaLikeTriangle />
         </button>
         <div className="feed-reaction-popover" role="menu" aria-label="Reaction options">
           {quickReactions.map((reaction) => (
