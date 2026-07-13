@@ -47,6 +47,14 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["resume", "cv", "career", "work history", "experience", "skills", "print"]
   },
   {
+    title: "Tutorial",
+    description: "Replay the guided walkthrough or jump to one section.",
+    href: "/settings/tutorial",
+    badge: "Help",
+    sensitive: false,
+    keywords: ["tutorial", "walkthrough", "guide", "help", "tour", "orientation"]
+  },
+  {
     title: "Blocked Users",
     description: "Manage blocked users and account protection rules.",
     href: "/secure-area?next=/settings/security",
@@ -145,7 +153,12 @@ export function SettingsHub({ cards }: { cards: SettingsCard[] }) {
         <div className="settings-card-grid mt-5">
           {(showingSearch ? visibleEntries : visibleCards).length > 0 ? (
             (showingSearch ? visibleEntries : visibleCards).map((entry) => (
-              <Link className="module-card rounded-md p-5" href={entry.href} key={`${entry.href}:${entry.title}`}>
+              <Link
+                className="module-card rounded-md p-5"
+                data-tutorial-target={entry.title === "Tutorial" ? "settings-tutorial-card" : undefined}
+                href={entry.href}
+                key={`${entry.href}:${entry.title}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-xl font-semibold text-[var(--gold)]">{entry.title}</h3>
                   <span className="pill rounded-full px-3 py-1 text-xs">{entry.sensitive ? "secure" : entry.badge}</span>

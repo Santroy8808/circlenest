@@ -218,7 +218,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
           <Image alt="" aria-hidden="true" height={44} src="/assets/theta-send-logo.png" width={58} />
           <span className="sr-only">Theta-Space home</span>
         </Link>
-        <form className="desktop-command-search" onSubmit={submitSearch}>
+        <form className="desktop-command-search" data-tutorial-target="global-search" onSubmit={submitSearch}>
           <label className="sr-only" htmlFor="desktop-command-search">
             Search Theta-Space
           </label>
@@ -248,6 +248,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
               aria-label={item.label}
               className={active ? "desktop-command-link is-active" : "desktop-command-link"}
               data-tooltip={item.tooltip}
+              data-tutorial-target={`top-nav-${item.key}`}
               href={item.href}
               key={item.key}
               onClick={item.key === "messages" ? toggleComm : undefined}
@@ -277,6 +278,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
               aria-pressed={theme === "light"}
               className="desktop-command-icon"
               data-tooltip="Toggle light/dark mode."
+              data-tutorial-target="theme-toggle"
               onClick={toggleTheme}
               type="button"
             >
@@ -324,7 +326,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
                 <span className="sr-only">Admin</span>
               </Link>
             ) : null}
-            <Link className="desktop-command-avatar" href="/profile" data-tooltip="Open your profile.">
+            <Link className="desktop-command-avatar" data-tutorial-target="top-nav-profile" href="/profile" data-tooltip="Open your profile.">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img alt="" src={avatarUrl} />

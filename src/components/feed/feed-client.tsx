@@ -1548,7 +1548,7 @@ export function FeedClient({
 
   return (
     <div className="feed-stream-shell">
-      <section className="feed-loop-panel surface rounded-md" aria-label="Stream controls">
+      <section className="feed-loop-panel surface rounded-md" aria-label="Stream controls" data-tutorial-target="stream-filters">
         <div className="feed-loop-copy">
           <strong>Stream</strong>
           <span>Post, react, reply, and return without losing your place.</span>
@@ -1575,7 +1575,7 @@ export function FeedClient({
         </p>
       ) : null}
       {showComposerTrigger || composerOpen ? (
-      <div className={showComposerTrigger ? "feed-communicate-wrap" : "feed-communicate-wrap is-external"}>
+      <div className={showComposerTrigger ? "feed-communicate-wrap" : "feed-communicate-wrap is-external"} data-tutorial-target="stream-composer">
         {showComposerTrigger ? (
           <button className="feed-communicate-trigger" onClick={() => setComposerOpen(true)} type="button">
             <Avatar className="feed-author-avatar is-current" displayName={composerIdentity.displayName} src={composerIdentity.avatarUrl} />

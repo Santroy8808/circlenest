@@ -11071,3 +11071,226 @@ body,
   .image-carousel-arrow { width: 2.6rem; height: 2.6rem; }
   .group-photo-carousel { min-height: 260px; }
 }
+
+.tutorial-welcome-layer,
+.tutorial-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+}
+
+.tutorial-welcome-layer {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 216, 95, 0.16), transparent 34%),
+    rgba(3, 7, 13, 0.72);
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+}
+
+.tutorial-welcome-card,
+.tutorial-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 216, 95, 0.08), transparent 42%),
+    rgba(13, 20, 33, 0.98);
+  border: 1px solid rgba(255, 216, 95, 0.46);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(0, 0, 0, 0.32) inset;
+  color: var(--text);
+}
+
+.tutorial-welcome-card {
+  border-radius: 22px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: clamp(22px, 4vw, 34px);
+}
+
+.tutorial-kicker,
+.tutorial-panel-topline span {
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.tutorial-welcome-card h2,
+.tutorial-panel h2 {
+  color: var(--gold);
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  font-weight: 850;
+  line-height: 1.12;
+  margin-top: 10px;
+}
+
+.tutorial-welcome-card p,
+.tutorial-panel p {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.65;
+  margin-top: 14px;
+}
+
+.tutorial-welcome-actions,
+.tutorial-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.tutorial-layer {
+  pointer-events: none;
+}
+
+.tutorial-panel {
+  border-radius: 18px;
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
+  padding: 18px;
+  pointer-events: auto;
+  position: fixed;
+  scrollbar-width: none;
+  z-index: 12003;
+}
+
+.tutorial-panel::-webkit-scrollbar,
+.tutorial-contents::-webkit-scrollbar {
+  display: none;
+}
+
+.tutorial-panel-topline {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.tutorial-panel-topline button,
+.tutorial-contents-toggle,
+.tutorial-contents-section button {
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0;
+}
+
+.tutorial-panel-topline button:hover,
+.tutorial-contents-toggle:hover,
+.tutorial-contents-section button:hover {
+  text-decoration: underline;
+}
+
+.tutorial-target-ring {
+  border: 2px solid rgba(255, 216, 95, 0.94);
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 13, 0.38), 0 0 22px rgba(255, 216, 95, 0.42);
+  pointer-events: none;
+  position: fixed;
+  z-index: 12001;
+}
+
+.tutorial-arrow-layer {
+  height: 100dvh;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  width: 100vw;
+  z-index: 12002;
+}
+
+.tutorial-arrow-layer line {
+  marker-end: url(#tutorial-arrow-head);
+  stroke: var(--gold);
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.tutorial-arrow-layer marker path {
+  fill: var(--gold);
+}
+
+.tutorial-missing-target {
+  border: 1px solid rgba(255, 216, 95, 0.24);
+  border-radius: 12px;
+  color: var(--text) !important;
+  padding: 10px 12px;
+}
+
+.tutorial-contents-toggle {
+  margin-top: 16px;
+}
+
+.tutorial-contents {
+  border: 1px solid rgba(255, 216, 95, 0.18);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  max-height: min(34dvh, 260px);
+  overflow: auto;
+  padding: 12px;
+  scrollbar-width: none;
+}
+
+.tutorial-contents-section {
+  display: grid;
+  gap: 4px;
+}
+
+.tutorial-contents-section span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.tutorial-actions {
+  justify-content: space-between;
+}
+
+.tutorial-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.tutorial-settings-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+html.theta-theme-light .tutorial-welcome-layer {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(190, 137, 0, 0.18), transparent 34%),
+    rgba(255, 255, 255, 0.76);
+}
+
+html.theta-theme-light .tutorial-welcome-card,
+html.theta-theme-light .tutorial-panel {
+  background:
+    linear-gradient(135deg, rgba(190, 137, 0, 0.1), transparent 42%),
+    rgba(255, 255, 255, 0.98);
+}
+
+@media (max-width: 720px) {
+  .tutorial-panel {
+    left: 14px !important;
+    max-width: calc(100vw - 28px) !important;
+    right: 14px;
+    width: auto !important;
+  }
+
+  .tutorial-welcome-actions,
+  .tutorial-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tutorial-welcome-actions button,
+  .tutorial-actions button {
+    width: 100%;
+  }
+}

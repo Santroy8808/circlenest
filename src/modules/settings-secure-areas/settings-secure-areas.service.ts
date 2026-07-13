@@ -23,6 +23,13 @@ export const settingsCards: SettingsCard[] = [
     badge: "Rules"
   },
   {
+    title: "Tutorial",
+    description: "Replay the guided Theta-Space walkthrough or jump directly to one part.",
+    href: "/settings/tutorial",
+    sensitive: false,
+    badge: "Help"
+  },
+  {
     title: "Subscription",
     description: "Your currently enabled membership, billing status, storage, and available credits.",
     href: "/secure-area?next=/settings/subscription",

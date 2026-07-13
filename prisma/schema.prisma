@@ -561,6 +561,7 @@ model User {
   onboardingCompletedAt           DateTime?
   profileOnboardingSkippedAt      DateTime?
   scientologyOnboardingSkippedAt  DateTime?
+  welcomeTutorialCompletedAt      DateTime?
   termsAcceptedAt                 DateTime?
   goodStandingDeniedAt            DateTime?
   createdAt                       DateTime                           @default(now())

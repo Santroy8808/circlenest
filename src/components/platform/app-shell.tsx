@@ -8,6 +8,7 @@ import { AccountActorSwitcher } from "@/components/platform/account-actor-switch
 import { AndroidAppControls } from "@/components/platform/android-app-controls";
 import { DesktopCommandBar } from "@/components/platform/desktop-command-bar";
 import { ShellCountsProvider } from "@/components/platform/shell-counts-provider";
+import { TutorialTour } from "@/components/platform/tutorial-tour";
 import { getAccountActorPicker } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { isAdminRole } from "@/lib/platform/roles";
@@ -18,6 +19,7 @@ import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-al
 import { tierPolicies } from "@/modules/membership-policy/policy";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
+import { getWelcomeTutorialState } from "@/modules/tutorial/tutorial.service";
 
 const homeSection: NavSection = {
   href: "/home",
@@ -89,6 +91,7 @@ const settingsSection: NavSection = {
     { label: "My Scientology", href: "/profile/scientology" },
     { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Membership", href: "/membership" },
+    { label: "Tutorial", href: "/settings/tutorial" },
     { label: "Settings", href: "/settings" }
   ]
 };
@@ -306,6 +309,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const isAndroidApp = isAndroidAppRequest();
   const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
+  const tutorialState = isSignedIn && session?.user?.id
+    ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })
+    : { shouldPrompt: false };
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
   const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn, mailEnabled, tier });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
@@ -324,7 +330,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         isSignedIn={isSignedIn}
       />
       <aside className="side-nav">
-        <div className="side-nav-profile">
+        <div className="side-nav-profile" data-tutorial-target="shell-profile">
           <Link className="side-nav-avatar" data-tooltip="Open your gallery." href="/profile/gallery">
             {shellProfile?.profile?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -364,6 +370,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
       ) : null}
       {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} mailEnabled={mailEnabled} sections={navSections} /> : null}
+      {isSignedIn ? <TutorialTour shouldPromptOnFirstLogin={tutorialState.shouldPrompt} /> : null}
       </ShellCountsProvider>
     </div>
   );

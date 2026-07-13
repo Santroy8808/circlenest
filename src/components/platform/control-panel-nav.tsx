@@ -92,6 +92,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
           <Link
             className={section.isActive ? "control-panel-main-link is-active" : "control-panel-main-link"}
             data-tooltip={`Open ${section.label}.`}
+            data-tutorial-target={`control-${section.label.toLowerCase().replace(/\s+/g, "-")}`}
             href={section.targetHref}
             key={section.label}
             onClick={(event) => handleItemClick(event, { href: section.targetHref, label: section.label })}
