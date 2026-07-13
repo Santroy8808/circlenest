@@ -193,7 +193,7 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
-      visibility: MediaVisibility.PRIVATE,
+      visibility: MediaVisibility.PUBLIC,
       source
     })
   });
@@ -223,7 +223,7 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
           fileName: thumbnailFile.name,
           mimeType: thumbnailFile.type,
           sizeBytes: thumbnailFile.size,
-          visibility: MediaVisibility.PRIVATE,
+          visibility: MediaVisibility.PUBLIC,
           source
         })
       });
@@ -263,7 +263,7 @@ async function uploadFeedImage(image: FeedImageAttachment, onUpdate: (patch: Par
       fileName: image.file.name,
       mimeType: image.file.type || "application/octet-stream",
       sizeBytes: image.file.size,
-      visibility: MediaVisibility.PRIVATE,
+      visibility: MediaVisibility.PUBLIC,
       caption: "",
       source,
       tags: []

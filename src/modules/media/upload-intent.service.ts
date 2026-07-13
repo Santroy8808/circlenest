@@ -55,14 +55,14 @@ const UPLOAD_INTENT_POLICIES: Record<UploadIntentPurpose, UploadIntentPolicy> = 
   },
   [UploadIntentPurpose.STREAM_POST]: {
     allowedMimeTypes: IMAGE_MIME_TYPES,
-    allowedVisibilities: [MediaVisibility.PRIVATE],
-    defaultVisibility: MediaVisibility.PRIVATE,
+    allowedVisibilities: [MediaVisibility.PUBLIC],
+    defaultVisibility: MediaVisibility.PUBLIC,
     maxSizeBytes: 10 * 1024 * 1024
   },
   [UploadIntentPurpose.STREAM_REPLY]: {
     allowedMimeTypes: IMAGE_MIME_TYPES,
-    allowedVisibilities: [MediaVisibility.PRIVATE],
-    defaultVisibility: MediaVisibility.PRIVATE,
+    allowedVisibilities: [MediaVisibility.PUBLIC],
+    defaultVisibility: MediaVisibility.PUBLIC,
     maxSizeBytes: 10 * 1024 * 1024
   },
   [UploadIntentPurpose.AD_CREATIVE]: {
