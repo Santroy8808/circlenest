@@ -4,6 +4,7 @@ import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platf
 import {
   findOrCreateDirectChatThread,
   getChatThread,
+  reactToChatMessage,
   safeListChatThreads,
   sendChatMessage
 } from "@/modules/chat-messages/chat-messages.service";
@@ -58,6 +59,15 @@ export async function POST(request: NextRequest) {
   }
   const body = parsedBody.value as Record<string, unknown>;
 
+  if (body.action === "reactMessage") {
+    const result = await reactToChatMessage(session.user.id, {
+      messageId: body.messageId,
+      type: body.type
+    });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    return NextResponse.json({ reactions: result.reactions });
+  }
+
   if (body.targetUserId) {
     const result = await findOrCreateDirectChatThread(session.user.id, { targetUserId: body.targetUserId });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
@@ -75,7 +85,9 @@ export async function POST(request: NextRequest) {
   const result = await sendChatMessage(session.user.id, {
     threadId: body.threadId,
     body: body.body,
-    attachments
+    attachments,
+    replyToMessageId: body.replyToMessageId,
+    replyStyle: body.replyStyle
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ message: result.message }, { status: 201 });

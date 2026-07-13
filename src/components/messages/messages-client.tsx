@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatAttachmentKind, ChatThreadType } from "@prisma/client";
+import { ChatAttachmentKind, ChatReplyStyle, ChatThreadType, FeedReactionType } from "@prisma/client";
 import Link from "next/link";
 import { flushSync } from "react-dom";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -8,6 +8,8 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ActionGlyph } from "@/components/reactions/action-glyph";
+import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import {
   MAX_CHAT_ATTACHMENT_BYTES,
   MAX_CHAT_ATTACHMENTS_PER_MESSAGE,
@@ -29,6 +31,15 @@ type QueuedAttachment = {
 };
 
 const CHAT_MESSAGE_PAGE_SIZE = 60;
+const chatReactionChoices = [
+  { type: FeedReactionType.LIKE, icon: "", label: "Like" },
+  { type: FeedReactionType.LOVE, icon: "❤️", label: "Love" },
+  { type: FeedReactionType.CARE, icon: "🤗", label: "Care" },
+  { type: FeedReactionType.HAHA, icon: "😂", label: "Haha" },
+  { type: FeedReactionType.WOW, icon: "😮", label: "Wow" },
+  { type: FeedReactionType.SAD, icon: "😢", label: "Sad" },
+  { type: FeedReactionType.ANGRY, icon: "😡", label: "Angry" }
+] as const;
 const contactFilters = [
   { key: "ALL", label: "All" },
   { key: "FRIENDS", label: "Friends" },
@@ -38,6 +49,11 @@ const contactFilters = [
 ] as const;
 
 type ChatContactFilter = (typeof contactFilters)[number]["key"];
+
+type ChatReplyTarget = {
+  message: ChatMessageView;
+  style: ChatReplyStyle;
+};
 
 function initials(name: string) {
   return name
@@ -68,6 +84,11 @@ function deliveryMark(message: ChatMessageView) {
   if (message.deliveryState === "SENDING") return "θ...";
   if (message.deliveryState === "SEEN") return "θθ";
   return "θ";
+}
+
+function ChatReactionGlyph({ type }: { type: FeedReactionType }) {
+  const reaction = chatReactionChoices.find((choice) => choice.type === type) ?? chatReactionChoices[0];
+  return reaction.type === FeedReactionType.LIKE ? <ThetaLikeTriangle /> : <span aria-hidden="true">{reaction.icon}</span>;
 }
 
 function activateKeyboard(event: KeyboardEvent<HTMLElement>, action: () => void) {
@@ -223,6 +244,7 @@ export function MessagesClient({
   isAdmin?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<QueuedAttachment[]>([]);
   const prependScrollRef = useRef<{ height: number; top: number } | null>(null);
@@ -242,6 +264,8 @@ export function MessagesClient({
   const [groupTitle, setGroupTitle] = useState("");
   const [groupParticipants, setGroupParticipants] = useState<ChatPersonView[]>([]);
   const [body, setBody] = useState("");
+  const [replyTarget, setReplyTarget] = useState<ChatReplyTarget | null>(null);
+  const [reactionMenuMessageId, setReactionMenuMessageId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<QueuedAttachment[]>([]);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -608,12 +632,53 @@ export function MessagesClient({
     };
   }
 
+  function beginMessageReply(message: ChatMessageView, style: ChatReplyStyle) {
+    setReplyTarget({ message, style });
+    setReactionMenuMessageId(null);
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
+  }
+
+  async function reactToMessage(messageId: string, type: FeedReactionType) {
+    setReactionMenuMessageId(null);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/chat/messages/${messageId}/reaction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type })
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        reactions?: ChatMessageView["reactions"];
+      };
+
+      if (!response.ok || !payload.reactions) {
+        throw new Error(payload.error ?? "Could not update the reaction.");
+      }
+
+      setSelectedThread((current) =>
+        current
+          ? {
+              ...current,
+              messages: current.messages.map((message) =>
+                message.id === messageId ? { ...message, reactions: payload.reactions } : message
+              )
+            }
+          : current
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update the reaction.");
+    }
+  }
+
   function sendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedThread) return;
 
     setError("");
     const bodyToSend = body.trim();
+    const replyToSend = replyTarget;
     const optimisticId = `local-${crypto.randomUUID()}`;
     const optimisticSender =
       selectedThread.participants.find((participant) => participant.id === currentUserId) ??
@@ -643,6 +708,16 @@ export function MessagesClient({
                     createdAt: new Date().toISOString(),
                     sender: optimisticSender,
                     attachments: optimisticAttachments,
+                    replyTo: replyToSend
+                      ? {
+                          id: replyToSend.message.id,
+                          body: replyToSend.message.body,
+                          sender: replyToSend.message.sender,
+                          hasAttachments: replyToSend.message.attachments.length > 0
+                        }
+                      : null,
+                    replyStyle: replyToSend?.style ?? null,
+                    reactions: [],
                     deliveryState: "SENDING"
                   }
                 ]
@@ -650,6 +725,7 @@ export function MessagesClient({
             : current
         );
         setBody("");
+        setReplyTarget(null);
       });
     }
 
@@ -675,7 +751,9 @@ export function MessagesClient({
           body: JSON.stringify({
             threadId: selectedThread.id,
             body: bodyToSend,
-            attachments: uploaded.map((attachment) => ({ mediaAssetId: attachment.mediaAssetId }))
+            attachments: uploaded.map((attachment) => ({ mediaAssetId: attachment.mediaAssetId })),
+            replyToMessageId: replyToSend?.message.id ?? null,
+            replyStyle: replyToSend?.style ?? null
           })
         });
         const payload = (await response.json()) as { error?: string; message?: ChatMessageView };
@@ -715,6 +793,7 @@ export function MessagesClient({
             : current
         );
         setError(caught instanceof Error ? caught.message : "Could not send message.");
+        if (replyToSend) setReplyTarget(replyToSend);
       }
     });
   }
@@ -1022,7 +1101,24 @@ export function MessagesClient({
                 const bodyText = message.body ?? "";
                 const hasBody = bodyText.trim().length > 0;
                 return (
-                  <div className={isMine ? "chat-message-group is-mine" : "chat-message-group"} key={message.id}>
+                  <div
+                    className={isMine ? "chat-message-group is-mine" : "chat-message-group"}
+                    id={`chat-message-${message.id}`}
+                    key={message.id}
+                  >
+                    {message.replyTo ? (
+                      <button
+                        className={message.replyStyle === ChatReplyStyle.QUOTE ? "chat-message-reference is-quote" : "chat-message-reference"}
+                        onClick={() => document.getElementById(`chat-message-${message.replyTo?.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                        title="Open the referenced message"
+                        type="button"
+                      >
+                        <strong>
+                          {message.replyStyle === ChatReplyStyle.QUOTE ? "Quoted" : "Replying to"} {message.replyTo.sender.displayName}
+                        </strong>
+                        <span>{message.replyTo.body?.trim() || (message.replyTo.hasAttachments ? "Attachment" : "Message unavailable")}</span>
+                      </button>
+                    ) : null}
                     {hasBody ? (
                       <article className={isMine ? "chat-message is-mine" : "chat-message"}>
                         <div className="chat-message-meta">
@@ -1057,6 +1153,74 @@ export function MessagesClient({
                         {deliveryMark(message)}
                       </span>
                     ) : null}
+                    {(message.reactions ?? []).length > 0 ? (
+                      <div className="chat-message-reaction-summary" aria-label="Message reactions">
+                        {(message.reactions ?? []).map((reaction) => (
+                          <button
+                            aria-label={`${reaction.type.toLowerCase()} reaction, ${reaction.count}`}
+                            aria-pressed={reaction.reactedByCurrentUser}
+                            className={reaction.reactedByCurrentUser ? "chat-message-reaction-chip is-selected" : "chat-message-reaction-chip"}
+                            key={reaction.type}
+                            onClick={() => void reactToMessage(message.id, reaction.type)}
+                            type="button"
+                          >
+                            <ChatReactionGlyph type={reaction.type} />
+                            <span>{reaction.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {!message.id.startsWith("local-") ? (
+                      <div className="chat-message-actions">
+                        <div className="chat-message-reaction-menu">
+                          <button
+                            aria-expanded={reactionMenuMessageId === message.id}
+                            aria-label="React to message"
+                            className="chat-message-action-button"
+                            onClick={() => setReactionMenuMessageId((current) => (current === message.id ? null : message.id))}
+                            title="React"
+                            type="button"
+                          >
+                            <ActionGlyph kind="react" />
+                          </button>
+                          {reactionMenuMessageId === message.id ? (
+                            <div className="chat-message-reaction-popover" role="menu">
+                              {chatReactionChoices.map((reaction) => (
+                                <button
+                                  aria-label={reaction.label}
+                                  key={reaction.type}
+                                  onClick={() => void reactToMessage(message.id, reaction.type)}
+                                  role="menuitem"
+                                  title={reaction.label}
+                                  type="button"
+                                >
+                                  <ChatReactionGlyph type={reaction.type} />
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                        <button
+                          aria-label="Reply to message"
+                          className="chat-message-action-button"
+                          onClick={() => beginMessageReply(message, ChatReplyStyle.REPLY)}
+                          title="Reply"
+                          type="button"
+                        >
+                          <ActionGlyph kind="comment" />
+                        </button>
+                        <button
+                          aria-label="Quote and reply to message"
+                          className="chat-message-action-button is-quote"
+                          onClick={() => beginMessageReply(message, ChatReplyStyle.QUOTE)}
+                          title="Quote / reply"
+                          type="button"
+                        >
+                          <ActionGlyph kind="comment" />
+                          <span aria-hidden="true">“</span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -1071,8 +1235,24 @@ export function MessagesClient({
               }}
               onSubmit={sendMessage}
             >
+              {replyTarget ? (
+                <div className={replyTarget.style === ChatReplyStyle.QUOTE ? "chat-composer-reply-context is-quote" : "chat-composer-reply-context"}>
+                  <ActionGlyph kind="comment" />
+                  <div>
+                    <strong>
+                      {replyTarget.style === ChatReplyStyle.QUOTE ? "Quote / reply to" : "Reply to"} {replyTarget.message.sender.displayName}
+                    </strong>
+                    <span>{replyTarget.message.body?.trim() || (replyTarget.message.attachments.length ? "Attachment" : "Message")}</span>
+                  </div>
+                  <button aria-label="Cancel reply" onClick={() => setReplyTarget(null)} title="Cancel reply" type="button">
+                    ×
+                  </button>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-[var(--gold)]">Reply</p>
+                <p className="text-sm font-semibold text-[var(--gold)]">
+                  {replyTarget?.style === ChatReplyStyle.QUOTE ? "Quote / reply" : replyTarget ? "Reply" : "Message"}
+                </p>
                 <button className="btn-secondary px-3 py-2 text-sm" data-tooltip="Attach files to this message." onClick={() => fileInputRef.current?.click()} type="button">
                   Attach
                 </button>
@@ -1093,6 +1273,7 @@ export function MessagesClient({
                   onChange={(event) => setBody(event.target.value)}
                   onKeyDown={sendOnEnter}
                   placeholder="Type a message, or drag files here..."
+                  ref={composerInputRef}
                   value={body}
                 />
                 <button
