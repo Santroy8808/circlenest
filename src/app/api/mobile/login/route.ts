@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { authorizeCredentials } from "@/modules/auth-security/auth-security.service";
-import { createMobileToken, mobileAuthUnavailableResponse } from "@/lib/platform/mobile-auth";
+import { createMobileToken, mobileAuthUnavailableResponse, readMobileDeviceId } from "@/lib/platform/mobile-auth";
 import {
   consumeRequestRateLimit,
   rateLimitExceededResponse,
@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
   return withRateLimitHeaders(
     NextResponse.json(
       {
-        token: createMobileToken({ userId: user.id, sessionVersion: user.sessionVersion }),
+        token: createMobileToken({
+          userId: user.id,
+          sessionVersion: user.sessionVersion,
+          deviceId: readMobileDeviceId(request)
+        }),
         user
       },
       { headers: { "cache-control": "no-store" } }

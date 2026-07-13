@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.thetaspace.wrapper",
+      "sha256_cert_fingerprints": [
+        "AF:B4:E5:5F:3E:AD:33:FE:92:BA:A6:A5:C5:35:87:C6:DA:14:29:13:6F:A1:32:F2:40:5E:DE:EF:00:8D:87:4E"
+      ]
+    }
+  }
+]

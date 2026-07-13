@@ -6,10 +6,12 @@ import { signMobileAuthPayload, verifyMobileAuthSignature } from "@/modules/auth
 type MobileTokenPayload = {
   userId: string;
   sessionVersion: number;
+  deviceId?: string;
   exp: number;
 };
 
 export type MobileSession = {
+  deviceId: string | null;
   user: {
     id: string;
     email: string;
@@ -44,11 +46,19 @@ function sign(value: string) {
   return signMobileAuthPayload(value);
 }
 
-export function createMobileToken(input: { userId: string; sessionVersion: number }) {
+const MOBILE_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 365;
+
+export function readMobileDeviceId(request: NextRequest) {
+  const value = request.headers.get("x-theta-device-id")?.trim() ?? "";
+  return /^[A-Za-z0-9_-]{16,128}$/.test(value) ? value : null;
+}
+
+export function createMobileToken(input: { userId: string; sessionVersion: number; deviceId?: string | null }) {
   const payload: MobileTokenPayload = {
     userId: input.userId,
     sessionVersion: input.sessionVersion,
-    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
+    ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+    exp: Math.floor(Date.now() / 1000) + MOBILE_TOKEN_TTL_SECONDS
   };
   const encodedPayload = base64Url(JSON.stringify(payload));
   return `${encodedPayload}.${sign(encodedPayload)}`;
@@ -91,6 +101,8 @@ function verifyMobileToken(token: string): MobileTokenPayload | null {
 export async function requireMobileSession(request: NextRequest): Promise<MobileSession | null> {
   const payload = verifyMobileToken(readBearerToken(request));
   if (!payload) return null;
+  const requestDeviceId = readMobileDeviceId(request);
+  if (payload.deviceId && payload.deviceId !== requestDeviceId) return null;
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
@@ -105,6 +117,7 @@ export async function requireMobileSession(request: NextRequest): Promise<Mobile
   }
 
   return {
+    deviceId: payload.deviceId ?? requestDeviceId,
     user: {
       id: user.id,
       email: user.email,
