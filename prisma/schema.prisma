@@ -204,6 +204,11 @@ enum ChatAttachmentKind {
   FILE
 }
 
+enum ChatReplyStyle {
+  REPLY
+  QUOTE
+}
+
 enum MailDeliveryKind {
   DIRECT
   MASS_INTERNAL
@@ -594,6 +599,7 @@ model User {
   createdChatThreads              ChatThread[]                       @relation("ChatThreadCreator")
   chatParticipants                ChatParticipant[]
   chatMessages                    ChatMessage[]                      @relation("ChatMessageSender")
+  chatMessageReactions            ChatMessageReaction[]
   createdMailThreads              MailThread[]                       @relation("MailThreadCreator")
   sentMailMessages                MailMessage[]                      @relation("MailMessageSender")
   mailRecipients                  MailRecipient[]
@@ -1571,19 +1577,39 @@ model ChatParticipant {
 }
 
 model ChatMessage {
-  id           String           @id @default(cuid())
-  threadId     String
-  senderUserId String
-  body         String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  deletedAt    DateTime?
-  thread       ChatThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender       User             @relation("ChatMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
-  attachments  ChatAttachment[]
+  id               String                @id @default(cuid())
+  threadId         String
+  senderUserId     String
+  replyToMessageId String?
+  replyStyle       ChatReplyStyle?
+  body             String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  deletedAt        DateTime?
+  thread           ChatThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender           User                  @relation("ChatMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  replyTo          ChatMessage?          @relation("ChatMessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          ChatMessage[]         @relation("ChatMessageReplies")
+  attachments      ChatAttachment[]
+  reactions        ChatMessageReaction[]
 
   @@index([threadId, createdAt])
   @@index([senderUserId, createdAt])
+  @@index([replyToMessageId, createdAt])
+}
+
+model ChatMessageReaction {
+  id        String           @id @default(cuid())
+  messageId String
+  userId    String
+  type      FeedReactionType
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  message   ChatMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId, type])
 }
 
 model ChatAttachment {
