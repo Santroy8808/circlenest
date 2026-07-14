@@ -9,7 +9,7 @@
   "theme_color": "#0b1424",
   "icons": [
     {
-      "src": "/assets/theta-space-icon.svg",
+      "src": "/assets/theta-space-theta.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

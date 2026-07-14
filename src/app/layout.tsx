@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   description: "Private modular social platform for Theta-Space.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/assets/theta-space-icon.svg", type: "image/svg+xml" }],
-    shortcut: [{ url: "/assets/theta-space-icon.svg", type: "image/svg+xml" }]
+    icon: [{ url: "/assets/theta-space-theta.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/assets/theta-space-theta.svg", type: "image/svg+xml" }]
   }
 };
 
