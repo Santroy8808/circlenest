@@ -9046,6 +9046,21 @@ html.theta-theme-light .auditor-card:hover {
   text-align: left;
 }
 
+.users-manual-window .admin-hat-toc {
+  gap: 10px;
+}
+
+.users-manual-window .admin-hat-toc button {
+  align-items: center;
+  display: flex;
+  justify-content: flex-start;
+  line-height: 1.2;
+  min-height: 58px;
+  padding: 14px 20px;
+  width: 100%;
+  word-break: normal;
+}
+
 .admin-hat-toc button:hover,
 .admin-hat-toc button:focus-visible {
   background: rgba(255, 216, 95, 0.12);

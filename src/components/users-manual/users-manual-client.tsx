@@ -25,6 +25,16 @@ function slug(value: string) {
     .replace(/^-|-$/g, "");
 }
 
+const tocShortLabels: Record<string, string> = {
+  "getting-started": "Start",
+  "stream-posts-comments-and-reactions": "Stream",
+  "profile-and-pictures": "Profile",
+  "comm-center-messages-notifications-and-alerts": "Comm Center",
+  "people-connections-and-groups": "People",
+  "market-jobs-and-auditor-directory": "Market",
+  "settings-security-and-help": "Settings"
+};
+
 function clampBox(next: WindowBox): WindowBox {
   if (typeof window === "undefined") {
     return next;
@@ -131,9 +141,9 @@ export function UsersManualClient({ manual }: { manual: UsersManual }) {
   const toc = useMemo(
     () => [
       { id: "users-manual-overview", label: "Overview" },
-      { id: "users-manual-free-tier", label: "Free Tier basics" },
+      { id: "users-manual-free-tier", label: "Free Tier" },
       { id: "users-manual-definitions", label: "Terms" },
-      ...manual.sections.map((section) => ({ id: `section-${section.key}`, label: section.title }))
+      ...manual.sections.map((section) => ({ id: `section-${section.key}`, label: tocShortLabels[section.key] ?? section.title }))
     ],
     [manual.sections]
   );
