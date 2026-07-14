@@ -115,13 +115,18 @@ function inviteEmailText(code: string, expiresAt: Date) {
   const { normalizedCode, signupUrl, expirationLabel } = inviteEmailDetails(code, expiresAt);
 
   return [
-    "You’re invited to Theta-Space.",
+    "THETA-SPACE — PRIVATE INVITATION",
+    "================================",
     "",
-    "Theta-Space is an invite-only community for thoughtful connection, communication, and shared discovery.",
+    "You’re invited to join Theta-Space, a private community for thoughtful connection, communication, and shared discovery.",
     "",
-    `Your one-time invite code: ${normalizedCode}`,
+    "YOUR ONE-TIME INVITE CODE",
+    normalizedCode,
     "",
-    `Create your account: ${signupUrl}`,
+    "To accept your invitation:",
+    `1. Visit ${signupUrl}`,
+    "2. Enter the invite code shown above.",
+    "3. Create your account and verify your email address.",
     "",
     `This invitation expires on ${expirationLabel} (UTC) and can only be used once.`,
     "",
@@ -139,36 +144,111 @@ function inviteEmailHtml(code: string, expiresAt: Date) {
 
   return `<!doctype html>
 <html lang="en">
-  <body style="margin:0;background:#0b1018;color:#d9e1ef;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1018;padding:32px 16px;">
-      <tr><td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111a28;border:1px solid #806b2c;border-radius:14px;overflow:hidden;">
-          <tr><td style="padding:28px 32px 20px;background:#0f1724;border-bottom:1px solid #806b2c;">
-            <div style="font-size:13px;letter-spacing:3px;font-weight:bold;color:#ffd34e;">THETA-SPACE</div>
-            <h1 style="margin:18px 0 0;color:#f3f6fb;font-size:30px;line-height:1.2;">You’re invited.</h1>
-          </td></tr>
-          <tr><td style="padding:30px 32px;">
-            <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">You’ve been invited to join Theta-Space, an invite-only community for thoughtful connection, communication, and shared discovery.</p>
-            <p style="margin:0 0 10px;font-size:14px;color:#aeb9ca;">Your one-time invite code</p>
-            <div style="margin:0 0 24px;padding:18px;text-align:center;background:#1a2639;border:1px solid #d3ad3d;border-radius:10px;color:#ffd34e;font-size:24px;font-weight:bold;letter-spacing:3px;">${safeCode}</div>
-            <p style="margin:0 0 24px;text-align:center;"><a href="${safeSignupUrl}" style="display:inline-block;padding:13px 24px;background:#5d82f5;border-radius:999px;color:#07101e;font-size:16px;font-weight:bold;text-decoration:none;">Create your account</a></p>
-            <p style="margin:0;color:#aeb9ca;font-size:14px;line-height:1.6;">This invitation expires on <strong style="color:#d9e1ef;">${safeExpirationLabel} (UTC)</strong> and can only be used once.</p>
-            <p style="margin:22px 0 0;color:#aeb9ca;font-size:14px;line-height:1.6;">If you did not expect this invitation, you can safely ignore this email.</p>
-          </td></tr>
-          <tr><td style="padding:18px 32px;background:#0f1724;color:#7f8da3;font-size:12px;line-height:1.5;">The Theta-Space team</td></tr>
-        </table>
-      </td></tr>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
+    <title>You’re invited to Theta-Space</title>
+    <style>
+      @media only screen and (max-width: 640px) {
+        .theta-shell { padding: 18px 10px !important; }
+        .theta-card-cell { padding-left: 22px !important; padding-right: 22px !important; }
+        .theta-title { font-size: 30px !important; }
+        .theta-code { font-size: 20px !important; letter-spacing: 2px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background-color:#080b10;color:#dbe2ee;font-family:Inter,'Segoe UI',Arial,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Your private Theta-Space invitation and one-time signup code are inside.</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#080b10;">
+      <tr>
+        <td align="center" class="theta-shell" style="padding:38px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:620px;background-color:#111824;border:1px solid #334159;border-radius:18px;overflow:hidden;">
+            <tr>
+              <td class="theta-card-cell" style="padding:28px 34px;background-color:#0d131d;border-bottom:1px solid #334159;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="54" valign="middle">
+                      <div style="width:46px;height:46px;line-height:46px;text-align:center;border:1px solid #ffd85f;border-radius:50%;background-color:#172133;color:#ffd85f;font-size:16px;font-weight:800;letter-spacing:-1px;">TS</div>
+                    </td>
+                    <td valign="middle" style="padding-left:12px;">
+                      <div style="color:#ffd85f;font-size:14px;font-weight:800;letter-spacing:3px;line-height:1.2;">THETA-SPACE</div>
+                      <div style="margin-top:5px;color:#aab4c3;font-size:12px;letter-spacing:1px;">PRIVATE MEMBER COMMUNITY</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td class="theta-card-cell" style="padding:38px 34px 34px;">
+                <div style="margin:0 0 12px;color:#6d91ff;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">Private invitation</div>
+                <h1 class="theta-title" style="margin:0;color:#f4f7fc;font-size:36px;line-height:1.15;font-weight:750;">You’re invited.</h1>
+                <p style="margin:20px 0 26px;color:#c5cfdd;font-size:16px;line-height:1.7;">You’ve been invited to join Theta-Space, a private community for thoughtful connection, communication, and shared discovery.</p>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 26px;background-color:#172133;border:1px solid #766b45;border-radius:12px;">
+                  <tr>
+                    <td align="center" style="padding:16px 18px 7px;color:#aab4c3;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Your one-time invite code</td>
+                  </tr>
+                  <tr>
+                    <td align="center" class="theta-code" style="padding:5px 18px 19px;color:#ffd85f;font-family:'Cascadia Mono',Consolas,'Courier New',monospace;font-size:25px;font-weight:800;letter-spacing:3px;">${safeCode}</td>
+                  </tr>
+                </table>
+
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 28px;">
+                  <tr>
+                    <td align="center" bgcolor="#ffd85f" style="border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.24);">
+                      <a href="${safeSignupUrl}" style="display:inline-block;padding:14px 28px;border:1px solid #ffd85f;border-radius:999px;color:#080b10;font-size:16px;font-weight:800;line-height:1;text-decoration:none;">Accept your invitation</a>
+                    </td>
+                  </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 24px;">
+                  <tr>
+                    <td width="28" valign="top" style="color:#6d91ff;font-size:15px;font-weight:800;line-height:1.7;">1.</td>
+                    <td style="padding-bottom:8px;color:#c5cfdd;font-size:14px;line-height:1.7;">Open the secure signup page using the button above.</td>
+                  </tr>
+                  <tr>
+                    <td width="28" valign="top" style="color:#6d91ff;font-size:15px;font-weight:800;line-height:1.7;">2.</td>
+                    <td style="padding-bottom:8px;color:#c5cfdd;font-size:14px;line-height:1.7;">Enter your one-time invitation code.</td>
+                  </tr>
+                  <tr>
+                    <td width="28" valign="top" style="color:#6d91ff;font-size:15px;font-weight:800;line-height:1.7;">3.</td>
+                    <td style="color:#c5cfdd;font-size:14px;line-height:1.7;">Create your account and verify your email address.</td>
+                  </tr>
+                </table>
+
+                <div style="height:1px;background-color:#334159;line-height:1px;">&nbsp;</div>
+                <p style="margin:22px 0 8px;color:#aab4c3;font-size:13px;line-height:1.65;">This invitation expires on <strong style="color:#dbe2ee;">${safeExpirationLabel} (UTC)</strong> and can only be used once.</p>
+                <p style="margin:0;color:#7f8da3;font-size:12px;line-height:1.65;">Button not working? Copy and paste this address into your browser:<br><a href="${safeSignupUrl}" style="color:#6d91ff;text-decoration:underline;word-break:break-all;">${safeSignupUrl}</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td class="theta-card-cell" style="padding:20px 34px;background-color:#0d131d;border-top:1px solid #334159;color:#7f8da3;font-size:12px;line-height:1.6;">
+                Sent by the Theta-Space team.<br>If you did not expect this invitation, you can safely ignore this email.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
     </table>
   </body>
 </html>`;
 }
 
-async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date) {
-  await sendSmtpMail({
-    to: recipientEmail,
+export function buildFreeAccountInviteEmail(code: string, expiresAt: Date) {
+  return {
     subject: "You’re invited to Theta-Space",
     text: inviteEmailText(code, expiresAt),
     html: inviteEmailHtml(code, expiresAt)
+  };
+}
+
+async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date) {
+  const message = buildFreeAccountInviteEmail(code, expiresAt);
+  await sendSmtpMail({
+    to: recipientEmail,
+    ...message
   });
 }
 
