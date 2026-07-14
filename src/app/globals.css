@@ -11631,6 +11631,15 @@ body,
   pointer-events: none;
 }
 
+.tutorial-layer::before {
+  background: rgba(3, 7, 13, 0.34);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 12000;
+}
+
 .tutorial-panel {
   border-radius: 18px;
   max-height: calc(100dvh - 36px);
@@ -11638,6 +11647,8 @@ body,
   padding: 18px;
   pointer-events: auto;
   position: fixed;
+  transition: left 140ms ease, top 140ms ease;
+  will-change: left, top;
   scrollbar-width: none;
   z-index: 12003;
 }
@@ -11674,9 +11685,11 @@ body,
 .tutorial-target-ring {
   border: 2px solid rgba(255, 216, 95, 0.94);
   border-radius: 16px;
-  box-shadow: 0 0 0 9999px rgba(3, 7, 13, 0.38), 0 0 22px rgba(255, 216, 95, 0.42);
+  box-shadow: 0 0 22px rgba(255, 216, 95, 0.42), 0 0 0 1px rgba(255, 216, 95, 0.2) inset;
   pointer-events: none;
   position: fixed;
+  transition: height 140ms ease, left 140ms ease, opacity 120ms ease, top 140ms ease, width 140ms ease;
+  will-change: height, left, opacity, top, width;
   z-index: 12001;
 }
 
@@ -11694,10 +11707,16 @@ body,
   stroke: var(--gold);
   stroke-linecap: round;
   stroke-width: 3;
+  transition: opacity 120ms ease;
 }
 
 .tutorial-arrow-layer marker path {
   fill: var(--gold);
+}
+
+.tutorial-layer.is-positioning .tutorial-target-ring,
+.tutorial-layer.is-positioning .tutorial-arrow-layer line {
+  opacity: 0.62;
 }
 
 .tutorial-missing-target {

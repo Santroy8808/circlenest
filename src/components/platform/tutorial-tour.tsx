@@ -122,6 +122,7 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
+  const [isPositioning, setIsPositioning] = useState(false);
   const [targetBox, setTargetBox] = useState<TargetBox | null>(null);
   const activeStep = useMemo(() => (activeStepId ? getTutorialStep(activeStepId) : null), [activeStepId]);
   const activeIndex = activeStep ? tutorialSteps.findIndex((step) => step.id === activeStep.id) : -1;
@@ -134,6 +135,7 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
     window.sessionStorage.setItem(STORAGE_KEY, step.id);
     setWelcomeOpen(false);
     setContentsOpen(false);
+    setIsPositioning(true);
     setActiveStepId(step.id);
     if (pathname !== step.page) router.push(step.page);
   }, [pathname, router]);
@@ -147,6 +149,7 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
     window.sessionStorage.removeItem(STORAGE_KEY);
     setActiveStepId(null);
     setWelcomeOpen(false);
+    setIsPositioning(false);
     setTargetBox(null);
     void markComplete();
   }, []);
@@ -178,37 +181,51 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
     if (!activeStep) return;
     const step = activeStep;
     if (pathname !== step.page) {
+      setIsPositioning(true);
       router.push(step.page);
       return;
     }
 
     let frame = 0;
     let measureTimer = 0;
+    let cancelled = false;
 
     function measureTarget() {
       const target = document.querySelector<HTMLElement>(targetSelector(step.target));
       if (!target) {
         setTargetBox(null);
+        setIsPositioning(false);
         return;
       }
 
       const rect = target.getBoundingClientRect();
+      if (cancelled) return;
       setTargetBox(targetBoxFromRect(rect));
+      setIsPositioning(false);
     }
 
     function scheduleMeasure() {
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(measureTarget);
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(measureTarget);
+      });
     }
 
     const target = document.querySelector<HTMLElement>(targetSelector(step.target));
-    target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    measureTimer = window.setTimeout(measureTarget, 260);
+    if (!target) {
+      setTargetBox(null);
+      setIsPositioning(false);
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "auto", block: "center", inline: "center" });
+    measureTimer = window.setTimeout(measureTarget, 90);
     scheduleMeasure();
     window.addEventListener("resize", scheduleMeasure);
     window.addEventListener("scroll", scheduleMeasure, true);
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frame);
       window.clearTimeout(measureTimer);
       window.removeEventListener("resize", scheduleMeasure);
@@ -246,7 +263,7 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
   if (!activeStep || !placement) return null;
 
   return (
-    <div className="tutorial-layer" aria-live="polite">
+    <div className={`tutorial-layer${isPositioning ? " is-positioning" : ""}`} aria-live="polite">
       {targetBox ? (
         <div
           className="tutorial-target-ring"
