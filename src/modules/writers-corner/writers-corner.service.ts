@@ -62,6 +62,59 @@ function escapeHtmlAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function safeCssColor(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (/^#[0-9a-f]{3,8}$/.test(normalized)) return normalized;
+
+  const rgb = /^rgba?\(([^)]+)\)$/.exec(normalized);
+  if (!rgb) return null;
+
+  const channels = rgb[1].split(",").map((channel) => channel.trim());
+  const expectedChannels = normalized.startsWith("rgba") ? 4 : 3;
+  if (channels.length !== expectedChannels) return null;
+
+  const colorChannels = channels.slice(0, 3).map(Number);
+  if (colorChannels.some((channel) => !Number.isInteger(channel) || channel < 0 || channel > 255)) return null;
+
+  if (expectedChannels === 4) {
+    const alpha = Number(channels[3]);
+    if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) return null;
+  }
+
+  return `${expectedChannels === 4 ? "rgba" : "rgb"}(${channels.join(", ")})`;
+}
+
+function safeRichTextStyle(rawAttrs: string) {
+  const rawStyle = /style=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "";
+  const safeDeclarations: string[] = [];
+
+  for (const declaration of rawStyle.split(";")) {
+    const separator = declaration.indexOf(":");
+    if (separator < 0) continue;
+
+    const property = declaration.slice(0, separator).trim().toLowerCase();
+    const value = declaration.slice(separator + 1).trim().toLowerCase();
+
+    if (property === "color" || property === "background-color") {
+      const safeColor = safeCssColor(value);
+      if (safeColor) safeDeclarations.push(`${property}: ${safeColor}`);
+      continue;
+    }
+
+    if (property === "text-align" && ["left", "center", "right", "justify"].includes(value)) {
+      safeDeclarations.push(`text-align: ${value}`);
+      continue;
+    }
+
+    if (property === "margin-left") {
+      const margin = /^(\d{1,3})px$/.exec(value);
+      if (margin && Number(margin[1]) <= 320) safeDeclarations.push(`margin-left: ${Number(margin[1])}px`);
+    }
+  }
+
+  return safeDeclarations.length > 0 ? ` style="${safeDeclarations.join("; ")}"` : "";
+}
+
 function sanitizeRichTextHtml(html?: string | null) {
   if (!html) return null;
 
@@ -70,13 +123,39 @@ function sanitizeRichTextHtml(html?: string | null) {
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
     .replace(/\son\w+="[^"]*"/gi, "")
     .replace(/\son\w+='[^']*'/gi, "")
-    .replace(/\son\w+=\S+/gi, "")
-    .replace(/\sstyle="[^"]*"/gi, "")
-    .replace(/\sstyle='[^']*'/gi, "");
+    .replace(/\son\w+=\S+/gi, "");
 
   clean = clean.replace(/<\/?([a-z0-9]+)([^>]*)>/gi, (match, rawTag: string, rawAttrs: string) => {
     const tag = rawTag.toLowerCase();
-    const allowed = new Set(["p", "br", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li", "blockquote", "h2", "h3", "a", "img"]);
+    const allowed = new Set([
+      "p",
+      "div",
+      "br",
+      "strong",
+      "b",
+      "em",
+      "i",
+      "u",
+      "s",
+      "span",
+      "font",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "h2",
+      "h3",
+      "pre",
+      "code",
+      "table",
+      "thead",
+      "tbody",
+      "tr",
+      "th",
+      "td",
+      "a",
+      "img"
+    ]);
     if (!allowed.has(tag)) return "";
     if (tag === "img") {
       if (match.startsWith("</")) return "";
@@ -99,12 +178,20 @@ function sanitizeRichTextHtml(html?: string | null) {
       const safeAlt = escapeHtmlAttribute(alt).slice(0, 160);
       return `<img src="${safeSrc}" alt="${safeAlt}" class="${classes.join(" ")}" loading="lazy">`;
     }
-    if (tag !== "a" || match.startsWith("</")) return match.startsWith("</") ? `</${tag}>` : `<${tag}>`;
+    if (tag === "font") {
+      if (match.startsWith("</")) return "</span>";
+      const color = /color=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "";
+      const safeColor = safeCssColor(color);
+      return safeColor ? `<span style="color: ${safeColor}">` : "<span>";
+    }
+    if (tag !== "a" || match.startsWith("</")) {
+      return match.startsWith("</") ? `</${tag}>` : `<${tag}${safeRichTextStyle(rawAttrs)}>`;
+    }
 
     const href = /href=(["'])(.*?)\1/i.exec(rawAttrs)?.[2] ?? "";
     if (!href || (!href.startsWith("https://") && !href.startsWith("http://") && !href.startsWith("/"))) return "<a>";
     const safeHref = href.replace(/"/g, "%22");
-    return `<a href="${safeHref}" rel="noreferrer" target="_blank">`;
+    return `<a href="${safeHref}" rel="noreferrer" target="_blank"${safeRichTextStyle(rawAttrs)}>`;
   });
 
   return clean.trim() || null;
