@@ -125,14 +125,20 @@ export function AdminStatusChangeWizard() {
     if (action === "restore" && !window.confirm(`Restore @${account.username}'s access?`)) return;
 
     let confirmation: string | undefined;
+    let deletePassword: string | undefined;
     if (action === "delete") {
       const acknowledged = window.confirm(
-        `PERMANENT DELETION WARNING\n\nThis permanently deletes @${account.username}, their account data, and associated media. This cannot be undone. Continue?`
+        `RETENTION-SAFE DELETION WARNING\n\nThis disables and scrubs @${account.username}. Protected finance records, ledgers, audit logs, admin communications, and business messages are retained. Continue?`
       );
       if (!acknowledged) return;
       confirmation = window.prompt(`Type DELETE ${account.username} exactly to confirm permanent deletion.`) ?? undefined;
       if (confirmation !== `DELETE ${account.username}`) {
         setMessage("Deletion cancelled. The confirmation phrase did not match.");
+        return;
+      }
+      deletePassword = window.prompt("Enter the DELETE password to authorize this destructive action.") ?? undefined;
+      if (!deletePassword) {
+        setMessage("Deletion cancelled. DELETE password was not entered.");
         return;
       }
     }
@@ -146,7 +152,8 @@ export function AdminStatusChangeWizard() {
           action,
           userIdentifier: account.username,
           reason: action === "delete" ? "Admin permanently deleted account." : action === "suspend" ? "Admin suspended account." : "Admin restored account.",
-          ...(confirmation ? { confirmation } : {})
+          ...(confirmation ? { confirmation } : {}),
+          ...(deletePassword ? { deletePassword } : {})
         })
       });
       const payload = (await response.json().catch(() => null)) as { error?: string; action?: string; cleanupFailures?: number } | null;
@@ -158,7 +165,7 @@ export function AdminStatusChangeWizard() {
 
       if (action === "delete") {
         setAccount(null);
-        setMessage(payload?.cleanupFailures ? "Account deleted. Some media cleanup requires follow-up." : "Account permanently deleted.");
+        setMessage("Account disabled and scrubbed. Protected finance, audit, admin, and business communication records were retained.");
         return;
       }
 
@@ -264,7 +271,7 @@ export function AdminStatusChangeWizard() {
       <section className="rounded-md border border-red-400/50 bg-red-950/20 p-5">
         <h2 className="text-2xl font-semibold text-red-200">5. Account controls</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-red-100/80">
-          These controls affect account access. Suspension can be reversed. Deletion is permanent and removes the account, associated records, and stored media where cleanup succeeds.
+          These controls affect account access. Suspension can be reversed. Deletion disables and scrubs the account, but protected finance records, ledgers, audit logs, admin communications, and business messages are retained.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           {account?.suspended ? (
@@ -281,7 +288,7 @@ export function AdminStatusChangeWizard() {
           </button>
         </div>
         <p className="mt-4 text-xs leading-5 text-red-100/70">
-          Delete requires two confirmations, including typing the exact phrase <strong>DELETE username</strong>. Admin and God accounts cannot be changed here.
+          Delete requires the exact phrase <strong>DELETE username</strong> and the separate DELETE password. Admin and God accounts cannot be changed here.
         </p>
       </section>
     </div>

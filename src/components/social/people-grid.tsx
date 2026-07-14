@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { SocialRelationshipType } from "@prisma/client";
 import { ListingViewSwitcher } from "@/components/listings/listing-view-switcher";
+import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import type { ListingPreferenceSurface, ListingViewMode } from "@/modules/listing-preferences/types";
 import { FamilyTagButton } from "@/components/social/family-tag-button";
 import { FriendRequestButton } from "@/components/social/friend-request-button";
@@ -31,16 +32,22 @@ function AcquaintanceButton({ person }: { person: PeopleCardView }) {
 
   async function toggleAcquaintance() {
     if (isAcquaintance && !window.confirm(`Remove ${person.displayName} from your acquaintances?`)) return;
+    const deletePassword = isAcquaintance ? promptForDeletePassword() : null;
+    if (isAcquaintance && !deletePassword) {
+      setError("Relationship removal cancelled. DELETE password was not entered.");
+      return;
+    }
     setError("");
     setIsSaving(true);
     try {
+      const requestBody = {
+        toUserId: person.id,
+        type: SocialRelationshipType.ACQUAINTANCE
+      };
       const response = await fetch("/api/social-graph/relationships", {
         method: isAcquaintance ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toUserId: person.id,
-          type: SocialRelationshipType.ACQUAINTANCE
-        })
+        body: JSON.stringify(isAcquaintance ? withDeletePassword(requestBody, deletePassword ?? "") : requestBody)
       });
 
       const payload = (await response.json()) as { error?: string };

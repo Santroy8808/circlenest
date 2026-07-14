@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react";
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
@@ -1432,9 +1433,17 @@ export function FeedClient({
 
   function deletePost(postId: string) {
     if (!window.confirm("Delete this post permanently? This also removes its comments and reactions.")) return;
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setTrustMessage("Post deletion cancelled. DELETE password was not entered.");
+      return;
+    }
 
     startTransition(async () => {
-      const response = await fetch(`/api/feed/posts/${postId}`, { method: "DELETE" });
+      const response = await fetch(`/api/feed/posts/${postId}`, {
+        method: "DELETE",
+        headers: deletePasswordHeaders(deletePassword)
+      });
       if (!response.ok) {
         setTrustMessage("That post could not be deleted.");
         return;

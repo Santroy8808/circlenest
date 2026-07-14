@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 
 type OwnInvite = {
   id: string;
@@ -63,12 +64,17 @@ export function InviteSettingsClient({
   function revokeInvite(inviteId: string) {
     setMessage("");
     setError("");
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Invite revocation cancelled. DELETE password was not entered.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/invites", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteId })
+        body: JSON.stringify(withDeletePassword({ inviteId }, deletePassword))
       });
       const payload = (await response.json().catch(() => null)) as { error?: string; invites?: OwnInvite[] } | null;
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
+import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import type { GalleryAssetView } from "@/modules/gallery-media-storage/types";
 
 const DEFAULT_TAGS = ["Family", "Friends", "Events"];
@@ -152,12 +153,17 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     if (!window.confirm(`Delete ${targetIds.length} photo${targetIds.length === 1 ? "" : "s"} from My Pics?`)) {
       return;
     }
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Photo deletion cancelled. DELETE password was not entered.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/media/assets/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaAssetIds: targetIds })
+        body: JSON.stringify(withDeletePassword({ mediaAssetIds: targetIds }, deletePassword))
       });
       const payload = (await response.json()) as { error?: string; deletedMediaAssetIds?: string[]; deletedCount?: number };
 

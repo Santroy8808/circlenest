@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 
 export function ManuscriptSubscribeButton({
   initialSubscribed,
@@ -17,10 +18,15 @@ export function ManuscriptSubscribeButton({
 
   function toggle() {
     setMessage("");
+    const deletePassword = subscribed ? promptForDeletePassword() : null;
+    if (subscribed && !deletePassword) {
+      setMessage("Unsubscribe cancelled. DELETE password was not entered.");
+      return;
+    }
     startTransition(async () => {
       const response = await fetch(`/api/writers/manuscripts/${manuscriptSlug}/subscription`, {
         method: subscribed ? "DELETE" : "POST",
-        headers: subscribed ? undefined : { "Content-Type": "application/json" },
+        headers: subscribed ? deletePasswordHeaders(deletePassword ?? "") : { "Content-Type": "application/json" },
         body: subscribed ? undefined : JSON.stringify({ notify: true })
       });
       const payload = (await response.json()) as { error?: string };

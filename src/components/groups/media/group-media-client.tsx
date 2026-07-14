@@ -2,6 +2,7 @@
 
 import { GroupAssetKind } from "@prisma/client";
 import { useRef, useState } from "react";
+import { deletePasswordHeaders, promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { CarouselGuidance } from "@/components/media/carousel-guidance";
@@ -226,8 +227,14 @@ export function GroupMediaClient({
 
   async function deleteAsset(assetId: string) {
     setError("");
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("File deletion cancelled. DELETE password was not entered.");
+      return;
+    }
     const response = await fetch(`/api/groups/${group.slug}/media/assets/${assetId}/delete`, {
-      method: "POST"
+      method: "POST",
+      headers: deletePasswordHeaders(deletePassword)
     });
     const payload = (await response.json()) as { error?: string };
 
@@ -263,15 +270,20 @@ export function GroupMediaClient({
   async function purgeStorage(action: "PURGE_OLD_IMAGES_TO_LIMIT" | "PURGE_ALL_IMAGES" | "DELETE_ALL_CONTENT") {
     setError("");
     setMessage("");
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Storage purge cancelled. DELETE password was not entered.");
+      return;
+    }
     const response = await fetch(`/api/groups/${group.slug}/media/storage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: JSON.stringify(withDeletePassword({
         action,
         targetLimitBytes: Number(storageLimitBytes),
         password: dangerPassword,
         confirmationText: dangerConfirmText
-      })
+      }, deletePassword))
     });
     const payload = (await response.json()) as { error?: string; deletedCount?: number; freedBytes?: string; storageUsedBytes?: string };
 

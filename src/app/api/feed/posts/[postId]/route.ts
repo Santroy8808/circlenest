@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
 import { deleteFeedPost, getFeedPostThreadPage } from "@/modules/feed-stream/feed-stream.service";
 
 export async function GET(request: NextRequest, { params }: { params: { postId: string } }) {
@@ -38,12 +39,15 @@ export async function GET(request: NextRequest, { params }: { params: { postId: 
   return NextResponse.json({ posts: [page.post], post: page.post, nextCursor: page.nextCursor, hasMore: page.hasMore });
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { postId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: { postId: string } }) {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+
+  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);
   const result = await deleteFeedPost(actor.actorUserId, params.postId);

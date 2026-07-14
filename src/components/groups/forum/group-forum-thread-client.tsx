@@ -3,6 +3,7 @@
 import { GroupAssetKind, GroupForumReactionType } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
+import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
@@ -206,9 +207,17 @@ export function GroupForumThreadClient({
 
   function deleteThread() {
     if (!window.confirm("Permanently delete this ended thread and all of its replies?")) return;
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Thread deletion cancelled. DELETE password was not entered.");
+      return;
+    }
     setError("");
     startTransition(async () => {
-      const response = await fetch(`/api/groups/${group.slug}/forum/threads/${thread.id}/delete`, { method: "POST" });
+      const response = await fetch(`/api/groups/${group.slug}/forum/threads/${thread.id}/delete`, {
+        method: "POST",
+        headers: deletePasswordHeaders(deletePassword)
+      });
       const payload = (await response.json()) as { error?: string };
 
       if (!response.ok) {

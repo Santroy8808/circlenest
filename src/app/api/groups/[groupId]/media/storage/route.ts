@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
+import { requireDeletePasswordFromBodyOrRequest } from "@/lib/platform/delete-protection";
 import { purgeGroupStorage, updateGroupStorageLimit } from "@/modules/group-media-docs/group-media-docs.service";
 
 export async function PATCH(request: NextRequest, { params }: { params: { groupId: string } }) {
@@ -13,6 +14,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { groupI
 
   const body = await readJsonRequest(request);
   if (!body.ok) return body.response;
+  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body.value, request);
+  if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);
   const result = await updateGroupStorageLimit(actor.actorUserId, params.groupId, body.value);

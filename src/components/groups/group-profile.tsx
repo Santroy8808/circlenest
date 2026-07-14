@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import type { GroupMemberView, GroupProfileView } from "@/modules/groups/types";
 
 function initials(name: string) {
@@ -145,9 +146,17 @@ export function GroupProfile({ group }: { group: GroupProfileView }) {
 
   function removeMember(member: GroupMemberView) {
     if (!window.confirm(`Remove ${member.displayName} from this group?`)) return;
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Member removal cancelled. DELETE password was not entered.");
+      return;
+    }
     setError("");
     startTransition(async () => {
-      const response = await fetch(`/api/groups/${group.slug}/members/${member.id}`, { method: "DELETE" });
+      const response = await fetch(`/api/groups/${group.slug}/members/${member.id}`, {
+        method: "DELETE",
+        headers: deletePasswordHeaders(deletePassword)
+      });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
         setError(payload.error ?? "Could not remove that member.");

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
+import { requireDeletePasswordFromBodyOrRequest } from "@/lib/platform/delete-protection";
 import { deleteGalleryAssets } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
 export async function POST(request: NextRequest) {
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest) {
 
   const body = await readJsonRequest(request);
   if (!body.ok) return body.response;
+  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body.value, request);
+  if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);
   const result = await deleteGalleryAssets(actor.actorUserId, body.value);

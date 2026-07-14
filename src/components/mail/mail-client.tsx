@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import {
   MAX_MAIL_ATTACHMENT_BYTES,
   MAX_MAIL_ATTACHMENTS,
@@ -510,13 +511,18 @@ export function MailClient({
   async function updateSelectedThread(action: "archive" | "unarchive" | "delete") {
     if (!selectedThread) return;
     if (action === "delete" && !window.confirm("Delete this mail from your mailbox?")) return;
+    const deletePassword = action === "delete" ? promptForDeletePassword() : null;
+    if (action === "delete" && !deletePassword) {
+      setError("Mail deletion cancelled. DELETE password was not entered.");
+      return;
+    }
 
     setError("");
     setNotice("");
     const response = await fetch(`/api/mail/threads/${selectedThread.id}`, {
       method: action === "delete" ? "DELETE" : "PATCH",
       ...(action === "delete"
-        ? {}
+        ? { headers: deletePasswordHeaders(deletePassword ?? "") }
         : {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ archived: action === "archive" })

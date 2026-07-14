@@ -2,8 +2,10 @@ import { AuditSeverity, Prisma, UserRole } from "@prisma/client";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
-import { deleteR2Object } from "@/lib/platform/r2";
-import { diagnostics } from "@/lib/platform/logging";
+import {
+  protectedRetentionTables,
+  requireDeletePasswordValue
+} from "@/lib/platform/delete-protection";
 import { isAdminRole } from "@/lib/platform/roles";
 
 const MODULE_KEY = "admin-account-lifecycle";
@@ -23,7 +25,8 @@ const lifecycleSchema = z.discriminatedUnion("action", [
     action: z.literal("delete"),
     userIdentifier: z.string().trim().min(1).max(160),
     reason: z.string().trim().min(5).max(500),
-    confirmation: z.string().trim().min(1).max(180)
+    confirmation: z.string().trim().min(1).max(180),
+    deletePassword: z.string().min(1).max(120)
   })
 ]);
 
@@ -37,15 +40,9 @@ function normalizeIdentifier(value: string) {
   return value.trim().replace(/^@/, "").toLowerCase();
 }
 
-function mediaStorageKeys(asset: StoredMediaAsset) {
-  const metadata = asset.metadata;
-  const thumbnailStorageKey = metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? (metadata as Record<string, unknown>).thumbnailStorageKey
-    : undefined;
-
-  return [asset.storageKey, typeof thumbnailStorageKey === "string" ? thumbnailStorageKey : null].filter(
-    (key): key is string => Boolean(key)
-  );
+function retentionSafeDeletedUsername(username: string, userId: string) {
+  const suffix = userId.slice(-8).toLowerCase();
+  return `deleted-${username}-${suffix}`.slice(0, 80);
 }
 
 async function isAdminUser(userId?: string) {
@@ -129,12 +126,20 @@ export async function changeAccountLifecycle(actorUserId: string, input: unknown
     return { ok: false as const, error: `Type ${expectedConfirmation} exactly to confirm permanent deletion.` };
   }
 
+  const deletePasswordError = requireDeletePasswordValue(parsed.data.deletePassword);
+  if (deletePasswordError) {
+    return { ok: false as const, error: deletePasswordError.message };
+  }
+
   const assets = target.mediaAssets as StoredMediaAsset[];
+  const deletedAt = new Date();
+  const retentionTags = Object.entries(protectedRetentionTables).map(([table, tags]) => ({ table, tags }));
+
   await prisma.$transaction(async (tx) => {
     await tx.adminAction.create({
       data: {
         actorUserId,
-        actionKey: "account-delete",
+        actionKey: "account-retention-protected-delete",
         module: MODULE_KEY,
         status: "completed",
         metadata: {
@@ -142,23 +147,43 @@ export async function changeAccountLifecycle(actorUserId: string, input: unknown
           username: target.username,
           email: target.email,
           reason: parsed.data.reason,
-          mediaAssetCount: assets.length
+          mediaAssetCount: assets.length,
+          retainedProtectedTables: retentionTags,
+          deletedAt: deletedAt.toISOString()
         } as Prisma.InputJsonObject
       }
     });
-    await tx.user.delete({ where: { id: target.id } });
+    await tx.profile.updateMany({
+      where: { userId: target.id },
+      data: {
+        displayName: "Deleted account",
+        tagline: null,
+        bio: null,
+        avatarUrl: null,
+        bannerUrl: null,
+        location: null,
+        allowProfilePosts: false
+      }
+    });
+    await tx.user.update({
+      where: { id: target.id },
+      data: {
+        email: `deleted+${target.id}@theta-space.local`,
+        username: retentionSafeDeletedUsername(target.username, target.id),
+        passwordHash: null,
+        emailVerified: null,
+        deactivatedAt: deletedAt,
+        failedLoginCount: 0,
+        sessionVersion: { increment: 1 },
+        sessionsRevokedAt: deletedAt
+      }
+    });
   });
-
-  const storageKeys = assets.flatMap(mediaStorageKeys);
-  const cleanupResults = await Promise.allSettled(
-    assets.flatMap((asset) => mediaStorageKeys(asset).map((storageKey) => deleteR2Object(storageKey, asset.visibility === "PUBLIC" ? "public" : "private")))
-  );
-  const cleanupFailures = cleanupResults.filter((result) => result.status === "rejected").length;
 
   await writeAuditLog({
     actorUserId,
     module: MODULE_KEY,
-    action: "account.deleted",
+    action: "account.retention_protected_deleted",
     targetType: "User",
     targetId: target.id,
     severity: AuditSeverity.critical,
@@ -167,17 +192,10 @@ export async function changeAccountLifecycle(actorUserId: string, input: unknown
       email: target.email,
       reason: parsed.data.reason,
       mediaAssetCount: assets.length,
-      storageObjectCount: storageKeys.length,
-      storageCleanupFailures: cleanupFailures
+      retainedProtectedTables: retentionTags,
+      deletedAt: deletedAt.toISOString()
     }
   });
 
-  if (cleanupFailures > 0) {
-    await diagnostics.error(MODULE_KEY, "Some account media objects could not be removed after account deletion.", {
-      targetUserId: target.id,
-      cleanupFailures
-    });
-  }
-
-  return { ok: true as const, action: "deleted" as const, cleanupFailures };
+  return { ok: true as const, action: "retention-protected-deleted" as const, cleanupFailures: 0 };
 }

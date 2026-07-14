@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 
 export function GalleryAssetActions({ mediaAssetId }: { mediaAssetId: string }) {
   const router = useRouter();
@@ -43,12 +44,18 @@ export function GalleryAssetActions({ mediaAssetId }: { mediaAssetId: string }) 
       setActiveTarget(null);
       return;
     }
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Photo deletion cancelled. DELETE password was not entered.");
+      setActiveTarget(null);
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/media/assets/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaAssetIds: [mediaAssetId] })
+        body: JSON.stringify(withDeletePassword({ mediaAssetIds: [mediaAssetId] }, deletePassword))
       });
       const payload = (await response.json()) as { error?: string };
 

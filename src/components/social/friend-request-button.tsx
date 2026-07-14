@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 
 export function FriendRequestButton({
   isFriend,
@@ -39,12 +40,17 @@ export function FriendRequestButton({
     setError("");
     setMessage("");
     if (!window.confirm("Remove this person from your friends? You can send a new friend request later.")) return;
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Friend removal cancelled. DELETE password was not entered.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/social-graph/relationships", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toUserId: targetUserId, type: "FRIEND" })
+        body: JSON.stringify(withDeletePassword({ toUserId: targetUserId, type: "FRIEND" }, deletePassword))
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {

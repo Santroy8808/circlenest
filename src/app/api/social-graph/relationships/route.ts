@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { readJsonRequest } from "@/lib/platform/api-request";
+import { requireDeletePasswordFromBodyOrRequest } from "@/lib/platform/delete-protection";
 import { removeSocialRelationship, setSocialRelationship } from "@/modules/social-graph/social-graph.service";
 
 export async function POST(request: NextRequest) {
@@ -30,6 +31,9 @@ export async function DELETE(request: NextRequest) {
 
   const body = await readJsonRequest(request, 8 * 1024);
   if (!body.ok) return body.response;
+  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body.value, request);
+  if (deletePasswordError) return deletePasswordError;
+
   const result = await removeSocialRelationship(session.user.id, body.value);
 
   if (!result.ok) {

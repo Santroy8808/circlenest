@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
+import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import type { StorefrontForumPostView, StorefrontForumTopicDetailView, StorefrontForumView } from "@/modules/storefront-forum/types";
 
 type StorefrontForumTopicClientProps = {
@@ -146,7 +147,15 @@ export function StorefrontForumTopicClient({ profile, topic, viewerCanManage }: 
 
   async function deletePost(postId: string) {
     setError("");
-    const response = await fetch(`/api/storefront/${profile.slug}/forum/posts/${postId}`, { method: "DELETE" });
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Reply deletion cancelled. DELETE password was not entered.");
+      return;
+    }
+    const response = await fetch(`/api/storefront/${profile.slug}/forum/posts/${postId}`, {
+      method: "DELETE",
+      headers: deletePasswordHeaders(deletePassword)
+    });
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
@@ -159,7 +168,15 @@ export function StorefrontForumTopicClient({ profile, topic, viewerCanManage }: 
 
   async function deleteTopic() {
     setError("");
-    const response = await fetch(`/api/storefront/${profile.slug}/forum/topics/${topic.id}`, { method: "DELETE" });
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Topic deletion cancelled. DELETE password was not entered.");
+      return;
+    }
+    const response = await fetch(`/api/storefront/${profile.slug}/forum/topics/${topic.id}`, {
+      method: "DELETE",
+      headers: deletePasswordHeaders(deletePassword)
+    });
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { requireDeletePasswordFromBodyOrRequest } from "@/lib/platform/delete-protection";
 import {
   createMemberFreeAccountInviteCode,
   listOwnFreeAccountInvites,
@@ -43,7 +44,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const result = await revokeOwnFreeAccountInviteCode(session.user.id, await request.json().catch(() => ({})));
+  const body = await request.json().catch(() => ({}));
+  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body, request);
+  if (deletePasswordError) return deletePasswordError;
+
+  const result = await revokeOwnFreeAccountInviteCode(session.user.id, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

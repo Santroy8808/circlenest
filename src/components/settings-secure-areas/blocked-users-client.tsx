@@ -2,6 +2,7 @@
 
 import { SocialRelationshipType } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import type { BlockedUserView } from "@/modules/social-graph/blocked-users.service";
 
 function initials(name: string) {
@@ -24,15 +25,21 @@ export function BlockedUsersClient({ initialBlockedUsers }: { initialBlockedUser
     setMessage("");
     setError("");
     setPendingUserId(userId);
+    const deletePassword = promptForDeletePassword();
+    if (!deletePassword) {
+      setError("Unblock cancelled. DELETE password was not entered.");
+      setPendingUserId("");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/social-graph/relationships", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(withDeletePassword({
           toUserId: userId,
           type: SocialRelationshipType.BLOCK
-        })
+        }, deletePassword))
       });
       const payload = (await response.json()) as { error?: string };
 

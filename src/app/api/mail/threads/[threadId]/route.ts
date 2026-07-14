@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { readJsonRequest } from "@/lib/platform/api-request";
+import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
 import {
   INTERNAL_MAIL_UNAVAILABLE_ERROR,
   deleteMailThread,
@@ -56,13 +57,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { thread
     : NextResponse.json({ error: result.error }, { status: 404 });
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { threadId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: { threadId: string } }) {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
   if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
+
+  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  if (deletePasswordError) return deletePasswordError;
 
   const result = await deleteMailThread(session.user.id, params.threadId);
   return result.ok

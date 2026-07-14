@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
+import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
 import { removeGroupMember, updateGroupMemberRole } from "@/modules/groups/groups.service";
 
 export async function PATCH(
@@ -29,11 +30,13 @@ export async function PATCH(
   return NextResponse.json(result);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { groupId: string; memberId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: { groupId: string; memberId: string } }) {
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);
   const result = await removeGroupMember(actor.actorUserId, params.groupId, {
