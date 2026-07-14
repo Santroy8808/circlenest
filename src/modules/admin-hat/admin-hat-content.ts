@@ -259,7 +259,7 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
   },
   {
     term: "Stream Retention",
-    definition: "The lifecycle policy for public Stream posts: media is subject to compression after 48 hours without a view, posts are removed from the active Stream after 1 week and kept in archive, and posts are permanently deleted after 3 months unless held."
+    definition: "The lifecycle policy for public Stream posts: image media is re-encoded and resized after 48 hours without a view, posts are removed from the active Stream after 1 week and kept in archive, and posts are permanently deleted after 3 months unless held."
   },
   {
     term: "Admin Hold",

@@ -96,7 +96,7 @@ export function AdminFeedRetentionWizard() {
 
       if (action === "apply-policy") {
         setMessage(
-          `Policy applied. Compression marked: ${result.compressedCount ?? 0}. Archived: ${result.archivedCount ?? 0}. Permanently deleted: ${result.permanentlyDeletedCount ?? result.deletedCount ?? 0}.`
+          `Policy applied. Compressed: ${result.compressedCount ?? 0}. Skipped: ${result.compressionSkippedCount ?? 0}. Failed: ${result.compressionFailedCount ?? 0}. Archived: ${result.archivedCount ?? 0}. Permanently deleted: ${result.permanentlyDeletedCount ?? result.deletedCount ?? 0}.`
         );
         search();
         return;

@@ -110,7 +110,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   },
   {
     term: "Stream retention",
-    definition: "Normal Stream posts are active content, not permanent storage. Public Stream media may be compressed after 48 hours without a view, moved out of the active Stream after 1 week, and permanently deleted after 3 months. These limits may change."
+    definition: "Normal Stream posts are active content, not permanent storage. Public Stream media may be re-encoded and resized after 48 hours without a view, moved out of the active Stream after 1 week, and permanently deleted after 3 months. These limits may change."
   },
   {
     term: "Invite-Only",
@@ -121,7 +121,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
 export const freeTierBasics = [
   "Free Tier personal file storage is currently 200 MB for Gallery, group uploads, and message images.",
   "Text-only posts do not count against the 200 MB personal file-storage limit.",
-  "Public Stream posts from Communicate may be compressed after 48 hours without a view, archived after 1 week, and permanently deleted after 3 months. These limits may change.",
+  "Public Stream posts from Communicate may have images compressed after 48 hours without a view, archived after 1 week, and permanently deleted after 3 months. These limits may change.",
   "Free Tier marketplace creation is limited to 3 listings per 14-day period.",
   "Each Free Tier marketplace listing can have up to 3 photos.",
   "Business profiles, storefronts, business identity switching, ads, Writers Corner, fundraiser creation, and business tools are not Free Tier functions.",
@@ -247,7 +247,7 @@ export const usersManualSections: UsersManualSection[] = [
           "Attach a picture when the picture button is available.",
           "Submit the post and check that it appears in the Stream."
         ],
-        limits: ["Do not post private information you do not want members to see.", "Pictures count toward your 200 MB Free Tier personal file storage.", "Text-only posts do not count toward personal file storage.", "Public Stream media may be compressed after 48 hours without a view; public Stream posts may be archived after 1 week and permanently deleted after 3 months.", "Uploaded pictures must use allowed visibility for the place where they are posted."],
+        limits: ["Do not post private information you do not want members to see.", "Pictures count toward your 200 MB Free Tier personal file storage.", "Text-only posts do not count toward personal file storage.", "Public Stream images may be compressed after 48 hours without a view; public Stream posts may be archived after 1 week and permanently deleted after 3 months.", "Uploaded pictures must use allowed visibility for the place where they are posted."],
         faq: [
           {
             question: "Are Stream posts public?",

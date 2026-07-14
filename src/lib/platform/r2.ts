@@ -15,6 +15,14 @@ type R2PutInput = {
   access?: R2ObjectAccess;
 };
 
+type R2DirectPutInput = {
+  storageKey: string;
+  body: Buffer | Uint8Array | string;
+  mimeType: string;
+  access?: R2ObjectAccess;
+  metadata?: Record<string, string | undefined>;
+};
+
 let cachedClient: { key: string; client: S3Client } | null = null;
 
 export function readR2Config() {
@@ -164,6 +172,24 @@ export async function createPresignedR2PutRequest(input: R2PutInput) {
 export async function createPresignedR2PutUrl(input: R2PutInput) {
   const request = await createPresignedR2PutRequest(input);
   return request.url;
+}
+
+export async function putR2Object(input: R2DirectPutInput) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "public");
+  const body = Buffer.isBuffer(input.body) ? input.body : Buffer.from(input.body);
+  const metadata = normalizeR2Metadata(input.metadata);
+
+  return getR2Client().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: input.storageKey,
+      Body: body,
+      ContentType: input.mimeType,
+      ContentLength: body.length,
+      Metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+    })
+  );
 }
 
 export async function getR2Object(storageKey: string, access: R2ObjectAccess = "public") {

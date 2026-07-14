@@ -1,10 +1,18 @@
-import { FeedVisibility, Prisma } from "@prisma/client";
+import { FeedVisibility, MediaVisibility, Prisma } from "@prisma/client";
+import sharp from "sharp";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
+import { getR2Object, getR2PublicUrl, putR2Object, type R2ObjectAccess } from "@/lib/platform/r2";
 import { isAdminRole } from "@/lib/platform/roles";
 
 const MODULE_KEY = "feed-retention";
+const STREAM_COMPRESSION_MIME_TYPE = "image/webp";
+const STREAM_COMPRESSION_MAX_EDGE_PX = 1600;
+const STREAM_COMPRESSION_QUALITY = 76;
+const STREAM_COMPRESSION_MIN_SAVINGS_RATIO = 0.06;
+const STREAM_COMPRESSION_BATCH_LIMIT = 50;
+const COMPRESSIBLE_STREAM_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export const FREE_TIER_PERSONAL_STORAGE_BYTES = 200 * 1024 * 1024;
 
@@ -68,6 +76,21 @@ type AdminFeedPostSearchResult = {
   adminHoldThread: boolean;
 };
 
+type StreamCompressionCandidate = Prisma.FeedPostGetPayload<{
+  include: {
+    mediaAsset: {
+      select: {
+        id: true;
+        storageKey: true;
+        mimeType: true;
+        sizeBytes: true;
+        visibility: true;
+        metadata: true;
+      };
+    };
+  };
+}>;
+
 async function requireAdmin(actorUserId: string) {
   const actor = await prisma.user.findUnique({
     where: { id: actorUserId },
@@ -99,6 +122,104 @@ function bodyPreview(body: string) {
   return normalized.length > 180 ? `${normalized.slice(0, 177)}...` : normalized || "(media-only post)";
 }
 
+function mediaAccessForVisibility(visibility: MediaVisibility): R2ObjectAccess {
+  return visibility === MediaVisibility.PUBLIC ? "public" : "private";
+}
+
+function isJsonObject(value: Prisma.JsonValue): value is Prisma.JsonObject {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+async function r2ObjectBodyToBuffer(body: unknown) {
+  const transformer = body as { transformToByteArray?: () => Promise<Uint8Array> };
+  if (typeof transformer?.transformToByteArray === "function") {
+    return Buffer.from(await transformer.transformToByteArray());
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of body as AsyncIterable<Uint8Array | Buffer | string>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+async function compressStreamMedia(post: StreamCompressionCandidate) {
+  const mediaAsset = post.mediaAsset;
+  if (!mediaAsset) return { ok: false as const, reason: "missing-media-asset" };
+
+  const normalizedMimeType = mediaAsset.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (!COMPRESSIBLE_STREAM_MIME_TYPES.has(normalizedMimeType)) {
+    return { ok: false as const, reason: "unsupported-mime-type" };
+  }
+
+  const access = mediaAccessForVisibility(mediaAsset.visibility);
+  const object = await getR2Object(mediaAsset.storageKey, access);
+  const originalBytes = await r2ObjectBodyToBuffer(object.Body);
+  if (originalBytes.length === 0) return { ok: false as const, reason: "empty-object" };
+
+  const compressedBytes = await sharp(originalBytes, { animated: false })
+    .rotate()
+    .resize({
+      width: STREAM_COMPRESSION_MAX_EDGE_PX,
+      height: STREAM_COMPRESSION_MAX_EDGE_PX,
+      fit: "inside",
+      withoutEnlargement: true
+    })
+    .webp({ quality: STREAM_COMPRESSION_QUALITY, effort: 4 })
+    .toBuffer();
+
+  const savingsRatio = 1 - compressedBytes.length / originalBytes.length;
+  if (savingsRatio < STREAM_COMPRESSION_MIN_SAVINGS_RATIO) {
+    return {
+      ok: false as const,
+      reason: "insufficient-savings",
+      originalSizeBytes: originalBytes.length,
+      compressedSizeBytes: compressedBytes.length
+    };
+  }
+
+  await putR2Object({
+    storageKey: mediaAsset.storageKey,
+    body: compressedBytes,
+    mimeType: STREAM_COMPRESSION_MIME_TYPE,
+    access,
+    metadata: {
+      "theta-compressed": "true",
+      "theta-compressed-at": new Date().toISOString(),
+      "theta-original-mime": normalizedMimeType,
+      "theta-original-size": String(originalBytes.length)
+    }
+  });
+
+  const existingMetadata = isJsonObject(mediaAsset.metadata) ? mediaAsset.metadata : {};
+  await prisma.mediaAsset.update({
+    where: { id: mediaAsset.id },
+    data: {
+      mimeType: STREAM_COMPRESSION_MIME_TYPE,
+      sizeBytes: BigInt(compressedBytes.length),
+      publicUrl: mediaAsset.visibility === MediaVisibility.PUBLIC ? getR2PublicUrl(mediaAsset.storageKey) : null,
+      metadata: {
+        ...existingMetadata,
+        streamRetentionCompression: {
+          compressedAt: new Date().toISOString(),
+          originalMimeType: normalizedMimeType,
+          originalSizeBytes: originalBytes.length,
+          compressedMimeType: STREAM_COMPRESSION_MIME_TYPE,
+          compressedSizeBytes: compressedBytes.length,
+          quality: STREAM_COMPRESSION_QUALITY,
+          maxEdgePx: STREAM_COMPRESSION_MAX_EDGE_PX
+        }
+      }
+    }
+  });
+
+  return {
+    ok: true as const,
+    originalSizeBytes: originalBytes.length,
+    compressedSizeBytes: compressedBytes.length
+  };
+}
+
 export async function markFeedPostsViewed(postIds: string[]) {
   const uniqueIds = [...new Set(postIds.filter(Boolean))];
   if (uniqueIds.length === 0) return;
@@ -123,7 +244,7 @@ export async function applyPublicStreamRetentionPolicy(actorUserId?: string) {
   const archiveCutoff = daysAgo(now, streamRetentionPolicy.archiveAfterDays);
   const deleteCutoff = daysAgo(now, streamRetentionPolicy.deleteAfterDays);
 
-  const compressed = await prisma.feedPost.updateMany({
+  const compressionCandidates = await prisma.feedPost.findMany({
     where: publicStreamWhere({
       mediaAssetId: { not: null },
       streamCompressedAt: null,
@@ -135,8 +256,55 @@ export async function applyPublicStreamRetentionPolicy(actorUserId?: string) {
         { lastViewedAt: { lte: compressionCutoff } }
       ]
     }),
-    data: { streamCompressedAt: now }
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          storageKey: true,
+          mimeType: true,
+          sizeBytes: true,
+          visibility: true,
+          metadata: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: STREAM_COMPRESSION_BATCH_LIMIT
   });
+
+  let compressedCount = 0;
+  let compressionSkippedCount = 0;
+  let compressionFailedCount = 0;
+
+  for (const post of compressionCandidates) {
+    try {
+      const result = await compressStreamMedia(post);
+      if (result.ok) {
+        compressedCount += 1;
+      } else {
+        compressionSkippedCount += 1;
+      }
+      await prisma.feedPost.update({
+        where: { id: post.id },
+        data: { streamCompressedAt: now }
+      });
+    } catch (error) {
+      compressionFailedCount += 1;
+      if (actorUserId) {
+        await writeAuditLog({
+          actorUserId,
+          module: MODULE_KEY,
+          action: "stream.compression_failed",
+          targetType: "FeedPost",
+          targetId: post.id,
+          severity: "warning",
+          metadata: {
+            error: error instanceof Error ? error.message : String(error)
+          }
+        });
+      }
+    }
+  }
 
   const archived = await prisma.feedPost.updateMany({
     where: publicStreamWhere({
@@ -171,7 +339,9 @@ export async function applyPublicStreamRetentionPolicy(actorUserId?: string) {
       targetType: "FeedPost",
       severity: "warning",
       metadata: {
-        compressedCount: compressed.count,
+        compressedCount,
+        compressionSkippedCount,
+        compressionFailedCount,
         archivedCount: archived.count,
         deletedCount: deleted.count,
         permanentlyDeletedCount: permanentlyDeleted.count,
@@ -182,7 +352,9 @@ export async function applyPublicStreamRetentionPolicy(actorUserId?: string) {
 
   return {
     ok: true as const,
-    compressedCount: compressed.count,
+    compressedCount,
+    compressionSkippedCount,
+    compressionFailedCount,
     archivedCount: archived.count,
     deletedCount: deleted.count,
     permanentlyDeletedCount: permanentlyDeleted.count
