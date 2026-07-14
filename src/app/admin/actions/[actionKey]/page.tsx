@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { AdminAccountSupportWizard } from "@/components/admin-moderation/admin-account-support-wizard";
 import { AdminAdScheduleWizard } from "@/components/admin-moderation/admin-ad-schedule-wizard";
 import { AdminAnnouncementWizard } from "@/components/admin-moderation/admin-announcement-wizard";
+import { AdminFeedRetentionWizard } from "@/components/admin-moderation/admin-feed-retention-wizard";
 import { AdminObjectLookup } from "@/components/admin-moderation/admin-object-lookup";
 import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
 import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wizard";
@@ -132,6 +133,14 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminAnnouncementWizard internalMailEnabled={isInternalMailEnabled()} recentAnnouncements={recentAnnouncements} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "feed-retention") {
+    return (
+      <AppShell>
+        <AdminFeedRetentionWizard />
       </AppShell>
     );
   }

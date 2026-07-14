@@ -4030,6 +4030,24 @@ a {
     rgba(18, 27, 42, 0.96);
 }
 
+.feed-post.is-admin-held {
+  border-color: rgba(255, 76, 76, 0.92);
+  box-shadow:
+    0 0 0 2px rgba(255, 76, 76, 0.22),
+    0 18px 42px rgba(0, 0, 0, 0.36);
+}
+
+.feed-admin-hold-chip {
+  border: 1px solid rgba(255, 76, 76, 0.58);
+  border-radius: 999px;
+  color: #ffb7b7;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 0.32rem 0.62rem;
+  text-transform: uppercase;
+}
+
 .feed-post.is-announcement .feed-post-body-preview {
   margin-top: 12px;
 }
@@ -9059,6 +9077,86 @@ html.theta-theme-light .auditor-card:hover {
   padding: 14px 20px;
   width: 100%;
   word-break: normal;
+}
+
+.admin-feed-retention-row {
+  align-items: center;
+  background: rgba(15, 23, 36, 0.78);
+  border: 1px solid rgba(255, 216, 95, 0.18);
+  border-radius: 16px;
+  color: var(--text);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px 16px;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease;
+  width: 100%;
+}
+
+.admin-feed-retention-row:hover,
+.admin-feed-retention-row.is-selected {
+  background: rgba(255, 216, 95, 0.1);
+  border-color: rgba(255, 216, 95, 0.56);
+}
+
+.admin-feed-retention-row.is-held {
+  border-color: rgba(255, 76, 76, 0.74);
+}
+
+.admin-feed-retention-row strong,
+.admin-feed-retention-row small {
+  display: block;
+}
+
+.admin-feed-retention-row small {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.admin-feed-retention-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.admin-feed-retention-flags b {
+  border: 1px solid rgba(255, 216, 95, 0.22);
+  border-radius: 999px;
+  color: var(--gold);
+  font-size: 0.72rem;
+  padding: 0.22rem 0.5rem;
+}
+
+.admin-feed-retention-flags b.danger {
+  border-color: rgba(255, 76, 76, 0.5);
+  color: #ffb7b7;
+}
+
+.admin-feed-retention-status {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.admin-feed-retention-status div {
+  border: 1px solid rgba(255, 216, 95, 0.16);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.admin-feed-retention-status dt {
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-feed-retention-status dd {
+  color: var(--muted);
+  margin: 6px 0 0;
 }
 
 .admin-hat-toc button:hover,

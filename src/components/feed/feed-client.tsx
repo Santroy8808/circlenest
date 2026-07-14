@@ -1703,7 +1703,7 @@ export function FeedClient({
             <Fragment key={post.id}>
             <article
               aria-label={`Open ${post.author.displayName}'s post`}
-              className={`${showThreadLinks ? "feed-post surface rounded-md is-clickable" : "feed-post surface rounded-md"}${streamCardClass}${post.isAdminAnnouncement ? " is-announcement" : ""}`}
+              className={`${showThreadLinks ? "feed-post surface rounded-md is-clickable" : "feed-post surface rounded-md"}${streamCardClass}${post.isAdminAnnouncement ? " is-announcement" : ""}${post.adminHoldAt ? " is-admin-held" : ""}`}
               onClick={(event) => handlePostClick(post.id, event)}
               onKeyDown={(event) => handlePostKeyDown(post.id, event)}
               role={showThreadLinks ? "link" : undefined}
@@ -1719,6 +1719,7 @@ export function FeedClient({
                   </div>
                 </div>
                 <div className="feed-post-header-actions">
+                  {post.adminHoldAt ? <span className="feed-admin-hold-chip">admin hold</span> : null}
                   {post.isAdminAnnouncement ? (
                     <>
                       <span className="feed-visibility-chip">pinned announcement</span>

@@ -288,7 +288,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Communications And Safety",
       eyebrow: "Trust",
       description: "Admin announcements, support queues, bug reports, abuse reports, and content reports.",
-      badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "3 tools",
+      badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "4 tools",
       keywords: ["announcements", "reports", "support", "safety", "abuse", "content", "tickets", "object id"],
       groups: [
         {
@@ -311,6 +311,14 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               description: "Review bug reports, abuse reports, content reports, and support tickets.",
               badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "queue",
               keywords: ["report issue", "tickets", "support", "bug", "abuse", "feedback", "content report"]
+            },
+            {
+              href: "/admin/actions/feed-retention",
+              title: "Stream Retention",
+              category: "Communications And Safety",
+              description: "Hold stream posts, search retained threads, export/import threads, and run stream retention policy checks.",
+              badge: "retention",
+              keywords: ["stream", "post", "hold", "archive", "export", "import", "retention", "communicate"]
             },
             {
               href: "/admin/actions/object-lookup",

@@ -67,6 +67,13 @@ export type FeedPostView = {
   visibility: FeedVisibility;
   isAdminAnnouncement: boolean;
   pinnedUntil?: string | null;
+  lastViewedAt?: string | null;
+  streamCompressedAt?: string | null;
+  streamArchivedAt?: string | null;
+  streamDeletedAt?: string | null;
+  adminHoldAt?: string | null;
+  adminHoldReason?: string | null;
+  adminHoldThread?: boolean;
   createdAt: string;
   media?: FeedMediaView | null;
   author: FeedAuthorView;

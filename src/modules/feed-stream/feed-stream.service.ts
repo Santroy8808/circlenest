@@ -23,6 +23,7 @@ import {
   parseFeedPageRequest,
   takeFeedPage
 } from "@/modules/feed-stream/feed-pagination";
+import { markFeedPostsViewed } from "@/modules/feed-stream/feed-retention.service";
 import {
   createFeedCommentSchema,
   createFeedPostSchema,
@@ -174,6 +175,13 @@ type FeedPostRecord = {
   visibility: FeedVisibility;
   isAdminAnnouncement: boolean;
   pinnedUntil: Date | null;
+  lastViewedAt?: Date | null;
+  streamCompressedAt?: Date | null;
+  streamArchivedAt?: Date | null;
+  streamDeletedAt?: Date | null;
+  adminHoldAt?: Date | null;
+  adminHoldReason?: string | null;
+  adminHoldThread?: boolean;
   createdAt: Date;
   mediaAsset: FeedMediaAssetRecord | null;
   author: FeedCommentRecord["author"];
@@ -283,6 +291,13 @@ function toFeedPostView(post: FeedPostRecord): FeedPostView {
     visibility: post.visibility,
     isAdminAnnouncement: post.isAdminAnnouncement,
     pinnedUntil: post.pinnedUntil?.toISOString() ?? null,
+    lastViewedAt: post.lastViewedAt?.toISOString() ?? null,
+    streamCompressedAt: post.streamCompressedAt?.toISOString() ?? null,
+    streamArchivedAt: post.streamArchivedAt?.toISOString() ?? null,
+    streamDeletedAt: post.streamDeletedAt?.toISOString() ?? null,
+    adminHoldAt: post.adminHoldAt?.toISOString() ?? null,
+    adminHoldReason: post.adminHoldReason ?? null,
+    adminHoldThread: post.adminHoldThread ?? true,
     createdAt: post.createdAt.toISOString(),
     media: toFeedMediaView(post.mediaAsset),
     author: toFeedAuthorView(post.author),
@@ -615,6 +630,7 @@ export async function listFeedPostsPage(
   const policy = await resolveFeedViewerPolicy(viewerUserId);
   const result = await withFeedDbTimeout(fetchFeedPostPage(input, policy), "feed lookup");
   const normalPage = takeFeedPage(result.normal as unknown as FeedPostRecord[], result.page.limit);
+  await markFeedPostsViewed([...result.pinned, ...normalPage.items].map((post) => post.id));
 
   return {
     pinnedItems: (result.pinned as unknown as FeedPostRecord[]).map(toFeedPostView),
@@ -652,6 +668,7 @@ export async function listProfileFeedPostsPage(
     "profile feed lookup"
   );
   const page = takeFeedPage(result.posts as unknown as FeedPostRecord[], result.page.limit);
+  await markFeedPostsViewed(page.items.map((post) => post.id));
 
   return {
     items: page.items.map(toFeedPostView),
@@ -701,8 +718,11 @@ export async function deleteFeedPost(userId: string, postId: string) {
     return { ok: false as const, error: "You are not authorized to delete this post." };
   }
 
-  const deleted = await prisma.feedPost.deleteMany({
-    where: scopeFeedPostWhere(policy, "delete", { id: postId })
+  const deleted = await prisma.feedPost.updateMany({
+    where: scopeFeedPostWhere(policy, "delete", { id: postId, streamDeletedAt: null }),
+    data: {
+      streamDeletedAt: new Date()
+    }
   });
 
   if (deleted.count === 0) {
@@ -800,6 +820,7 @@ export async function getFeedPostThreadPage(
   const post = result.post as unknown as FeedPostRecord;
   const comments = takeFeedPage(post.comments, result.page.limit);
   post.comments = [...comments.items].reverse();
+  await markFeedPostsViewed([post.id]);
 
   return {
     post: toFeedPostView(post),

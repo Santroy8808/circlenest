@@ -10,6 +10,19 @@ const MODULE_KEY = "admin-moderation";
 
 export const adminActionCards: AdminActionCard[] = [
   {
+    key: "feed-retention",
+    title: "Stream Retention",
+    description: "Search stream threads, place or release admin holds, export/import thread records, and run retention policy checks.",
+    risk: "high",
+    keywords: ["stream", "post hold", "retention", "archive", "export post", "import post", "feed", "communicate"],
+    steps: [
+      "Search for a stream post by id, text, author, or held status.",
+      "Place or release an admin hold when a post/thread must be hidden indefinitely.",
+      "Export a full post thread for review or migration, or import a previously exported thread.",
+      "Run retention policy checks for compression marking, archive, and soft deletion."
+    ]
+  },
+  {
     key: "tier-policy",
     title: "Global Tier Permissions",
     description: "God-only editor for global tier capability assignments. Changes affect every account on that membership tier.",

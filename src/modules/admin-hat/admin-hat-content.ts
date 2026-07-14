@@ -172,6 +172,12 @@ const functionDetailsByTitle: Record<
     cautions: ["Abuse/content reports may require preserving evidence.", "Do not expose reporter identity unnecessarily."],
     expectedResult: "The ticket receives review status, resolution, or admin notes."
   },
+  "Stream Retention": {
+    whenToUse: "Use this to review public Stream lifecycle state, place or release admin holds, and export/import full post threads.",
+    beforeYouStart: ["Search by exact post ID when possible.", "Decide whether the whole thread and contents must be held.", "Write a reason that explains the hold or release."],
+    cautions: ["Admin holds hide the post from normal users but keep it visible to admins.", "Held posts should be treated as preserved evidence or protected review material.", "Exported/imported threads can include user content and should be handled as sensitive admin material."],
+    expectedResult: "The selected post is held, released, exported, imported, or processed through the Stream retention policy with an audit trail."
+  },
   "Object ID Lookup": {
     whenToUse: "Use this when an admin-visible object ID needs to be resolved to a destination or object type.",
     beforeYouStart: ["Copy the exact ID from the admin-visible UI.", "Check for extra spaces before searching."],
@@ -252,6 +258,14 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
     definition: "An admin-created notice delivered by selected channels such as login pop-up, pinned stream announcement, chat, mail, or queued personal email."
   },
   {
+    term: "Stream Retention",
+    definition: "The lifecycle policy for public Stream posts: media is subject to compression after 48 hours without a view, posts are removed from the active Stream after 1 week and kept in archive, and posts are permanently deleted after 3 months unless held."
+  },
+  {
+    term: "Admin Hold",
+    definition: "An indefinite administrator hold on a post/thread. Held content is hidden from normal users, visible to admins with a red outline, and excluded from normal retention cleanup until released."
+  },
+  {
     term: "Suspension",
     definition: "A reversible restriction on an account's platform access. Suspension is different from deletion and should include a clear reason."
   },
@@ -269,7 +283,8 @@ export const adminHatOperatingRules = [
   "Do not use direct tier, credit, or flag changes to hide missing product functionality. Fix the product issue or document the temporary exception.",
   "Keep payment configuration, platform-credit adjustments, and membership status changes conceptually separate.",
   "If a function says review, treat it as read-oriented unless the UI explicitly offers a mutation button.",
-  "For destructive actions, stop and confirm identity, impact, and reason before pressing the final button."
+  "For destructive actions, stop and confirm identity, impact, and reason before pressing the final button.",
+  "Use Stream Retention holds when public post/thread evidence must be preserved or hidden from normal view. Export before import or restoration work. Content older than 3 months that is not held can be permanently deleted by the retention policy."
 ];
 
 function figureFor(entry: AdminFunctionEntry): AdminHatFigure {

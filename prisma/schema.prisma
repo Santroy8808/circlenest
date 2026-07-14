@@ -575,6 +575,7 @@ model User {
   mediaAssetHashtags              MediaAssetHashtag[]
   mediaCollections                MediaCollection[]
   feedPosts                       FeedPost[]                         @relation("FeedPostAuthor")
+  feedPostAdminHolds              FeedPost[]                         @relation("FeedPostAdminHoldBy")
   targetedFeedPosts               FeedPost[]                         @relation("FeedPostProfileTarget")
   feedComments                    FeedComment[]                      @relation("FeedCommentAuthor")
   createdHashtags                 Hashtag[]                          @relation("HashtagCreator")
@@ -1408,9 +1409,18 @@ model FeedPost {
   targetProfileUserId String?
   isAdminAnnouncement Boolean             @default(false)
   pinnedUntil         DateTime?
+  lastViewedAt        DateTime?
+  streamCompressedAt  DateTime?
+  streamArchivedAt    DateTime?
+  streamDeletedAt     DateTime?
+  adminHoldAt         DateTime?
+  adminHoldByUserId   String?
+  adminHoldReason     String?
+  adminHoldThread     Boolean             @default(true)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   author              User                @relation("FeedPostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  adminHoldBy         User?               @relation("FeedPostAdminHoldBy", fields: [adminHoldByUserId], references: [id], onDelete: SetNull)
   targetProfileUser   User?               @relation("FeedPostProfileTarget", fields: [targetProfileUserId], references: [id], onDelete: SetNull)
   mediaAsset          MediaAsset?         @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
   hashtags            FeedPostHashtag[]
@@ -1419,6 +1429,11 @@ model FeedPost {
   dismissals          FeedPostDismissal[]
 
   @@index([visibility, createdAt])
+  @@index([visibility, streamArchivedAt, streamDeletedAt, createdAt])
+  @@index([adminHoldAt, createdAt])
+  @@index([streamArchivedAt, createdAt])
+  @@index([streamDeletedAt, createdAt])
+  @@index([lastViewedAt, createdAt])
   @@index([isAdminAnnouncement, pinnedUntil, createdAt])
   @@index([authorUserId, createdAt])
   @@index([targetProfileUserId, createdAt])

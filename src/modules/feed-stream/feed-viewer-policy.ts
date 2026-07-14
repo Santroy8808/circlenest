@@ -13,6 +13,11 @@ export type FeedViewerPolicy = {
 
 const DENY_ALL_POSTS: Prisma.FeedPostWhereInput = { id: { in: [] } };
 const DENY_ALL_ACTORS: Prisma.UserWhereInput = { id: { in: [] } };
+const ACTIVE_STREAM_POSTS: Prisma.FeedPostWhereInput = {
+  adminHoldAt: null,
+  streamArchivedAt: null,
+  streamDeletedAt: null
+};
 
 function visibleActorWhere(viewerUserId: string): Prisma.UserWhereInput {
   return {
@@ -134,23 +139,28 @@ export async function resolveFeedViewerPolicy(viewerUserId?: string | null): Pro
   const actorWhere = visibleActorWhere(viewerUserId);
   const visiblePrincipals = visiblePostPrincipalsWhere(actorWhere);
   const viewWhere: Prisma.FeedPostWhereInput = {
-    OR: [
-      { authorUserId: viewerUserId },
-      { targetProfileUserId: viewerUserId },
+    AND: [
+      ACTIVE_STREAM_POSTS,
       {
-        AND: [
-          visiblePrincipals,
+        OR: [
+          { authorUserId: viewerUserId },
+          { targetProfileUserId: viewerUserId },
           {
-            visibility: FeedVisibility.MEMBERS
-          }
-        ]
-      },
-      {
-        AND: [
-          visiblePrincipals,
-          symmetricFriendAuthorWhere(viewerUserId),
+            AND: [
+              visiblePrincipals,
+              {
+                visibility: FeedVisibility.MEMBERS
+              }
+            ]
+          },
           {
-            visibility: FeedVisibility.FRIENDS
+            AND: [
+              visiblePrincipals,
+              symmetricFriendAuthorWhere(viewerUserId),
+              {
+                visibility: FeedVisibility.FRIENDS
+              }
+            ]
           }
         ]
       }
