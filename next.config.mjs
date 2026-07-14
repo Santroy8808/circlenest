@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ["all-the-cities"]
+  },
   poweredByHeader: false,
   reactStrictMode: true,
   async headers() {

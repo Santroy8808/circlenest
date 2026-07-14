@@ -1,3 +1,5 @@
+import allCities from "all-the-cities";
+
 export type CityLocationSuggestion = {
   city: string;
   country: string;
@@ -5,217 +7,256 @@ export type CityLocationSuggestion = {
   region: string;
 };
 
+type WorldCity = {
+  adminCode?: string;
+  altName?: string;
+  cityId: number;
+  country: string;
+  featureCode?: string;
+  name: string;
+  population?: number;
+};
+
 type CityLocationRecord = {
   aliases?: string[];
   city: string;
-  country?: string;
-  populationRank: number;
+  country: string;
+  label: string;
+  priority: number;
   region: string;
+  searchValues: Array<{ value: string; weight: number }>;
 };
 
-const CITY_LOCATIONS: CityLocationRecord[] = [
-  { city: "New York", region: "NY", populationRank: 1 },
-  { city: "Los Angeles", region: "CA", populationRank: 2, aliases: ["LA"] },
-  { city: "Chicago", region: "IL", populationRank: 3 },
-  { city: "Houston", region: "TX", populationRank: 4 },
-  { city: "Phoenix", region: "AZ", populationRank: 5 },
-  { city: "Philadelphia", region: "PA", populationRank: 6 },
-  { city: "San Antonio", region: "TX", populationRank: 7 },
-  { city: "San Diego", region: "CA", populationRank: 8 },
-  { city: "Dallas", region: "TX", populationRank: 9 },
-  { city: "Jacksonville", region: "FL", populationRank: 10 },
-  { city: "Austin", region: "TX", populationRank: 11 },
-  { city: "Fort Worth", region: "TX", populationRank: 12 },
-  { city: "San Jose", region: "CA", populationRank: 13 },
-  { city: "Columbus", region: "OH", populationRank: 14 },
-  { city: "Charlotte", region: "NC", populationRank: 15 },
-  { city: "Indianapolis", region: "IN", populationRank: 16 },
-  { city: "San Francisco", region: "CA", populationRank: 17, aliases: ["SF"] },
-  { city: "Seattle", region: "WA", populationRank: 18 },
-  { city: "Denver", region: "CO", populationRank: 19 },
-  { city: "Oklahoma City", region: "OK", populationRank: 20 },
-  { city: "Nashville", region: "TN", populationRank: 21 },
-  { city: "Washington", region: "DC", populationRank: 22, aliases: ["Washington DC", "DC"] },
-  { city: "El Paso", region: "TX", populationRank: 23 },
-  { city: "Las Vegas", region: "NV", populationRank: 24 },
-  { city: "Boston", region: "MA", populationRank: 25 },
-  { city: "Detroit", region: "MI", populationRank: 26 },
-  { city: "Portland", region: "OR", populationRank: 27 },
-  { city: "Louisville", region: "KY", populationRank: 28 },
-  { city: "Memphis", region: "TN", populationRank: 29 },
-  { city: "Baltimore", region: "MD", populationRank: 30 },
-  { city: "Milwaukee", region: "WI", populationRank: 31 },
-  { city: "Albuquerque", region: "NM", populationRank: 32 },
-  { city: "Tucson", region: "AZ", populationRank: 33 },
-  { city: "Fresno", region: "CA", populationRank: 34 },
-  { city: "Sacramento", region: "CA", populationRank: 35 },
-  { city: "Mesa", region: "AZ", populationRank: 36 },
-  { city: "Kansas City", region: "MO", populationRank: 37 },
-  { city: "Atlanta", region: "GA", populationRank: 38 },
-  { city: "Omaha", region: "NE", populationRank: 39 },
-  { city: "Colorado Springs", region: "CO", populationRank: 40 },
-  { city: "Raleigh", region: "NC", populationRank: 41 },
-  { city: "Long Beach", region: "CA", populationRank: 42 },
-  { city: "Virginia Beach", region: "VA", populationRank: 43 },
-  { city: "Miami", region: "FL", populationRank: 44 },
-  { city: "Oakland", region: "CA", populationRank: 45 },
-  { city: "Minneapolis", region: "MN", populationRank: 46 },
-  { city: "Tulsa", region: "OK", populationRank: 47 },
-  { city: "Bakersfield", region: "CA", populationRank: 48 },
-  { city: "Wichita", region: "KS", populationRank: 49 },
-  { city: "Arlington", region: "TX", populationRank: 50 },
-  { city: "Aurora", region: "CO", populationRank: 51 },
-  { city: "Tampa", region: "FL", populationRank: 52 },
-  { city: "New Orleans", region: "LA", populationRank: 53 },
-  { city: "Cleveland", region: "OH", populationRank: 54 },
-  { city: "Honolulu", region: "HI", populationRank: 55 },
-  { city: "Anaheim", region: "CA", populationRank: 56 },
-  { city: "Lexington", region: "KY", populationRank: 57 },
-  { city: "Stockton", region: "CA", populationRank: 58 },
-  { city: "Corpus Christi", region: "TX", populationRank: 59 },
-  { city: "Henderson", region: "NV", populationRank: 60 },
-  { city: "Riverside", region: "CA", populationRank: 61 },
-  { city: "Newark", region: "NJ", populationRank: 62 },
-  { city: "Saint Paul", region: "MN", populationRank: 63, aliases: ["St Paul", "St. Paul"] },
-  { city: "Santa Ana", region: "CA", populationRank: 64 },
-  { city: "Cincinnati", region: "OH", populationRank: 65 },
-  { city: "Irvine", region: "CA", populationRank: 66 },
-  { city: "Orlando", region: "FL", populationRank: 67 },
-  { city: "Pittsburgh", region: "PA", populationRank: 68 },
-  { city: "St. Louis", region: "MO", populationRank: 69, aliases: ["Saint Louis", "St Louis"] },
-  { city: "Greensboro", region: "NC", populationRank: 70 },
-  { city: "Jersey City", region: "NJ", populationRank: 71 },
-  { city: "Anchorage", region: "AK", populationRank: 72 },
-  { city: "Lincoln", region: "NE", populationRank: 73 },
-  { city: "Plano", region: "TX", populationRank: 74 },
-  { city: "Durham", region: "NC", populationRank: 75 },
-  { city: "Buffalo", region: "NY", populationRank: 76 },
-  { city: "Chandler", region: "AZ", populationRank: 77 },
-  { city: "Chula Vista", region: "CA", populationRank: 78 },
-  { city: "Toledo", region: "OH", populationRank: 79 },
-  { city: "Madison", region: "WI", populationRank: 80 },
-  { city: "Gilbert", region: "AZ", populationRank: 81 },
-  { city: "Reno", region: "NV", populationRank: 82 },
-  { city: "Fort Wayne", region: "IN", populationRank: 83 },
-  { city: "North Las Vegas", region: "NV", populationRank: 84 },
-  { city: "St. Petersburg", region: "FL", populationRank: 85, aliases: ["Saint Petersburg", "St Petersburg"] },
-  { city: "Lubbock", region: "TX", populationRank: 86 },
-  { city: "Irving", region: "TX", populationRank: 87 },
-  { city: "Laredo", region: "TX", populationRank: 88 },
-  { city: "Winston-Salem", region: "NC", populationRank: 89 },
-  { city: "Chesapeake", region: "VA", populationRank: 90 },
-  { city: "Glendale", region: "AZ", populationRank: 91 },
-  { city: "Garland", region: "TX", populationRank: 92 },
-  { city: "Scottsdale", region: "AZ", populationRank: 93 },
-  { city: "Norfolk", region: "VA", populationRank: 94 },
-  { city: "Boise", region: "ID", populationRank: 95 },
-  { city: "Spokane", region: "WA", populationRank: 96 },
-  { city: "Richmond", region: "VA", populationRank: 97 },
-  { city: "Fremont", region: "CA", populationRank: 98 },
-  { city: "Huntsville", region: "AL", populationRank: 99 },
-  { city: "Frisco", region: "TX", populationRank: 100 },
-  { city: "Cape Coral", region: "FL", populationRank: 101 },
-  { city: "Santa Clarita", region: "CA", populationRank: 102 },
-  { city: "San Bernardino", region: "CA", populationRank: 103 },
-  { city: "Tacoma", region: "WA", populationRank: 104 },
-  { city: "Hialeah", region: "FL", populationRank: 105 },
-  { city: "Modesto", region: "CA", populationRank: 106 },
-  { city: "McKinney", region: "TX", populationRank: 107 },
-  { city: "Fontana", region: "CA", populationRank: 108 },
-  { city: "Des Moines", region: "IA", populationRank: 109 },
-  { city: "Fayetteville", region: "NC", populationRank: 110 },
-  { city: "Birmingham", region: "AL", populationRank: 111 },
-  { city: "Oxnard", region: "CA", populationRank: 112 },
-  { city: "Rochester", region: "NY", populationRank: 113 },
-  { city: "Port St. Lucie", region: "FL", populationRank: 114, aliases: ["Port Saint Lucie", "Port St Lucie"] },
-  { city: "Grand Rapids", region: "MI", populationRank: 115 },
-  { city: "Salt Lake City", region: "UT", populationRank: 116 },
-  { city: "Yonkers", region: "NY", populationRank: 117 },
-  { city: "Amarillo", region: "TX", populationRank: 118 },
-  { city: "Huntington Beach", region: "CA", populationRank: 119 },
-  { city: "Little Rock", region: "AR", populationRank: 120 },
-  { city: "Augusta", region: "GA", populationRank: 121 },
-  { city: "Tallahassee", region: "FL", populationRank: 122 },
-  { city: "Overland Park", region: "KS", populationRank: 123 },
-  { city: "Tempe", region: "AZ", populationRank: 124 },
-  { city: "Grand Prairie", region: "TX", populationRank: 125 },
-  { city: "Knoxville", region: "TN", populationRank: 126 },
-  { city: "Brownsville", region: "TX", populationRank: 127 },
-  { city: "Worcester", region: "MA", populationRank: 128 },
-  { city: "Newport News", region: "VA", populationRank: 129 },
-  { city: "Santa Rosa", region: "CA", populationRank: 130 },
-  { city: "Peoria", region: "AZ", populationRank: 131 },
-  { city: "Providence", region: "RI", populationRank: 132 },
-  { city: "Fort Lauderdale", region: "FL", populationRank: 133 },
-  { city: "Chattanooga", region: "TN", populationRank: 134 },
-  { city: "Mobile", region: "AL", populationRank: 135 },
-  { city: "Sioux Falls", region: "SD", populationRank: 136 },
-  { city: "Cary", region: "NC", populationRank: 137 },
-  { city: "Montgomery", region: "AL", populationRank: 138 },
-  { city: "Shreveport", region: "LA", populationRank: 139 },
-  { city: "Moreno Valley", region: "CA", populationRank: 140 },
-  { city: "Akron", region: "OH", populationRank: 141 },
-  { city: "Aurora", region: "IL", populationRank: 142 },
-  { city: "Oceanside", region: "CA", populationRank: 143 },
-  { city: "Elk Grove", region: "CA", populationRank: 144 },
-  { city: "Salem", region: "OR", populationRank: 145 },
-  { city: "Garden Grove", region: "CA", populationRank: 146 },
-  { city: "Lancaster", region: "CA", populationRank: 147 },
-  { city: "Corona", region: "CA", populationRank: 148 },
-  { city: "Eugene", region: "OR", populationRank: 149 },
-  { city: "Palmdale", region: "CA", populationRank: 150 },
-  { city: "Salinas", region: "CA", populationRank: 151 },
-  { city: "Springfield", region: "MO", populationRank: 152 },
-  { city: "Pasadena", region: "CA", populationRank: 153 },
-  { city: "Hayward", region: "CA", populationRank: 154 },
-  { city: "Pomona", region: "CA", populationRank: 155 },
-  { city: "Escondido", region: "CA", populationRank: 156 },
-  { city: "Sunnyvale", region: "CA", populationRank: 157 },
-  { city: "Torrance", region: "CA", populationRank: 158 },
-  { city: "Fullerton", region: "CA", populationRank: 159 },
-  { city: "Orange", region: "CA", populationRank: 160 },
-  { city: "Simi Valley", region: "CA", populationRank: 161 },
-  { city: "Thousand Oaks", region: "CA", populationRank: 162 },
-  { city: "Vallejo", region: "CA", populationRank: 163 },
-  { city: "Concord", region: "CA", populationRank: 164 },
-  { city: "Berkeley", region: "CA", populationRank: 165 },
-  { city: "Fairfield", region: "CA", populationRank: 166 },
-  { city: "Rialto", region: "CA", populationRank: 167 },
-  { city: "Costa Mesa", region: "CA", populationRank: 168 },
-  { city: "Ventura", region: "CA", populationRank: 169 },
-  { city: "West Covina", region: "CA", populationRank: 170 },
-  { city: "Murrieta", region: "CA", populationRank: 171 },
-  { city: "Norwalk", region: "CA", populationRank: 172 },
-  { city: "Burbank", region: "CA", populationRank: 173 },
-  { city: "Carlsbad", region: "CA", populationRank: 174 },
-  { city: "El Cajon", region: "CA", populationRank: 175 },
-  { city: "San Mateo", region: "CA", populationRank: 176 },
-  { city: "Daly City", region: "CA", populationRank: 177 },
-  { city: "Santa Monica", region: "CA", populationRank: 178 },
-  { city: "Inglewood", region: "CA", populationRank: 179 },
-  { city: "Santa Barbara", region: "CA", populationRank: 180 },
-  { city: "Monterey", region: "CA", populationRank: 181 },
-  { city: "San Luis Obispo", region: "CA", populationRank: 182 },
-  { city: "Palm Springs", region: "CA", populationRank: 183 },
-  { city: "Albany", region: "NY", populationRank: 184 },
-  { city: "Trenton", region: "NJ", populationRank: 185 },
-  { city: "Hartford", region: "CT", populationRank: 186 },
-  { city: "New Haven", region: "CT", populationRank: 187 },
-  { city: "Manchester", region: "NH", populationRank: 188 },
-  { city: "Burlington", region: "VT", populationRank: 189 },
-  { city: "Portland", region: "ME", populationRank: 190 },
-  { city: "Toronto", region: "ON", country: "Canada", populationRank: 191 },
-  { city: "Vancouver", region: "BC", country: "Canada", populationRank: 192 },
-  { city: "Montreal", region: "QC", country: "Canada", populationRank: 193 },
-  { city: "Calgary", region: "AB", country: "Canada", populationRank: 194 },
-  { city: "Ottawa", region: "ON", country: "Canada", populationRank: 195 },
-  { city: "Edmonton", region: "AB", country: "Canada", populationRank: 196 },
-  { city: "Winnipeg", region: "MB", country: "Canada", populationRank: 197 },
-  { city: "Quebec City", region: "QC", country: "Canada", populationRank: 198 },
-  { city: "London", region: "England", country: "United Kingdom", populationRank: 199 },
-  { city: "Sydney", region: "NSW", country: "Australia", populationRank: 200 },
-  { city: "Melbourne", region: "VIC", country: "Australia", populationRank: 201 }
+const POPULAR_CITY_LABELS = [
+  "New York, New York, United States",
+  "Los Angeles, California, United States",
+  "Chicago, Illinois, United States",
+  "Houston, Texas, United States",
+  "Phoenix, Arizona, United States",
+  "Philadelphia, Pennsylvania, United States",
+  "San Antonio, Texas, United States",
+  "San Diego, California, United States",
+  "Dallas, Texas, United States",
+  "Austin, Texas, United States",
+  "Fort Worth, Texas, United States",
+  "San Jose, California, United States",
+  "Columbus, Ohio, United States",
+  "Charlotte, North Carolina, United States",
+  "Indianapolis, Indiana, United States",
+  "San Francisco, California, United States",
+  "Seattle, Washington, United States",
+  "Denver, Colorado, United States",
+  "Washington, District of Columbia, United States",
+  "Boston, Massachusetts, United States",
+  "Detroit, Michigan, United States",
+  "Portland, Oregon, United States",
+  "Las Vegas, Nevada, United States",
+  "Atlanta, Georgia, United States",
+  "Miami, Florida, United States",
+  "Orlando, Florida, United States",
+  "Tampa, Florida, United States",
+  "Nashville, Tennessee, United States",
+  "Salt Lake City, Utah, United States",
+  "Sacramento, California, United States",
+  "Toronto, Ontario, Canada",
+  "Vancouver, British Columbia, Canada",
+  "Montréal, Québec, Canada",
+  "Québec City, Québec, Canada",
+  "Calgary, Alberta, Canada",
+  "Ottawa, Ontario, Canada",
+  "London, England, United Kingdom",
+  "Birmingham, England, United Kingdom",
+  "Manchester, England, United Kingdom",
+  "Dublin, Leinster, Ireland",
+  "Paris, Île-de-France, France",
+  "Madrid, Madrid, Spain",
+  "Barcelona, Catalonia, Spain",
+  "Rome, Lazio, Italy",
+  "Milan, Lombardy, Italy",
+  "Berlin, Berlin, Germany",
+  "Hamburg, Hamburg, Germany",
+  "Munich, Bavaria, Germany",
+  "Copenhagen, Capital Region of Denmark, Denmark",
+  "Amsterdam, North Holland, Netherlands",
+  "Brussels, Brussels-Capital Region, Belgium",
+  "Stockholm, Stockholm County, Sweden",
+  "Oslo, Oslo, Norway",
+  "Helsinki, Uusimaa, Finland",
+  "Vienna, Vienna, Austria",
+  "Zurich, Zurich, Switzerland",
+  "Geneva, Geneva, Switzerland",
+  "Budapest, Budapest, Hungary",
+  "Athens, Attica, Greece",
+  "Lisbon, Lisbon, Portugal",
+  "Mexico City, Mexico City, Mexico",
+  "Bogotá, Bogota D.C., Colombia",
+  "Buenos Aires, Buenos Aires F.D., Argentina",
+  "São Paulo, São Paulo, Brazil",
+  "Rio de Janeiro, Rio de Janeiro, Brazil",
+  "Santiago, Santiago Metropolitan, Chile",
+  "Lima, Lima, Peru",
+  "Sydney, New South Wales, Australia",
+  "Melbourne, Victoria, Australia",
+  "Brisbane, Queensland, Australia",
+  "Perth, Western Australia, Australia",
+  "Auckland, Auckland, New Zealand",
+  "Johannesburg, Gauteng, South Africa",
+  "Pretoria, Gauteng, South Africa",
+  "Cape Town, Western Cape, South Africa",
+  "Tokyo, Tokyo, Japan",
+  "Taipei, Taiwan, Taiwan",
+  "Kaohsiung, Kaohsiung, Taiwan",
+  "Tel Aviv, Tel Aviv District, Israel"
 ];
+
+const COUNTRY_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
+
+const REGION_NAMES_BY_COUNTRY: Record<string, Record<string, string>> = {
+  AU: {
+    "01": "Australian Capital Territory",
+    "02": "New South Wales",
+    "03": "Northern Territory",
+    "04": "Queensland",
+    "05": "South Australia",
+    "06": "Tasmania",
+    "07": "Victoria",
+    "08": "Western Australia",
+    ACT: "Australian Capital Territory",
+    NSW: "New South Wales",
+    NT: "Northern Territory",
+    QLD: "Queensland",
+    SA: "South Australia",
+    TAS: "Tasmania",
+    VIC: "Victoria",
+    WA: "Western Australia"
+  },
+  CA: {
+    "01": "Alberta",
+    "02": "British Columbia",
+    "03": "Manitoba",
+    "04": "New Brunswick",
+    "05": "Newfoundland and Labrador",
+    "07": "Nova Scotia",
+    "08": "Ontario",
+    "09": "Prince Edward Island",
+    "10": "Québec",
+    "11": "Saskatchewan",
+    "12": "Yukon",
+    "13": "Northwest Territories",
+    "14": "Nunavut",
+    AB: "Alberta",
+    BC: "British Columbia",
+    MB: "Manitoba",
+    NB: "New Brunswick",
+    NL: "Newfoundland and Labrador",
+    NS: "Nova Scotia",
+    NT: "Northwest Territories",
+    NU: "Nunavut",
+    ON: "Ontario",
+    PE: "Prince Edward Island",
+    QC: "Québec",
+    SK: "Saskatchewan",
+    YT: "Yukon"
+  },
+  GB: {
+    ENG: "England",
+    NIR: "Northern Ireland",
+    SCT: "Scotland",
+    WLS: "Wales"
+  },
+  DK: {
+    "17": "Capital Region of Denmark"
+  },
+  FR: {
+    "11": "Île-de-France"
+  },
+  TW: {
+    "02": "Kaohsiung",
+    "04": "Taiwan"
+  },
+  US: {
+    AK: "Alaska",
+    AL: "Alabama",
+    AR: "Arkansas",
+    AZ: "Arizona",
+    CA: "California",
+    CO: "Colorado",
+    CT: "Connecticut",
+    DC: "District of Columbia",
+    DE: "Delaware",
+    FL: "Florida",
+    GA: "Georgia",
+    HI: "Hawaii",
+    IA: "Iowa",
+    ID: "Idaho",
+    IL: "Illinois",
+    IN: "Indiana",
+    KS: "Kansas",
+    KY: "Kentucky",
+    LA: "Louisiana",
+    MA: "Massachusetts",
+    MD: "Maryland",
+    ME: "Maine",
+    MI: "Michigan",
+    MN: "Minnesota",
+    MO: "Missouri",
+    MS: "Mississippi",
+    MT: "Montana",
+    NC: "North Carolina",
+    ND: "North Dakota",
+    NE: "Nebraska",
+    NH: "New Hampshire",
+    NJ: "New Jersey",
+    NM: "New Mexico",
+    NV: "Nevada",
+    NY: "New York",
+    OH: "Ohio",
+    OK: "Oklahoma",
+    OR: "Oregon",
+    PA: "Pennsylvania",
+    PR: "Puerto Rico",
+    RI: "Rhode Island",
+    SC: "South Carolina",
+    SD: "South Dakota",
+    TN: "Tennessee",
+    TX: "Texas",
+    UT: "Utah",
+    VA: "Virginia",
+    VT: "Vermont",
+    WA: "Washington",
+    WI: "Wisconsin",
+    WV: "West Virginia",
+    WY: "Wyoming"
+  },
+  ZA: {
+    "06": "Gauteng",
+    "11": "Western Cape",
+    EC: "Eastern Cape",
+    FS: "Free State",
+    GP: "Gauteng",
+    KZN: "KwaZulu-Natal",
+    LP: "Limpopo",
+    MP: "Mpumalanga",
+    NC: "Northern Cape",
+    NW: "North West",
+    WC: "Western Cape"
+  }
+};
+
+const CITY_ALIASES_BY_LABEL = new Map<string, string[]>([
+  [compact("Los Angeles, California, United States"), ["LA", "L.A."]],
+  [compact("New York, New York, United States"), ["NYC", "New York City"]],
+  [compact("Washington, District of Columbia, United States"), ["DC", "Washington DC", "Washington D.C."]],
+  [compact("San Francisco, California, United States"), ["SF"]],
+  [compact("Saint Paul, Minnesota, United States"), ["St Paul", "St. Paul"]],
+  [compact("St. Louis, Missouri, United States"), ["Saint Louis", "St Louis"]],
+  [compact("St. Petersburg, Florida, United States"), ["Saint Petersburg", "St Petersburg"]],
+  [compact("Montréal, Québec, Canada"), ["Montreal"]]
+]);
+
+const POPULAR_CITY_PRIORITY = new Map(POPULAR_CITY_LABELS.map((label, index) => [compact(label), index + 1]));
+
+let cachedWorldCityRecords: CityLocationRecord[] | null = null;
 
 function normalizeSearch(value: string) {
   return value
@@ -230,9 +271,144 @@ function compact(value: string) {
   return normalizeSearch(value).replace(/\s+/g, "");
 }
 
+function countryName(countryCode: string) {
+  return COUNTRY_NAMES.of(countryCode) ?? countryCode;
+}
+
+function regionName(city: WorldCity) {
+  const adminCode = city.adminCode?.trim() ?? "";
+  if (!adminCode) return "";
+  return REGION_NAMES_BY_COUNTRY[city.country]?.[adminCode] ?? adminCode;
+}
+
+function buildSearchValues({
+  aliases,
+  city,
+  country,
+  label,
+  region
+}: {
+  aliases: string[];
+  city: string;
+  country: string;
+  label: string;
+  region: string;
+}) {
+  const values = [
+    { raw: city, weight: 0 },
+    ...aliases.map((alias) => ({ raw: alias, weight: 0 })),
+    { raw: label, weight: 2 },
+    { raw: region, weight: 8 },
+    { raw: country, weight: 25 }
+  ];
+  const seen = new Set<string>();
+
+  return values
+    .map(({ raw, weight }) => ({ value: normalizeSearch(raw), weight }))
+    .filter(({ value }) => Boolean(value))
+    .filter(({ value }) => {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+}
+
+function cityRecordFromParts({
+  aliases = [],
+  city,
+  country,
+  fallbackPriority,
+  label,
+  region
+}: {
+  aliases?: string[];
+  city: string;
+  country: string;
+  fallbackPriority: number;
+  label: string;
+  region: string;
+}): CityLocationRecord {
+  const labelKey = compact(label);
+  const priority = POPULAR_CITY_PRIORITY.get(labelKey) ?? fallbackPriority;
+  const mergedAliases = [...aliases, ...(CITY_ALIASES_BY_LABEL.get(labelKey) ?? [])];
+
+  return {
+    aliases: mergedAliases,
+    city,
+    country,
+    label,
+    priority,
+    region,
+    searchValues: buildSearchValues({ aliases: mergedAliases, city, country, label, region })
+  };
+}
+
+function cityRecordFromLabel(label: string, index: number): CityLocationRecord | null {
+  const parts = label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 2) return null;
+
+  return cityRecordFromParts({
+    city: parts[0],
+    country: parts.length > 2 ? parts.slice(2).join(", ") : parts[1],
+    fallbackPriority: index + 1,
+    label,
+    region: parts.length > 2 ? parts[1] : ""
+  });
+}
+
+function addRecord(record: CityLocationRecord | null, records: CityLocationRecord[], seen: Set<string>) {
+  if (!record) return;
+  const key = compact(record.label);
+  if (seen.has(key)) return;
+  seen.add(key);
+  records.push(record);
+}
+
+function getWorldCityRecords() {
+  if (cachedWorldCityRecords) return cachedWorldCityRecords;
+
+  const seen = new Set<string>();
+  const records: CityLocationRecord[] = [];
+
+  POPULAR_CITY_LABELS.forEach((label, index) => {
+    addRecord(cityRecordFromLabel(label, index), records, seen);
+  });
+
+  (allCities as WorldCity[]).forEach((worldCity) => {
+    const city = worldCity.name?.trim();
+    const country = countryName(worldCity.country);
+    const region = regionName(worldCity);
+    if (!city || !country) return;
+
+    const label = `${city}${region ? `, ${region}` : ""}, ${country}`;
+    const population = Math.max(worldCity.population ?? 0, 0);
+    const fallbackPriority = 100_000_000 - Math.min(population, 99_999_999);
+
+    addRecord(
+      cityRecordFromParts({
+        aliases: worldCity.altName ? [worldCity.altName] : [],
+        city,
+        country,
+        fallbackPriority,
+        label,
+        region
+      }),
+      records,
+      seen
+    );
+  });
+
+  cachedWorldCityRecords = records;
+  return records;
+}
+
 function cityRecordFromValue(value: string, index: number): CityLocationRecord | null {
   const cleanValue = value.replace(/\s+/g, " ").trim();
-  if (cleanValue.length < 2 || cleanValue.length > 120) return null;
+  if (cleanValue.length < 2 || cleanValue.length > 140) return null;
   if (/\d/.test(cleanValue)) return null;
 
   const parts = cleanValue
@@ -242,35 +418,32 @@ function cityRecordFromValue(value: string, index: number): CityLocationRecord |
   const city = parts[0];
   if (!city || city.length < 2) return null;
 
-  return {
+  return cityRecordFromParts({
     city,
-    country: parts.length > 2 ? parts.slice(2).join(", ") : undefined,
-    populationRank: index + 1,
+    country: parts.length > 2 ? parts.slice(2).join(", ") : "",
+    fallbackPriority: 300_000_000 + index,
+    label: cleanValue,
     region: parts[1] ?? ""
-  };
+  });
 }
 
 function scoreRecord(record: CityLocationRecord, query: string) {
-  const country = record.country ?? "United States";
-  const label = `${record.city}${record.region ? `, ${record.region}` : ""}${country === "United States" ? "" : `, ${country}`}`;
-  const searchableValues = [record.city, record.region, label, country, ...(record.aliases ?? [])];
   const normalizedQuery = normalizeSearch(query);
   const compactQuery = compact(query);
-
   if (normalizedQuery.length < 2) return null;
 
   let bestScore: number | null = null;
-  for (const value of searchableValues) {
-    const normalizedValue = normalizeSearch(value);
-    const compactValue = compact(value);
+
+  for (const { value: normalizedValue, weight } of record.searchValues) {
+    const compactValue = normalizedValue.replace(/\s+/g, "");
     let score: number | null = null;
 
     if (normalizedValue === normalizedQuery || compactValue === compactQuery) {
-      score = 0;
+      score = weight;
     } else if (normalizedValue.startsWith(normalizedQuery) || compactValue.startsWith(compactQuery)) {
-      score = 5;
+      score = weight + 10;
     } else if (normalizedValue.includes(normalizedQuery) || compactValue.includes(compactQuery)) {
-      score = 15 + normalizedValue.indexOf(normalizedQuery);
+      score = weight + 40 + Math.max(normalizedValue.indexOf(normalizedQuery), 0);
     }
 
     if (score !== null) {
@@ -278,18 +451,23 @@ function scoreRecord(record: CityLocationRecord, query: string) {
     }
   }
 
+  const terms = normalizedQuery.split(" ").filter(Boolean);
+  const normalizedLabel = normalizeSearch(record.label);
+  if (terms.length > 1 && terms.every((term) => normalizedLabel.includes(term))) {
+    bestScore = bestScore === null ? 70 : Math.min(bestScore, 70);
+  }
+
   if (bestScore === null) return null;
-  return bestScore * 1000 + record.populationRank;
+  return bestScore * 1_000_000_000 + record.priority;
 }
 
 export function searchCityLocations(query: string, limit = 8, extraCityValues: string[] = []): CityLocationSuggestion[] {
   const cleanLimit = Math.min(Math.max(limit, 1), 12);
-  const records = [
-    ...extraCityValues
-      .map((value, index) => cityRecordFromValue(value, index))
-      .filter((record): record is CityLocationRecord => Boolean(record)),
-    ...CITY_LOCATIONS
-  ];
+  const platformRecords = extraCityValues
+    .map((value, index) => cityRecordFromValue(value, index))
+    .filter((record): record is CityLocationRecord => Boolean(record));
+
+  const records = [...platformRecords, ...getWorldCityRecords()];
   const seen = new Set<string>();
   const suggestions: CityLocationSuggestion[] = [];
 
@@ -298,15 +476,13 @@ export function searchCityLocations(query: string, limit = 8, extraCityValues: s
     .filter((entry): entry is { record: CityLocationRecord; score: number } => entry.score !== null)
     .sort((left, right) => left.score - right.score)
   ) {
-    const country = record.country ?? "United States";
-    const label = `${record.city}${record.region ? `, ${record.region}` : ""}${country === "United States" ? "" : `, ${country}`}`;
-    const key = compact(label);
+    const key = compact(record.label);
     if (seen.has(key)) continue;
     seen.add(key);
     suggestions.push({
       city: record.city,
-      country,
-      label,
+      country: record.country,
+      label: record.label,
       region: record.region
     });
     if (suggestions.length >= cleanLimit) break;

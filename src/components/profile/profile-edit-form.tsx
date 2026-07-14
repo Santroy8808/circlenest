@@ -3,6 +3,7 @@
 import { MediaVisibility, ProfileVisibility } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState, useTransition } from "react";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
@@ -92,6 +93,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
   const [bannerUpload, setBannerUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
   const [bannerUrl, setBannerUrl] = useState(profile.bannerUrl ?? "");
+  const [location, setLocation] = useState(profile.location ?? "");
 
   function resetInput(ref: { current: HTMLInputElement | null }) {
     if (ref.current) {
@@ -159,7 +161,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           displayName: formData.get("displayName"),
           tagline: formData.get("tagline"),
           bio: formData.get("bio"),
-          location: formData.get("location"),
+          location,
           avatarUrl,
           bannerUrl,
           visibility: formData.get("visibility"),
@@ -209,10 +211,14 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
         <textarea className="form-field min-h-40 resize-y" name="bio" defaultValue={profile.bio ?? ""} />
       </label>
 
-      <label className="grid gap-2">
-        <span className="form-label">Location</span>
-        <input className="form-field" name="location" defaultValue={profile.location ?? ""} />
-      </label>
+      <CityLocationAutocomplete
+        helperText="Select the closest city-level match. Street addresses are not used."
+        label="Location"
+        name="location"
+        onChange={setLocation}
+        placeholder="Start typing your city..."
+        value={location}
+      />
 
       <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
         <input

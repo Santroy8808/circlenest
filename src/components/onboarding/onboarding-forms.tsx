@@ -4,6 +4,8 @@ import { ScientologyClassification } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { ScientologyOrgSearchField } from "@/components/profile/scientology-org-search-field";
 import { scientologyProcessingStatuses, scientologyTrainingLevels } from "@/modules/my-scientology/types";
 
 type ProfileDefaults = {
@@ -76,6 +78,7 @@ async function submitStep(body: Record<string, unknown>) {
 export function OnboardingProfileForm({ defaults }: { defaults: ProfileDefaults }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [location, setLocation] = useState(defaults.location);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -126,10 +129,15 @@ export function OnboardingProfileForm({ defaults }: { defaults: ProfileDefaults 
           <span className="form-label">Full name</span>
           <input autoComplete="name" className="form-field" defaultValue={defaults.displayName} name="displayName" required />
         </label>
-        <label className="grid gap-2">
-          <span className="form-label">Location</span>
-          <input autoComplete="address-level2" className="form-field" defaultValue={defaults.location} name="location" placeholder="City, state, or general area" required />
-        </label>
+        <CityLocationAutocomplete
+          helperText="Select the closest city-level match. Street addresses are not used."
+          label="Location"
+          name="location"
+          onChange={setLocation}
+          placeholder="Start typing your city..."
+          required
+          value={location}
+        />
         <label className="grid gap-2">
           <span className="form-label">Tagline</span>
           <input className="form-field" defaultValue={defaults.tagline} name="tagline" placeholder="One short line about you" />
@@ -216,10 +224,12 @@ export function OnboardingScientologyForm({ defaults }: { defaults: ScientologyD
           </label>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="form-label">Current org receiving services</span>
-            <input className="form-field" defaultValue={defaults.orgName} name="orgName" required />
-          </label>
+          <ScientologyOrgSearchField
+            defaultValue={defaults.orgName}
+            helperText="Search by org name, AO abbreviation, city, or country. Select the closest listed org when possible."
+            label="Current org receiving services"
+            required
+          />
           <label className="grid gap-2">
             <span className="form-label">Last service</span>
             <input className="form-field" defaultValue={defaults.lastServiceName} name="lastServiceName" required />

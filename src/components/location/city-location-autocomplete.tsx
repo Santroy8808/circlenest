@@ -13,8 +13,10 @@ type CityLocationAutocompleteProps = {
   disabled?: boolean;
   helperText?: string;
   label?: string;
+  name?: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  required?: boolean;
   value: string;
 };
 
@@ -22,8 +24,10 @@ export function CityLocationAutocomplete({
   disabled = false,
   helperText = "Start typing a city. Suggestions are city-level only, not street addresses.",
   label = "City",
+  name,
   onChange,
   placeholder = "Start typing a city...",
+  required = false,
   value
 }: CityLocationAutocompleteProps) {
   const inputId = useId();
@@ -98,6 +102,7 @@ export function CityLocationAutocomplete({
           className="form-field"
           disabled={disabled}
           id={inputId}
+          name={name}
           onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
           onChange={(event) => onChange(event.target.value)}
           onFocus={() => {
@@ -119,6 +124,7 @@ export function CityLocationAutocomplete({
             }
           }}
           placeholder={placeholder}
+          required={required}
           role="combobox"
           value={value}
         />
@@ -139,8 +145,7 @@ export function CityLocationAutocomplete({
               >
                 <span>{suggestion.city}</span>
                 <small>
-                  {suggestion.region}
-                  {suggestion.country === "United States" ? "" : `, ${suggestion.country}`}
+                  {[suggestion.region, suggestion.country].filter(Boolean).join(", ")}
                 </small>
               </button>
             ))}
