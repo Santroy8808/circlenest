@@ -55,6 +55,14 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["tutorial", "walkthrough", "guide", "help", "tour", "orientation"]
   },
   {
+    title: "Users Manual",
+    description: "Open the Free Tier feature manual, limits, and FAQ.",
+    href: "/settings/users-manual",
+    badge: "Help",
+    sensitive: false,
+    keywords: ["manual", "users manual", "faq", "help", "guide", "free tier", "limits", "how to"]
+  },
+  {
     title: "Blocked Users",
     description: "Manage blocked users and account protection rules.",
     href: "/secure-area?next=/settings/security",
@@ -155,7 +163,7 @@ export function SettingsHub({ cards }: { cards: SettingsCard[] }) {
             (showingSearch ? visibleEntries : visibleCards).map((entry) => (
               <Link
                 className="module-card rounded-md p-5"
-                data-tutorial-target={entry.title === "Tutorial" ? "settings-tutorial-card" : undefined}
+                data-tutorial-target={entry.title === "Tutorial" ? "settings-tutorial-card" : entry.title === "Users Manual" ? "settings-users-manual-card" : undefined}
                 href={entry.href}
                 key={`${entry.href}:${entry.title}`}
               >

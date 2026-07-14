@@ -30,6 +30,13 @@ export const settingsCards: SettingsCard[] = [
     badge: "Help"
   },
   {
+    title: "Users Manual",
+    description: "Open the Free Tier user manual with per-feature explanations, limits, and FAQ.",
+    href: "/settings/users-manual",
+    sensitive: false,
+    badge: "Help"
+  },
+  {
     title: "Subscription",
     description: "Your currently enabled membership, billing status, storage, and available credits.",
     href: "/secure-area?next=/settings/subscription",

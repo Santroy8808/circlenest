@@ -92,6 +92,7 @@ const settingsSection: NavSection = {
     { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Membership", href: "/membership" },
     { label: "Tutorial", href: "/settings/tutorial" },
+    { label: "Users Manual", href: "/settings/users-manual" },
     { label: "Settings", href: "/settings" }
   ]
 };

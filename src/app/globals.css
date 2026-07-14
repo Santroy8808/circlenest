@@ -9182,6 +9182,39 @@ html.theta-theme-light .auditor-card:hover {
   padding-left: 18px;
 }
 
+.users-manual-faq {
+  background: rgba(16, 24, 38, 0.52);
+  border: 1px solid rgba(255, 216, 95, 0.14);
+  border-radius: 16px;
+  margin-top: 16px;
+  padding: 14px;
+}
+
+.users-manual-faq details {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding: 10px 0;
+}
+
+.users-manual-faq details:first-of-type {
+  border-top: 0;
+}
+
+.users-manual-faq summary {
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 850;
+  line-height: 1.5;
+}
+
+.users-manual-faq summary:hover,
+.users-manual-faq summary:focus-visible {
+  color: var(--gold);
+}
+
+.users-manual-faq p {
+  margin: 8px 0 0;
+}
+
 .admin-hat-figure {
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.14), transparent 32%),
@@ -9316,6 +9349,7 @@ html.theta-theme-light .admin-hat-rule-box,
 html.theta-theme-light .admin-hat-tool-card,
 html.theta-theme-light .admin-hat-definition-grid article,
 html.theta-theme-light .admin-hat-tool-grid > div,
+html.theta-theme-light .users-manual-faq,
 html.theta-theme-light .admin-hat-figure-callouts li {
   background: rgba(255, 255, 255, 0.72);
 }
