@@ -1,0 +1,18 @@
+{
+  "name": "Theta-Space",
+  "short_name": "Theta-Space",
+  "description": "Private modular social platform for Theta-Space.",
+  "start_url": "/home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050910",
+  "theme_color": "#0b1424",
+  "icons": [
+    {
+      "src": "/assets/theta-space-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

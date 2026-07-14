@@ -7,8 +7,17 @@ import { GlobalTooltipProvider } from "@/components/platform/global-tooltip-prov
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Theta-Space Rebuild",
-  description: "Private modular social platform rebuild for Theta-Space."
+  title: {
+    default: "Theta-Space",
+    template: "%s | Theta-Space"
+  },
+  applicationName: "Theta-Space",
+  description: "Private modular social platform for Theta-Space.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/assets/theta-space-icon.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/assets/theta-space-icon.svg", type: "image/svg+xml" }]
+  }
 };
 
 function isAndroidAppRequest() {
