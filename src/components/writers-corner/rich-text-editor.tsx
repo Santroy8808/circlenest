@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { RichTextToolbarIcon } from "@/components/writers-corner/rich-text-toolbar-icon";
 
 type RichTextEditorProps = {
   html: string;
@@ -10,6 +11,19 @@ type RichTextEditorProps = {
 };
 
 type EditorImageAlignment = "left" | "center" | "right" | "full";
+
+type ToolbarState = {
+  alignCenter: boolean;
+  alignJustify: boolean;
+  alignLeft: boolean;
+  alignRight: boolean;
+  block: "p" | "h2" | "h3" | "blockquote" | "pre";
+  bold: boolean;
+  bulletList: boolean;
+  italic: boolean;
+  numberedList: boolean;
+  underline: boolean;
+};
 
 type UploadIntentResponse = {
   error?: string;
@@ -29,6 +43,18 @@ type CompleteUploadResponse = {
 
 const EDITOR_IMAGE_MAX_BYTES = 15 * 1024 * 1024;
 const EDITOR_IMAGE_MIME_TYPE = /^image\/(jpeg|png|gif|webp)$/;
+const DEFAULT_TOOLBAR_STATE: ToolbarState = {
+  alignCenter: false,
+  alignJustify: false,
+  alignLeft: true,
+  alignRight: false,
+  block: "p",
+  bold: false,
+  bulletList: false,
+  italic: false,
+  numberedList: false,
+  underline: false
+};
 
 function editorImageClass(alignment: EditorImageAlignment) {
   return `rich-text-image rich-text-image-${alignment}`;
@@ -67,10 +93,45 @@ function fileNameForPastedImage(file: File, index: number) {
 
 export function RichTextEditor({ html, onChange, placeholder = "Write here..." }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const draggedImageRef = useRef<HTMLImageElement | null>(null);
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [toolbarState, setToolbarState] = useState<ToolbarState>(DEFAULT_TOOLBAR_STATE);
   const [uploadStatus, setUploadStatus] = useState("");
+
+  const refreshToolbarState = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) return;
+
+    const commandState = (command: string) => {
+      try {
+        return document.queryCommandState(command);
+      } catch {
+        return false;
+      }
+    };
+    const anchorElement = selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode?.parentElement;
+    const blockElement = anchorElement?.closest("p, h2, h3, blockquote, pre");
+    const blockTag = blockElement?.tagName.toLowerCase();
+    const block = ["h2", "h3", "blockquote", "pre"].includes(blockTag ?? "")
+      ? (blockTag as ToolbarState["block"])
+      : "p";
+
+    setToolbarState({
+      alignCenter: commandState("justifyCenter"),
+      alignJustify: commandState("justifyFull"),
+      alignLeft: commandState("justifyLeft"),
+      alignRight: commandState("justifyRight"),
+      block,
+      bold: commandState("bold"),
+      bulletList: commandState("insertUnorderedList"),
+      italic: commandState("italic"),
+      numberedList: commandState("insertOrderedList"),
+      underline: commandState("underline")
+    });
+  }, []);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -79,6 +140,11 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
       decorateImages();
     }
   }, [html]);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", refreshToolbarState);
+    return () => document.removeEventListener("selectionchange", refreshToolbarState);
+  }, [refreshToolbarState]);
 
   function decorateImages() {
     const editor = editorRef.current;
@@ -135,10 +201,23 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
   }
 
   function run(command: string, value?: string) {
-    editorRef.current?.focus();
+    restoreSelection();
     document.execCommand(command, false, value);
     decorateImages();
+    saveSelection();
     emitChange();
+    refreshToolbarState();
+  }
+
+  function applyColor(command: "foreColor" | "hiliteColor", value: string) {
+    restoreSelection();
+    document.execCommand("styleWithCSS", false, "true");
+    const applied = document.execCommand(command, false, value);
+    if (!applied && command === "hiliteColor") document.execCommand("backColor", false, value);
+    document.execCommand("styleWithCSS", false, "false");
+    saveSelection();
+    emitChange();
+    refreshToolbarState();
   }
 
   function addLink() {
@@ -146,6 +225,42 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
     if (!href) return;
     if (!href.startsWith("http://") && !href.startsWith("https://") && !href.startsWith("/")) return;
     run("createLink", href);
+  }
+
+  function changeIndent(direction: 1 | -1) {
+    const editor = editorRef.current;
+    const range = restoreSelection();
+    if (!editor || !range) return;
+
+    const container = range.commonAncestorContainer instanceof Element
+      ? range.commonAncestorContainer
+      : range.commonAncestorContainer.parentElement;
+    const block = container?.closest("p, div, h2, h3, blockquote, pre, li") as HTMLElement | null;
+    if (!block || !editor.contains(block)) return;
+
+    const currentIndent = Number.parseInt(block.style.marginLeft, 10) || 0;
+    const nextIndent = Math.min(320, Math.max(0, currentIndent + direction * 40));
+    if (nextIndent === 0) block.style.removeProperty("margin-left");
+    else block.style.marginLeft = `${nextIndent}px`;
+    saveSelection();
+    emitChange();
+  }
+
+  function insertTable() {
+    const rowInput = window.prompt("How many rows? (1-10)", "3");
+    if (rowInput === null) return;
+    const columnInput = window.prompt("How many columns? (1-8)", "3");
+    if (columnInput === null) return;
+
+    const rows = Number.parseInt(rowInput, 10);
+    const columns = Number.parseInt(columnInput, 10);
+    if (!Number.isInteger(rows) || rows < 1 || rows > 10 || !Number.isInteger(columns) || columns < 1 || columns > 8) {
+      setUploadStatus("Tables can have 1-10 rows and 1-8 columns.");
+      return;
+    }
+
+    const cells = `<td><br></td>`.repeat(columns);
+    run("insertHTML", `<table><tbody>${`<tr>${cells}</tr>`.repeat(rows)}</tbody></table><p><br></p>`);
   }
 
   function restoreSelection() {
@@ -273,7 +388,7 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
     try {
       for (const [index, file] of files.entries()) {
         const uploaded = await uploadEditorImage(file, index);
-        insertImage(uploaded.publicUrl, uploaded.fileName, rangeOverride);
+        insertImage(uploaded.publicUrl, uploaded.fileName, index === 0 ? rangeOverride : undefined);
       }
       setUploadStatus(files.length === 1 ? "Image inserted." : "Images inserted.");
       window.setTimeout(() => setUploadStatus(""), 2400);
@@ -337,34 +452,151 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
 
   return (
     <section className="rich-text-editor">
-      <div className="rich-text-toolbar" aria-label="Rich text toolbar">
-        <button onClick={() => run("formatBlock", "h2")} type="button">
-          H2
-        </button>
-        <button onClick={() => run("formatBlock", "h3")} type="button">
-          H3
-        </button>
-        <button onClick={() => run("bold")} type="button">
-          B
-        </button>
-        <button onClick={() => run("italic")} type="button">
-          I
-        </button>
-        <button onClick={() => run("underline")} type="button">
-          U
-        </button>
-        <button onClick={() => run("insertUnorderedList")} type="button">
-          Bullets
-        </button>
-        <button onClick={() => run("insertOrderedList")} type="button">
-          Numbers
-        </button>
-        <button onClick={() => run("formatBlock", "blockquote")} type="button">
-          Quote
-        </button>
-        <button onClick={addLink} type="button">
-          Link
-        </button>
+      <div
+        aria-label="Chapter formatting toolbar"
+        className="rich-text-toolbar"
+        onMouseDown={(event) => {
+          saveSelection();
+          const target = event.target instanceof Element ? event.target : null;
+          if (target?.closest("button")) event.preventDefault();
+        }}
+        role="toolbar"
+      >
+        <span className="rich-text-toolbar-section" aria-label="History controls">
+          <button aria-label="Undo" onClick={() => run("undo")} title="Undo (Ctrl+Z)" type="button">
+            <RichTextToolbarIcon name="undo" />
+          </button>
+          <button aria-label="Redo" onClick={() => run("redo")} title="Redo (Ctrl+Y)" type="button">
+            <RichTextToolbarIcon name="redo" />
+          </button>
+        </span>
+        <span className="rich-text-toolbar-section rich-text-toolbar-format-section">
+          <select
+            aria-label="Paragraph style"
+            onChange={(event) => run("formatBlock", event.target.value)}
+            title="Paragraph style"
+            value={toolbarState.block}
+          >
+            <option value="p">Paragraph</option>
+            <option value="h2">Heading 2</option>
+            <option value="h3">Heading 3</option>
+            <option value="blockquote">Quote</option>
+            <option value="pre">Code block</option>
+          </select>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="Color controls">
+          <label aria-label="Text color" className="rich-text-color-control" onMouseDown={saveSelection} title="Text color">
+            <span aria-hidden="true" className="rich-text-color-symbol">A</span>
+            <span aria-hidden="true" className="rich-text-color-swatch rich-text-color-swatch-text" />
+            <input defaultValue="#18202b" onChange={(event) => applyColor("foreColor", event.target.value)} type="color" />
+          </label>
+          <label aria-label="Highlight color" className="rich-text-color-control" onMouseDown={saveSelection} title="Highlight color">
+            <span aria-hidden="true" className="rich-text-highlight-symbol">◆</span>
+            <span aria-hidden="true" className="rich-text-color-swatch rich-text-color-swatch-highlight" />
+            <input defaultValue="#ffe58a" onChange={(event) => applyColor("hiliteColor", event.target.value)} type="color" />
+          </label>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="Text emphasis controls">
+          <button
+            aria-label="Bold"
+            aria-pressed={toolbarState.bold}
+            className={toolbarState.bold ? "is-active" : undefined}
+            onClick={() => run("bold")}
+            title="Bold (Ctrl+B)"
+            type="button"
+          >
+            <RichTextToolbarIcon name="bold" />
+          </button>
+          <button
+            aria-label="Italic"
+            aria-pressed={toolbarState.italic}
+            className={toolbarState.italic ? "is-active" : undefined}
+            onClick={() => run("italic")}
+            title="Italic (Ctrl+I)"
+            type="button"
+          >
+            <RichTextToolbarIcon name="italic" />
+          </button>
+          <button
+            aria-label="Underline"
+            aria-pressed={toolbarState.underline}
+            className={toolbarState.underline ? "is-active" : undefined}
+            onClick={() => run("underline")}
+            title="Underline (Ctrl+U)"
+            type="button"
+          >
+            <RichTextToolbarIcon name="underline" />
+          </button>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="Alignment controls">
+          <button aria-label="Align left" aria-pressed={toolbarState.alignLeft} className={toolbarState.alignLeft ? "is-active" : undefined} onClick={() => run("justifyLeft")} title="Align left" type="button">
+            <RichTextToolbarIcon name="align-left" />
+          </button>
+          <button aria-label="Align center" aria-pressed={toolbarState.alignCenter} className={toolbarState.alignCenter ? "is-active" : undefined} onClick={() => run("justifyCenter")} title="Align center" type="button">
+            <RichTextToolbarIcon name="align-center" />
+          </button>
+          <button aria-label="Align right" aria-pressed={toolbarState.alignRight} className={toolbarState.alignRight ? "is-active" : undefined} onClick={() => run("justifyRight")} title="Align right" type="button">
+            <RichTextToolbarIcon name="align-right" />
+          </button>
+          <button aria-label="Justify" aria-pressed={toolbarState.alignJustify} className={toolbarState.alignJustify ? "is-active" : undefined} onClick={() => run("justifyFull")} title="Justify" type="button">
+            <RichTextToolbarIcon name="align-justify" />
+          </button>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="Indent controls">
+          <button aria-label="Increase indent" onClick={() => changeIndent(1)} title="Increase indent" type="button">
+            <RichTextToolbarIcon name="indent" />
+          </button>
+          <button aria-label="Decrease indent" onClick={() => changeIndent(-1)} title="Decrease indent" type="button">
+            <RichTextToolbarIcon name="outdent" />
+          </button>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="List controls">
+          <button aria-label="Bulleted list" aria-pressed={toolbarState.bulletList} className={toolbarState.bulletList ? "is-active" : undefined} onClick={() => run("insertUnorderedList")} title="Bulleted list" type="button">
+            <RichTextToolbarIcon name="list" />
+          </button>
+          <button aria-label="Numbered list" aria-pressed={toolbarState.numberedList} className={toolbarState.numberedList ? "is-active" : undefined} onClick={() => run("insertOrderedList")} title="Numbered list" type="button">
+            <RichTextToolbarIcon name="list-ordered" />
+          </button>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="Link controls">
+          <button aria-label="Add link" onClick={addLink} title="Add link" type="button">
+            <RichTextToolbarIcon name="link" />
+          </button>
+          <button aria-label="Remove link" onClick={() => run("unlink")} title="Remove link" type="button">
+            <RichTextToolbarIcon name="unlink" />
+          </button>
+        </span>
+        <span className="rich-text-toolbar-section" aria-label="Insert controls">
+          <button aria-label="Insert table" onClick={insertTable} title="Insert table" type="button">
+            <RichTextToolbarIcon name="table" />
+          </button>
+          <button aria-label="Insert image" onClick={() => imageInputRef.current?.click()} title="Insert image" type="button">
+            <RichTextToolbarIcon name="image" />
+          </button>
+          <input
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="rich-text-file-input"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              const insertionRange = savedRangeRef.current?.cloneRange() ?? null;
+              event.target.value = "";
+              void uploadAndInsertImages(files, insertionRange);
+            }}
+            ref={imageInputRef}
+            type="file"
+          />
+          <button
+            aria-label="Code block"
+            aria-pressed={toolbarState.block === "pre"}
+            className={toolbarState.block === "pre" ? "is-active" : undefined}
+            onClick={() => run("formatBlock", toolbarState.block === "pre" ? "p" : "pre")}
+            title="Code block"
+            type="button"
+          >
+            <RichTextToolbarIcon name="code" />
+          </button>
+        </span>
         {selectedImage ? (
           <span className="rich-text-toolbar-group" aria-label="Selected image controls">
             <button className={selectedAlignment === "left" ? "is-active" : ""} onClick={() => alignSelectedImage("left")} type="button">
@@ -380,7 +612,7 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
               Full width
             </button>
             <button onClick={removeSelectedImage} type="button">
-              Remove image
+              <RichTextToolbarIcon name="remove" /> Remove image
             </button>
           </span>
         ) : null}
@@ -448,7 +680,7 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
         suppressContentEditableWarning
       />
       <div className="rich-text-help">
-        Paste or drop images directly into the editor. Drag an inserted image to move it, or click it for left/center/right/full-width controls.
+        Format selected text with the toolbar. Paste, drop, or choose images; drag an inserted image to move it, or click it for image alignment controls.
       </div>
       {uploadStatus ? <div className="rich-text-upload-status">{uploadStatus}</div> : null}
     </section>
