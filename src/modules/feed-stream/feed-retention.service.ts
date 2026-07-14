@@ -290,19 +290,17 @@ export async function applyPublicStreamRetentionPolicy(actorUserId?: string) {
       });
     } catch (error) {
       compressionFailedCount += 1;
-      if (actorUserId) {
-        await writeAuditLog({
-          actorUserId,
-          module: MODULE_KEY,
-          action: "stream.compression_failed",
-          targetType: "FeedPost",
-          targetId: post.id,
-          severity: "warning",
-          metadata: {
-            error: error instanceof Error ? error.message : String(error)
-          }
-        });
-      }
+      await writeAuditLog({
+        actorUserId,
+        module: MODULE_KEY,
+        action: "stream.compression_failed",
+        targetType: "FeedPost",
+        targetId: post.id,
+        severity: "warning",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
     }
   }
 
@@ -331,7 +329,15 @@ export async function applyPublicStreamRetentionPolicy(actorUserId?: string) {
     })
   });
 
-  if (actorUserId) {
+  if (
+    actorUserId ||
+    compressedCount > 0 ||
+    compressionSkippedCount > 0 ||
+    compressionFailedCount > 0 ||
+    archived.count > 0 ||
+    deleted.count > 0 ||
+    permanentlyDeleted.count > 0
+  ) {
     await writeAuditLog({
       actorUserId,
       module: MODULE_KEY,
