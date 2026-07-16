@@ -1,3 +1,4 @@
+import "./load-next-env";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/platform/db";
 import {
