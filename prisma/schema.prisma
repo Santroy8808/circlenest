@@ -1453,7 +1453,7 @@ model GalleryAssetComment {
   reactions       GalleryAssetCommentReaction[]
 
   @@index([mediaAssetId, deletedAt, createdAt])
-  @@index([mediaAssetId, parentCommentId, deletedAt, createdAt])
+  @@index([mediaAssetId, parentCommentId, deletedAt, createdAt], map: "GalleryAssetComment_mediaAssetId_parentCommentId_deletedAt_crea")
   @@index([authorUserId, createdAt])
   @@index([parentCommentId, deletedAt, createdAt])
 }
@@ -1542,7 +1542,7 @@ model FeedPost {
   dismissals          FeedPostDismissal[]
 
   @@index([visibility, createdAt])
-  @@index([visibility, streamArchivedAt, streamDeletedAt, createdAt])
+  @@index([visibility, streamArchivedAt, streamDeletedAt, createdAt], map: "FeedPost_visibility_streamArchivedAt_streamDeletedAt_createdAt_")
   @@index([adminHoldAt, createdAt])
   @@index([streamArchivedAt, createdAt])
   @@index([streamDeletedAt, createdAt])
