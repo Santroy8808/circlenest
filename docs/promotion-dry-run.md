@@ -6,7 +6,7 @@ Generated: 2026-06-25T11:20:24.276Z
 
 Read-only manifest of what NewRepo would contribute to a future production promotion.
 
-This document does not copy files, delete files, archive production, push GitHub, migrate Neon, deploy Railway, or touch Cloudflare R2.
+This document does not copy files, delete files, archive production, push GitHub, migrate production PostgreSQL, deploy the Windows service, or touch Cloudflare R2.
 
 ## Source State
 

@@ -48,7 +48,7 @@ export function getCutoverDashboard(): CutoverDashboardView {
       {
         title: "External services readiness",
         status: "automated",
-        detail: "Generate a Railway, Neon, R2, and auth environment readiness report without connecting or deploying.",
+        detail: "Generate a Windows service, PostgreSQL, R2, and authentication readiness report without connecting or deploying.",
         command: "npm run services:readiness"
       },
       {
@@ -62,9 +62,9 @@ export function getCutoverDashboard(): CutoverDashboardView {
         detail: "Current production source must be tagged as archive-YYYY-MM-DD.vN before overwrite."
       },
       {
-        title: "Railway, Neon, R2 smoke",
+        title: "Windows service, PostgreSQL, R2 smoke",
         status: "manual",
-        detail: "Railway deployment, Neon migration state, and R2 upload/readback must be verified after GitHub deployment."
+        detail: "Windows service deployment, PostgreSQL migration state, and R2 upload/readback must be verified after GitHub deployment."
       }
     ],
     smokeRoutes: [
@@ -133,11 +133,11 @@ export function getCutoverDashboard(): CutoverDashboardView {
       "Confirm the rollback tag name and production branch before running any command.",
       "Checkout production main in C:\\Repos\\thetansplace\\circlenest.",
       "Reset main to the archive tag only after explicit approval.",
-      "Push with --force-with-lease, then verify Railway redeploys the archived commit."
+      "Push with --force-with-lease, then deploy and verify the archived commit on the Windows production server."
     ],
     nonGoals: [
       "Do not purge production data.",
-      "Do not migrate Neon from this dashboard.",
+      "Do not migrate production PostgreSQL from this dashboard.",
       "Do not push to GitHub from this dashboard.",
       "Do not touch Cloudflare R2 objects from this dashboard."
     ]

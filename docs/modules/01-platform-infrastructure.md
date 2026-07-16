@@ -33,7 +33,7 @@ Provide the foundation every other module uses: repo conventions, environment va
 - Write diagnostic logs when enabled.
 - Write audit logs for privileged workflows.
 - Resolve feature flags.
-- Provide R2 client configuration without forcing upload traffic through Railway.
+- Provide R2 client configuration without forcing upload traffic through the Windows web service.
 
 ## Access Rules
 
@@ -53,4 +53,3 @@ This is the only module implemented in the first rebuild slice.
 - `/` renders a usable dashboard.
 - `/health` renders module status.
 - `npm run env:check`, lint, and typecheck pass.
-

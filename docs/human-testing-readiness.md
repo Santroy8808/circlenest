@@ -33,7 +33,7 @@ The test can proceed only if:
 
 - R2 credentials and bucket access are connected locally.
 - Direct presigned R2 upload is validated by `npm run smoke:r2`.
-- `CLOUDFLARE_R2_PUBLIC_BASE_URL` is still empty because the linked Railway variables do not provide a public R2/CDN URL.
+- `CLOUDFLARE_R2_PUBLIC_BASE_URL` must be configured on the Windows production server with the public R2/CDN URL.
 - Most media views now fall back to `/api/media/assets/{id}` when no public URL exists.
 - Resume upload still depends on a public URL unless the resume schema is extended to store a media asset id.
 

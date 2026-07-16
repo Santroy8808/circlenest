@@ -254,7 +254,7 @@ No push or deployment was performed.
 - Production server: Windows Server 2022 at `207.188.9.139`
 - Media storage: Cloudflare R2
 - Media custom domain work was being discussed for `media.theta-space.net`
-- Do not assume Railway/Neon is current production; the project moved toward the user-owned Windows server.
+- Production is the user-owned Windows server with self-hosted PostgreSQL; retired hosting providers are not part of the current architecture.
 
 ## Safe Resume Prompt For A New Thread
 

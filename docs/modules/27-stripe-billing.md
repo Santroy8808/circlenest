@@ -40,7 +40,7 @@ Provide the payment bridge between Theta-Space and Stripe for subscription upgra
 
 ## Core Workflows
 
-- Admin opens Stripe Setup and enters connection data or relies on Railway environment variables.
+- Admin opens Stripe Setup and enters connection data or relies on production-server environment variables.
 - Admin assigns Stripe recurring price IDs to Contributor, Professional, Auditor, and Org plans.
 - Admin creates or updates credit packages with one-time Stripe price IDs.
 - Member clicks an upgrade in Subscription settings.
@@ -61,9 +61,9 @@ Provide the payment bridge between Theta-Space and Stripe for subscription upgra
 
 ## Stripe Configuration Contract
 
-Stripe can be configured by Railway env or by Admin Stripe Setup.
+Stripe can be configured by production-server environment variables or by Admin Stripe Setup.
 
-Railway env names:
+Production-server environment variable names:
 
 - `STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SECRET_KEY`

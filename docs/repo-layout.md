@@ -2,7 +2,7 @@
 
 The active web app source is `C:\Repos\Theta-Space-net\NewRepo`.
 
-This repo pushes to `https://github.com/Santroy8808/circlenest.git`, branch `main`, which is the GitHub source Railway uses for the live Theta-Space app.
+This repo pushes to `https://github.com/Santroy8808/circlenest.git`, branch `main`, which the Windows production checkout deploys to the live Theta-Space app.
 
 The active Android wrapper source is `C:\Repos\Theta-Space-net\ThetaSpaceAndroidWrapper`.
 

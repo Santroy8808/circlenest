@@ -6,7 +6,7 @@ Generated: 2026-06-18T05:15:33.194Z
 
 Read-only snapshot of the local production repo path before any future NewRepo cutover.
 
-This document does not copy files, push to GitHub, migrate Neon, deploy Railway, or touch Cloudflare R2.
+This document does not copy files, push to GitHub, migrate production PostgreSQL, deploy the Windows service, or touch Cloudflare R2.
 
 ## Paths
 

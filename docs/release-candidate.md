@@ -85,8 +85,8 @@ npm run services:readiness
 ## Production Boundary
 
 - This manifest does not push to GitHub.
-- This manifest does not migrate Neon.
-- This manifest does not touch Railway.
+- This manifest does not migrate production PostgreSQL.
+- This manifest does not touch the Windows production service.
 - This manifest does not touch Cloudflare R2.
 - Production promotion still requires an explicit approval, an archive tag, and live smoke verification.
 

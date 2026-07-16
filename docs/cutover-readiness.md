@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Prepare the NewRepo rebuild for a controlled future cutover into the production GitHub source that Railway deploys.
+Prepare the repository for controlled deployment to the user-owned Windows production server.
 
 This is not the cutover command. It is the checklist and preflight boundary that keeps us from accidentally replacing production without rollback.
 
@@ -11,8 +11,8 @@ This is not the cutover command. It is the checklist and preflight boundary that
 - Production repo path: `C:\Repos\thetansplace\circlenest`
 - New rebuild repo path: `C:\Repos\Theta-Space-net\NewRepo`
 - GitHub production source: `Santroy8808/circlenest`
-- Web hosting: Railway
-- Database: Neon PostgreSQL
+- Web hosting: Windows Server through `ThetaSpaceWeb` and Caddy
+- Database: self-hosted PostgreSQL
 - Media: Cloudflare R2
 
 ## Required Before Cutover
@@ -24,9 +24,9 @@ This is not the cutover command. It is the checklist and preflight boundary that
 - Browser visual smoke has been completed for login, home, search, profile, gallery, groups, mail, market, jobs, admin, and feedback.
 - Production repo is backed up as `archive-<date>` or `archive-<date>.vN`.
 - A rollback Git tag exists for the pre-cutover production commit.
-- Neon migration plan is reviewed before applying.
+- Self-hosted PostgreSQL migration plan is reviewed before applying.
 - R2 upload smoke test is ready.
-- Railway deployment verification checklist is ready.
+- Windows service deployment verification checklist is ready.
 - Login smoke users are available and preverified.
 
 ## Preflight Command
@@ -97,7 +97,7 @@ Run from NewRepo:
 npm run services:readiness
 ```
 
-This writes `docs/external-services-readiness.md` with Railway, Neon, Cloudflare R2, and auth runtime environment checks. It is read-only and does not connect, deploy, migrate, or upload.
+This writes `docs/external-services-readiness.md` with Windows server, self-hosted PostgreSQL, Cloudflare R2, and auth runtime environment checks. It is read-only and does not connect, deploy, migrate, or upload.
 
 ## Dashboard
 
@@ -112,7 +112,7 @@ It mirrors the release gates, route smoke matrix, rollback reminders, and non-go
 ## Cutover Outline
 
 1. Confirm NewRepo build and browser QC are green.
-2. Confirm Railway is linked to GitHub `Santroy8808/circlenest`.
+2. Confirm the production checkout at `S:\Workspace\circlenest` tracks GitHub `Santroy8808/circlenest`.
 3. In the production repo, create an archive branch/tag:
 
 ```powershell
@@ -123,8 +123,8 @@ git push origin archive-YYYY-MM-DD.v1
 4. Copy or promote the NewRepo source into the production repo according to the chosen cutover method.
 5. Commit production source with a clear release message.
 6. Push production `main` to GitHub.
-7. Watch Railway deploy.
-8. Confirm Neon migrations and R2 media smoke tests.
+7. Build and restart the `ThetaSpaceWeb` Windows service using the approved commit.
+8. Confirm self-hosted PostgreSQL migrations and R2 media smoke tests.
 9. Run login and route smoke tests on `theta-space.net`.
 
 ## Rollback Rule
@@ -157,7 +157,7 @@ Only run rollback commands after explicitly confirming the target rollback tag a
 ## Known Non-Goals For This Step
 
 - Do not purge production data.
-- Do not migrate Neon.
+- Do not migrate the production PostgreSQL database from this local checklist.
 - Do not push to GitHub.
 - Do not overwrite the production repo.
 - Do not touch Cloudflare R2 objects.

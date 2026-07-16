@@ -8,8 +8,8 @@ Generated: 2026-06-25
 - GitHub remote: `https://github.com/Santroy8808/circlenest.git`
 - Active branch: `main`
 - Current local HEAD: `19a3a6d`
-- Production host: Railway
-- Production database: Neon PostgreSQL
+- Production host: user-owned Windows Server
+- Production database: self-hosted PostgreSQL
 - Media storage: Cloudflare R2
 - Production domain: `https://theta-space.net`
 - Android wrapper source: `C:\Repos\Theta-Space-net\ThetaSpaceAndroidWrapper`
@@ -21,9 +21,9 @@ Generated: 2026-06-25
 - Do not save APKs or project archives to Compass OneDrive.
 - Current live web work happens in `C:\Repos\Theta-Space-net\NewRepo`.
 - This repo pushes to GitHub `Santroy8808/circlenest`, branch `main`.
-- Railway deploys from that GitHub repo.
-- Neon schema changes must be reviewed before production promotion.
-- R2 media must stay browser-direct where practical; Railway should not become the heavy media pipe.
+- The Windows production checkout deploys from that GitHub repo.
+- PostgreSQL schema changes must be reviewed before production promotion.
+- R2 media must stay browser-direct where practical; the Windows web service should not become the heavy media pipe.
 - Admins may manage platform settings, credits, privileges, and workflows.
 - Admins must not create or manipulate real-money balances outside processor-backed flows.
 - Platform credits are internal ledger values.
@@ -165,7 +165,7 @@ Known local caveat:
 
 - `npm run env:check` or `npm run services:readiness` can fail locally if `DATABASE_URL` and production service variables are not present.
 - Local missing env does not automatically mean production is broken.
-- Production readiness still must be verified against Railway, Neon, R2, and Stripe before push/cutover.
+- Production readiness still must be verified against the Windows service, PostgreSQL, R2, and Stripe before push/cutover.
 
 ## Last Known Validation State
 
@@ -587,8 +587,8 @@ Expected flow:
 2. Validate locally.
 3. Back up current production GitHub state with archive tag.
 4. Push `main` to GitHub.
-5. Railway deploys from GitHub.
-6. Railway app talks to Neon.
+5. The Windows production server deploys from GitHub.
+6. The application talks to self-hosted PostgreSQL.
 7. App media talks to Cloudflare R2.
 8. Stripe webhooks talk to `/api/billing/stripe/webhook`.
 
@@ -608,7 +608,7 @@ Before schema-changing production deployment:
 
 - Review `prisma/schema.prisma`.
 - Review `prisma/deploy/2026-06-24-org-tier-events.sql`.
-- Confirm Neon backup or rollback posture.
+- Confirm PostgreSQL backup or rollback posture.
 - Confirm migrations/status against production connection.
 - Do not assume SQLite behavior.
 
@@ -619,16 +619,16 @@ Rollback:
 
 ## External Services Checklist
 
-Railway:
+Windows production server:
 
 - Confirm GitHub source is `Santroy8808/circlenest`.
 - Confirm production branch is `main`.
 - Confirm build runs `prisma generate` and `next build`.
 - Confirm runtime logs after deploy do not show server-side exception digests.
 
-Neon:
+PostgreSQL:
 
-- Confirm `DATABASE_URL` points to Neon PostgreSQL.
+- Confirm `DATABASE_URL` points to the self-hosted PostgreSQL instance.
 - Confirm schema changes are applied.
 - Confirm test/admin users exist if needed.
 - Confirm subscription/Stripe tables exist before testing billing.
@@ -649,7 +649,7 @@ Stripe:
 - Confirm webhook endpoint is configured.
 - Confirm webhook signing secret is set.
 - Confirm required webhook events are enabled.
-- Confirm subscription checkout updates Neon.
+- Confirm subscription checkout updates PostgreSQL.
 - Confirm credit checkout increments platform credits once.
 - Confirm duplicate webhook does not double-grant credits.
 
@@ -702,7 +702,7 @@ Test passes requested:
 ## Known High-Priority Follow-Ups
 
 1. Verify current dirty Stripe/org/event work still passes full validation.
-2. Review Prisma schema and deploy SQL before Neon push.
+2. Review Prisma schema and migration SQL before the PostgreSQL deployment.
 3. Finish live Stripe setup GUI smoke with test keys and price IDs.
 4. Confirm Org hidden tier appears only after admin eligibility grant.
 5. Confirm subscription checkout and webhook state transitions.

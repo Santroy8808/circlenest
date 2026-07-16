@@ -79,7 +79,7 @@ Normalize `Professional` as the business tier display name.
 
 Stripe plan activation is processor-backed. Admins can directly correct ordinary membership status, but Org is a hidden upgrade option: an admin grants `MembershipTierUpgradeEligibility`, the member sees Org on the subscription page, and Stripe checkout/webhooks activate or deactivate the actual tier.
 
-Stripe setup is shared with `docs/modules/27-stripe-billing.md`. Required Railway Stripe variables:
+Stripe setup is shared with `docs/modules/27-stripe-billing.md`. Required production-server Stripe variables:
 
 - `STRIPE_PUBLISHABLE_KEY` optional if saved through admin Stripe Setup
 - `STRIPE_SECRET_KEY`

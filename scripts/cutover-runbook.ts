@@ -77,7 +77,7 @@ Generated: ${generatedAt.toISOString()}
 
 Human-reviewed command sequence for a future NewRepo cutover into the production GitHub source.
 
-This runbook is documentation only. It does not copy files, archive production, push GitHub, migrate Neon, deploy Railway, or touch Cloudflare R2.
+This runbook is documentation only. It does not copy files, archive production, push GitHub, migrate production PostgreSQL, deploy the Windows service, or touch Cloudflare R2.
 
 ## Current Sources
 
@@ -106,8 +106,8 @@ ${bulletList(warnings)}
 Do these before any promotion:
 
 - Confirm this is an approved cutover window.
-- Confirm Railway is linked to GitHub \`Santroy8808/circlenest\`.
-- Confirm Neon production migrations are reviewed.
+- Confirm the production checkout tracks GitHub \`Santroy8808/circlenest\`.
+- Confirm self-hosted PostgreSQL production migrations are reviewed.
 - Confirm Cloudflare R2 production bucket settings are known.
 - Confirm live login smoke accounts are available.
 - Confirm rollback owner is watching the deployment.
@@ -183,13 +183,13 @@ git commit -m "Promote NewRepo rebuild to production"
 git push origin main
 \`\`\`
 
-## Phase 5 - Railway, Neon, R2 Smoke
+## Phase 5 - Windows Service, PostgreSQL, R2 Smoke
 
-Watch Railway deploy from GitHub, then verify:
+Deploy the approved commit to the Windows server, then verify:
 
-- Railway build succeeds.
-- Railway service boots without server-side exceptions.
-- Neon migrations are applied or confirmed already current.
+- The production build succeeds.
+- \`ThetaSpaceWeb\` boots without server-side exceptions.
+- Self-hosted PostgreSQL migrations are applied or confirmed already current.
 - R2 upload intent returns a valid signed URL.
 - R2 complete-upload creates a DB media record.
 - Uploaded media remains visible after refresh.
@@ -226,7 +226,7 @@ git push --force-with-lease origin main
 
 After rollback:
 
-- Watch Railway redeploy the archive commit.
+- Rebuild and restart \`ThetaSpaceWeb\` at the approved rollback commit.
 - Confirm \`theta-space.net/login\` loads.
 - Confirm a known account can log in.
 - Record the failed release commit and rollback reason.

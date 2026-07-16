@@ -10,7 +10,7 @@ function money(cents: number) {
 
 function statusLabel(configured: boolean, source: string) {
   if (!configured) return "missing";
-  return source === "env" ? "Railway env" : "admin saved";
+  return source === "env" ? "Server environment" : "admin saved";
 }
 
 export function AdminStripeSetupWizard({ initialView }: { initialView: StripeSetupAdminView }) {

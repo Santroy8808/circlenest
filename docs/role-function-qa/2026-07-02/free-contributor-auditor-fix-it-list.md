@@ -7,7 +7,7 @@ Scope: Free, Contributor, Auditor browser walkthroughs. Onboarding was intention
 
 ## Dev Fix Pass - 2026-07-02
 
-Target: `http://localhost:3100` local dev against the local Neon/Postgres-compatible database.
+Target: `http://localhost:3100` local development against PostgreSQL.
 
 Fixes applied in dev:
 

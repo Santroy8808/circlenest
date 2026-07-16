@@ -1,7 +1,7 @@
 # Live UX Efficiency Baseline - 2026-06-24
 
 Target: https://theta-space.net  
-Method: in-app browser, real clicks, live Railway/Neon/R2 production path. Localhost was not used for timing.
+Method: in-app browser, real clicks, live Windows server/PostgreSQL/R2 production path. Localhost was not used for timing.
 
 ## Pass 1 Baseline
 

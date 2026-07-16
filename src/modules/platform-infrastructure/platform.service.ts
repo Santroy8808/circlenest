@@ -370,12 +370,12 @@ export const milestoneDefinitions = [
     label: "Cutover",
     title: "Production cutover readiness",
     status: "Ready",
-    detail: "Archive current production, tag rollback, verify Railway deployment, Neon migrations, R2 media, and login smoke tests."
+    detail: "Archive current production, tag rollback, verify Windows service deployment, PostgreSQL migrations, R2 media, and login smoke tests."
   },
   {
     label: "Live Cutover",
     title: "Manual production promotion",
     status: "Next",
-    detail: "Requires explicit approval, a verified archive tag, clean production repo mapping, GitHub push, and Railway smoke."
+    detail: "Requires explicit approval, a verified archive tag, clean production repo mapping, GitHub push, and Windows service smoke tests."
   }
 ];

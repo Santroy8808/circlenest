@@ -26,7 +26,7 @@ Do not save work to Compass OneDrive. Do not implement new work in archived repo
 - Menu items must navigate to working pages or perform working actions.
 - Data must persist in the correct database/storage layer.
 - Cloudflare R2 media flows must create both the object upload and the database record.
-- Neon/PostgreSQL changes require schema/migration review.
+- Self-hosted PostgreSQL changes require schema/migration review.
 - Admin-only or tier-gated actions must enforce permissions server-side.
 - Client-side tier locks are not sufficient by themselves.
 - Loading, empty, success, and error states must be visible and truthful.
