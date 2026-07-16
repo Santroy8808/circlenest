@@ -13,6 +13,7 @@ type StatusChangeAccount = {
   tier: MembershipTier;
   tierName: string;
   canSendInvites: boolean;
+  canBulkSendInvites: boolean;
   orgUpgradeEligible: boolean;
   storageLimitBytes: string;
   platformCredits: number;
@@ -118,6 +119,31 @@ export function AdminStatusChangeWizard() {
     });
   }
 
+  function setBulkInvitePermission(allowed: boolean) {
+    if (!account) return;
+    setMessage("");
+
+    startTransition(async () => {
+      const response = await fetch("/api/admin/status-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "bulk-invite-permission",
+          userIdentifier: account.username,
+          allowed,
+          reason
+        })
+      });
+      const payload = (await response.json().catch(() => null)) as { account?: StatusChangeAccount; error?: string } | null;
+      if (!response.ok || !payload?.account) {
+        setMessage(payload?.error ?? "Could not update bulk invite permission.");
+        return;
+      }
+      setAccount(payload.account);
+      setMessage(allowed ? "Bulk invitation creation granted to this member." : "Bulk invitation creation revoked for this member.");
+    });
+  }
+
   function runLifecycleAction(action: "suspend" | "restore" | "delete") {
     if (!account) return;
 
@@ -208,7 +234,7 @@ export function AdminStatusChangeWizard() {
               Storage limit: {bytesLabel(account.storageLimitBytes)} - Platform credits: {account.platformCredits}
             </p>
             {account.orgUpgradeEligible ? <p className="mt-2 text-sm text-[var(--gold)]">Org upgrade option is visible to this account.</p> : null}
-            <p className="mt-2 text-sm text-[var(--muted)]">Invite creation: {account.canSendInvites ? "Allowed" : "Not allowed"}</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Invite creation: {account.canSendInvites ? "Allowed" : "Not allowed"} · Bulk invitations: {account.canBulkSendInvites ? "Allowed" : "Not allowed"}</p>
           </article>
         ) : null}
       </section>
@@ -250,6 +276,17 @@ export function AdminStatusChangeWizard() {
           </button>
           <button className="btn-secondary" disabled={isPending || !account || !account.canSendInvites || reason.trim().length < 5} onClick={() => setInvitePermission(false)} type="button">
             Revoke invite creation
+          </button>
+        </div>
+        <p className="mt-5 text-sm leading-6 text-[var(--muted)]">
+          Bulk invitations are a separate, higher-risk permission. A member with this grant can paste an address list; each recipient gets a unique one-time code, with controlled pacing and a 300-per-day cap.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button className="btn-primary" disabled={isPending || !account || account.canBulkSendInvites || reason.trim().length < 5} onClick={() => setBulkInvitePermission(true)} type="button">
+            Grant bulk invitations
+          </button>
+          <button className="btn-secondary" disabled={isPending || !account || !account.canBulkSendInvites || reason.trim().length < 5} onClick={() => setBulkInvitePermission(false)} type="button">
+            Revoke bulk invitations
           </button>
         </div>
       </section>

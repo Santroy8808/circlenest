@@ -32,6 +32,7 @@ export type UsersManualSection = {
 export type UsersManual = {
   definitions: UsersManualDefinition[];
   freeTierBasics: string[];
+  contributorTierBasics: string[];
   sections: UsersManualSection[];
 };
 
@@ -39,6 +40,10 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   {
     term: "Free Tier",
     definition: "The basic Theta-Space membership level. It gives access to core social use: profile, stream, people, groups, pictures, messages, market browsing, and limited personal listings."
+  },
+  {
+    term: "Contributor Tier",
+    definition: "A community membership level with expanded storage and access to approved Contributor tools, including Market listing creation, Groups, and Writers Corner. Business Center, Jobs, Events, Fundraisers, general ad creation, and auditor-profile creation are not Contributor functions."
   },
   {
     term: "Stream",
@@ -131,6 +136,14 @@ export const freeTierBasics = [
   "Invite creation appears only when the account is eligible or an admin has granted that ability."
 ];
 
+export const contributorTierBasics = [
+  "Contributor accounts keep the core social tools: Stream, People, Groups, My Pics, Messages, Market, and Settings.",
+  "Contributor accounts can create and edit personal Market listings, promote their own Market listings with the approved listing-ad flow, and use Writers Corner manuscripts.",
+  "Contributor accounts do not receive Business Center, storefront administration, business identity switching, Jobs, Events, Fundraisers, general ad creation, or auditor-profile creation.",
+  "When a Contributor capability is unavailable, its menu item, page, upgrade prompt, and direct feature controls are hidden rather than shown as a gate.",
+  "Use the current Subscription page and the visible menus as the source of truth for limits; a manual entry never grants access."
+];
+
 export const usersManualSections: UsersManualSection[] = [
   {
     key: "getting-started",
@@ -218,8 +231,8 @@ export const usersManualSections: UsersManualSection[] = [
       {
         title: "Read and filter the Stream",
         href: "/home",
-        purpose: "Read platform activity and focus on Latest, Friends, Groups, or Pics where available.",
-        howToUse: ["Open Home.", "Use Stream filters to switch between available views.", "Open a post or picture to read the full discussion when needed."],
+        purpose: "Read platform activity and focus on the Latest stream or posts shared with Friends.",
+        howToUse: ["Open Home.", "Use the Stream filters to switch between Latest and Friends.", "Open a post or picture to read the full discussion when needed."],
         limits: ["Filters only show content you are allowed to view.", "Announcements may be pinned or highlighted by the platform."],
         faq: [
           {
@@ -233,8 +246,8 @@ export const usersManualSections: UsersManualSection[] = [
         ],
         visual: {
           title: "Stream filters reference",
-          caption: "Use filters to narrow the Stream to the type of activity you want to read.",
-          callouts: ["Choose a filter.", "Read visible posts.", "Open discussions for details."]
+          caption: "Use the available filters to narrow the Stream to the activity you want to read.",
+          callouts: ["Choose Latest or Friends.", "Read visible posts.", "Open discussions for details."]
         }
       },
       {
@@ -511,8 +524,8 @@ export const usersManualSections: UsersManualSection[] = [
   },
   {
     key: "market-auditors",
-    title: "Market, Jobs, and Auditor Directory",
-    summary: "Browse marketplace listings, create limited personal listings, find jobs, and browse auditors.",
+    title: "Market and Auditor Directory",
+    summary: "Browse marketplace listings, create limited personal listings, and browse auditors when the directory is available.",
     features: [
       {
         title: "The Market",
@@ -589,7 +602,7 @@ export const usersManualSections: UsersManualSection[] = [
         href: "/jobs",
         purpose: "Browse available job-related listings or opportunities.",
         howToUse: ["Open Find a Job.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions."],
-        limits: ["Only visible opportunities are shown.", "Employer or business posting tools may not be Free Tier functions.", "Do not share sensitive personal information until you trust the contact path."],
+        limits: ["Jobs is not a Contributor feature and should be hidden for Contributors.", "Only visible opportunities are shown when Jobs is available to the current tier.", "Do not share sensitive personal information until you trust the contact path."],
         faq: [
           {
             question: "Can I apply inside Theta-Space?",
@@ -626,6 +639,35 @@ export const usersManualSections: UsersManualSection[] = [
           title: "Auditor directory reference",
           caption: "The directory helps users browse auditors and open profiles.",
           callouts: ["Search auditors.", "Open profile.", "Use visible contact details."]
+        }
+      }
+    ]
+  },
+  {
+    key: "writers-corner",
+    title: "Writers Corner",
+    summary: "Create and manage manuscript drafts when Writers Corner is included in your membership.",
+    features: [
+      {
+        title: "Manuscripts",
+        href: "/writers-corner",
+        purpose: "Write longer-form manuscript drafts and organize them into chapters.",
+        howToUse: ["Open Tools, then Writers Corner when it is visible.", "Choose Create manuscript.", "Enter a title, genre, and summary.", "Create chapters from the manuscript page and continue editing your draft."],
+        limits: ["Writers Corner is available to Contributor accounts and higher approved tiers, not Free Tier.", "Storefront publishing is available only when the account also has an approved business profile; Contributors without one will not see that control.", "Use the visible account menus as the source of truth for current limits."],
+        faq: [
+          {
+            question: "Why do I not see Writers Corner?",
+            answer: "Writers Corner is a Contributor-or-higher feature. If it is not in Tools, the current account is not eligible or the feature is not enabled."
+          },
+          {
+            question: "Can I publish a manuscript to a storefront?",
+            answer: "Only an account with an approved business profile can use storefront publishing. A normal Contributor account should not see a disabled publish control."
+          }
+        ],
+        visual: {
+          title: "Writers Corner reference",
+          caption: "Create a manuscript, then add chapters from its detail page.",
+          callouts: ["Open Writers Corner.", "Create a manuscript.", "Add chapters and continue writing."]
         }
       }
     ]
@@ -708,9 +750,9 @@ export const usersManualSections: UsersManualSection[] = [
       {
         title: "Invites",
         href: "/settings/invite",
-        purpose: "Create or review invite codes only when your account is eligible.",
-        howToUse: ["Open Invites from Settings if it is shown.", "Create or copy an invite only for an approved person.", "Track unused codes carefully."],
-        limits: ["Theta-Space is invite-only.", "Not every Free Tier user can create invites.", "Invite creation depends on account eligibility or admin grant."],
+        purpose: "Create or review private one-time invite codes when an administrator has enabled invite tools for your account.",
+        howToUse: ["Open Invites from Settings if it is shown.", "Use the single-invite form for one approved person.", "If Invite multiple is visible, paste a list in any common format; valid addresses are extracted and de-duplicated before queueing.", "Track queue status and unused codes carefully."],
+        limits: ["Theta-Space is invite-only.", "Invite multiple is a separate administrator-granted capability.", "Bulk delivery is one email every 2 minutes, up to 250 addresses per batch and 300 addresses per UTC day.", "Each recipient receives a unique one-time code; existing active invite addresses are skipped."],
         faq: [
           {
             question: "Why do I not see invite tools?",
@@ -719,6 +761,14 @@ export const usersManualSections: UsersManualSection[] = [
           {
             question: "Can I share an invite publicly?",
             answer: "No. Treat invites as private access paths for intended recipients."
+          },
+          {
+            question: "What does Invite multiple do?",
+            answer: "It accepts a pasted list such as names with <email@example.com>, commas, spaces, or line breaks. The system extracts valid unique addresses, creates a separate one-time code for each, and sends them through a controlled queue. It does not send one shared code."
+          },
+          {
+            question: "Why is a bulk invitation still queued?",
+            answer: "Bulk mail is intentionally paced at one message every two minutes and capped at 300 per UTC day to protect recipients and the invite-only community."
           }
         ],
         visual: {
@@ -729,9 +779,9 @@ export const usersManualSections: UsersManualSection[] = [
       },
       {
         title: "Help, Tutorial, and Users Manual",
-        href: "/settings/users-manual",
-        purpose: "Find guidance without leaving the site.",
-        howToUse: ["Use Tutorial for guided arrows and walkthrough.", "Use Users Manual for detailed feature explanations and FAQ.", "Use feedback/help pages to report problems."],
+        href: "/settings/feedback",
+        purpose: "Find guidance or contact the support queue without leaving the site.",
+        howToUse: ["Use Tutorial for guided arrows and walkthrough.", "Use Users Manual for detailed feature explanations and FAQ.", "Use Feedback Center to ask for help, report a problem, or suggest an improvement."],
         limits: ["The tutorial is a walkthrough; the manual is a reference.", "Manual links open live areas but do not grant extra permissions."],
         faq: [
           {
@@ -741,12 +791,16 @@ export const usersManualSections: UsersManualSection[] = [
           {
             question: "Does the manual unlock features?",
             answer: "No. It explains what your account can use and what the limits are."
+          },
+          {
+            question: "What can I send through Feedback Center?",
+            answer: "Choose Support request for help, Report a problem for something that is not working, or Feature request to suggest an improvement. Add a short title and enough detail for an administrator to understand the request."
           }
         ],
         visual: {
           title: "Help reference",
           caption: "Tutorial and Users Manual are both available from Settings.",
-          callouts: ["Use Tutorial for guided steps.", "Use Manual for reference.", "Report issues through help/feedback."]
+          callouts: ["Use Tutorial for guided steps.", "Use Manual for reference.", "Open Feedback Center for support or suggestions."]
         }
       },
       {
@@ -787,6 +841,7 @@ export function buildUsersManual(): UsersManual {
   return {
     definitions: usersManualDefinitions,
     freeTierBasics,
+    contributorTierBasics,
     sections: usersManualSections
   };
 }

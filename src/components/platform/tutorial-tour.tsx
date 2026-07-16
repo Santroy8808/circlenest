@@ -41,6 +41,31 @@ function targetBoxFromRect(rect: DOMRect): TargetBox {
   };
 }
 
+function arrowPointAtTargetEdge(target: TargetBox, arrowStartX: number, arrowStartY: number) {
+  const targetCenterX = target.left + target.width / 2;
+  const targetCenterY = target.top + target.height / 2;
+  const dx = arrowStartX - targetCenterX;
+  const dy = arrowStartY - targetCenterY;
+
+  if (dx === 0 && dy === 0) {
+    return { x: targetCenterX, y: targetCenterY };
+  }
+
+  const scale = Math.min(
+    dx === 0 ? Number.POSITIVE_INFINITY : target.width / 2 / Math.abs(dx),
+    dy === 0 ? Number.POSITIVE_INFINITY : target.height / 2 / Math.abs(dy)
+  );
+  const edgeX = targetCenterX + dx * scale;
+  const edgeY = targetCenterY + dy * scale;
+  const length = Math.hypot(dx, dy);
+  const clearance = 8;
+
+  return {
+    x: edgeX + (dx / length) * clearance,
+    y: edgeY + (dy / length) * clearance
+  };
+}
+
 function resolvePanelPlacement(target: TargetBox | null): PanelPlacement {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
@@ -94,12 +119,14 @@ function resolvePanelPlacement(target: TargetBox | null): PanelPlacement {
     arrowStartY = top + height;
   }
 
+  const arrowEnd = arrowPointAtTargetEdge(target, arrowStartX, arrowStartY);
+
   return {
     panelStyle: { left, maxHeight: height, maxWidth: width, top, width },
     arrowStartX,
     arrowStartY,
-    arrowEndX: targetCenterX,
-    arrowEndY: targetCenterY
+    arrowEndX: arrowEnd.x,
+    arrowEndY: arrowEnd.y
   };
 }
 
@@ -292,28 +319,30 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
         ) : null}
       </svg>
       <section className="tutorial-panel" role="dialog" aria-label={activeStep.title} style={placement.panelStyle}>
-        <div className="tutorial-panel-topline">
-          <span>{activeIndex + 1} of {tutorialSteps.length}</span>
-          <button onClick={closeTour} type="button">Skip</button>
-        </div>
-        <h2>{activeStep.title}</h2>
-        <p>{activeStep.description}</p>
-        {!targetBox ? <p className="tutorial-missing-target">This control is not visible in the current viewport. Use Next or open the matching area from the table of contents.</p> : null}
-        <button className="tutorial-contents-toggle" onClick={() => setContentsOpen((value) => !value)} type="button">
-          {contentsOpen ? "Hide table of contents" : "Table of contents"}
-        </button>
-        {contentsOpen ? (
-          <div className="tutorial-contents">
-            {tutorialSections.map((section) => (
-              <div className="tutorial-contents-section" key={section.id}>
-                <button onClick={() => startTour(sectionStartStep(section.id).id)} type="button">
-                  {section.title}
-                </button>
-                <span>{section.description}</span>
-              </div>
-            ))}
+        <div className="tutorial-panel-scroll">
+          <div className="tutorial-panel-topline">
+            <span>{activeIndex + 1} of {tutorialSteps.length}</span>
+            <button onClick={closeTour} type="button">Skip</button>
           </div>
-        ) : null}
+          <h2>{activeStep.title}</h2>
+          <p>{activeStep.description}</p>
+          {!targetBox ? <p className="tutorial-missing-target">This control is not visible in the current viewport. Use Next or open the matching area from the table of contents.</p> : null}
+          <button className="tutorial-contents-toggle" onClick={() => setContentsOpen((value) => !value)} type="button">
+            {contentsOpen ? "Hide table of contents" : "Table of contents"}
+          </button>
+          {contentsOpen ? (
+            <div className="tutorial-contents">
+              {tutorialSections.map((section) => (
+                <div className="tutorial-contents-section" key={section.id}>
+                  <button onClick={() => startTour(sectionStartStep(section.id).id)} type="button">
+                    {section.title}
+                  </button>
+                  <span>{section.description}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="tutorial-actions">
           <button className="btn-secondary" disabled={activeIndex <= 0} onClick={() => move(-1)} type="button">
             Back

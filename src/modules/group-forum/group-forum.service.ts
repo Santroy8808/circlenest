@@ -9,6 +9,11 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
+  assertConductTargetsAllowed,
+  ConductInteractionRestrictedError,
+  resolveMentionedUserIds
+} from "@/modules/conduct-reporting/restrictions.service";
+import {
   notifyGroupForumPostCreated,
   notifyGroupForumPostReaction,
   notifyGroupForumThreadReaction
@@ -349,6 +354,16 @@ export async function createGroupForumThread(viewerUserId: string, groupIdOrSlug
     return { ok: false as const, error: "Join the group before posting." };
   }
 
+  try {
+    await assertConductTargetsAllowed(
+      viewerUserId,
+      await resolveMentionedUserIds(`${parsed.data.title}\n${parsed.data.body}`)
+    );
+  } catch (error) {
+    if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+    throw error;
+  }
+
   let thread;
 
   try {
@@ -537,6 +552,7 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
   }
 
   const blockedUserIds = await blockedUserIdsFor(viewerUserId);
+  const mentionedUserIds = await resolveMentionedUserIds(parsed.data.body ?? "");
 
   try {
     const post = await prisma.$transaction(async (tx) => {
@@ -551,7 +567,8 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
         },
         select: {
           id: true,
-          allowPhotoReplies: true
+          allowPhotoReplies: true,
+          authorUserId: true
         }
       });
 
@@ -571,12 +588,23 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
               deletedAt: null,
               authorUserId: { notIn: [...blockedUserIds] }
             },
-            select: { id: true }
+            select: { id: true, authorUserId: true }
           })
         : null;
 
       if (parsed.data.parentPostId && !parent) {
         throw new GroupForumInteractionError("Reply target not found.");
+      }
+
+      try {
+        await assertConductTargetsAllowed(viewerUserId, [
+          thread.authorUserId,
+          ...(parent ? [parent.authorUserId] : []),
+          ...mentionedUserIds
+        ]);
+      } catch (error) {
+        if (error instanceof ConductInteractionRestrictedError) throw new GroupForumInteractionError(error.message);
+        throw error;
       }
 
       const asset = parsed.data.mediaAssetId

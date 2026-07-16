@@ -1,15 +1,20 @@
-import { createHash, randomBytes } from "crypto";
-import { AuditSeverity, Prisma } from "@prisma/client";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { AuditSeverity, BulkInviteBatchStatus, PlatformJobStatus, Prisma, type PlatformJob } from "@prisma/client";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
+import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "free-account-invites";
+const BULK_INVITE_JOB_KIND = "membership.bulk-invite-email";
+const BULK_INVITE_DAILY_CAP = 300;
+const BULK_INVITE_MAX_ADDRESSES = 250;
+const BULK_INVITE_INTERVAL_MS = 2 * 60 * 1000;
 
 export class FreeInviteError extends Error {}
 
@@ -33,6 +38,23 @@ const applyInviteSchema = z.object({
 const revokeInviteSchema = z.object({
   inviteId: z.string().min(1)
 });
+
+const bulkInviteSchema = z.object({
+  emails: z.string().trim().min(1).max(100_000),
+  expiresInDays: z.coerce.number().int().min(1).max(90).default(7)
+});
+
+const bulkEmailPattern = /[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+/gi;
+
+export function parseBulkInviteEmails(value: string) {
+  const matches = value.match(bulkEmailPattern) ?? [];
+  const emails = [...new Set(matches.map((email) => normalizeOptionalEmail(email)).filter((email): email is string => Boolean(email)))];
+  return {
+    emails,
+    extractedCount: emails.length,
+    duplicateCount: Math.max(0, matches.length - emails.length)
+  };
+}
 
 async function isAdminUser(userId?: string) {
   if (!userId) return false;
@@ -252,6 +274,49 @@ async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: 
   });
 }
 
+function inviteDeliveryKey() {
+  const env = readPlatformEnv();
+  const secret = env.NEXTAUTH_SECRET;
+  if (!secret) throw new FreeInviteError("NEXTAUTH_SECRET is required for queued invite delivery.");
+  return createHash("sha256").update(`theta-space:bulk-invite:${secret}`).digest();
+}
+
+function sealInviteCode(code: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", inviteDeliveryKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(code, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [iv, tag, ciphertext].map((value) => value.toString("base64url")).join(".");
+}
+
+function unsealInviteCode(value: string) {
+  const [ivValue, tagValue, ciphertextValue] = value.split(".");
+  if (!ivValue || !tagValue || !ciphertextValue) throw new FreeInviteError("Queued invite delivery data is invalid.");
+  const decipher = createDecipheriv("aes-256-gcm", inviteDeliveryKey(), Buffer.from(ivValue, "base64url"));
+  decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(ciphertextValue, "base64url")), decipher.final()]).toString("utf8");
+}
+
+export async function listOwnBulkInviteBatches(userId: string) {
+  const batches = await prisma.bulkInviteBatch.findMany({
+    where: { createdByUserId: userId },
+    orderBy: { createdAt: "desc" },
+    take: 10
+  });
+
+  return batches.map((batch) => ({
+    id: batch.id,
+    requestedCount: batch.requestedCount,
+    acceptedCount: batch.acceptedCount,
+    skippedCount: batch.skippedCount,
+    sentCount: batch.sentCount,
+    failedCount: batch.failedCount,
+    status: batch.status,
+    createdAt: batch.createdAt.toISOString(),
+    updatedAt: batch.updatedAt.toISOString()
+  }));
+}
+
 export async function listFreeAccountInviteAdminView() {
   const invites = await prisma.freeAccountInviteCode.findMany({
     where: {
@@ -264,7 +329,8 @@ export async function listFreeAccountInviteAdminView() {
     include: {
       assignedUser: { select: { email: true, username: true, profile: { select: { displayName: true } } } },
       generatedBy: { select: { email: true, username: true, profile: { select: { displayName: true } } } },
-      usedBy: { select: { email: true, username: true, profile: { select: { displayName: true } } } }
+      usedBy: { select: { email: true, username: true, profile: { select: { displayName: true } } } },
+      bulkBatch: { select: { id: true, status: true, sentCount: true, failedCount: true } }
     }
   });
 
@@ -275,6 +341,10 @@ export async function listFreeAccountInviteAdminView() {
     assignedUserLabel: userLabel(invite.assignedUser),
     generatedByUserLabel: userLabel(invite.generatedBy),
     usedByUserLabel: userLabel(invite.usedBy),
+    bulkBatchId: invite.bulkBatch?.id ?? null,
+    bulkBatchStatus: invite.bulkBatch?.status ?? null,
+    bulkBatchSentCount: invite.bulkBatch?.sentCount ?? null,
+    bulkBatchFailedCount: invite.bulkBatch?.failedCount ?? null,
     emailedAt: invite.emailedAt?.toISOString() ?? null,
     usedAt: invite.usedAt?.toISOString() ?? null,
     expiresAt: invite.expiresAt.toISOString(),
@@ -329,7 +399,182 @@ async function canGenerateMemberInvite(userId: string) {
   return tierPolicies[user.membership?.tier ?? "FREE"].features["invites.send"];
 }
 
+async function canGenerateBulkMemberInvites(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      membership: true,
+      membershipOverrides: {
+        where: {
+          featureKey: "invites.bulkSend",
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+        }
+      }
+    }
+  });
+
+  if (!user) return false;
+  if (isAdminRole(user.role)) return true;
+  const override = user.membershipOverrides[0];
+  if (override) return override.allowed;
+
+  return tierPolicies[user.membership?.tier ?? "FREE"].features["invites.bulkSend"];
+}
+
+export async function createBulkMemberInvites(actorUserId: string, input: unknown) {
+  if (!(await isFeatureEnabled("membership.bulk_invites"))) {
+    return { ok: false as const, error: "Bulk invitations are currently disabled by Platform Management." };
+  }
+  if (!(await canGenerateBulkMemberInvites(actorUserId))) {
+    return { ok: false as const, error: "Bulk invite permission is not available on this account." };
+  }
+
+  const parsed = bulkInviteSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid bulk invite request." };
+  }
+
+  const parsedEmails = parseBulkInviteEmails(parsed.data.emails);
+  if (parsedEmails.extractedCount === 0) {
+    return { ok: false as const, error: "No valid email addresses were found." };
+  }
+  if (parsedEmails.extractedCount > BULK_INVITE_MAX_ADDRESSES) {
+    return { ok: false as const, error: `Bulk invitations are limited to ${BULK_INVITE_MAX_ADDRESSES} addresses per batch.` };
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + parsed.data.expiresInDays * 24 * 60 * 60 * 1000);
+  let result: Awaited<ReturnType<typeof createBulkInviteBatchInTransaction>>;
+  try {
+    result = await createBulkInviteBatchInTransaction(actorUserId, parsedEmails, now, expiresAt);
+  } catch (error) {
+    return { ok: false as const, error: error instanceof FreeInviteError ? error.message : "Could not queue bulk invitations." };
+  }
+
+  await writeAuditLog({
+    actorUserId,
+    module: MODULE_KEY,
+    action: "member-free-invite.bulk-generated",
+    targetType: "BulkInviteBatch",
+    targetId: result.batch.id,
+    severity: AuditSeverity.info,
+    metadata: {
+      requestedCount: result.batch.requestedCount,
+      acceptedCount: result.batch.acceptedCount,
+      skippedCount: result.skippedCount,
+      dailyCap: BULK_INVITE_DAILY_CAP
+    }
+  });
+
+  return {
+    ok: true as const,
+    batch: {
+      id: result.batch.id,
+      requestedCount: result.batch.requestedCount,
+      acceptedCount: result.batch.acceptedCount,
+      skippedCount: result.batch.skippedCount,
+      sentCount: 0,
+      failedCount: 0,
+      status: result.batch.status,
+      createdAt: result.batch.createdAt.toISOString(),
+      updatedAt: result.batch.updatedAt.toISOString()
+    },
+    queuedCount: result.inviteIds.length,
+    dailyCap: BULK_INVITE_DAILY_CAP,
+    intervalMinutes: BULK_INVITE_INTERVAL_MS / 60_000
+  };
+}
+
+async function createBulkInviteBatchInTransaction(
+  actorUserId: string,
+  parsedEmails: ReturnType<typeof parseBulkInviteEmails>,
+  now: Date,
+  expiresAt: Date
+) {
+  return prisma.$transaction(async (tx) => {
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const reservedToday = await tx.freeAccountInviteCode.count({
+      where: { bulkBatchId: { not: null }, createdAt: { gte: dayStart } }
+    });
+    if (reservedToday + parsedEmails.extractedCount > BULK_INVITE_DAILY_CAP) {
+      throw new FreeInviteError(`The daily bulk invitation limit is ${BULK_INVITE_DAILY_CAP} addresses. Try again tomorrow.`);
+    }
+
+    const existing = await tx.freeAccountInviteCode.findMany({
+      where: {
+        recipientEmail: { in: parsedEmails.emails },
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: now }
+      },
+      select: { recipientEmail: true }
+    });
+    const existingEmails = new Set(existing.map((invite) => invite.recipientEmail).filter((email): email is string => Boolean(email)));
+    const acceptedEmails = parsedEmails.emails.filter((email) => !existingEmails.has(email));
+    if (acceptedEmails.length === 0) {
+      throw new FreeInviteError("Every address already has an active invitation or was duplicated.");
+    }
+
+    const latestJob = await tx.platformJob.findFirst({
+      where: {
+        kind: BULK_INVITE_JOB_KIND,
+        status: { in: [PlatformJobStatus.PENDING, PlatformJobStatus.RUNNING] },
+        runAfter: { gt: now }
+      },
+      orderBy: { runAfter: "desc" },
+      select: { runAfter: true }
+    });
+    let runAfter = latestJob ? new Date(latestJob.runAfter.getTime() + BULK_INVITE_INTERVAL_MS) : new Date(now.getTime() + 60_000);
+    const batch = await tx.bulkInviteBatch.create({
+      data: {
+        createdByUserId: actorUserId,
+        requestedCount: parsedEmails.extractedCount,
+        acceptedCount: acceptedEmails.length,
+        skippedCount: parsedEmails.duplicateCount + existingEmails.size
+      }
+    });
+
+    const inviteIds: string[] = [];
+    for (const recipientEmail of acceptedEmails) {
+      let code = createInviteCode();
+      let codeHash = hashFreeAccountInviteCode(code);
+      for (let attempts = 0; attempts < 3; attempts += 1) {
+        const duplicate = await tx.freeAccountInviteCode.findUnique({ where: { codeHash }, select: { id: true } });
+        if (!duplicate) break;
+        code = createInviteCode();
+        codeHash = hashFreeAccountInviteCode(code);
+      }
+      const invite = await tx.freeAccountInviteCode.create({
+        data: {
+          codeHash,
+          codePreview: previewCode(code),
+          recipientEmail,
+          generatedByUserId: actorUserId,
+          bulkBatchId: batch.id,
+          deliveryCodeCiphertext: sealInviteCode(code),
+          expiresAt
+        }
+      });
+      inviteIds.push(invite.id);
+      await tx.platformJob.create({
+        data: {
+          kind: BULK_INVITE_JOB_KIND,
+          payload: { inviteId: invite.id },
+          runAfter,
+          maxAttempts: 3
+        }
+      });
+      runAfter = new Date(runAfter.getTime() + BULK_INVITE_INTERVAL_MS);
+    }
+
+    return { batch, inviteIds, skippedCount: parsedEmails.duplicateCount + existingEmails.size };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
 export async function createMemberFreeAccountInviteCode(actorUserId: string, input: unknown) {
+  if (!(await isFeatureEnabled("membership.single_invites"))) {
+    return { ok: false as const, error: "Single invitations are currently disabled by Platform Management." };
+  }
   if (!(await canGenerateMemberInvite(actorUserId))) {
     return { ok: false as const, error: "Invite permission is not available on this account." };
   }
@@ -573,6 +818,78 @@ export async function emailFreeAccountInviteCode(actorUserId: string, input: unk
   });
 
   return { ok: true as const };
+}
+
+async function recordBulkDeliveryOutcome(batchId: string, outcome: "sent" | "failed") {
+  return prisma.$transaction(async (tx) => {
+    const batch = await tx.bulkInviteBatch.update({
+      where: { id: batchId },
+      data: outcome === "sent" ? { sentCount: { increment: 1 } } : { failedCount: { increment: 1 } }
+    });
+    const completedCount = batch.sentCount + batch.failedCount;
+    if (completedCount >= batch.acceptedCount) {
+      return tx.bulkInviteBatch.update({
+        where: { id: batchId },
+        data: { status: batch.failedCount > 0 ? BulkInviteBatchStatus.PARTIAL : BulkInviteBatchStatus.COMPLETED }
+      });
+    }
+    if (batch.status === BulkInviteBatchStatus.QUEUED) {
+      return tx.bulkInviteBatch.update({ where: { id: batchId }, data: { status: BulkInviteBatchStatus.RUNNING } });
+    }
+    return batch;
+  });
+}
+
+export async function deliverQueuedBulkInvite(job: PlatformJob) {
+  const inviteId = typeof job.payload === "object" && job.payload && "inviteId" in job.payload && typeof job.payload.inviteId === "string"
+    ? job.payload.inviteId
+    : null;
+  if (!inviteId) return { ok: false as const, error: "Bulk invite job is missing an invite id." };
+
+  const invite = await prisma.freeAccountInviteCode.findUnique({
+    where: { id: inviteId },
+    select: {
+      id: true,
+      recipientEmail: true,
+      expiresAt: true,
+      usedAt: true,
+      revokedAt: true,
+      emailedAt: true,
+      deliveryCodeCiphertext: true,
+      bulkBatchId: true
+    }
+  });
+  if (!invite || !invite.bulkBatchId) return { ok: true as const, result: { skipped: true, reason: "Invite not found." } };
+
+  if (!invite.recipientEmail || invite.usedAt || invite.revokedAt || invite.expiresAt <= new Date() || invite.emailedAt || !invite.deliveryCodeCiphertext) {
+    if (invite.deliveryCodeCiphertext && !invite.emailedAt) {
+      await prisma.freeAccountInviteCode.update({ where: { id: invite.id }, data: { deliveryCodeCiphertext: null } });
+      await recordBulkDeliveryOutcome(invite.bulkBatchId, "failed");
+    }
+    return { ok: true as const, result: { skipped: true, reason: "Invite is no longer deliverable." } };
+  }
+
+  const recipientEmail = invite.recipientEmail;
+  const deliveryCodeCiphertext = invite.deliveryCodeCiphertext;
+
+  try {
+    const code = unsealInviteCode(deliveryCodeCiphertext);
+    await sendInviteEmail(recipientEmail, code, invite.expiresAt);
+    await prisma.freeAccountInviteCode.update({
+      where: { id: invite.id },
+      data: { emailedAt: new Date(), deliveryCodeCiphertext: null }
+    });
+    await recordBulkDeliveryOutcome(invite.bulkBatchId, "sent");
+    return { ok: true as const, result: { sent: true, inviteId: invite.id } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not send queued invite email.";
+    if (job.attempts + 1 >= job.maxAttempts) {
+      await prisma.freeAccountInviteCode.update({ where: { id: invite.id }, data: { deliveryCodeCiphertext: null } });
+      await recordBulkDeliveryOutcome(invite.bulkBatchId, "failed");
+    }
+    await diagnostics.warn(MODULE_KEY, "Queued bulk invite SMTP send failed.", { inviteId: invite.id, error: message });
+    return { ok: false as const, error: message };
+  }
 }
 
 export async function applyFreeAccountInviteCodeToAccount(actorUserId: string, input: unknown) {

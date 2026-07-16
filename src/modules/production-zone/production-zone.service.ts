@@ -37,8 +37,9 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       title: "Events",
       description: "View events you created, moderate, RSVP to, or were invited into.",
       href: "/events",
+      featureKey: "events.create",
       badge: "Browse",
-      available: true
+      available: features["events.create"]
     }),
     card({
       title: "The Market",
@@ -67,8 +68,9 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       title: "Fundraisers",
       description: "Browse member fundraiser campaigns with payment-ready contribution intent flow.",
       href: "/fundraisers",
+      featureKey: "fundraisers.create",
       badge: "Browse",
-      available: true
+      available: features["fundraisers.create"]
     }),
     card({
       title: "Writers Corner",
@@ -129,7 +131,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
       href: "/business-center",
       featureKey: features["org.profile"] ? "org.profile" : "market.storefront",
       badge: features["org.profile"] ? "Org" : "Business",
-      available: features["market.storefront"] || features["org.profile"] || features["ads.createGeneral"] || features["jobs.createListing"],
+      available: features["market.storefront"] || features["org.profile"] || features["ads.createGeneral"],
       reason: "This feature is in development."
     }),
     card({
@@ -147,9 +149,9 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
 
   return {
     tierName: policy.displayName,
-    browseCards,
-    creatorCards,
-    businessCards,
+    browseCards: browseCards.filter((entry) => entry.available),
+    creatorCards: creatorCards.filter((entry) => entry.available),
+    businessCards: businessCards.filter((entry) => entry.available),
     futureCards
   };
 }

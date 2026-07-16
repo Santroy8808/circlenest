@@ -14,6 +14,11 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
+  assertConductInteractionAllowed,
+  assertConductTargetsAllowed,
+  ConductInteractionRestrictedError
+} from "@/modules/conduct-reporting/restrictions.service";
+import {
   type ChatAccessContext,
   hasBlockedRelationshipWithin,
   resolveChatAccessContext,
@@ -888,6 +893,13 @@ export async function findOrCreateDirectChatThread(currentUserId: string, input:
     return detail.ok ? { ok: true as const, thread: detail.thread } : detail;
   }
 
+  try {
+    await assertConductInteractionAllowed(currentUserId, target.id);
+  } catch (error) {
+    if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+    throw error;
+  }
+
   const thread = await prisma.chatThread.create({
     data: {
       type: ChatThreadType.DIRECT,
@@ -1010,6 +1022,25 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
 
   if (!context.userId) {
     return { ok: false as const, error: "Chat not found." };
+  }
+
+  const directThread = await prisma.chatThread.findFirst({
+    where: scopeChatThreadWhere(context, "interact", {
+      id: parsed.data.threadId,
+      type: ChatThreadType.DIRECT
+    }),
+    select: { participants: { select: { userId: true } } }
+  });
+  if (directThread) {
+    try {
+      await assertConductTargetsAllowed(
+        senderUserId,
+        directThread.participants.map((participant) => participant.userId)
+      );
+    } catch (error) {
+      if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+      throw error;
+    }
   }
 
   const replyTarget = parsed.data.replyToMessageId

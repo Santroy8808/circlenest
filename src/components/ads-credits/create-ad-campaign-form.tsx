@@ -187,6 +187,7 @@ async function uploadAdImage(image: AdImageAttachment, onUpdate: (patch: Partial
 
 function initialDestinationKind(adsManager: AdsManagerView, initialDraft?: InitialAdCampaignDraft) {
   if (adsManager.fundraiserOnly) return AdDestinationKind.EXTERNAL_URL;
+  if (adsManager.marketOnly) return AdDestinationKind.MARKET_LISTING;
   if (initialDraft?.destinationKind) return initialDraft.destinationKind;
   if (adsManager.destinationOptions.storefronts.length > 0) return AdDestinationKind.STOREFRONT;
   if (adsManager.destinationOptions.marketListings.length > 0) return AdDestinationKind.MARKET_LISTING;
@@ -796,7 +797,7 @@ export function CreateAdCampaignForm({
         {currentStep.key === "destination" ? (
           <div className="ad-wizard-destination">
             <div className="ad-wizard-choice-grid">
-              <article className="destination-choice-card">
+              {!adsManager.marketOnly ? <article className="destination-choice-card">
                 <button
                   className={`destination-choice ${destinationKind === AdDestinationKind.STOREFRONT ? "is-active" : ""}`}
                   disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.storefronts.length === 0}
@@ -809,7 +810,7 @@ export function CreateAdCampaignForm({
                 <Link className="destination-choice-action" href={createStorefrontHref}>
                   Create one
                 </Link>
-              </article>
+              </article> : null}
               <article className="destination-choice-card">
                 <button
                   className={`destination-choice ${destinationKind === AdDestinationKind.MARKET_LISTING ? "is-active" : ""}`}
@@ -824,7 +825,7 @@ export function CreateAdCampaignForm({
                   Create one
                 </Link>
               </article>
-              <article className="destination-choice-card">
+              {!adsManager.marketOnly ? <article className="destination-choice-card">
                 <button
                   className={`destination-choice ${destinationKind === AdDestinationKind.BUSINESS_ARTICLE ? "is-active" : ""}`}
                   disabled={adsManager.fundraiserOnly || adsManager.destinationOptions.businessArticles.length === 0}
@@ -837,8 +838,8 @@ export function CreateAdCampaignForm({
                 <Link className="destination-choice-action" href={createArticleHref}>
                   Create one
                 </Link>
-              </article>
-              <article className="destination-choice-card">
+              </article> : null}
+              {!adsManager.marketOnly ? <article className="destination-choice-card">
                 <button
                   className={`destination-choice ${destinationKind === AdDestinationKind.EXTERNAL_URL ? "is-active" : ""}`}
                   onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)}
@@ -850,7 +851,7 @@ export function CreateAdCampaignForm({
                 <button className="destination-choice-action" onClick={() => setDestinationKind(AdDestinationKind.EXTERNAL_URL)} type="button">
                   Enter URL
                 </button>
-              </article>
+              </article> : null}
             </div>
 
             {destinationKind === AdDestinationKind.MARKET_LISTING ? (

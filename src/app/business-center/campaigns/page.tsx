@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { BusinessCampaigns } from "@/components/business-storefront/business-campaigns";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
@@ -25,11 +24,7 @@ export default async function BusinessCenterCampaignsPage() {
       reason: adsManager.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice backHref="/business-center" backLabel="Back to Business Center" featureLabel="Campaigns" />
-      </AppShell>
-    );
+    notFound();
   }
 
   return (

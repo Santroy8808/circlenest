@@ -12,6 +12,7 @@ type CountKey = "messages" | "mail" | "notifications" | "alerts";
 type AndroidAppControlsProps = {
   counts: Record<CountKey, number>;
   mailEnabled: boolean;
+  platformFeatures: Record<string, boolean>;
   sections: NavSection[];
 };
 
@@ -174,17 +175,19 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-export function AndroidAppControls({ counts, mailEnabled, sections }: AndroidAppControlsProps) {
+export function AndroidAppControls({ counts, mailEnabled, platformFeatures, sections }: AndroidAppControlsProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const primarySections = useMemo(() => sections.filter((section) => section.items.length > 0), [sections]);
-  const visibleBottomActions = useMemo(
-    () => (mailEnabled ? bottomActions : bottomActions.filter((action) => action.href !== "/mail" && action.countKey !== "mail")),
-    [mailEnabled]
-  );
+  const visibleBottomActions = useMemo(() => bottomActions.filter((action) => {
+    if (action.href === "/mail" || action.countKey === "mail") return mailEnabled;
+    if (action.href === "/profile/gallery") return platformFeatures["media.personal_gallery"] !== false;
+    if (action.href === "/messages") return platformFeatures["communication.direct_messages"] !== false;
+    return true;
+  }), [mailEnabled, platformFeatures]);
 
   useEffect(() => {
     setSheetOpen(false);

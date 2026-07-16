@@ -19,19 +19,23 @@ export function CreateManuscriptForm({ access }: { access: WriterAccessState }) 
     setError("");
 
     startTransition(async () => {
-      const response = await fetch("/api/writers/manuscripts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, genre, summary, visibility, publishToStorefront })
-      });
-      const payload = (await response.json()) as { error?: string; manuscript?: { slug: string } };
+      try {
+        const response = await fetch("/api/writers/manuscripts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, genre, summary, visibility, publishToStorefront })
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; manuscript?: { slug: string } };
 
-      if (!response.ok || !payload.manuscript) {
-        setError(payload.error ?? "Could not create manuscript.");
-        return;
+        if (!response.ok || !payload.manuscript) {
+          setError(payload.error ?? `Could not create manuscript (HTTP ${response.status}).`);
+          return;
+        }
+
+        window.location.href = `/writers-corner/${payload.manuscript.slug}`;
+      } catch {
+        setError("Could not reach Theta-Space. Check your connection and try again.");
       }
-
-      window.location.href = `/writers-corner/${payload.manuscript.slug}`;
     });
   }
 
@@ -71,20 +75,22 @@ export function CreateManuscriptForm({ access }: { access: WriterAccessState }) 
         <option value={ManuscriptVisibility.MEMBERS}>Members can read</option>
         <option value={ManuscriptVisibility.PRIVATE}>Private draft</option>
       </select>
-      <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
-        <input
-          checked={publishToStorefront}
-          className="mt-1"
-          onChange={(event) => setPublishToStorefront(event.target.checked)}
-          type="checkbox"
-        />
-        <span>
-          <span className="block font-semibold text-[var(--gold)]">Publish to storefront</span>
-          <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
-            Makes this manuscript available as a public storefront blog after Business Center blogs are enabled.
+      {access.canPublishToStorefront ? (
+        <label className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+          <input
+            checked={publishToStorefront}
+            className="mt-1"
+            onChange={(event) => setPublishToStorefront(event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            <span className="block font-semibold text-[var(--gold)]">Publish to storefront</span>
+            <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
+              Makes this manuscript available as a public storefront blog after Business Center blogs are enabled.
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
+      ) : null}
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       <div className="flex justify-end gap-3">
         <Link className="btn-secondary" href="/writers-corner">

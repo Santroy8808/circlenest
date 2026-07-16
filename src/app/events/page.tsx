@@ -1,7 +1,8 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { EventsDirectoryClient } from "@/components/events/events-directory-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { isAdminRole } from "@/lib/platform/roles";
 import { safeListEvents } from "@/modules/events/events.service";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
@@ -13,17 +14,7 @@ export default async function EventsPage() {
   }
 
   const policy = await getEffectivePolicyForUser(session.user.id);
-  if (!policy || policy.actualTier === MembershipTier.FREE) {
-    return (
-      <AppShell>
-        <section className="surface rounded-md p-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Events</p>
-          <h1 className="mt-3 text-3xl font-semibold text-[var(--gold)]">Not yet available</h1>
-          <p className="mt-3 text-[var(--muted)]">Events are not currently enabled for Free memberships.</p>
-        </section>
-      </AppShell>
-    );
-  }
+  if (!isAdminRole(session.user.role) && (!policy || !policy.features["events.create"])) notFound();
 
   const result = await safeListEvents(session.user.id);
 
@@ -33,4 +24,3 @@ export default async function EventsPage() {
     </AppShell>
   );
 }
-import { MembershipTier } from "@prisma/client";

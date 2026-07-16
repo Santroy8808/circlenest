@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CreateFundraiserForm } from "@/components/fundraisers-funds/create-fundraiser-form";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 import { getFundraiserCreateState } from "@/modules/fundraisers-funds/fundraisers-funds.service";
@@ -25,11 +24,7 @@ export default async function CreateFundraiserPage() {
       reason: createState.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice backHref="/fundraisers" backLabel="Back to Fundraisers" featureLabel="Create Fundraiser" />
-      </AppShell>
-    );
+    notFound();
   }
 
   return (

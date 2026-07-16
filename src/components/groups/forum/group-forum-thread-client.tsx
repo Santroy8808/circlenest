@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { GroupAssetKind, GroupForumReactionType } from "@prisma/client";
+import { ConductLocationType, GroupAssetKind, GroupForumReactionType } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
@@ -9,6 +9,7 @@ import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
+import { ConductContentActions } from "@/components/conduct-reporting/conduct-content-actions";
 import type { GroupForumPostView, GroupForumThreadDetailView } from "@/modules/group-forum/types";
 
 const quickReactions = [
@@ -303,6 +304,7 @@ export function GroupForumThreadClient({
               <GroupReactionDisplay reaction={reaction} /> <span>{thread.reactions[reaction] ?? 0}</span>
             </button>
           ))}
+          <ConductContentActions contentId={thread.id} locationType={ConductLocationType.GROUP_FORUM_THREAD} />
         </div>
       </article>
 
@@ -349,6 +351,7 @@ export function GroupForumThreadClient({
                     <ActionGlyph kind="comment" />
                   </button>
                 ) : null}
+                <ConductContentActions contentId={post.id} locationType={ConductLocationType.GROUP_FORUM_POST} />
               </div>
             </article>
           ))}

@@ -96,6 +96,90 @@ enum PlatformJobStatus {
   CANCELLED
 }
 
+enum ConductIncidentSource {
+  MEMBER_REPORT
+  MODERATOR_REPORT
+  ADMIN_REPORT
+  AUTOMATED_REVIEW
+}
+
+enum ConductLocationType {
+  MAIN_STREAM_POST
+  MAIN_STREAM_COMMENT
+  GROUP_FORUM_THREAD
+  GROUP_FORUM_POST
+  GROUP_ASSET_COMMENT
+  DISPUTE_STATEMENT
+}
+
+enum ConductIncidentStatus {
+  OPEN
+  UNDER_REVIEW
+  DISPUTED
+  RESOLVED
+  DISMISSED
+  RESTRICTED
+}
+
+enum ConductReportStatus {
+  ACTIVE
+  UNDER_REVIEW
+  DISPUTED
+  RESOLVED
+  DISMISSED
+  RESTRICTED
+}
+
+enum ConductReportType {
+  MANUAL
+  AUTOMATED
+  MODERATOR
+  ADMIN
+}
+
+enum ConductCommendationStatus {
+  ACTIVE
+  WITHDRAWN
+}
+
+enum ConductDisputeStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum ConductReviewStatus {
+  PENDING
+  ASSIGNED
+  APPROVED
+  DISMISSED
+  NEEDS_CONTEXT
+}
+
+enum ConductScanMode {
+  MANUAL
+  AUTOMATIC
+  SCHEDULED
+  BACKFILL
+}
+
+enum ConductScanStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum BulkInviteBatchStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
 enum MediaVisibility {
   PRIVATE
   MEMBERS
@@ -526,6 +610,12 @@ enum FeedbackTicketSeverity {
   urgent
 }
 
+enum FeedbackTicketKind {
+  SUPPORT_REQUEST
+  ISSUE_REPORT
+  FEATURE_REQUEST
+}
+
 enum ProfileVisibility {
   PRIVATE
   MEMBERS
@@ -674,6 +764,7 @@ model User {
   generatedFreeInvites            FreeAccountInviteCode[]            @relation("FreeInviteGeneratedBy")
   assignedFreeInvites             FreeAccountInviteCode[]            @relation("FreeInviteAssignedUser")
   usedFreeInvites                 FreeAccountInviteCode[]            @relation("FreeInviteUsedBy")
+  bulkInviteBatches               BulkInviteBatch[]                  @relation("BulkInviteBatchCreator")
   uploadIntents                   UploadIntent[]
   billingCheckoutIntents          BillingCheckoutIntent[]
 }
@@ -862,27 +953,49 @@ model MembershipPromotionGrant {
 }
 
 model FreeAccountInviteCode {
-  id                String    @id @default(cuid())
-  codeHash          String    @unique
-  codePreview       String
-  recipientEmail    String?
-  assignedUserId    String?
-  generatedByUserId String?
-  usedByUserId      String?
-  emailedAt         DateTime?
-  usedAt            DateTime?
-  expiresAt         DateTime
-  revokedAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  assignedUser      User?     @relation("FreeInviteAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  generatedBy       User?     @relation("FreeInviteGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: SetNull)
-  usedBy            User?     @relation("FreeInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+  id                     String           @id @default(cuid())
+  codeHash               String           @unique
+  codePreview            String
+  recipientEmail         String?
+  assignedUserId         String?
+  generatedByUserId      String?
+  usedByUserId           String?
+  bulkBatchId            String?
+  deliveryCodeCiphertext String?
+  emailedAt              DateTime?
+  usedAt                 DateTime?
+  expiresAt              DateTime
+  revokedAt              DateTime?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  assignedUser           User?            @relation("FreeInviteAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  generatedBy            User?            @relation("FreeInviteGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: SetNull)
+  usedBy                 User?            @relation("FreeInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+  bulkBatch              BulkInviteBatch? @relation(fields: [bulkBatchId], references: [id], onDelete: SetNull)
 
   @@index([recipientEmail, expiresAt])
   @@index([assignedUserId, expiresAt])
   @@index([usedAt, expiresAt])
   @@index([generatedByUserId, createdAt])
+  @@index([bulkBatchId, createdAt])
+}
+
+model BulkInviteBatch {
+  id              String                  @id @default(cuid())
+  createdByUserId String?
+  requestedCount  Int
+  acceptedCount   Int
+  skippedCount    Int                     @default(0)
+  sentCount       Int                     @default(0)
+  failedCount     Int                     @default(0)
+  status          BulkInviteBatchStatus   @default(QUEUED)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  createdBy       User?                   @relation("BulkInviteBatchCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  inviteCodes     FreeAccountInviteCode[]
+
+  @@index([createdByUserId, createdAt])
+  @@index([status, createdAt])
 }
 
 model SubscriptionPlanRule {
@@ -2644,6 +2757,284 @@ model Alert {
   @@index([userId, readAt, createdAt])
 }
 
+model ConductConfig {
+  id                         String   @id @default("default")
+  manualEnabled              Boolean  @default(true)
+  automaticEnabled           Boolean  @default(false)
+  scheduledEnabled           Boolean  @default(false)
+  scannerEnabled             Boolean  @default(true)
+  shadowMode                 Boolean  @default(true)
+  createAutomatedReports     Boolean  @default(false)
+  sendAutomatedWarnings      Boolean  @default(false)
+  applyAutomatedRestrictions Boolean  @default(false)
+  timezone                   String   @default("America/Los_Angeles")
+  scheduleLocalTime          String   @default("02:00")
+  automaticIntervalMinutes   Int      @default(1440)
+  maxItemsPerRun             Int      @default(500)
+  maxItemsPerDay             Int      @default(2000)
+  maxBackfillDays            Int      @default(30)
+  contextBefore              Int      @default(3)
+  contextAfter               Int      @default(3)
+  primaryModel               String   @default("gpt-5.6-luna")
+  fallbackModel              String   @default("gpt-5.6-terra")
+  providerCallBudget         Int      @default(100)
+  tokenBudget                Int      @default(250000)
+  estimatedCostBudgetUsd     Float    @default(10)
+  reviewThreshold            Float    @default(0.65)
+  triggerDictionary          Json?
+  policyVersion              String   @default("conduct-v1")
+  notificationTemplates      Json?
+  restrictionDurations       Json?
+  restrictionDecayDays       Int      @default(30)
+  updatedByUserId            String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model ConductIncident {
+  id                      String                   @id @default(cuid())
+  reference               String                   @unique
+  source                  ConductIncidentSource
+  locationType            ConductLocationType
+  groupId                 String?
+  subjectContentId        String
+  subjectAuthorUserId     String
+  permalink               String
+  fingerprint             String                   @unique
+  evidenceSnapshot        Json
+  evidenceHashes          Json
+  evidenceContentIds      String[]
+  policyCodes             String[]
+  status                  ConductIncidentStatus    @default(OPEN)
+  createdByUserId         String?
+  assignedModeratorUserId String?
+  modelMetadata           Json?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  reports                 ConductReport[]
+  disputes                ConductDispute[]
+  events                  ConductEvent[]
+  reviewCandidates        ConductReviewCandidate[]
+
+  @@index([subjectAuthorUserId, status, createdAt])
+  @@index([locationType, groupId, status, createdAt])
+  @@index([assignedModeratorUserId, status, createdAt])
+}
+
+model ConductReport {
+  id                 String              @id @default(cuid())
+  reference          String              @unique
+  incidentId         String
+  reportedUserId     String
+  reporterUserId     String?
+  type               ConductReportType
+  status             ConductReportStatus @default(ACTIVE)
+  reasonCode         String
+  context            String?
+  policyCodes        String[]
+  evidenceContentIds String[]
+  algorithmicWeight  Float               @default(1)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  resolvedAt         DateTime?
+  incident           ConductIncident     @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  dispute            ConductDispute?
+  events             ConductEvent[]
+
+  @@unique([incidentId, reporterUserId])
+  @@index([reportedUserId, status, createdAt])
+  @@index([reporterUserId, createdAt])
+  @@index([incidentId, status])
+}
+
+model ConductCommendation {
+  id               String                    @id @default(cuid())
+  reference        String                    @unique
+  locationType     ConductLocationType
+  groupId          String?
+  contentId        String
+  permalink        String
+  commendedUserId  String
+  submittingUserId String
+  category         String
+  note             String?
+  status           ConductCommendationStatus @default(ACTIVE)
+  evidenceHash     String
+  createdAt        DateTime                  @default(now())
+  withdrawnAt      DateTime?
+
+  @@unique([contentId, submittingUserId])
+  @@index([commendedUserId, status, createdAt])
+  @@index([submittingUserId, createdAt])
+  @@index([locationType, groupId, createdAt])
+}
+
+model ConductDispute {
+  id                      String                      @id @default(cuid())
+  reference               String                      @unique
+  reportId                String                      @unique
+  incidentId              String
+  openedByUserId          String
+  assignedModeratorUserId String?
+  status                  ConductDisputeStatus        @default(OPEN)
+  warningAt               DateTime?
+  resolvedAt              DateTime?
+  overrideByUserId        String?
+  overrideReason          String?
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
+  report                  ConductReport               @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  incident                ConductIncident             @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  participants            ConductDisputeParticipant[]
+  messages                ConductDisputeMessage[]
+  events                  ConductEvent[]
+
+  @@index([status, assignedModeratorUserId, createdAt])
+  @@index([openedByUserId, status, createdAt])
+}
+
+model ConductDisputeParticipant {
+  id                 String         @id @default(cuid())
+  disputeId          String
+  userId             String
+  required           Boolean        @default(true)
+  selectedResolvedAt DateTime?
+  createdAt          DateTime       @default(now())
+  dispute            ConductDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@unique([disputeId, userId])
+  @@index([userId, selectedResolvedAt, createdAt])
+}
+
+model ConductDisputeMessage {
+  id               String         @id @default(cuid())
+  disputeId        String
+  authorUserId     String
+  body             String
+  linkedContentUrl String?
+  createdAt        DateTime       @default(now())
+  dispute          ConductDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model ConductRestriction {
+  id                     String         @id @default(cuid())
+  reference              String         @unique
+  userLowId              String
+  userHighId             String
+  levelDays              Int
+  active                 Boolean        @default(true)
+  restrictedUntil        DateTime
+  lastVerifiedConflictAt DateTime
+  lastRestrictionEndedAt DateTime?
+  decayAppliedAt         DateTime?
+  reason                 String
+  createdByUserId        String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  events                 ConductEvent[]
+
+  @@unique([userLowId, userHighId])
+  @@index([active, restrictedUntil])
+  @@index([userLowId, active, restrictedUntil])
+  @@index([userHighId, active, restrictedUntil])
+}
+
+model ConductReviewCandidate {
+  id                      String              @id @default(cuid())
+  reference               String              @unique
+  runId                   String
+  incidentId              String?
+  fingerprint             String              @unique
+  locationType            ConductLocationType
+  groupId                 String?
+  contentId               String
+  authorUserId            String
+  permalink               String
+  contextSnapshot         Json
+  evidenceHashes          Json
+  localSignals            Json
+  providerResult          Json?
+  score                   Float?
+  policyCodes             String[]
+  status                  ConductReviewStatus @default(PENDING)
+  assignedModeratorUserId String?
+  reviewReason            String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  run                     ConductScanRun      @relation(fields: [runId], references: [id], onDelete: Restrict)
+  incident                ConductIncident?    @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([status, assignedModeratorUserId, createdAt])
+  @@index([locationType, groupId, status, createdAt])
+  @@index([authorUserId, status, createdAt])
+}
+
+model ConductScanRun {
+  id                 String                   @id @default(cuid())
+  reference          String                   @unique
+  mode               ConductScanMode
+  status             ConductScanStatus        @default(QUEUED)
+  dryRun             Boolean                  @default(false)
+  requestedByUserId  String?
+  groupId            String?
+  windowStart        DateTime
+  windowEnd          DateTime
+  cursorStart        Json?
+  cursorEnd          Json?
+  processedCount     Int                      @default(0)
+  candidateCount     Int                      @default(0)
+  deduplicatedCount  Int                      @default(0)
+  providerCallCount  Int                      @default(0)
+  providerTokenCount Int                      @default(0)
+  estimatedCostUsd   Float                    @default(0)
+  error              String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  candidates         ConductReviewCandidate[]
+
+  @@index([status, createdAt])
+  @@index([mode, createdAt])
+  @@index([groupId, createdAt])
+}
+
+model ConductScanState {
+  id              String    @id @default("default")
+  cursorCreatedAt DateTime?
+  cursorContentId String?
+  leaseToken      String?
+  leaseExpiresAt  DateTime?
+  lastScheduledAt DateTime?
+  lastAutomaticAt DateTime?
+  updatedAt       DateTime  @updatedAt
+}
+
+model ConductEvent {
+  id            String              @id @default(cuid())
+  incidentId    String?
+  reportId      String?
+  disputeId     String?
+  restrictionId String?
+  actorUserId   String?
+  type          String
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+  incident      ConductIncident?    @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  report        ConductReport?      @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  dispute       ConductDispute?     @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  restriction   ConductRestriction? @relation(fields: [restrictionId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, createdAt])
+  @@index([reportId, createdAt])
+  @@index([disputeId, createdAt])
+  @@index([restrictionId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([type, createdAt])
+}
+
 model AuthSecurityEvent {
   id         String                @id @default(cuid())
   userId     String?
@@ -2707,6 +3098,7 @@ model FeedbackTicket {
   pageUrl        String?
   title          String
   description    String
+  kind           FeedbackTicketKind     @default(ISSUE_REPORT)
   severity       FeedbackTicketSeverity @default(normal)
   status         FeedbackTicketStatus   @default(OPEN)
   userAgent      String?
@@ -2717,6 +3109,7 @@ model FeedbackTicket {
   events         FeedbackTicketEvent[]
 
   @@index([status, createdAt])
+  @@index([kind, createdAt])
   @@index([reporterUserId, createdAt])
 }
 

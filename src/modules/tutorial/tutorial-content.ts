@@ -51,7 +51,7 @@ export const tutorialSteps: TutorialStep[] = [
     id: "stream-filters",
     section: "stream",
     title: "Stream Filters",
-    description: "Use these filters to switch between the newest public stream, friends, groups, and picture-focused browsing.",
+    description: "Use these filters to switch between the newest member stream and posts shared with friends.",
     page: "/home",
     target: "stream-filters"
   },

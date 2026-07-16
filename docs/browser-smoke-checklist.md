@@ -50,7 +50,7 @@ Expected: Authenticated user lands on the stream without server error.
 Access: Authenticated smoke user required.
 
 - Confirm the feed loads without a server-side exception.
-- Confirm stream navigation includes All, My Stream, Friends, Groups, and Pics where intended.
+- Confirm the Stream controls show only Latest and Friends. Latest is the member stream in reverse chronological order; Friends narrows it to posts shared with the viewer's friends.
 - Confirm comments and replies stay in context after submission.
 
 ## Search - `/search`

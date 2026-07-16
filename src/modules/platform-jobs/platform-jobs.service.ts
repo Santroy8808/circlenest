@@ -111,7 +111,15 @@ export const platformJobHandlers: Record<string, PlatformJobHandler> = {
       jobId: job.id,
       checkedAt: new Date().toISOString()
     }
-  })
+  }),
+  "membership.bulk-invite-email": async (job) => {
+    const { deliverQueuedBulkInvite } = await import("@/modules/membership-policy/free-account-invites.service");
+    return deliverQueuedBulkInvite(job);
+  },
+  "conduct.scan": async (job) => {
+    const { runConductScanPlatformJob } = await import("@/modules/conduct-reporting/scanner.service");
+    return runConductScanPlatformJob(job);
+  }
 };
 
 export async function runOnePlatformJob(workerId: string, kinds?: string[]) {

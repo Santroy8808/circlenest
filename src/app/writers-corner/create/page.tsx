@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { CreateManuscriptForm } from "@/components/writers-corner/create-manuscript-form";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
@@ -25,11 +24,7 @@ export default async function CreateManuscriptPage() {
       reason: access.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice backHref="/writers-corner" backLabel="Back to Writers Corner" featureLabel="Create Manuscript" />
-      </AppShell>
-    );
+    notFound();
   }
 
   return (

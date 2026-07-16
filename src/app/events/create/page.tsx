@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CreateEventForm } from "@/components/events/create-event-form";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { isAdminRole } from "@/lib/platform/roles";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
@@ -29,11 +28,7 @@ export default async function CreateEventPage() {
       reason: access.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice backHref="/events" backLabel="Back to Events" featureLabel="Create Event" />
-      </AppShell>
-    );
+    notFound();
   }
 
   return (

@@ -8,7 +8,7 @@ Provide safe administrative and moderation operations through guided cards and w
 
 - `/admin` for the admin portal.
 - `/admin/actions/[actionKey]` for literal guided action walkthroughs.
-- `/api/admin/feature-flags` for feature switches.
+- `/api/admin/feature-flags` for registered, enforced feature switches.
 - `/api/admin/status-change` for audited membership tier changes.
 - `/api/admin/platform-credits` for platform-only credit adjustments.
 - `/api/admin/announcements` for public announcement publishing.
@@ -27,7 +27,7 @@ Provide safe administrative and moderation operations through guided cards and w
 
 - `AuditLog` remains the privileged action history.
 - `AdminAction` records completed admin operations.
-- `FeatureFlag` stores feature switches.
+- `FeatureFlag` stores administrator overrides. Registered definitions, defaults, effects, and enforcement notes live in the feature-flag service catalog.
 - `DiagnosticLog` provides operational visibility.
 - Future report, category, announcement, support-note, and verification tables should attach here.
 
@@ -36,7 +36,10 @@ Provide safe administrative and moderation operations through guided cards and w
 - Admin opens `/admin`.
 - Admin chooses an action card.
 - Action opens a wizard with explicit steps and risk label.
-- Feature flag wizard can save a flag and writes `AdminAction` plus `AuditLog`.
+- Feature Flags lists only registered controls, explains the effect and enforcement point, confirms enable/disable changes, and writes `AdminAction` plus `AuditLog`.
+- Registered controls are organized into Community; Communication & Media; Market, Publishing & Discovery; Membership & Support; and Platform Operations.
+- A category switch applies one audited on/off decision to every registered feature in that category. Changing an individual control afterward produces a visible Mixed category state.
+- Reset to default deletes only the administrator override; the capability then follows its documented code default.
 - Status Change wizard permanently changes a member's tier without changing admin role or real-money balances.
 - Platform Credits wizard grants/removes platform-only credits with ledger and audit records.
 - Stripe Setup wizard configures connection status, membership price IDs, and credit purchase packages.
@@ -66,7 +69,9 @@ Provide safe administrative and moderation operations through guided cards and w
 
 ## Integrations
 
-- Feature flags integrate with platform infrastructure.
+- Feature flags are enforced at the affected navigation, page tree, and documented mutation boundaries. Current controls cover Groups, Direct Messages, My Pics, the Member Marketplace, the Auditor Directory, Writers Corner, single invitations, bulk invitations, the Feedback Center, and Communication Review.
+- A global feature switch never grants a membership capability. Both the feature flag and the member's tier permission must allow the action.
+- Flag changes are read on the next request; no restart or redeployment is required.
 - Audit and diagnostics are visible from the portal.
 - Future modules should add wizard mutation forms here instead of creating scattered admin pages.
 - Stripe Setup integrates with `docs/modules/27-stripe-billing.md` and is the admin-facing bridge for checkout keys, recurring price IDs, and credit package price IDs.
@@ -83,7 +88,8 @@ Provide safe administrative and moderation operations through guided cards and w
 - Non-admin users cannot see admin portal.
 - `/admin` search finds Billing > Stripe Setup.
 - Non-admin users cannot access `/api/admin/stripe-setup`.
-- Feature flag update writes audit/admin action.
+- Feature flag update writes audit/admin action, changes the effective state, and rejects unknown keys.
+- A direct URL or API mutation cannot bypass a disabled registered feature.
 - Status Change can find a member, change tier, reset storage limit to the selected tier policy, and write audit/admin action.
 - Stripe Setup can save keys, membership price IDs, and credit packages without exposing raw saved secrets.
 - Dashboard shows Phase 24 as Ready and Phase 25 as Next.

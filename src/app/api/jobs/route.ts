@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { isAdminRole } from "@/lib/platform/roles";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { createJobListing, listJobListings } from "@/modules/jobs/jobs.service";
 
 export async function GET(request: NextRequest) {
@@ -8,6 +10,10 @@ export async function GET(request: NextRequest) {
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  if (!isAdminRole(session.user.role) && !(await canUserAccessFeature(session.user.id, "jobs.browse")).allowed) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
   const listings = await listJobListings({
@@ -23,6 +29,10 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  if (!isAdminRole(session.user.role) && !(await canUserAccessFeature(session.user.id, "jobs.createListing")).allowed) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
   const actor = await getActiveAccountActor(session.user.id);

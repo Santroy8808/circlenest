@@ -38,6 +38,11 @@ import {
   notifyFeedCommentReaction,
   notifyFeedPostReaction
 } from "@/modules/notifications-alerts/notifications-alerts.service";
+import {
+  assertConductTargetsAllowed,
+  ConductInteractionRestrictedError,
+  resolveMentionedUserIds
+} from "@/modules/conduct-reporting/restrictions.service";
 
 const MODULE_KEY = "feed-stream";
 const FEED_DB_TIMEOUT_MS = 2500;
@@ -892,6 +897,17 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     return profileTargetCheck;
   }
 
+  try {
+    const mentionedUserIds = await resolveMentionedUserIds(parsed.data.body);
+    await assertConductTargetsAllowed(authorUserId, [
+      ...mentionedUserIds,
+      ...(parsed.data.targetProfileUserId ? [parsed.data.targetProfileUserId] : [])
+    ]);
+  } catch (error) {
+    if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+    throw error;
+  }
+
   const post = await prisma.$transaction(async (tx) => {
     const createdPost = await tx.feedPost.create({
       data: {
@@ -974,6 +990,18 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
 
   if (parsed.data.parentCommentId && !parentComment) {
     return { ok: false as const, error: "The comment you are replying to is not available to you." };
+  }
+
+  try {
+    const mentionedUserIds = await resolveMentionedUserIds(parsed.data.body);
+    await assertConductTargetsAllowed(authorUserId, [
+      postAccess.authorUserId,
+      ...(parentComment ? [parentComment.authorUserId] : []),
+      ...mentionedUserIds
+    ]);
+  } catch (error) {
+    if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+    throw error;
   }
 
   const comment = await prisma.$transaction(async (tx) => {

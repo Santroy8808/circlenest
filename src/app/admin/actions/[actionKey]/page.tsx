@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdminAccountSupportWizard } from "@/components/admin-moderation/admin-account-support-wizard";
+import { AdminConductReview } from "@/components/admin-moderation/admin-conduct-review";
 import { AdminAdScheduleWizard } from "@/components/admin-moderation/admin-ad-schedule-wizard";
 import { AdminAnnouncementWizard } from "@/components/admin-moderation/admin-announcement-wizard";
 import { AdminFeedRetentionWizard } from "@/components/admin-moderation/admin-feed-retention-wizard";
+import { AdminFeatureFlagsManager } from "@/components/admin-moderation/admin-feature-flags-manager";
 import { AdminObjectLookup } from "@/components/admin-moderation/admin-object-lookup";
 import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
 import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wizard";
@@ -22,6 +24,8 @@ import { getStripeSetupAdminView } from "@/modules/billing/stripe-admin.service"
 import { listLaunchAccessAdminView } from "@/modules/membership-policy/launch-access.service";
 import { getGodTierPolicyEditorView } from "@/modules/membership-policy/membership-policy.service";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
+import { getConductAdminView } from "@/modules/conduct-reporting/admin.service";
+import { FEATURE_FLAG_CATEGORIES, listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
 import { listPlatformCostRules } from "@/modules/platform-pricing/platform-pricing.service";
 
 export default async function AdminActionPage({
@@ -53,6 +57,22 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminReportsQueue tickets={queue.tickets} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "conduct-review") {
+    return (
+      <AppShell>
+        <AdminConductReview initialView={await getConductAdminView()} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "feature-flags") {
+    return (
+      <AppShell>
+        <AdminFeatureFlagsManager initialCategories={FEATURE_FLAG_CATEGORIES} initialFlags={await listRegisteredFeatureFlags()} />
       </AppShell>
     );
   }

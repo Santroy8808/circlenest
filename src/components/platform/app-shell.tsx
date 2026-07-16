@@ -1,4 +1,4 @@
-import { AccountPurpose, MembershipTier } from "@prisma/client";
+import { AccountPurpose } from "@prisma/client";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -16,10 +16,11 @@ import { timeServerStep } from "@/lib/platform/server-timing";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
-import { tierPolicies } from "@/modules/membership-policy/policy";
+import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
 import { getWelcomeTutorialState } from "@/modules/tutorial/tutorial.service";
+import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
 
 const homeSection: NavSection = {
   href: "/home",
@@ -93,6 +94,7 @@ const settingsSection: NavSection = {
     { label: "Membership", href: "/membership" },
     { label: "Tutorial", href: "/settings/tutorial" },
     { label: "Users Manual", href: "/settings/users-manual" },
+    { label: "Feedback Center", href: "/settings/feedback" },
     { label: "Settings", href: "/settings" }
   ]
 };
@@ -117,11 +119,11 @@ function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isMobileAdRa
 
 function getNavSections(input: {
   accountPurpose?: AccountPurpose;
+  features: Record<string, boolean>;
   isAdmin: boolean;
-  isBusinessAccount: boolean;
   isSignedIn: boolean;
   mailEnabled: boolean;
-  tier: MembershipTier;
+  platformFeatures: Record<string, boolean>;
 }): NavSection[] {
   if (!input.isSignedIn) {
     return [
@@ -153,29 +155,50 @@ function getNavSections(input: {
     ];
   }
 
-  const visibleCommunicationsSection = input.mailEnabled
-    ? communicationsSection
-    : {
-        ...communicationsSection,
-        items: communicationsSection.items.filter((item) => item.href !== "/mail" && item.countKey !== "mail")
-      };
-  const features = tierPolicies[input.tier].features;
-  const marketItems = exploreSection.items.filter(
-    (item) => item.href !== "/events" || input.tier !== MembershipTier.FREE || input.isAdmin
-  );
+  const visibleHomeSection = {
+    ...homeSection,
+    items: homeSection.items.filter((item) => item.href !== "/profile/gallery" || input.platformFeatures["media.personal_gallery"] !== false)
+  };
+  const visibleCommunicationItems = communicationsSection.items.filter((item) => {
+    if (item.href === "/mail" || item.countKey === "mail") return input.mailEnabled;
+    if (item.href === "/messages" || item.countKey === "messages") return input.platformFeatures["communication.direct_messages"] !== false;
+    return true;
+  });
+  const visibleCommunicationsSection = {
+    ...communicationsSection,
+    href: visibleCommunicationItems[0]?.href ?? "/notifications",
+    items: visibleCommunicationItems
+  };
+  const features = input.features;
+  const marketItems = exploreSection.items.filter((item) => {
+    if (item.href === "/market") return input.platformFeatures["marketplace.member_market"] !== false;
+    if (item.href === "/auditors") return input.platformFeatures["directory.auditor_directory"] !== false;
+    if (item.href === "/events") return input.isAdmin || features["events.create"] === true;
+    if (item.href === "/jobs") return input.isAdmin || features["jobs.browse"] === true;
+    return true;
+  });
   const toolsItems = advancedToolsSection.items.filter((item) => {
     if (input.isAdmin) return true;
     if (item.href === "/business-center") {
-      return input.tier !== MembershipTier.FREE && (input.isBusinessAccount || features["market.storefront"]);
+      return features["market.storefront"] || features["org.profile"] || features["ads.createGeneral"];
     }
     if (item.href === "/ads") return features["ads.createGeneral"] || features["ads.createFundraiser"];
-    if (item.href === "/writers-corner") return features["writers.access"];
+    if (item.href === "/writers-corner") return input.platformFeatures["publishing.writers_corner"] !== false && features["writers.access"];
     if (item.href === "/fundraisers") return features["fundraisers.create"];
     return false;
   });
-  const memberSections = [homeSection, visibleCommunicationsSection, peopleSection, groupsSection, { ...exploreSection, items: marketItems }];
-  if (toolsItems.length > 0) memberSections.push({ ...advancedToolsSection, items: toolsItems });
-  memberSections.push(settingsSection);
+  const visibleSettingsSection = {
+    ...settingsSection,
+    items: settingsSection.items.filter((item) => item.href !== "/settings/feedback" || input.platformFeatures["support.feedback_center"] !== false)
+  };
+  const memberSections = [visibleHomeSection, visibleCommunicationsSection, peopleSection];
+  if (input.platformFeatures["community.groups"] !== false) memberSections.push(groupsSection);
+  if (marketItems.length > 0) memberSections.push({ ...exploreSection, href: marketItems[0]?.href ?? "/market", items: marketItems });
+  if (toolsItems.length > 0) {
+    const toolsHref = toolsItems.some((item) => item.href === advancedToolsSection.href) ? advancedToolsSection.href : toolsItems[0]?.href;
+    memberSections.push({ ...advancedToolsSection, href: toolsHref, items: toolsItems });
+  }
+  memberSections.push(visibleSettingsSection);
 
   const sections: NavSection[] = [
     ...memberSections,
@@ -294,27 +317,27 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = isAdminRole(session?.user?.role);
-  const tier = session?.user?.tier ?? MembershipTier.FREE;
-  const tierFeatures = tierPolicies[tier].features;
+  const effectivePolicy = isSignedIn && session?.user?.id
+    ? await timeServerStep("shell.policy", getEffectivePolicyForUser(session.user.id), { path: currentPath })
+    : null;
+  const tierFeatures: Record<string, boolean> = effectivePolicy?.features ?? {};
+  const registeredFeatureFlags = await timeServerStep("shell.feature-flags", listRegisteredFeatureFlags(), { path: currentPath });
+  const platformFeatures = Object.fromEntries(registeredFeatureFlags.map((flag) => [flag.key, flag.enabled]));
   const canCreateAd = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
   const actorPicker = isSignedIn && session?.user?.id
     ? await timeServerStep("shell.actor-picker", getAccountActorPicker(session.user.id), { path: currentPath })
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
   const activeActorUserId = actorPicker.activeActorUserId || session?.user?.id;
-  const isBusinessAccount =
-    actorPicker.activeKind === "BUSINESS" ||
-    actorPicker.activeKind === "AUDITOR" ||
-    session?.user?.tier === MembershipTier.PROFESSIONAL ||
-    session?.user?.tier === MembershipTier.ORG;
   const mailEnabled = isInternalMailEnabled();
   const isAndroidApp = isAndroidAppRequest();
-  const showAdRail = shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
+  const canSeeAdRail = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
+  const showAdRail = canSeeAdRail && shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const tutorialState = isSignedIn && session?.user?.id
     ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })
     : { shouldPrompt: false };
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
-  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, isAdmin, isBusinessAccount, isSignedIn, mailEnabled, tier });
+  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
 
@@ -329,10 +352,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         displayName={displayName}
         isAdmin={isAdmin}
         isSignedIn={isSignedIn}
+        platformFeatures={platformFeatures}
       />
       <aside className="side-nav">
         <div className="side-nav-profile" data-tutorial-target="shell-profile">
-          <Link className="side-nav-avatar" data-tooltip="Open your gallery." href="/profile/gallery">
+          <Link className="side-nav-avatar" data-tooltip={platformFeatures["media.personal_gallery"] === false ? "Open your profile." : "Open your gallery."} href={platformFeatures["media.personal_gallery"] === false ? "/profile" : "/profile/gallery"}>
             {shellProfile?.profile?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img alt="" src={shellProfile.profile.avatarUrl} />
@@ -370,7 +394,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </section>
         </aside>
       ) : null}
-      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} mailEnabled={mailEnabled} sections={navSections} /> : null}
+      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} mailEnabled={mailEnabled} platformFeatures={platformFeatures} sections={navSections} /> : null}
       {isSignedIn ? <TutorialTour shouldPromptOnFirstLogin={tutorialState.shouldPrompt} /> : null}
       </ShellCountsProvider>
     </div>

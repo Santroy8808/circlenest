@@ -166,10 +166,10 @@ export function CreateMarketListingForm({
           photoMediaAssetIds
         })
       });
-      const payload = (await response.json()) as { error?: string; listing?: { slug: string } };
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; listing?: { slug: string } };
 
       if (!response.ok || !payload.listing) {
-        throw new Error(payload.error ?? "Could not create listing.");
+        throw new Error(payload.error ?? `Could not create listing (HTTP ${response.status}).`);
       }
 
       window.location.href = `/market/${payload.listing.slug}`;

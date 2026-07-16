@@ -14,23 +14,45 @@ type OwnInvite = {
   createdAt: string;
 };
 
+type BulkInviteBatch = {
+  id: string;
+  requestedCount: number;
+  acceptedCount: number;
+  skippedCount: number;
+  sentCount: number;
+  failedCount: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export function InviteSettingsClient({
   canInvite,
+  canBulkInvite,
   reason,
-  initialInvites
+  bulkReason,
+  initialInvites,
+  initialBulkBatches
 }: {
   canInvite: boolean;
+  canBulkInvite: boolean;
   reason: string;
+  bulkReason: string;
   initialInvites: OwnInvite[];
+  initialBulkBatches: BulkInviteBatch[];
 }) {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sendEmail, setSendEmail] = useState(false);
   const [expiresInDays, setExpiresInDays] = useState(7);
+  const [bulkEmails, setBulkEmails] = useState("");
   const [invites, setInvites] = useState(initialInvites);
+  const [bulkBatches, setBulkBatches] = useState(initialBulkBatches);
   const [generatedCode, setGeneratedCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const bulkAddressCount = bulkEmails.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+/gi)?.filter((email, index, values) => values.findIndex((candidate) => candidate.toLowerCase() === email.toLowerCase()) === index).length ?? 0;
 
   function generateInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,6 +80,29 @@ export function InviteSettingsClient({
       setGeneratedCode(payload.inviteCode);
       setInvites(payload.invites ?? invites);
       setMessage(sendEmail ? "Invite code generated and emailed." : "Invite code generated.");
+    });
+  }
+
+  function queueBulkInvites(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setGeneratedCode("");
+    setMessage("");
+    setError("");
+
+    startTransition(async () => {
+      const response = await fetch("/api/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bulk", emails: bulkEmails, expiresInDays })
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string; bulkBatches?: BulkInviteBatch[]; queuedCount?: number; skippedCount?: number } | null;
+      if (!response.ok) {
+        setError(payload?.error ?? "Could not queue bulk invitations.");
+        return;
+      }
+      setBulkBatches(payload?.bulkBatches ?? bulkBatches);
+      setBulkEmails("");
+      setMessage(`${payload?.queuedCount ?? 0} invitations queued. Each email will receive a unique one-time code.`);
     });
   }
 
@@ -123,6 +168,41 @@ export function InviteSettingsClient({
         {message ? <p className="mt-4 rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
         {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       </section>
+
+      {canBulkInvite ? (
+        <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Invite multiple</h2>
+          <p className="mt-2 max-w-3xl leading-6 text-[var(--muted)]">
+            Paste a list of addresses in any format, including comma-, space-, or line-separated names such as <span className="font-mono">Jane Doe &lt;jane@example.com&gt;</span>. We extract and de-duplicate valid addresses, create one unique one-time code per person, and queue delivery at one email every 2 minutes. Bulk invitations are capped at 300 addresses per UTC day and 250 per batch.
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">{bulkReason} {bulkAddressCount > 0 ? `${bulkAddressCount} unique address${bulkAddressCount === 1 ? "" : "es"} detected.` : "No addresses detected yet."}</p>
+          <form className="mt-5 grid gap-4" onSubmit={queueBulkInvites}>
+            <label className="grid gap-2">
+              <span className="form-label">Email list</span>
+              <textarea className="form-field min-h-40" onChange={(event) => setBulkEmails(event.target.value)} placeholder={'Paste emails here, for example:\nJane Doe <jane@example.com>, alex@example.com'} value={bulkEmails} />
+            </label>
+            <label className="grid max-w-[180px] gap-2">
+              <span className="form-label">Expires in days</span>
+              <input className="form-field" max={90} min={1} onChange={(event) => setExpiresInDays(Number(event.target.value))} type="number" value={expiresInDays} />
+            </label>
+            <button className="btn-primary w-fit" disabled={isPending || bulkAddressCount === 0} type="submit">
+              {isPending ? "Queueing..." : "Queue invitations"}
+            </button>
+          </form>
+          <div className="mt-5 grid gap-3">
+            <h3 className="text-lg font-semibold text-[var(--gold)]">Recent bulk queues</h3>
+            {bulkBatches.length > 0 ? bulkBatches.map((batch) => (
+              <article className="module-card rounded-md p-4" key={batch.id}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <strong>{batch.acceptedCount} queued</strong>
+                  <span className="pill rounded-full px-3 py-1 text-xs">{batch.status}</span>
+                </div>
+                <p className="mt-2 text-sm text-[var(--muted)]">{batch.sentCount} sent, {batch.failedCount} failed, {batch.skippedCount} skipped. Created {new Date(batch.createdAt).toLocaleString()}.</p>
+              </article>
+            )) : <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)]">No bulk invitation queues yet.</p>}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Active invite codes</h2>

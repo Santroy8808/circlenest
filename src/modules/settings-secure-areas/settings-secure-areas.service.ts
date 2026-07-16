@@ -23,6 +23,13 @@ export const settingsCards: SettingsCard[] = [
     badge: "Rules"
   },
   {
+    title: "Reports and Commendations",
+    description: "Review conduct reports concerning your account, reports you submitted, commendations, disputes, and temporary communication restrictions.",
+    href: "/settings/reports",
+    sensitive: false,
+    badge: "Conduct"
+  },
+  {
     title: "Tutorial",
     description: "Replay the guided Theta-Space walkthrough or jump directly to one part.",
     href: "/settings/tutorial",
@@ -33,6 +40,13 @@ export const settingsCards: SettingsCard[] = [
     title: "Users Manual",
     description: "Open the Free Tier user manual with per-feature explanations, limits, and FAQ.",
     href: "/settings/users-manual",
+    sensitive: false,
+    badge: "Help"
+  },
+  {
+    title: "Feedback Center",
+    description: "Ask for help, report a problem, or suggest an improvement to Theta-Space.",
+    href: "/settings/feedback",
     sensitive: false,
     badge: "Help"
   },
@@ -52,7 +66,13 @@ export const settingsCards: SettingsCard[] = [
   }
 ];
 
-export function getSettingsCards({ includeInvites = true }: { includeInvites?: boolean } = {}) {
-  if (includeInvites) return settingsCards;
-  return settingsCards.filter((card) => card.badge !== "Invites");
+export function getSettingsCards({
+  includeInvites = true,
+  includeFeedback = true
+}: { includeInvites?: boolean; includeFeedback?: boolean } = {}) {
+  return settingsCards.filter((card) => {
+    if (!includeInvites && card.badge === "Invites") return false;
+    if (!includeFeedback && card.title === "Feedback Center") return false;
+    return true;
+  });
 }

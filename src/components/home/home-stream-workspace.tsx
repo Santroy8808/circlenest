@@ -442,7 +442,7 @@ export function HomeStreamWorkspace({
           </section>
         ) : null}
         <div className="home-front-compose-row">
-          <button className="home-front-compose-trigger" data-tooltip="Create a stream post." onClick={openComposer} type="button">
+          <button className="home-front-compose-trigger" data-tooltip="Create a stream post." data-tutorial-target="stream-composer" onClick={openComposer} type="button">
             <span className="home-front-avatar">
               {currentAuthor.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element

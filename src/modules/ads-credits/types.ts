@@ -262,6 +262,7 @@ export type AdScheduleAdminView = {
 export type AdsManagerView = {
   canCreate: boolean;
   fundraiserOnly: boolean;
+  marketOnly: boolean;
   reason?: string;
   platformCredits: number;
   campaigns: AdCampaignCardView[];

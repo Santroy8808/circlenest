@@ -35,6 +35,7 @@ type DesktopCommandBarProps = {
   displayName: string;
   isAdmin: boolean;
   isSignedIn: boolean;
+  platformFeatures: Record<string, boolean>;
 };
 
 function initials(value: string) {
@@ -156,7 +157,7 @@ function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
   );
 }
 
-export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName, isAdmin, isSignedIn }: DesktopCommandBarProps) {
+export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
@@ -241,7 +242,12 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
       </div>
 
       <nav className="desktop-command-nav" aria-label="Primary">
-        {primaryNavItems.map((item) => {
+        {primaryNavItems.filter((item) => {
+          if (item.key === "gallery") return platformFeatures["media.personal_gallery"] !== false;
+          if (item.key === "market") return platformFeatures["marketplace.member_market"] !== false;
+          if (item.key === "messages") return platformFeatures["communication.direct_messages"] !== false;
+          return true;
+        }).map((item) => {
           const active = item.key === "home" ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link

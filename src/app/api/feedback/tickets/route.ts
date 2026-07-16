@@ -4,8 +4,12 @@ import { readJsonRequest, rateLimitedResponse } from "@/lib/platform/api-request
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/platform/rate-limit";
 import { getRequestContext } from "@/lib/platform/request-context";
 import { createFeedbackTicket } from "@/modules/feedback-support/feedback-support.service";
+import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 
 export async function POST(request: NextRequest) {
+  if (!(await isFeatureEnabled("support.feedback_center"))) {
+    return NextResponse.json({ error: "Feedback Center is temporarily unavailable." }, { status: 503 });
+  }
   const session = await auth();
   const context = getRequestContext(request);
   const rateLimit = await consumeRateLimit({

@@ -6,6 +6,8 @@ Define which account tiers can see, create, moderate, invite, advertise, and man
 
 Free-tier access is anchored by `docs/core-functions.md`. The Free tier keeps Stream posting, group creation/posting, messages and group messages, personal Market and job listings, Auditor Directory browsing, and Gallery. Business profiles, identity switching, Events, and auditor-profile creation are not Free features.
 
+Contributor is a separate community tier. Contributors retain core social use, Groups, personal Market listing creation/editing, and Writers Corner. Contributors do not receive Business Center/storefront administration, business identity switching, Jobs, Events, Fundraisers, general ad creation, or auditor-profile creation. These unavailable capabilities must be hidden rather than shown as disabled controls or upgrade gates.
+
 ## User-Facing Surfaces
 
 - `/membership` authenticated current-membership summary.
@@ -47,8 +49,12 @@ Free-tier access is anchored by `docs/core-functions.md`. The Free tier keeps St
 
 - Central tier matrix in `src/modules/membership-policy/policy.ts`.
 - Effective policy resolution with role, tier, and per-user overrides.
+- Shared hidden-capability enforcement across Contributor navigation, pages, web/mobile APIs, and Writers Corner storefront publishing controls.
 - Audit-logged policy override service.
-- Admin account management can individually grant or revoke membership-invite creation.
+- Admin account management can individually grant or revoke membership-invite creation and the separate bulk-invite capability.
+- Bulk invitation delivery is queued, paced at one email every two minutes, limited to 250 addresses per batch and 300 addresses per UTC day, and each recipient receives a unique one-time code.
+- `invites.bulkSend` is an individual account override, not a normal tier entitlement; keep it off in global tier policy and grant it only through the audited Status Change workflow.
+- The existing `npm run worker` process must be supervised in the deployment environment for queued email jobs to run; do not treat a queued batch as delivered until its status reports sent messages.
 - Stripe-ready subscription checkout for paid membership tiers.
 - Stripe webhook sync for active, trialing, past-due, canceled, and unpaid subscription states.
 - Hidden Org upgrade eligibility that admins can reveal without activating the tier directly.
@@ -88,6 +94,8 @@ These may be replaced or supplemented by Admin Stripe Setup for saved keys and p
 ## Smoke Checklist
 
 - Tier matrix checks cover Free, Contributor, Professional, Auditor, Admin, and confirm Free keeps the core functions in `docs/core-functions.md`.
+- Contributor checks confirm Market, Groups, and Writers Corner remain usable while Business Center, Jobs, Events, Fundraisers, general ads, and auditor-profile creation remain hidden.
+- Direct restricted page and API requests return generic not-found responses without exposing feature-specific upgrade details.
 - Locked controls never submit privileged API actions.
 - `/membership` and `/settings/subscription` show only the member's current access, not unavailable tiers or controls.
 - Checkout refuses tiers without Stripe price IDs instead of faking success.

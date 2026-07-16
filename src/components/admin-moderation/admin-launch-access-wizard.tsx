@@ -14,6 +14,10 @@ type FreeInviteView = {
   assignedUserLabel: string | null;
   generatedByUserLabel: string | null;
   usedByUserLabel: string | null;
+  bulkBatchId?: string | null;
+  bulkBatchStatus?: string | null;
+  bulkBatchSentCount?: number | null;
+  bulkBatchFailedCount?: number | null;
   emailedAt: string | null;
   usedAt: string | null;
   expiresAt: string;
@@ -520,6 +524,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                   <p className="mt-2 text-sm text-[var(--muted)]">
                     Recipient: {invite.recipientEmail ?? "Any email"} - Assigned: {invite.assignedUserLabel ?? "No account"} - Expires {new Date(invite.expiresAt).toLocaleDateString()}
                   </p>
+                  {invite.bulkBatchId ? <p className="mt-2 text-sm text-[var(--muted)]">Bulk queue: {invite.bulkBatchStatus ?? "queued"} - {invite.bulkBatchSentCount ?? 0} sent, {invite.bulkBatchFailedCount ?? 0} failed</p> : null}
                 </article>
               ))
             ) : (

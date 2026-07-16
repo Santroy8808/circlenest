@@ -142,6 +142,7 @@ export function UsersManualClient({ manual }: { manual: UsersManual }) {
     () => [
       { id: "users-manual-overview", label: "Overview" },
       { id: "users-manual-free-tier", label: "Free Tier" },
+      { id: "users-manual-contributor-tier", label: "Contributor" },
       { id: "users-manual-definitions", label: "Terms" },
       ...manual.sections.map((section) => ({ id: `section-${section.key}`, label: tocShortLabels[section.key] ?? section.title }))
     ],
@@ -309,6 +310,18 @@ export function UsersManualClient({ manual }: { manual: UsersManual }) {
                 <div className="admin-hat-rule-box">
                   <ol>
                     {manual.freeTierBasics.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                </div>
+              </section>
+
+              <section id="users-manual-contributor-tier">
+                <p className="admin-hat-eyebrow">Contributor Tier</p>
+                <h2>Contributor basics</h2>
+                <div className="admin-hat-rule-box">
+                  <ol>
+                    {manual.contributorTierBasics.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ol>

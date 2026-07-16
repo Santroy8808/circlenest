@@ -12,6 +12,10 @@ function statusLabel(status: string) {
   return status.replace(/_/g, " ").toLowerCase();
 }
 
+function kindLabel(kind: string) {
+  return kind.replace(/_/g, " ").toLowerCase();
+}
+
 export function AdminReportsQueue({ tickets }: { tickets: AdminFeedbackTicketView[] }) {
   return (
     <div className="grid gap-5">
@@ -19,7 +23,7 @@ export function AdminReportsQueue({ tickets }: { tickets: AdminFeedbackTicketVie
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Admin Queue</p>
         <h1 className="mt-3 text-3xl font-semibold">Reports Queue</h1>
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
-          All admins see this same queue. Feedback tickets created from the Report Issue button land here for review.
+          All admins see this same queue. Support requests, problem reports, and feature suggestions land here for review.
         </p>
       </section>
 
@@ -42,6 +46,7 @@ export function AdminReportsQueue({ tickets }: { tickets: AdminFeedbackTicketVie
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <span className="pill rounded-full px-3 py-1 text-xs">{statusLabel(ticket.status)}</span>
+                  <span className="pill rounded-full px-3 py-1 text-xs">{kindLabel(ticket.kind)}</span>
                   <span className="pill rounded-full px-3 py-1 text-xs">{ticket.severity}</span>
                 </div>
               </div>

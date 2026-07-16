@@ -5,10 +5,24 @@ import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import type { AdminActionCard, AdminFeedbackTicketView, AdminLogView, AdminPortalView } from "@/modules/admin-moderation/types";
 import { getPlatformActivitySummary } from "@/modules/platform-activity/platform-activity.service";
+import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
 
 const MODULE_KEY = "admin-moderation";
 
 export const adminActionCards: AdminActionCard[] = [
+  {
+    key: "conduct-review",
+    title: "Communication Review",
+    description: "Run or schedule contextual review of eligible stream and group discussions, then manage the human review queue.",
+    risk: "high",
+    keywords: ["conduct", "communication review", "reports", "commendations", "scanner", "schedule", "shadow mode", "disputes", "restrictions"],
+    steps: [
+      "Keep shadow mode enabled while reviewing calibration and cost metrics.",
+      "Choose manual, automatic interval, or scheduled operation.",
+      "Review candidates in context; keywords alone are never findings.",
+      "Approve or dismiss with a reason and monitor run history."
+    ]
+  },
   {
     key: "feed-retention",
     title: "Stream Retention",
@@ -38,10 +52,15 @@ export const adminActionCards: AdminActionCard[] = [
   {
     key: "feature-flags",
     title: "Feature Flags",
-    description: "Turn risky or unfinished modules on/off without redeploying.",
+    description: "Control registered platform modules with documented effects and immediate enforcement.",
     risk: "medium",
     keywords: ["toggle feature", "enable module", "disable module", "configuration", "flags"],
-    steps: ["Choose feature key.", "Set enabled state.", "Describe reason.", "Save flag and write audit log."]
+    steps: [
+      "Find the relevant category or registered feature by its plain-language name or system key.",
+      "Review what disabling it changes and where the rule is enforced.",
+      "Use the category switch for the whole group, or Enable/Disable for one feature, then enter a clear audit reason.",
+      "Confirm the change, or reset an override to the documented default."
+    ]
   },
   {
     key: "platform-pricing",
@@ -223,6 +242,7 @@ function toFeedbackTicketView(ticket: {
   publicId: string;
   title: string;
   description: string;
+  kind: string;
   pageUrl: string | null;
   reporterEmail: string | null;
   severity: string;
@@ -248,6 +268,7 @@ function toFeedbackTicketView(ticket: {
     publicId: ticket.publicId,
     title: ticket.title,
     description: ticket.description,
+    kind: ticket.kind,
     pageUrl: ticket.pageUrl,
     reporterEmail: ticket.reporterEmail ?? ticket.reporter?.email ?? null,
     reporterName: reporterName(ticket),
@@ -278,10 +299,7 @@ export async function getAdminPortalView(userId?: string): Promise<AdminPortalVi
   }
 
   const [featureFlags, openFeedbackTicketCount, auditLogs, diagnosticsLogs, activitySummary] = await Promise.all([
-    prisma.featureFlag.findMany({
-      orderBy: { key: "asc" },
-      take: 80
-    }),
+    listRegisteredFeatureFlags(),
     prisma.feedbackTicket.count({
       where: {
         status: {
@@ -357,57 +375,4 @@ export async function getAdminFeedbackTicketQueue(userId?: string): Promise<{ ca
     canAccess: true,
     tickets: tickets.map(toFeedbackTicketView)
   };
-}
-
-export async function setFeatureFlag(actorUserId: string, input: unknown) {
-  if (!(await isAdminUser(actorUserId))) {
-    return { ok: false as const, error: "Admin access required." };
-  }
-
-  const body = input as { key?: unknown; enabled?: unknown; description?: unknown };
-  const key = typeof body.key === "string" ? body.key.trim() : "";
-  const enabled = Boolean(body.enabled);
-  const description = typeof body.description === "string" ? body.description.trim() : "";
-
-  if (!/^[a-z0-9._:-]{2,80}$/i.test(key)) {
-    return { ok: false as const, error: "Feature key must be 2-80 letters, numbers, dots, dashes, colons, or underscores." };
-  }
-
-  const flag = await prisma.featureFlag.upsert({
-    where: { key },
-    update: {
-      enabled,
-      description: description || null
-    },
-    create: {
-      key,
-      enabled,
-      description: description || null
-    }
-  });
-
-  await prisma.adminAction.create({
-    data: {
-      actorUserId,
-      actionKey: "feature-flags",
-      module: MODULE_KEY,
-      status: "completed",
-      metadata: {
-        key,
-        enabled
-      } as Prisma.InputJsonObject
-    }
-  });
-  await writeAuditLog({
-    actorUserId,
-    module: MODULE_KEY,
-    action: "feature-flag.set",
-    targetType: "FeatureFlag",
-    targetId: flag.id,
-    severity: "warning",
-    metadata: { key, enabled }
-  });
-  await diagnostics.info(MODULE_KEY, "Feature flag updated.", { actorUserId, key, enabled });
-
-  return { ok: true as const, flag };
 }

@@ -45,9 +45,7 @@ export function AuditorsDirectoryClient({
               <Link className="btn-primary" href="/auditors/im-an-auditor">
                 I&apos;m an Auditor
               </Link>
-            ) : (
-              <span className="pill rounded-full px-4 py-3 text-sm font-semibold text-[var(--gold)]">Auditor profiles — Coming Soon</span>
-            )}
+            ) : null}
           </div>
         </div>
         <input className="form-field mt-6" onChange={(event) => setQuery(event.target.value)} placeholder="Search auditors..." value={query} />
@@ -56,7 +54,7 @@ export function AuditorsDirectoryClient({
       {auditors.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No auditor profiles yet</h2>
-          <p className="mt-2 text-[var(--muted)]">Members can create an auditor profile for review. Approved profiles appear here.</p>
+          <p className="mt-2 text-[var(--muted)]">Approved auditor profiles appear here when available.</p>
         </section>
       ) : (
         <section className="auditor-grid">

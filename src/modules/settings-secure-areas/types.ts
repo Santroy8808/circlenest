@@ -3,5 +3,5 @@ export type SettingsCard = {
   description: string;
   href: string;
   sensitive: boolean;
-  badge: "Profile" | "Security" | "Account" | "Rules" | "Invites" | "Help";
+  badge: "Profile" | "Security" | "Account" | "Rules" | "Invites" | "Help" | "Conduct";
 };

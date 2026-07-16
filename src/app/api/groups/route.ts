@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
+import { diagnostics } from "@/lib/platform/logging";
 import { createGroup, listGroupsPage } from "@/modules/groups/groups.service";
 import {
   MAX_GROUP_DIRECTORY_PAGE_SIZE,
@@ -58,15 +59,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const actor = await getActiveAccountActor(session.user.id);
-  const body = await readJsonRequest(request);
-  if (!body.ok) return body.response;
+  try {
+    const actor = await getActiveAccountActor(session.user.id);
+    const body = await readJsonRequest(request);
+    if (!body.ok) return body.response;
 
-  const result = await createGroup(actor.actorUserId, body.value);
+    const result = await createGroup(actor.actorUserId, body.value);
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({ group: result.group }, { status: 201 });
+  } catch (error) {
+    await diagnostics.error("groups", "Could not create group.", {
+      userId: session.user.id,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return NextResponse.json({ error: "Could not create group right now. Please try again." }, { status: 500 });
   }
-
-  return NextResponse.json({ group: result.group }, { status: 201 });
 }

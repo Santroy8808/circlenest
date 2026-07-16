@@ -12,7 +12,7 @@ export default function NewFeedbackTicketPage({
       title="Report an issue"
       subtitle="Create a focused ticket from anywhere in the app. Specific reports are easier to fix and verify."
     >
-      <FeedbackTicketForm from={searchParams?.from ?? "/"} />
+      <FeedbackTicketForm from={searchParams?.from ?? "/"} initialKind="ISSUE_REPORT" />
     </AuthCard>
   );
 }

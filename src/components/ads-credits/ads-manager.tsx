@@ -10,20 +10,24 @@ function isExternalUrl(value: string) {
 }
 
 export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsManagerView; isAdmin?: boolean }) {
+  const marketOnly = adsManager.marketOnly;
+
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Ads Credits</p>
-            <h1 className="mt-3 text-3xl font-semibold">Ad campaign manager</h1>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{marketOnly ? "Market promotion" : "Ads Credits"}</p>
+            <h1 className="mt-3 text-3xl font-semibold">{marketOnly ? "Promote a Market listing" : "Ad campaign manager"}</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Ads use labeled reserved placements. They do not appear inside listings, events, posts, or detail content.
+              {marketOnly
+                ? "Promote one of your own Market listings in a labeled reserved placement. Business storefronts, jobs, events, and general ad destinations are not included."
+                : "Ads use labeled reserved placements. They do not appear inside listings, events, posts, or detail content."}
             </p>
           </div>
           {adsManager.canCreate ? (
             <Link className="btn-primary" href="/ads/create">
-              Create ad
+              {marketOnly ? "Promote a listing" : "Create ad"}
             </Link>
           ) : null}
         </div>
@@ -32,9 +36,11 @@ export function AdsManager({ adsManager, isAdmin = false }: { adsManager: AdsMan
       </section>
 
       <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Buy platform credits</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">{marketOnly ? "Buy promotion credits" : "Buy platform credits"}</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          After Stripe confirms your payment, the credits are added to your account automatically.
+          {marketOnly
+            ? "Promotion credits are used only for approved Market-listing placements. After Stripe confirms your payment, the credits are added to your account automatically."
+            : "After Stripe confirms your payment, the credits are added to your account automatically."}
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {adsManager.creditPackages.length > 0 ? (

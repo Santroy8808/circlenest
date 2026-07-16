@@ -64,11 +64,10 @@ export async function findStatusChangeAccount(identifier: string) {
       },
       membershipOverrides: {
         where: {
-          featureKey: "invites.send",
+          featureKey: { in: ["invites.send", "invites.bulkSend"] },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
         },
-        select: { allowed: true },
-        take: 1
+        select: { featureKey: true, allowed: true }
       },
       tierUpgradeEligibilities: {
         where: {
@@ -98,7 +97,8 @@ export async function findStatusChangeAccount(identifier: string) {
     suspended: Boolean(user.deactivatedAt),
     tier: currentTier,
     tierName: policy.displayName,
-    canSendInvites: user.membershipOverrides[0]?.allowed ?? policy.features["invites.send"],
+    canSendInvites: isAdminRole(user.role) || (user.membershipOverrides.find((override) => override.featureKey === "invites.send")?.allowed ?? policy.features["invites.send"]),
+    canBulkSendInvites: isAdminRole(user.role) || (user.membershipOverrides.find((override) => override.featureKey === "invites.bulkSend")?.allowed ?? policy.features["invites.bulkSend"]),
     orgUpgradeEligible: user.tierUpgradeEligibilities.length > 0,
     storageLimitBytes: (user.membership?.storageLimitBytes ?? BigInt(policy.limits.storageLimitBytes)).toString(),
     platformCredits: user.membership?.platformCredits ?? 0
@@ -132,6 +132,37 @@ export async function changeInvitePermission(actorUserId: string, input: unknown
     account: {
       ...target,
       canSendInvites: parsed.data.allowed
+    }
+  };
+}
+
+export async function changeBulkInvitePermission(actorUserId: string, input: unknown) {
+  if (!(await isAdminUser(actorUserId))) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+
+  const parsed = invitePermissionChangeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid bulk invite permission change." };
+  }
+
+  const target = await findStatusChangeAccount(parsed.data.userIdentifier);
+  if (!target) return { ok: false as const, error: "User was not found." };
+
+  const result = await setMembershipPolicyOverride({
+    actorUserId,
+    targetUserId: target.id,
+    featureKey: "invites.bulkSend",
+    allowed: parsed.data.allowed,
+    reason: parsed.data.reason
+  });
+  if (!result.ok) return result;
+
+  return {
+    ok: true as const,
+    account: {
+      ...target,
+      canBulkSendInvites: parsed.data.allowed
     }
   };
 }

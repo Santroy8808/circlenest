@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdsManager } from "@/components/ads-credits/ads-manager";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { isAdminRole } from "@/lib/platform/roles";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
@@ -26,11 +25,7 @@ export default async function AdsPage() {
       reason: adsManager.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice featureLabel="Ad Campaigns" />
-      </AppShell>
-    );
+    notFound();
   }
 
   return (

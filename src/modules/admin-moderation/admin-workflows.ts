@@ -338,14 +338,22 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Platform Controls",
       eyebrow: "Admin",
       description: "Operational switches and broad platform review surfaces that do not belong to a single account.",
-      badge: "2 tools",
-      keywords: ["feature flags", "configuration", "launch review", "admin"],
+      badge: "3 tools",
+      keywords: ["feature flags", "configuration", "launch review", "communication review", "conduct", "admin"],
       groups: [
         {
           key: "configuration",
           title: "Configuration",
           description: "Use these for broad platform operation, not user-specific support.",
           entries: [
+            {
+              href: "/admin/actions/conduct-review",
+              title: "Communication Review",
+              category: "Platform Controls",
+              description: "Run manually, automatically, or on a schedule; review contextual conduct candidates and audit outcomes.",
+              badge: "review",
+              keywords: ["conduct", "communications", "scanner", "schedule", "manual", "automatic", "shadow", "reports"]
+            },
             {
               href: "/admin/actions/feature-flags",
               title: "Feature Flags",

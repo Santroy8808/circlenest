@@ -3,9 +3,26 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
-export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
+type FeedbackTicketKind = "SUPPORT_REQUEST" | "ISSUE_REPORT" | "FEATURE_REQUEST";
+
+function kindDescription(kind: FeedbackTicketKind) {
+  if (kind === "SUPPORT_REQUEST") return "Ask for help using Theta-Space or resolve an account or access question.";
+  if (kind === "FEATURE_REQUEST") return "Suggest a new feature or an improvement to something that already exists.";
+  return "Tell us about a problem so we can reproduce it and fix it.";
+}
+
+export function FeedbackTicketForm({
+  from = "/",
+  initialKind = "ISSUE_REPORT",
+  showKindSelector = true
+}: {
+  from?: string;
+  initialKind?: FeedbackTicketKind;
+  showKindSelector?: boolean;
+}) {
   const [error, setError] = useState("");
   const [ticketId, setTicketId] = useState("");
+  const [kind, setKind] = useState<FeedbackTicketKind>(initialKind);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -22,6 +39,7 @@ export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
         body: JSON.stringify({
           title: formData.get("title"),
           description: formData.get("description"),
+          kind: formData.get("kind"),
           reporterEmail: formData.get("reporterEmail"),
           severity: formData.get("severity"),
           pageUrl: from,
@@ -51,13 +69,26 @@ export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
       <div className="rounded-md border border-[var(--line)] bg-black/20 p-3 text-sm text-[var(--muted)]">
         Reporting from <span className="text-[var(--text)]">{from}</span>
       </div>
+      {showKindSelector ? (
+        <label className="grid gap-2">
+          <span className="form-label">What would you like to send?</span>
+          <select className="form-field" name="kind" onChange={(event) => setKind(event.target.value as FeedbackTicketKind)} value={kind}>
+            <option value="SUPPORT_REQUEST">Support request</option>
+            <option value="ISSUE_REPORT">Report a problem</option>
+            <option value="FEATURE_REQUEST">Feature request</option>
+          </select>
+          <span className="text-sm leading-6 text-[var(--muted)]">{kindDescription(kind)}</span>
+        </label>
+      ) : (
+        <input name="kind" type="hidden" value={kind} />
+      )}
       <label className="grid gap-2">
         <span className="form-label">Short title</span>
-        <input className="form-field" name="title" placeholder="Example: Gallery upload froze" required />
+        <input className="form-field" name="title" placeholder={kind === "FEATURE_REQUEST" ? "Example: Add saved searches" : kind === "SUPPORT_REQUEST" ? "Example: Help me update my profile" : "Example: Gallery upload froze"} required />
       </label>
       <label className="grid gap-2">
-        <span className="form-label">What happened?</span>
-        <textarea className="form-field min-h-36 resize-y" name="description" placeholder="Only specifics. Tell us what you clicked, what you expected, and what happened." required />
+        <span className="form-label">{kind === "ISSUE_REPORT" ? "What happened?" : "Tell us what you need"}</span>
+        <textarea className="form-field min-h-36 resize-y" name="description" placeholder={kind === "FEATURE_REQUEST" ? "Describe the improvement, who it would help, and how you would use it." : kind === "SUPPORT_REQUEST" ? "Describe your question or the help you need. Include the page or feature if you know it." : "Tell us what you clicked, what you expected, and what happened."} required />
       </label>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
@@ -77,7 +108,7 @@ export function FeedbackTicketForm({ from = "/" }: { from?: string }) {
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       {ticketId ? (
         <p className="rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">
-          Ticket created: {ticketId}
+          {kind === "FEATURE_REQUEST" ? "Feature request" : kind === "SUPPORT_REQUEST" ? "Support request" : "Problem report"} created: {ticketId}
         </p>
       ) : null}
       <div className="flex flex-wrap gap-3">

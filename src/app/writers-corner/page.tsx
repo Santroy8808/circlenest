@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { WritersCornerDashboard } from "@/components/writers-corner/writers-corner-dashboard";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
@@ -25,11 +24,7 @@ export default async function WritersCornerPage() {
       reason: access.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice featureLabel="Writers Corner" />
-      </AppShell>
-    );
+    notFound();
   }
 
   const manuscripts = await safeListManuscripts(session.user.id);

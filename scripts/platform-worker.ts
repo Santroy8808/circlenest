@@ -5,6 +5,7 @@ import {
   expireStaleUploadIntents
 } from "@/modules/media/upload-intent.service";
 import { runOnePlatformJob } from "@/modules/platform-jobs/platform-jobs.service";
+import { enqueueDueConductScans } from "@/modules/conduct-reporting/scanner.service";
 
 const workerId = process.env.PLATFORM_WORKER_ID ?? `worker-${randomUUID()}`;
 const once = process.argv.includes("--once");
@@ -18,6 +19,7 @@ const uploadMaintenanceIntervalMs = Number.isFinite(configuredUploadMaintenanceI
   : 60_000;
 let shuttingDown = false;
 let lastUploadMaintenanceAt = 0;
+let lastConductScheduleCheckAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,11 +47,20 @@ async function runUploadIntentMaintenance(force = false) {
   }
 }
 
+async function runConductScheduleCheck(force = false) {
+  const now = Date.now();
+  if (!force && now - lastConductScheduleCheckAt < 60_000) return;
+  lastConductScheduleCheckAt = now;
+  const queued = await enqueueDueConductScans(new Date(now));
+  if (queued.length > 0) console.log(`[platform-worker] queued conduct reviews ${queued.join(", ")}`);
+}
+
 async function main() {
   console.log(`[platform-worker] started ${workerId}`);
 
   do {
     await runUploadIntentMaintenance(lastUploadMaintenanceAt === 0);
+    await runConductScheduleCheck(lastConductScheduleCheckAt === 0);
     const result = await runOnePlatformJob(workerId);
     if (once) break;
     if (!result.ran) await sleep(idleDelayMs);

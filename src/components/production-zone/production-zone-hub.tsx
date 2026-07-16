@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { unavailableFeatureHref } from "@/modules/feature-availability/feature-availability.service";
 import type { ProductionZoneCard, ProductionZoneView } from "@/modules/production-zone/types";
 
 function CardList({ cards }: { cards: ProductionZoneCard[] }) {
+  if (cards.length === 0) return null;
+
   return (
     <div className="production-zone-grid">
       {cards.map((card) => {
@@ -13,29 +14,11 @@ function CardList({ cards }: { cards: ProductionZoneCard[] }) {
               <span className="pill rounded-full px-3 py-1 text-xs">{card.badge}</span>
             </div>
             <p className="mt-3 leading-6 text-[var(--muted)]">{card.description}</p>
-            {!card.available && card.reason ? <p className="mt-4 text-sm text-[var(--muted)]">{card.reason}</p> : null}
           </>
         );
 
-        if (card.available) {
-          return (
-            <Link className="module-card rounded-md p-5" href={card.href} key={card.title}>
-              {content}
-            </Link>
-          );
-        }
-
         return (
-          <Link
-            className="module-card rounded-md p-5 opacity-80"
-            href={unavailableFeatureHref({
-              featureKey: card.featureKey ?? card.href,
-              label: card.title,
-              requestedPath: card.href,
-              from: "/production-zone"
-            })}
-            key={card.title}
-          >
+          <Link className="module-card rounded-md p-5" href={card.href} key={card.title}>
             {content}
           </Link>
         );
@@ -55,37 +38,45 @@ export function ProductionZoneHub({ zone }: { zone: ProductionZoneView }) {
         </p>
       </section>
 
-      <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Browse</h2>
-        <p className="mt-2 text-[var(--muted)]">Available production areas you can view or search.</p>
-        <div className="mt-5">
-          <CardList cards={zone.browseCards} />
-        </div>
-      </section>
+      {zone.browseCards.length > 0 ? (
+        <section className="surface rounded-md p-5">
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Browse</h2>
+          <p className="mt-2 text-[var(--muted)]">Available production areas you can view or search.</p>
+          <div className="mt-5">
+            <CardList cards={zone.browseCards} />
+          </div>
+        </section>
+      ) : null}
 
-      <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Create</h2>
-        <p className="mt-2 text-[var(--muted)]">Action cards only. Forms live inside their own focused pages.</p>
-        <div className="mt-5">
-          <CardList cards={zone.creatorCards} />
-        </div>
-      </section>
+      {zone.creatorCards.length > 0 ? (
+        <section className="surface rounded-md p-5">
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Create</h2>
+          <p className="mt-2 text-[var(--muted)]">Action cards only. Forms live inside their own focused pages.</p>
+          <div className="mt-5">
+            <CardList cards={zone.creatorCards} />
+          </div>
+        </section>
+      ) : null}
 
-      <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Business Center</h2>
-        <p className="mt-2 text-[var(--muted)]">Professional business surfaces, storefront, and ad creation handoffs.</p>
-        <div className="mt-5">
-          <CardList cards={zone.businessCards} />
-        </div>
-      </section>
+      {zone.businessCards.length > 0 ? (
+        <section className="surface rounded-md p-5">
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Business Center</h2>
+          <p className="mt-2 text-[var(--muted)]">Professional business surfaces, storefront, and ad creation handoffs.</p>
+          <div className="mt-5">
+            <CardList cards={zone.businessCards} />
+          </div>
+        </section>
+      ) : null}
 
-      <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Future Production Tools</h2>
-        <p className="mt-2 text-[var(--muted)]">Blueprints that are intentionally not pretending to be finished pages yet.</p>
-        <div className="mt-5">
-          <CardList cards={zone.futureCards} />
-        </div>
-      </section>
+      {zone.futureCards.length > 0 ? (
+        <section className="surface rounded-md p-5">
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">Future Production Tools</h2>
+          <p className="mt-2 text-[var(--muted)]">Blueprints that are intentionally not pretending to be finished pages yet.</p>
+          <div className="mt-5">
+            <CardList cards={zone.futureCards} />
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

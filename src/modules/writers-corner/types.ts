@@ -32,6 +32,7 @@ export const updateManuscriptSubscriptionSchema = z.object({
 
 export type WriterAccessState = {
   canWrite: boolean;
+  canPublishToStorefront: boolean;
   reason?: string;
 };
 

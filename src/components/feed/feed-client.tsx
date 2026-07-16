@@ -1,6 +1,6 @@
 "use client";
 
-import { AdPlacement, FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
+import { AdPlacement, ConductLocationType, FeedReactionType, FeedVisibility, MediaVisibility, MembershipTier } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react";
@@ -11,6 +11,7 @@ import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
+import { ConductContentActions } from "@/components/conduct-reporting/conduct-content-actions";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { FeedCursor } from "@/modules/feed-stream/feed-pagination";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
@@ -41,7 +42,7 @@ type FeedCurrentAuthor = {
   avatarUrl?: string | null;
 };
 
-type FeedMode = "latest" | "friends" | "groups" | "pictures";
+type FeedMode = "latest" | "friends";
 
 type ReplyTarget = {
   parentCommentId?: string;
@@ -87,9 +88,7 @@ const publicQuickReactions = quickReactions.filter((reaction) => reaction.type !
 
 const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [
   { key: "latest", label: "Latest", helper: "Newest member posts first." },
-  { key: "friends", label: "Friends", helper: "Posts shared to closer circles." },
-  { key: "groups", label: "Groups", helper: "Group stream items when available." },
-  { key: "pictures", label: "Pics", helper: "Posts with image attachments." }
+  { key: "friends", label: "Friends", helper: "Posts shared to friends." }
 ];
 
 const emojiChoices = ["\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F64F}", "\u{1F525}", "\u{1F389}", "\u{1F44F}", "\u{1F4AF}", "\u{2728}", "\u{2615}"];
@@ -983,6 +982,7 @@ function FeedCommentRow({
             <button aria-label="Share comment" className="comment-share-link comment-share-icon-link" onClick={() => onShare(comment.id)} title="Share" type="button">
               <ActionGlyph kind="share" />
             </button>
+            <ConductContentActions contentId={comment.id} locationType={ConductLocationType.MAIN_STREAM_COMMENT} />
           </div>
         </div>
       </div>
@@ -1092,8 +1092,6 @@ export function FeedClient({
   const visiblePosts = posts.filter((post) => {
     if (hiddenPostIds[post.id] || quietAuthorIds[post.author.id]) return false;
     if (feedMode === "friends") return post.visibility === FeedVisibility.FRIENDS;
-    if (feedMode === "pictures") return Boolean(post.media?.publicUrl);
-    if (feedMode === "groups") return false;
     return true;
   });
 
@@ -1848,6 +1846,7 @@ export function FeedClient({
                     </div>
                   ) : null}
                 </div>
+                <ConductContentActions contentId={post.id} locationType={ConductLocationType.MAIN_STREAM_POST} />
               </div>
               {postLevelReplyInThread ? replyComposer : null}
               <div className="feed-comment-preview">

@@ -1,8 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AdDestinationKind, InterestCategory } from "@prisma/client";
 import { auth } from "@/auth";
 import { CreateAdCampaignForm, type InitialAdCampaignDraft } from "@/components/ads-credits/create-ad-campaign-form";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
@@ -41,11 +40,7 @@ export default async function CreateAdPage({ searchParams }: { searchParams?: Re
       reason: adsManager.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice backHref="/ads" backLabel="Back to Ads" featureLabel="Create Ad" />
-      </AppShell>
-    );
+    notFound();
   }
 
   const initialDraft: InitialAdCampaignDraft = {
@@ -61,7 +56,12 @@ export default async function CreateAdPage({ searchParams }: { searchParams?: Re
 
   return (
     <AppShell>
-      <CreateAdCampaignForm adsManager={adsManager} initialDraft={initialDraft} />
+      <CreateAdCampaignForm
+        adsManager={adsManager}
+        cancelHref={adsManager.marketOnly ? "/market" : "/ads"}
+        initialDraft={initialDraft}
+        successHref={adsManager.marketOnly ? "/market" : "/ads"}
+      />
     </AppShell>
   );
 }

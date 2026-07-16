@@ -25,6 +25,7 @@ export type AdminFeedbackTicketView = {
   publicId: string;
   title: string;
   description: string;
+  kind: string;
   pageUrl: string | null;
   reporterEmail: string | null;
   reporterName: string;

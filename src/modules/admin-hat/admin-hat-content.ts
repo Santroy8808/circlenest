@@ -65,10 +65,10 @@ const functionDetailsByTitle: Record<
     expectedResult: "You identify the correct account and can move to membership, password, invite, credit, or support work."
   },
   "Create Invite": {
-    whenToUse: "Use this to give an approved person a one-time path into the invite-only site.",
+    whenToUse: "Use this to give an approved person, or an approved list of people, a one-time path into the invite-only site.",
     beforeYouStart: ["Confirm the invite recipient is intended to receive Free account access.", "Confirm the delivery email address if you plan to email the invite."],
-    cautions: ["Do not create bulk invites without a specific launch or admin reason.", "Treat unused invite codes as account access tokens."],
-    expectedResult: "The invite code exists, can be copied or emailed, and can be reviewed later from Launch Access."
+    cautions: ["Bulk invite creation is separately grantable per account; admins have it by default.", "Bulk batches accept up to 250 addresses and reserve no more than 300 bulk invitations per UTC day. Delivery is paced at one email every two minutes.", "Treat unused invite codes as account access tokens and never paste them into public channels."],
+    expectedResult: "A unique invite code exists for each accepted recipient, single or bulk delivery is visible in the queue, and the action is audit logged."
   },
   "Create Account": {
     whenToUse: "Use this when an admin needs to create a preverified account directly for an approved user.",
@@ -121,14 +121,14 @@ const functionDetailsByTitle: Record<
   "Global Tier Permissions": {
     whenToUse: "Use this only when the platform-wide capability matrix needs to change for an entire membership tier.",
     beforeYouStart: ["Confirm the exact capability and tier.", "Understand every downstream feature affected by that permission.", "Have God-level authorization ready if required."],
-    cautions: ["This is global; one cell can change access for every user on that tier.", "Do not use this to solve a single user's support issue."],
+    cautions: ["This is global; one cell can change access for every user on that tier.", "Do not use this to solve a single user's support issue.", "Unavailable Contributor capabilities must remain hidden in navigation, pages, APIs, tutorials, and manuals rather than being exposed as upgrade gates."],
     expectedResult: "The selected tier capability is updated globally and a critical audit entry is written."
   },
   "Status Change": {
-    whenToUse: "Use this to permanently correct an account's membership status.",
-    beforeYouStart: ["Search the target account.", "Confirm the desired tier: Free, Contributor, Professional, Auditor, or Org if available."],
-    cautions: ["This does not charge or refund the user.", "Do not use status change when a temporary grant is the correct action."],
-    expectedResult: "The account membership status changes and the reason is audited."
+    whenToUse: "Use this to permanently correct an account's membership status or to grant/revoke its individual invite capabilities.",
+    beforeYouStart: ["Search the target account.", "Confirm the desired tier: Free, Contributor, Professional, Auditor, or Org if available.", "For invite controls, decide separately whether the member may create single invites and whether they may use Invite multiple."],
+    cautions: ["This does not charge or refund the user.", "Bulk invite permission is independent of membership tier and is intentionally limited by queue pacing and daily cap.", "Do not use status change when a temporary grant is the correct action."],
+    expectedResult: "The account membership or individually granted invite capability changes and the reason is audited."
   },
   "Pricing Rules": {
     whenToUse: "Use this to edit global platform-credit costs for ad and marketplace-related packages.",
@@ -185,10 +185,10 @@ const functionDetailsByTitle: Record<
     expectedResult: "The matching object type, creation details, and destination are shown when the ID exists."
   },
   "Feature Flags": {
-    whenToUse: "Use this to turn risky, incomplete, or staged modules on or off without redeploying.",
-    beforeYouStart: ["Know the exact feature key.", "Know whether enabled or disabled is the intended state.", "Write a reason that explains the rollout or rollback."],
-    cautions: ["A feature flag can hide or expose unfinished functionality.", "Use stable feature key names; typos create new flags."],
-    expectedResult: "The feature flag state is saved and appears in the admin dashboard."
+    whenToUse: "Use this to pause or restore a registered platform capability without redeploying the site.",
+    beforeYouStart: ["Choose the relevant category, then decide whether the whole category or one feature should change.", "Read the Effects and enforcement section.", "Prepare an audit reason that explains the operational need."],
+    cautions: ["A category switch changes every feature inside that category.", "Changing one feature afterward makes the category state Mixed.", "Changes take effect on the next request and can immediately remove user access.", "Turning a feature on does not bypass membership-tier permissions.", "Reset to default removes the individual override and follows the documented platform default."],
+    expectedResult: "The capability shows its new effective state and override status, and the change is recorded in the admin and audit histories."
   },
   "Launch Access Hub": {
     whenToUse: "Use this as the central launch operations surface for invites, founder pricing, promo grants, guardrails, and review.",
@@ -242,6 +242,10 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
     definition: "A user's access level, such as Free, Contributor, Professional, Auditor, or Org where available. Tier policy controls what each level can use."
   },
   {
+    term: "Hidden Capability",
+    definition: "A feature outside a user's approved capability matrix. Hidden means the user should not see its menu item, page, upgrade prompt, or usable API response; admins may still review or grant access through the appropriate audited workflow."
+  },
+  {
     term: "Launch Access",
     definition: "Temporary launch-era access operations, including promotional grants, founder pricing review, invites, guardrails, and active access review."
   },
@@ -281,6 +285,7 @@ export const adminHatOperatingRules = [
   "Use one admin action for one operational purpose. Separate unrelated changes so the audit trail stays readable.",
   "Every high-risk change needs a clear reason that a future administrator can understand without asking you.",
   "Do not use direct tier, credit, or flag changes to hide missing product functionality. Fix the product issue or document the temporary exception.",
+  "For Contributors, verify the hidden-capability boundary after any policy change: Business Center, Jobs, Events, Fundraisers, auditor-profile creation, and general ad creation should not appear unless an audited grant or higher tier authorizes them.",
   "Keep payment configuration, platform-credit adjustments, and membership status changes conceptually separate.",
   "If a function says review, treat it as read-oriented unless the UI explicitly offers a mutation button.",
   "For destructive actions, stop and confirm identity, impact, and reason before pressing the final button.",

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/platform/db";
+import { isAdminRole } from "@/lib/platform/roles";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { normalizeAdTargetHashtag } from "@/modules/ads-credits/types";
 
 export async function GET(request: Request) {
@@ -8,6 +10,12 @@ export async function GET(request: Request) {
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const generalAccess = await canUserAccessFeature(session.user.id, "ads.createGeneral");
+  const marketAdAccess = await canUserAccessFeature(session.user.id, "market.createAd");
+  if (!isAdminRole(session.user.role) && !generalAccess.allowed && !marketAdAccess.allowed) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
   const { searchParams } = new URL(request.url);

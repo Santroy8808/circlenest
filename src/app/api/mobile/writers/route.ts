@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
+  const access = await getWriterAccessState(session.user.id);
+  if (!access.canWrite) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
   const chapterId = request.nextUrl.searchParams.get("chapterId");
   if (chapterId) {
     const result = await safeGetChapterDetail(session.user.id, chapterId);
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    access: await getWriterAccessState(session.user.id),
+    access,
     manuscripts: await safeListManuscripts(session.user.id)
   });
 }

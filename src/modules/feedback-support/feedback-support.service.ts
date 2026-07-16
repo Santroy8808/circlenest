@@ -38,6 +38,7 @@ export async function createFeedbackTicket(input: unknown, context: { userId?: s
         pageUrl: safeTicketPagePath(parsed.data.pageUrl),
         title: parsed.data.title,
         description: parsed.data.description,
+        kind: parsed.data.kind,
         severity: parsed.data.severity,
         userAgent: hashPrivateSignal(context.userAgent, "feedback:user-agent"),
         diagnostics: parsed.data.diagnostics as Prisma.InputJsonObject | undefined,

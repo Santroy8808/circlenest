@@ -1463,7 +1463,8 @@ a {
 }
 
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-danger {
   border-radius: 999px;
   border: 1px solid rgba(214, 178, 74, 0.34);
   cursor: pointer;
@@ -1482,17 +1483,76 @@ a {
   color: var(--text);
 }
 
+.btn-danger {
+  background: rgba(127, 29, 29, 0.88);
+  border-color: rgba(248, 113, 113, 0.7);
+  color: #fff;
+}
+
 .btn-primary:hover,
-.btn-secondary:hover {
+.btn-secondary:hover,
+.btn-danger:hover {
   border-color: rgba(214, 178, 74, 0.72);
   transform: translateY(-1px);
 }
 
 .btn-primary:disabled,
-.btn-secondary:disabled {
+.btn-secondary:disabled,
+.btn-danger:disabled {
   cursor: not-allowed;
   opacity: 0.7;
   transform: none;
+}
+
+.conduct-content-actions {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  position: relative;
+}
+
+.conduct-commend-button,
+.conduct-report-button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.35rem 0.55rem;
+}
+
+.conduct-commend-button:hover,
+.conduct-commend-button:focus-visible {
+  color: var(--gold);
+  outline: 1px solid rgba(214, 178, 74, 0.5);
+}
+
+.conduct-report-button:hover,
+.conduct-report-button:focus-visible {
+  color: #fca5a5;
+  outline: 1px solid rgba(248, 113, 113, 0.55);
+}
+
+.conduct-dialog-backdrop {
+  align-items: center;
+  background: rgba(1, 4, 9, 0.76);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 10050;
+}
+
+.conduct-dialog {
+  max-height: calc(100dvh - 2rem);
+  max-width: 36rem;
+  overflow: auto;
+  padding: 1.5rem;
+  width: 100%;
 }
 
 .global-tooltip {
@@ -11932,8 +11992,10 @@ body,
 
 .tutorial-panel {
   border-radius: 18px;
+  display: flex;
+  flex-direction: column;
   max-height: calc(100dvh - 36px);
-  overflow: auto;
+  overflow: hidden;
   padding: 18px;
   pointer-events: auto;
   position: fixed;
@@ -11943,7 +12005,13 @@ body,
   z-index: 12003;
 }
 
-.tutorial-panel::-webkit-scrollbar,
+.tutorial-panel-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.tutorial-panel-scroll::-webkit-scrollbar,
 .tutorial-contents::-webkit-scrollbar {
   display: none;
 }
@@ -12044,7 +12112,12 @@ body,
 }
 
 .tutorial-actions {
+  background: inherit;
+  border-top: 1px solid rgba(255, 216, 95, 0.18);
+  flex: 0 0 auto;
   justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 14px;
 }
 
 .tutorial-actions button:disabled {

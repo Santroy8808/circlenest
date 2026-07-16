@@ -159,16 +159,21 @@ async function getAdCreateAccess(userId: string) {
   });
 
   if (isAdminRole(actor?.role)) {
-    return { allowed: true, reason: undefined, fundraiserOnly: false, isAdmin: true };
+    return { allowed: true, reason: undefined, fundraiserOnly: false, marketOnly: false, isAdmin: true };
   }
 
   const generalAccess = await canUserAccessFeature(userId, "ads.createGeneral");
   if (generalAccess.allowed) {
-    return { ...generalAccess, fundraiserOnly: false, isAdmin: false };
+    return { ...generalAccess, fundraiserOnly: false, marketOnly: false, isAdmin: false };
+  }
+
+  const marketAccess = await canUserAccessFeature(userId, "market.createAd");
+  if (marketAccess.allowed) {
+    return { ...marketAccess, fundraiserOnly: false, marketOnly: true, isAdmin: false };
   }
 
   const fundraiserAccess = await canUserAccessFeature(userId, "ads.createFundraiser");
-  return { ...fundraiserAccess, fundraiserOnly: fundraiserAccess.allowed, isAdmin: false };
+  return { ...fundraiserAccess, fundraiserOnly: fundraiserAccess.allowed, marketOnly: false, isAdmin: false };
 }
 
 type AdCampaignPayload = Prisma.AdCampaignGetPayload<{
@@ -917,6 +922,7 @@ export async function getAdsManagerView(userId: string): Promise<AdsManagerView>
   return {
     canCreate: access.allowed,
     fundraiserOnly: access.fundraiserOnly,
+    marketOnly: access.marketOnly,
     reason: access.reason,
     platformCredits: membership?.platformCredits ?? 0,
     campaigns: campaigns.map(toCampaignCard),
@@ -1610,6 +1616,10 @@ export async function createAdCampaign(userId: string, input: unknown) {
 
   if (!access.allowed) {
     return { ok: false as const, error: access.reason ?? "Professional or Auditor access required." };
+  }
+
+  if (access.marketOnly && parsed.data.destinationKind !== AdDestinationKind.MARKET_LISTING) {
+    return { ok: false as const, error: "Contributor ads must promote one of your own active Market listings." };
   }
 
   const pricingRule = await getActivePlatformCostRuleByKey(parsed.data.pricingRuleKey);

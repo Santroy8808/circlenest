@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
+import { isAdminRole } from "@/lib/platform/roles";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createFundraiser,
   getFundraiserCreateState,
@@ -13,6 +15,10 @@ export async function GET(request: NextRequest) {
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
+
+  if (!isAdminRole(session.user.role) && !(await canUserAccessFeature(session.user.id, "fundraisers.create")).allowed) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
 
   const campaignId = request.nextUrl.searchParams.get("campaignId");
   if (campaignId) {
@@ -33,6 +39,10 @@ export async function POST(request: NextRequest) {
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
+
+  if (!isAdminRole(session.user.role) && !(await canUserAccessFeature(session.user.id, "fundraisers.create")).allowed) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
 
   const result = await createFundraiser(session.user.id, await request.json().catch(() => ({})));
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });

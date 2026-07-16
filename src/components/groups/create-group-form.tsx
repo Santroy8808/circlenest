@@ -17,25 +17,29 @@ export function CreateGroupForm() {
     setError("");
 
     startTransition(async () => {
-      const response = await fetch("/api/groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          tagline,
-          description,
-          visibility,
-          joinPolicy
-        })
-      });
-      const payload = (await response.json()) as { error?: string; group?: { slug: string } };
+      try {
+        const response = await fetch("/api/groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            tagline,
+            description,
+            visibility,
+            joinPolicy
+          })
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; group?: { slug: string } };
 
-      if (!response.ok || !payload.group) {
-        setError(payload.error ?? "Could not create group.");
-        return;
+        if (!response.ok || !payload.group) {
+          setError(payload.error ?? `Could not create group (HTTP ${response.status}).`);
+          return;
+        }
+
+        window.location.href = `/groups/${payload.group.slug}`;
+      } catch {
+        setError("Could not reach Theta-Space. Check your connection and try again.");
       }
-
-      window.location.href = `/groups/${payload.group.slug}`;
     });
   }
 

@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { BusinessCenterHub } from "@/components/business-storefront/business-center-hub";
-import { FeatureUnavailableNotice } from "@/components/feature-availability/feature-unavailable-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { getAdsManagerView } from "@/modules/ads-credits/ads-credits.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
@@ -31,11 +30,7 @@ export default async function BusinessCenterPage() {
       reason: businessCenter.reason
     });
 
-    return (
-      <AppShell>
-        <FeatureUnavailableNotice featureLabel="Business Center" />
-      </AppShell>
-    );
+    notFound();
   }
 
   return (

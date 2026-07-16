@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { diagnostics } from "@/lib/platform/logging";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { createMarketListing, listMarketListings } from "@/modules/market/market.service";
 
 export async function GET(request: NextRequest) {
@@ -25,13 +27,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const actor = await getActiveAccountActor(session.user.id);
-  const body = await request.json();
-  const result = await createMarketListing(actor.actorUserId, body);
+  try {
+    const actor = await getActiveAccountActor(session.user.id);
+    const body = await readJsonRequest(request);
+    if (!body.ok) return body.response;
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+    const result = await createMarketListing(actor.actorUserId, body.value);
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({ listing: result.listing }, { status: 201 });
+  } catch (error) {
+    await diagnostics.error("market", "Could not create Market listing.", {
+      userId: session.user.id,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return NextResponse.json({ error: "Could not create this listing right now. Please try again." }, { status: 500 });
   }
-
-  return NextResponse.json({ listing: result.listing }, { status: 201 });
 }
