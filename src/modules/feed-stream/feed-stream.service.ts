@@ -1,6 +1,7 @@
 import { FeedReactionType, FeedVisibility, MediaAssetStatus, MembershipTier, Prisma, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import {
   attachFeedCommentHashtags,
   attachFeedPostHashtags,
@@ -118,7 +119,7 @@ function toFeedAuthorView(user: {
     id: user.id,
     username: user.username,
     displayName: profileName(user),
-    tier: user.membership?.tier ?? MembershipTier.FREE,
+    tier: normalizeOperationalMembershipTier(user.membership?.tier),
     avatarUrl: user.profile?.avatarUrl
   } as const;
 }

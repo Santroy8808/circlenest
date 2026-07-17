@@ -5,7 +5,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { setMembershipPolicyOverride } from "@/modules/membership-policy/membership-policy.service";
-import { getTierPolicy } from "@/modules/membership-policy/policy";
+import { getTierPolicy, isOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "admin-status-change";
 
@@ -176,6 +176,10 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid status change." };
+  }
+
+  if (!isOperationalMembershipTier(parsed.data.targetTier)) {
+    return { ok: false as const, error: "That membership tier is currently disabled." };
   }
 
   const target = await findStatusChangeAccount(parsed.data.userIdentifier);

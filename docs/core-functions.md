@@ -14,10 +14,10 @@ Core functions are the baseline product surface every Free account must be able 
 
 Free accounts use the chronological public Stream without the Public/Friends/Groups filter controls and do not include support-ticket creation.
 
-Contributor adds expanded storage, capped Market tools, group moderator tools, and Writers Corner. Contributor does not add business profiles, business identity switching, Events, Fundraisers, general ad creation, or auditor-profile creation. Auditor and Professional may add storefronts, business identity switching, job and advertising tools, larger storage, support requests, and moderation eligibility. Free members may browse the Auditor Directory.
+Contributor adds expanded storage, capped Market tools, group moderator tools, Writers Corner, support requests, and moderation eligibility. Contributor does not add business profiles, business identity switching, Jobs, Events, Fundraisers, general ad creation, or auditor-profile creation. Free members may browse the Auditor Directory.
 
 Unavailable capabilities must be hidden from the user's menus, pages, tutorials, and direct API responses rather than displayed as disabled upgrade gates.
 
-Events, fundraisers, mass mail, and auditor-profile creation remain hidden until they are operational.
+Professional, Auditor, and Org memberships are disabled and hidden. Events, fundraisers, mass mail, business profiles, and auditor-profile creation remain hidden until they are operational.
 
 The Free tier must not lose the core functions above when paid-tier features change.

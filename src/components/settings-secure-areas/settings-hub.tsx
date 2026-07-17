@@ -63,6 +63,14 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["manual", "users manual", "faq", "help", "guide", "free tier", "limits", "how to"]
   },
   {
+    title: "Progression Path",
+    description: "Explore the interactive Free-to-Contributor feature roadmap.",
+    href: "/settings/progression-path",
+    badge: "Roadmap",
+    sensitive: false,
+    keywords: ["progression", "path", "roadmap", "features", "future", "planned", "free", "contributor"]
+  },
+  {
     title: "Feedback Center",
     description: "Ask for help, report a problem, or suggest an improvement to Theta-Space.",
     href: "/settings/feedback",

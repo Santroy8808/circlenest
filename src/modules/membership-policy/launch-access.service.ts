@@ -6,6 +6,7 @@ import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { listFreeAccountInviteAdminView } from "@/modules/membership-policy/free-account-invites.service";
+import { isOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "launch-access";
 
@@ -131,7 +132,7 @@ export const launchAccessGrantSchema = z.object({
   scope: z.nativeEnum(PromotionAccessScope),
   userIdentifier: z.string().trim().max(160).optional(),
   sourceTier: z.nativeEnum(MembershipTier).default(MembershipTier.FREE),
-  targetTier: z.enum([MembershipTier.CONTRIBUTOR, MembershipTier.PROFESSIONAL]),
+  targetTier: z.literal(MembershipTier.CONTRIBUTOR),
   durationMonths: z.coerce.number().int().min(1).max(24).optional(),
   durationValue: z.coerce.number().int().min(1).max(730).optional(),
   durationUnit: z.enum(["days", "months"]).default("months"),
@@ -156,7 +157,10 @@ export async function ensureLaunchDefaults() {
 
       return prisma.subscriptionPlanRule.upsert({
         where: { tier: plan.tier },
-        update: stripePriceId ? { stripePriceId } : {},
+        update: {
+          active: isOperationalMembershipTier(plan.tier),
+          ...(stripePriceId ? { stripePriceId } : {})
+        },
         create: {
           tier: plan.tier,
           displayName: plan.displayName,
@@ -166,6 +170,7 @@ export async function ensureLaunchDefaults() {
           founderMemberCap: plan.founderMemberCap,
           founderWindowDays: plan.founderWindowDays,
           monthlyCreditBudget: plan.monthlyCreditBudget,
+          active: isOperationalMembershipTier(plan.tier),
           populationCreditTiers: plan.populationCreditTiers as unknown as Prisma.InputJsonArray
         }
       });
@@ -184,11 +189,15 @@ export async function listLaunchAccessAdminView() {
   await ensureLaunchDefaults();
 
   const [plans, adRules, activeGrants, freeInvites] = await Promise.all([
-    prisma.subscriptionPlanRule.findMany({ orderBy: { standardPriceCents: "asc" } }),
+    prisma.subscriptionPlanRule.findMany({
+      where: { tier: { in: [MembershipTier.FREE, MembershipTier.CONTRIBUTOR] } },
+      orderBy: { standardPriceCents: "asc" }
+    }),
     prisma.adExperienceRule.findMany({ orderBy: { key: "asc" } }),
     prisma.membershipPromotionGrant.findMany({
       where: {
         active: true,
+        targetTier: MembershipTier.CONTRIBUTOR,
         expiresAt: { gt: new Date() }
       },
       orderBy: { expiresAt: "asc" },
@@ -244,7 +253,10 @@ export async function listSubscriptionPlanRules() {
   await ensureLaunchDefaults();
 
   const plans = await prisma.subscriptionPlanRule.findMany({
-    where: { active: true },
+    where: {
+      active: true,
+      tier: { in: [MembershipTier.FREE, MembershipTier.CONTRIBUTOR] }
+    },
     orderBy: { standardPriceCents: "asc" }
   });
 
@@ -274,9 +286,8 @@ export async function getActivePromotionalTierForUser(userId: string, currentTie
     orderBy: [{ targetTier: "desc" }, { expiresAt: "desc" }]
   });
 
-  const professionalGrant = grants.find((grant) => grant.targetTier === MembershipTier.PROFESSIONAL);
   const contributorGrant = grants.find((grant) => grant.targetTier === MembershipTier.CONTRIBUTOR);
-  const grant = professionalGrant ?? contributorGrant ?? null;
+  const grant = contributorGrant ?? null;
 
   return grant
     ? {

@@ -19,7 +19,7 @@ import {
   reusableCheckoutSessionUrl
 } from "@/modules/billing/checkout-intents.service";
 import { processStripeWebhookEventOnce } from "@/modules/billing/stripe-webhook-events.service";
-import { getTierPolicy } from "@/modules/membership-policy/policy";
+import { getTierPolicy, isOperationalMembershipTier, normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import { ensureLaunchDefaults, stripePriceIdForTier } from "@/modules/membership-policy/launch-access.service";
 import { getPublicPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
 
@@ -122,7 +122,7 @@ export async function listAvailableSubscriptionUpgradePlans(userId: string): Pro
     })
   ]);
 
-  const currentTier = membership?.tier ?? MembershipTier.FREE;
+  const currentTier = normalizeOperationalMembershipTier(membership?.tier);
   const publicPaidTiers = new Set<MembershipTier>(
     getPublicPolicyMatrix()
       .map((policy) => policy.tier)
@@ -130,7 +130,7 @@ export async function listAvailableSubscriptionUpgradePlans(userId: string): Pro
   );
   const allowedTiers = new Set<MembershipTier>(publicPaidTiers);
 
-  if (orgEligibility) {
+  if (orgEligibility && isOperationalMembershipTier(MembershipTier.ORG)) {
     allowedTiers.add(MembershipTier.ORG);
   }
 
@@ -453,7 +453,7 @@ async function applyStripeSubscription(input: {
 }) {
   const status = statusFromStripe(input.subscription.status);
   const targetPolicy = getTierPolicy(input.targetTier);
-  const activeTier = canActivateStatus(status) ? input.targetTier : MembershipTier.FREE;
+  const activeTier = canActivateStatus(status) && isOperationalMembershipTier(input.targetTier) ? input.targetTier : MembershipTier.FREE;
   const activePolicy = getTierPolicy(activeTier);
 
   const membership = await prisma.$transaction(async (tx) => {

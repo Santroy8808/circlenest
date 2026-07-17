@@ -8,6 +8,7 @@ import { getStripeRuntimeConfig } from "@/lib/platform/stripe";
 import { diagnostics } from "@/lib/platform/logging";
 import { ensureDefaultStripeCreditPackages, listStripeCreditPackages } from "@/modules/billing/stripe-credit-checkout.service";
 import { ensureLaunchDefaults, listSubscriptionPlanRules } from "@/modules/membership-policy/launch-access.service";
+import { isOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "stripe-admin";
 
@@ -164,6 +165,10 @@ export async function updateStripeSubscriptionPrice(actorUserId: string, input: 
   const parsed = stripeSubscriptionPriceSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid subscription price." };
+  }
+
+  if (!isOperationalMembershipTier(parsed.data.tier)) {
+    return { ok: false as const, error: "That membership tier is currently disabled." };
   }
 
   await ensureLaunchDefaults();

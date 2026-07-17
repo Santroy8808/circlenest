@@ -5,6 +5,7 @@ import { prisma } from "@/lib/platform/db";
 import { consumeRateLimit } from "@/lib/platform/rate-limit";
 import { getRequestContext } from "@/lib/platform/request-context";
 import { authorizeCredentials, getUserSessionGuard } from "@/modules/auth-security/auth-security.service";
+import { normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -88,7 +89,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         token.role = guard.role;
         token.accountPurpose = guard.accountPurpose;
-        token.tier = guard.membership?.tier ?? MembershipTier.FREE;
+        token.tier = normalizeOperationalMembershipTier(guard.membership?.tier);
       } catch {
         token.revoked = true;
       }

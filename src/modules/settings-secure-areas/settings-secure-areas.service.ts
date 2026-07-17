@@ -44,6 +44,13 @@ export const settingsCards: SettingsCard[] = [
     badge: "Help"
   },
   {
+    title: "Progression Path",
+    description: "Explore the interactive path from core Free features to the Contributor experience.",
+    href: "/settings/progression-path",
+    sensitive: false,
+    badge: "Roadmap"
+  },
+  {
     title: "Feedback Center",
     description: "Ask for help, report a problem, or suggest an improvement to Theta-Space.",
     href: "/settings/feedback",

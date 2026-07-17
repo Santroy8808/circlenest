@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { MembershipTier, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { signMobileAuthPayload, verifyMobileAuthSignature } from "@/modules/auth-security/mobile-secret";
+import { normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 type MobileTokenPayload = {
   userId: string;
@@ -124,7 +125,7 @@ export async function requireMobileSession(request: NextRequest): Promise<Mobile
       username: user.username,
       displayName: user.profile?.displayName ?? user.username,
       role: user.role,
-      tier: user.membership?.tier ?? MembershipTier.FREE,
+      tier: normalizeOperationalMembershipTier(user.membership?.tier),
       sessionVersion: user.sessionVersion
     }
   };

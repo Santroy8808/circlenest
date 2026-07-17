@@ -101,8 +101,8 @@ const functionDetailsByTitle: Record<
     expectedResult: "The report is triaged, moved into review, resolved, or left with admin notes."
   },
   "Promotional Grant": {
-    whenToUse: "Use this for temporary launch-era access to Contributor or Professional features.",
-    beforeYouStart: ["Confirm the target account and duration.", "Confirm whether the grant is Contributor or Professional."],
+    whenToUse: "Use this for temporary launch-era access to Contributor features.",
+    beforeYouStart: ["Confirm the target account and duration.", "Confirm that temporary Contributor access is appropriate."],
     cautions: ["Promotional grants expire; they are not permanent paid subscriptions.", "Do not use grants to hide unresolved billing setup."],
     expectedResult: "The account receives temporary access until the selected expiration."
   },
@@ -126,7 +126,7 @@ const functionDetailsByTitle: Record<
   },
   "Status Change": {
     whenToUse: "Use this to permanently correct an account's membership status or to grant/revoke its individual invite capabilities.",
-    beforeYouStart: ["Search the target account.", "Confirm the desired tier: Free, Contributor, Professional, Auditor, or Org if available.", "For invite controls, decide separately whether the member may create single invites and whether they may use Invite multiple."],
+    beforeYouStart: ["Search the target account.", "Confirm the desired active tier: Free or Contributor.", "For invite controls, decide separately whether the member may create single invites and whether they may use Invite multiple."],
     cautions: ["This does not charge or refund the user.", "Bulk invite permission is independent of membership tier and is intentionally limited by queue pacing and daily cap.", "Do not use status change when a temporary grant is the correct action."],
     expectedResult: "The account membership or individually granted invite capability changes and the reason is audited."
   },
@@ -239,7 +239,7 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
   },
   {
     term: "Membership Tier",
-    definition: "A user's access level, such as Free, Contributor, Professional, Auditor, or Org where available. Tier policy controls what each level can use."
+    definition: "A user's access level. Free and Contributor are the currently enabled tiers. Tier policy controls what each level can use."
   },
   {
     term: "Hidden Capability",
@@ -285,7 +285,7 @@ export const adminHatOperatingRules = [
   "Use one admin action for one operational purpose. Separate unrelated changes so the audit trail stays readable.",
   "Every high-risk change needs a clear reason that a future administrator can understand without asking you.",
   "Do not use direct tier, credit, or flag changes to hide missing product functionality. Fix the product issue or document the temporary exception.",
-  "For Contributors, verify the hidden-capability boundary after any policy change: Business Center, Jobs, Events, Fundraisers, auditor-profile creation, and general ad creation should not appear unless an audited grant or higher tier authorizes them.",
+  "For Contributors, verify the hidden-capability boundary after any policy change: Business Center, Jobs, Events, Fundraisers, auditor-profile creation, and general ad creation should not appear.",
   "Keep payment configuration, platform-credit adjustments, and membership status changes conceptually separate.",
   "If a function says review, treat it as read-oriented unless the UI explicitly offers a mutation button.",
   "For destructive actions, stop and confirm identity, impact, and reason before pressing the final button.",

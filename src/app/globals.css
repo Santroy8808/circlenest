@@ -1504,6 +1504,513 @@ a {
   transform: none;
 }
 
+/* Settings: Progression Path */
+.progression-page {
+  --progression-line-start: rgba(255, 216, 95, 0.28);
+  --progression-line-end: #ffd85f;
+  min-width: 0;
+}
+
+.progression-hero {
+  align-items: flex-end;
+  display: flex;
+  gap: 28px;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 28px;
+  position: relative;
+}
+
+.progression-hero::after {
+  background: radial-gradient(circle, rgba(255, 216, 95, 0.2), transparent 68%);
+  content: "θ";
+  font-family: Georgia, serif;
+  font-size: 13rem;
+  line-height: 1;
+  opacity: 0.13;
+  pointer-events: none;
+  position: absolute;
+  right: 7%;
+  top: -58px;
+}
+
+.progression-eyebrow,
+.progression-node-type,
+.progression-details > div > p {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.progression-hero h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin: 10px 0 0;
+  max-width: 780px;
+}
+
+.progression-intro {
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 14px 0 0;
+  max-width: 760px;
+}
+
+.progression-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
+}
+
+.progression-status {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 750;
+  gap: 7px;
+  line-height: 1;
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+
+.progression-status::before,
+.progression-dot::before {
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 10px currentColor;
+  content: "";
+  height: 7px;
+  width: 7px;
+}
+
+.progression-status-available,
+.progression-dot-available {
+  color: var(--green);
+}
+
+.progression-status-testing,
+.progression-dot-testing {
+  color: var(--gold);
+}
+
+.progression-status-in-progress,
+.progression-dot-in-progress {
+  color: #7da1ff;
+}
+
+.progression-status-planned,
+.progression-dot-planned {
+  color: var(--muted);
+}
+
+.progression-shell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.progression-toolbar {
+  align-items: center;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+
+.progression-filter-group,
+.progression-zoom,
+.progression-status-filter {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.progression-filter-group > span,
+.progression-status-filter > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-right: 3px;
+  text-transform: uppercase;
+}
+
+.progression-toolbar button,
+.progression-status-filter select {
+  background: var(--panel-soft);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 8px 13px;
+}
+
+.progression-toolbar button:hover,
+.progression-toolbar button[aria-pressed="true"],
+.progression-toolbar button:focus-visible,
+.progression-status-filter select:focus-visible {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 24%, transparent);
+  outline: none;
+}
+
+.progression-toolbar button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--gold) 17%, var(--panel-soft));
+  color: var(--gold);
+}
+
+.progression-zoom button:not(.progression-fit) {
+  font-size: 1.25rem;
+  line-height: 1;
+  min-width: 38px;
+  padding: 6px;
+}
+
+.progression-zoom output {
+  color: var(--muted);
+  font-size: 0.75rem;
+  min-width: 42px;
+  text-align: center;
+}
+
+.progression-viewport {
+  background:
+    linear-gradient(color-mix(in srgb, var(--line) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 18%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--gold) 8%, transparent), transparent 58%),
+    color-mix(in srgb, var(--bg) 88%, var(--panel));
+  background-size: 32px 32px, 32px 32px, auto, auto;
+  cursor: grab;
+  height: clamp(440px, 57vh, 620px);
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.progression-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.progression-canvas {
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.progression-links,
+.progression-orbit {
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+}
+
+.progression-link {
+  fill: none;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--gold) 48%, transparent));
+  stroke: url(#progression-line);
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.progression-orbit {
+  border: 1px solid color-mix(in srgb, var(--gold) 16%, transparent);
+  border-radius: 50%;
+  height: 510px;
+  left: 640px;
+  top: 48px;
+  transform: rotate(-16deg);
+  width: 890px;
+}
+
+.progression-orbit-two {
+  height: 310px;
+  left: 800px;
+  top: 148px;
+  transform: rotate(14deg);
+  width: 590px;
+}
+
+.progression-node {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--panel-soft) 94%, transparent), color-mix(in srgb, var(--panel) 97%, transparent));
+  border: 1px solid color-mix(in srgb, var(--line-strong) 55%, var(--line));
+  border-radius: 24px;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  justify-content: flex-start;
+  overflow: hidden;
+  padding: 17px;
+  position: absolute;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.progression-node:hover,
+.progression-node:focus-visible,
+.progression-node.is-selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent), 0 20px 42px rgba(0, 0, 0, 0.34);
+  outline: none;
+  transform: translateY(-4px);
+}
+
+.progression-node strong {
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.15;
+}
+
+.progression-node-summary {
+  color: var(--muted);
+  display: -webkit-box;
+  font-size: 0.76rem;
+  line-height: 1.38;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.progression-dot {
+  align-items: center;
+  display: flex;
+  font-size: 0.66rem;
+  font-weight: 750;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.progression-node-tier {
+  background:
+    radial-gradient(circle at 75% 20%, rgba(255, 227, 123, 0.3), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, var(--gold) 20%, var(--panel-soft)), var(--panel));
+  border-color: var(--gold);
+  border-radius: 50%;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--gold) 24%, transparent), 0 18px 38px rgba(0, 0, 0, 0.3);
+  justify-content: center;
+  padding: 23px;
+}
+
+.progression-node-tier strong {
+  color: var(--gold);
+  font-size: 1.42rem;
+}
+
+.progression-map-hint {
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  bottom: 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  left: 50%;
+  margin: 0;
+  padding: 8px 12px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.progression-empty {
+  color: var(--muted);
+  left: 50%;
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.progression-details {
+  align-items: start;
+  background: color-mix(in srgb, var(--panel-soft) 68%, var(--panel));
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(210px, 0.75fr) minmax(240px, 1fr) minmax(260px, 1.25fr);
+  padding: 22px 26px 24px;
+}
+
+.progression-details h2 {
+  font-size: 1.5rem;
+  line-height: 1.15;
+  margin: 5px 0 11px;
+}
+
+.progression-details-summary {
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.progression-details ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.progression-details li {
+  color: var(--text);
+  line-height: 1.45;
+  padding-left: 20px;
+  position: relative;
+}
+
+.progression-details li::before {
+  color: var(--gold);
+  content: "θ";
+  font-family: Georgia, serif;
+  left: 0;
+  position: absolute;
+  top: 0;
+}
+
+html.theta-theme-light .progression-page {
+  --progression-line-start: rgba(128, 94, 21, 0.26);
+  --progression-line-end: #805e15;
+}
+
+html.theta-theme-light .progression-hero,
+html.theta-theme-light .progression-shell {
+  background: rgba(255, 250, 240, 0.94);
+  box-shadow: 0 18px 50px rgba(76, 56, 18, 0.12);
+}
+
+html.theta-theme-light .progression-node {
+  box-shadow: 0 16px 32px rgba(76, 56, 18, 0.14);
+}
+
+html.theta-theme-light .progression-status-in-progress,
+html.theta-theme-light .progression-dot-in-progress {
+  color: #2957d8;
+}
+
+@media (max-width: 900px) {
+  .progression-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px;
+  }
+
+  .progression-legend {
+    justify-content: flex-start;
+  }
+
+  .progression-toolbar {
+    align-items: stretch;
+  }
+
+  .progression-filter-group,
+  .progression-status-filter,
+  .progression-zoom {
+    flex: 1 1 auto;
+  }
+
+  .progression-status-filter select {
+    flex: 1;
+  }
+
+  .progression-details {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .progression-details ul {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .progression-hero h1 {
+    font-size: 2rem;
+  }
+
+  .progression-hero::after {
+    font-size: 9rem;
+    right: -12px;
+  }
+
+  .progression-legend {
+    gap: 6px;
+  }
+
+  .progression-status {
+    font-size: 0.66rem;
+    padding: 7px 9px;
+  }
+
+  .progression-toolbar {
+    padding: 12px;
+  }
+
+  .progression-filter-group,
+  .progression-status-filter,
+  .progression-zoom {
+    flex-basis: 100%;
+  }
+
+  .progression-filter-group button {
+    flex: 1;
+  }
+
+  .progression-zoom .progression-fit {
+    flex: 1;
+  }
+
+  .progression-viewport {
+    height: 500px;
+  }
+
+  .progression-map-hint {
+    border-radius: 16px;
+    bottom: 10px;
+    font-size: 0.66rem;
+    max-width: calc(100% - 20px);
+    white-space: normal;
+    width: max-content;
+  }
+
+  .progression-details {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .progression-details ul {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progression-node {
+    transition: none;
+  }
+}
+
 .conduct-content-actions {
   align-items: center;
   display: inline-flex;

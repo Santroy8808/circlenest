@@ -22,6 +22,7 @@ import {
   FreeInviteError
 } from "@/modules/membership-policy/free-account-invites.service";
 import { recordSessionStart } from "@/modules/platform-activity/platform-activity.service";
+import { normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "auth-security";
 const ONE_MINUTE_MS = 60 * 1000;
@@ -158,7 +159,7 @@ function toAuthenticatedUser(user: {
     displayName: user.profile?.displayName ?? user.username,
     role: user.role,
     accountPurpose: user.accountPurpose,
-    tier: user.membership?.tier ?? MembershipTier.FREE,
+    tier: normalizeOperationalMembershipTier(user.membership?.tier),
     sessionVersion: user.sessionVersion
   };
 }

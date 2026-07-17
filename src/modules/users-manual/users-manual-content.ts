@@ -653,15 +653,15 @@ export const usersManualSections: UsersManualSection[] = [
         href: "/writers-corner",
         purpose: "Write longer-form manuscript drafts and organize them into chapters.",
         howToUse: ["Open Tools, then Writers Corner when it is visible.", "Choose Create manuscript.", "Enter a title, genre, and summary.", "Create chapters from the manuscript page and continue editing your draft."],
-        limits: ["Writers Corner is available to Contributor accounts and higher approved tiers, not Free Tier.", "Storefront publishing is available only when the account also has an approved business profile; Contributors without one will not see that control.", "Use the visible account menus as the source of truth for current limits."],
+        limits: ["Writers Corner is available to Contributor accounts, not Free Tier.", "Storefront publishing is not currently available and should not appear.", "Use the visible account menus as the source of truth for current limits."],
         faq: [
           {
             question: "Why do I not see Writers Corner?",
-            answer: "Writers Corner is a Contributor-or-higher feature. If it is not in Tools, the current account is not eligible or the feature is not enabled."
+            answer: "Writers Corner is a Contributor feature. If it is not in Tools, the current account is not eligible or the feature is not enabled."
           },
           {
             question: "Can I publish a manuscript to a storefront?",
-            answer: "Only an account with an approved business profile can use storefront publishing. A normal Contributor account should not see a disabled publish control."
+            answer: "Storefront publishing is not currently available. Contributors should not see a disabled publish control."
           }
         ],
         visual: {
@@ -681,7 +681,7 @@ export const usersManualSections: UsersManualSection[] = [
         title: "Settings",
         href: "/settings",
         purpose: "Open account and help areas from one place.",
-        howToUse: ["Open Settings.", "Use search if you know what you need.", "Choose Profile, Security, Rules, Subscription, Invites, Tutorial, or Users Manual."],
+        howToUse: ["Open Settings.", "Use search if you know what you need.", "Choose Profile, Security, Rules, Subscription, Invites, Tutorial, Users Manual, or Progression Path."],
         limits: ["Sensitive areas may require secure-area confirmation.", "Invite settings appear only when your account is eligible."],
         faq: [
           {
@@ -701,6 +701,28 @@ export const usersManualSections: UsersManualSection[] = [
           title: "Settings reference",
           caption: "Settings is the central place for account preferences and help.",
           callouts: ["Search settings.", "Open a category.", "Use secure access when prompted."]
+        }
+      },
+      {
+        title: "Progression Path",
+        href: "/settings/progression-path",
+        purpose: "Explore the features moving toward the Free and Contributor milestones.",
+        howToUse: ["Open Settings, then Progression Path.", "Drag the map to move across it.", "Use the zoom controls when you want a closer view.", "Select any feature or tier milestone to read its status and details.", "Use the tier and status filters to focus the map."],
+        limits: ["The path describes current direction and may change as testing continues.", "A planned or in-progress point is not yet a promise of immediate availability."],
+        faq: [
+          {
+            question: "What do the path statuses mean?",
+            answer: "Available is usable now, Beta testing is being proven with members, In progress is actively being worked on, and Planned is intended for later work."
+          },
+          {
+            question: "Can I interact with the map on a phone?",
+            answer: "Yes. Drag to move through the path, use the zoom buttons, and select a point to read its details below the map."
+          }
+        ],
+        visual: {
+          title: "Progression Path reference",
+          caption: "Feature points lead into the Free and Contributor tier milestones.",
+          callouts: ["Filter the path.", "Drag and zoom the map.", "Select a point for details."]
         }
       },
       {

@@ -7,9 +7,11 @@ import { verifyPassword } from "@/modules/auth-security/password";
 import {
   canRoleBypassFeature,
   getTierPolicy,
+  isOperationalMembershipTier,
   isMembershipFeatureKey,
   type MembershipFeatureKey,
   membershipFeatureKeys,
+  normalizeOperationalMembershipTier,
   tierPolicies
 } from "@/modules/membership-policy/policy";
 import { getActivePromotionalTierForUser } from "@/modules/membership-policy/launch-access.service";
@@ -63,7 +65,7 @@ export function getPolicyMatrix() {
 }
 
 export function getPublicPolicyMatrix() {
-  return getPolicyMatrix().filter((policy) => policy.publiclyListed !== false);
+  return getPolicyMatrix().filter((policy) => policy.operational && policy.publiclyListed !== false);
 }
 
 export async function getEffectivePolicyMatrix() {
@@ -73,7 +75,7 @@ export async function getEffectivePolicyMatrix() {
 }
 
 export async function getEffectivePublicPolicyMatrix() {
-  return (await getEffectivePolicyMatrix()).filter((policy) => policy.publiclyListed !== false);
+  return (await getEffectivePolicyMatrix()).filter((policy) => policy.operational && policy.publiclyListed !== false);
 }
 
 export function resolvePolicy(input: {
@@ -82,7 +84,8 @@ export function resolvePolicy(input: {
   globalOverrides?: FeatureOverrideMap;
   overrides?: FeatureOverrideMap;
 }): EffectivePolicy {
-  const tier = input.tier ?? MembershipTier.FREE;
+  const actualTier = input.tier ?? MembershipTier.FREE;
+  const tier = normalizeOperationalMembershipTier(actualTier);
   const role = input.role ?? UserRole.MEMBER;
   const base = getTierPolicy(tier);
   const globalOverrides = input.globalOverrides ?? {};
@@ -91,7 +94,7 @@ export function resolvePolicy(input: {
   return {
     ...base,
     role,
-    actualTier: tier,
+    actualTier,
     overrides,
     features: {
       ...base.features,
@@ -146,7 +149,8 @@ export async function getEffectivePolicyForUser(userId: string) {
 
   const actualTier = user.membership?.tier ?? MembershipTier.FREE;
   const promotionalAccess = await getActivePromotionalTierForUser(user.id, actualTier);
-  const effectiveTier = promotionalAccess?.tier ?? actualTier;
+  const requestedTier = promotionalAccess?.tier ?? actualTier;
+  const effectiveTier = normalizeOperationalMembershipTier(requestedTier);
 
   const overrides = user.membershipOverrides.reduce<FeatureOverrideMap>((acc, override) => {
     if (isMembershipFeatureKey(override.featureKey)) {
@@ -200,7 +204,7 @@ export async function getGodTierPolicyEditorView(actorUserId: string) {
       where: { id: actorUserId },
       select: { role: true }
     }),
-    getEffectivePolicyMatrix(),
+    getEffectivePolicyMatrix().then((items) => items.filter((policy) => policy.operational)),
     listGlobalTierFeatureOverrides()
   ]);
 
@@ -228,6 +232,10 @@ export async function setGlobalTierFeatureOverride(input: {
   password: string;
   reason?: string;
 }) {
+  if (!isOperationalMembershipTier(input.tier)) {
+    return { ok: false as const, error: "That membership tier is currently disabled." };
+  }
+
   if (!isMembershipFeatureKey(input.featureKey)) {
     return { ok: false as const, error: "Unknown feature key." };
   }

@@ -1,4 +1,3 @@
-import { getTierPolicy } from "@/modules/membership-policy/policy";
 import { BillingPortalButton } from "@/components/settings-secure-areas/billing-portal-button";
 import type { EffectivePolicy } from "@/modules/membership-policy/membership-policy.service";
 import type { SubscriptionBillingSummary } from "@/modules/membership-policy/subscriptions.service";
@@ -33,8 +32,6 @@ export function SubscriptionSettingsDetail({
   policy: EffectivePolicy;
   portalStatus?: string;
 }) {
-  const currentPolicy = getTierPolicy(policy.actualTier);
-
   return (
     <div className="grid gap-5">
       {checkoutStatus === "success" ? (
@@ -57,7 +54,7 @@ export function SubscriptionSettingsDetail({
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-md border border-[var(--line)] p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Your plan</p>
-            <p className="mt-2 text-xl font-semibold">{currentPolicy.displayName}</p>
+            <p className="mt-2 text-xl font-semibold">{policy.displayName}</p>
           </div>
           <div className="rounded-md border border-[var(--line)] p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Access available now</p>

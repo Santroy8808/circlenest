@@ -4,7 +4,7 @@ import { MembershipTier, PromotionAccessScope } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
-type LaunchTargetTier = "CONTRIBUTOR" | "PROFESSIONAL";
+type LaunchTargetTier = "CONTRIBUTOR";
 type LaunchAccessMode = "promo" | "invite" | "founder-pricing" | "ad-guardrails" | "review";
 
 type FreeInviteView = {
@@ -67,7 +67,7 @@ const hubCards: Array<{
     href: "/admin/actions/launch-access?tool=promo",
     title: "Create Promotional Access",
     kicker: "Temporary tier access",
-    description: "Grant Free accounts temporary Contributor or Professional access without changing their paid membership tier."
+    description: "Grant Free accounts temporary Contributor access without changing their permanent membership tier."
   },
   {
     href: "/admin/actions/launch-access?tool=invite",
@@ -149,9 +149,9 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
 
   function applyPreset(tier: LaunchTargetTier) {
     setTargetTier(tier);
-    setDurationValue(tier === "CONTRIBUTOR" ? 6 : 2);
+    setDurationValue(6);
     setDurationUnit("months");
-    setLabel(tier === "CONTRIBUTOR" ? "Free to Contributor launch access" : "Free to Professional launch access");
+    setLabel("Free to Contributor launch access");
   }
 
   function refreshView() {
@@ -305,7 +305,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
   if (activeMode === "promo") {
     return (
       <div className="grid gap-5">
-        <ToolHeader description="Grant temporary Contributor or Professional access. This does not create an account invite code." title="Create Promotional Access" />
+        <ToolHeader description="Grant temporary Contributor access. This does not create an account invite code." title="Create Promotional Access" />
         <section className="surface rounded-md p-5">
           <div className="grid gap-5">
             <div>
@@ -313,9 +313,6 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
               <div className="mt-3 flex flex-wrap gap-3">
                 <button className="btn-secondary" onClick={() => applyPreset("CONTRIBUTOR")} type="button">
                   Preset: 6-month Contributor
-                </button>
-                <button className="btn-secondary" onClick={() => applyPreset("PROFESSIONAL")} type="button">
-                  Preset: 2-month Professional
                 </button>
               </div>
             </div>
@@ -339,7 +336,6 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                   <span className="text-sm text-[var(--muted)]">Category</span>
                   <select className="form-field" onChange={(event) => setTargetTier(event.target.value as LaunchTargetTier)} value={targetTier}>
                     <option value="CONTRIBUTOR">Contributor access</option>
-                    <option value="PROFESSIONAL">Professional access</option>
                   </select>
                 </label>
                 <label className="grid gap-2">

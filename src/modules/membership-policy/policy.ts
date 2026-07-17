@@ -43,6 +43,7 @@ export type TierPolicy = {
   tier: MembershipTier;
   displayName: string;
   summary: string;
+  operational: boolean;
   publiclyListed?: boolean;
   features: Record<MembershipFeatureKey, boolean>;
   limits: TierLimits;
@@ -84,6 +85,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     tier: MembershipTier.FREE,
     displayName: "Free",
     summary: "Core Theta-Space access: stream posting, groups, messages, personal Market and job listings, and gallery.",
+    operational: true,
     features: withFeatures({
       "groups.create": true,
       "groups.assignModerators": true,
@@ -104,6 +106,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     tier: MembershipTier.CONTRIBUTOR,
     displayName: "Contributor",
     summary: "Community contributor access with expanded storage, capped marketplace tools, and Writers Corner.",
+    operational: true,
     features: withFeatures({
       "feed.changeType": true,
       "groups.create": true,
@@ -132,6 +135,8 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     tier: MembershipTier.PROFESSIONAL,
     displayName: "Professional",
     summary: "Business-grade tools with unlimited marketplace/job creation and storefront support.",
+    operational: false,
+    publiclyListed: false,
     features: withFeatures({
       "feed.changeType": true,
       "groups.create": true,
@@ -159,6 +164,8 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     tier: MembershipTier.AUDITOR,
     displayName: "Auditor",
     summary: "Auditor service access with storefront, creator, job, Market promotion, and general advertising tools.",
+    operational: false,
+    publiclyListed: false,
     features: withFeatures({
       "feed.changeType": true,
       "groups.create": true,
@@ -186,6 +193,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     tier: MembershipTier.ORG,
     displayName: "Org",
     summary: "Admin-assigned org account for org profiles, events, fundraisers, and parishioner communications.",
+    operational: false,
     publiclyListed: false,
     features: withFeatures({
       "feed.changeType": true,
@@ -212,6 +220,14 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
 
 export function getTierPolicy(tier: MembershipTier) {
   return tierPolicies[tier];
+}
+
+export function isOperationalMembershipTier(tier: MembershipTier) {
+  return tierPolicies[tier].operational;
+}
+
+export function normalizeOperationalMembershipTier(tier?: MembershipTier | null) {
+  return tier && isOperationalMembershipTier(tier) ? tier : MembershipTier.FREE;
 }
 
 export function isMembershipFeatureKey(value: string): value is MembershipFeatureKey {
