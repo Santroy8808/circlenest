@@ -4,7 +4,6 @@ import { EventsDirectoryClient } from "@/components/events/events-directory-clie
 import { AppShell } from "@/components/platform/app-shell";
 import { isAdminRole } from "@/lib/platform/roles";
 import { safeListEvents } from "@/modules/events/events.service";
-import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
 export default async function EventsPage() {
   const session = await auth();
@@ -13,8 +12,7 @@ export default async function EventsPage() {
     redirect("/login?callbackUrl=/events");
   }
 
-  const policy = await getEffectivePolicyForUser(session.user.id);
-  if (!isAdminRole(session.user.role) && (!policy || !policy.features["events.create"])) notFound();
+  if (!isAdminRole(session.user.role)) notFound();
 
   const result = await safeListEvents(session.user.id);
 

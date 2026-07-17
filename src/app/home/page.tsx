@@ -1,4 +1,4 @@
-import { AdPlacement } from "@prisma/client";
+import { AdPlacement, MembershipTier } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { HomeStreamWorkspace } from "@/components/home/home-stream-workspace";
@@ -10,6 +10,7 @@ import { timeServerStep } from "@/lib/platform/server-timing";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
 import { safeListChatThreads } from "@/modules/chat-messages/chat-messages.service";
 import { listFeedPostsPage } from "@/modules/feed-stream/feed-stream.service";
+import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
 async function safeHomeFeedPage(viewerUserId: string) {
   try {
@@ -26,7 +27,7 @@ export default async function AppHomePage() {
     redirect("/login?callbackUrl=/home");
   }
   const activeActor = await timeServerStep("home.actor", getActiveAccountActor(session.user.id));
-  const [feedPage, profile, actorUser, latestAlert, chatThreads] = await Promise.all([
+  const [feedPage, profile, actorUser, latestAlert, chatThreads, policy] = await Promise.all([
     timeServerStep("home.feed-posts", safeHomeFeedPage(activeActor.actorUserId)),
     timeServerStep("home.profile", prisma.profile.findUnique({
       where: { userId: activeActor.actorUserId },
@@ -56,7 +57,8 @@ export default async function AppHomePage() {
         href: true
       }
     })),
-    timeServerStep("home.chat-threads", safeListChatThreads(activeActor.actorUserId))
+    timeServerStep("home.chat-threads", safeListChatThreads(activeActor.actorUserId)),
+    timeServerStep("home.membership-policy", getEffectivePolicyForUser(session.user.id))
   ]);
 
   const posts = [...feedPage.pinnedItems, ...feedPage.items];
@@ -67,11 +69,13 @@ export default async function AppHomePage() {
     limit: 1
   }), { placement: "RESERVED_STREAM" });
   const displayName = profile?.displayName ?? (activeActor.actorUserId === session.user.id ? session.user.name : null) ?? actorUser?.username ?? session.user.username;
+  const isAdmin = isAdminRole(session.user.role);
 
   return (
     <AppShell>
       <HomeStreamWorkspace
         bannerUrl={profile?.bannerUrl}
+        canRequestSupport={isAdmin || Boolean(policy?.features["support.createRequest"])}
         currentAuthor={{
           id: activeActor.actorUserId,
           avatarUrl: profile?.avatarUrl,
@@ -83,8 +87,9 @@ export default async function AppHomePage() {
         initialFeedNextCursor={feedPage.nextCursor}
         initialReservedStreamAds={reservedStreamAds}
         initialPosts={posts}
-        isAdmin={isAdminRole(session.user.role)}
+        isAdmin={isAdmin}
         latestAlert={latestAlert}
+        showStreamFilters={isAdmin || Boolean(policy && policy.actualTier !== MembershipTier.FREE)}
       />
     </AppShell>
   );

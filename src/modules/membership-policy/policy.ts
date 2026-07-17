@@ -20,6 +20,7 @@ export const membershipFeatureKeys = [
   "fundraisers.create",
   "invites.send",
   "invites.bulkSend",
+  "support.createRequest",
   "mail.massSend",
   "mail.orgMassSend",
   "org.profile",
@@ -34,6 +35,7 @@ export type TierLimits = {
   marketListingsPer14Days: number | null;
   marketListingPhotoCap: number | null;
   fundraiserPerMonth: number | null;
+  marketActiveListingCap: number | null;
   storageLimitBytes: number;
 };
 
@@ -65,6 +67,7 @@ const baseFeatures: Record<MembershipFeatureKey, boolean> = {
   "fundraisers.create": false,
   "invites.send": false,
   "invites.bulkSend": false,
+  "support.createRequest": false,
   "mail.massSend": false,
   "mail.orgMassSend": false,
   "org.profile": false,
@@ -83,15 +86,17 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
     summary: "Core Theta-Space access: stream posting, groups, messages, personal Market and job listings, and gallery.",
     features: withFeatures({
       "groups.create": true,
+      "groups.assignModerators": true,
       "market.createListing": true,
       "jobs.createListing": true,
       "moderation.siteEligible": true
     }),
     limits: {
       groupMemberCap: null,
-      marketListingsPer14Days: 3,
+      marketListingsPer14Days: null,
       marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
+      marketActiveListingCap: 1,
       storageLimitBytes: 200 * 1024 * 1024
     }
   },
@@ -111,7 +116,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "jobs.createListing": false,
       "auditors.createProfile": false,
       "writers.access": true,
-      "invites.send": true,
+      "support.createRequest": true,
       "moderation.siteEligible": true
     }),
     limits: {
@@ -119,6 +124,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       marketListingsPer14Days: 6,
       marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
+      marketActiveListingCap: null,
       storageLimitBytes: 2 * 1024 * 1024 * 1024
     }
   },
@@ -131,16 +137,13 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "groups.create": true,
       "groups.assignModerators": true,
       "groups.unlimitedSize": true,
-      "events.create": true,
       "market.createListing": true,
       "market.createAd": true,
       "market.storefront": true,
       "jobs.createListing": true,
       "ads.createGeneral": true,
       "writers.access": true,
-      "fundraisers.create": true,
-      "invites.send": true,
-      "mail.massSend": true,
+      "support.createRequest": true,
       "moderation.siteEligible": true
     }),
     limits: {
@@ -148,23 +151,26 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       marketListingsPer14Days: null,
       marketListingPhotoCap: null,
       fundraiserPerMonth: null,
+      marketActiveListingCap: null,
       storageLimitBytes: 10 * 1024 * 1024 * 1024
     }
   },
   [MembershipTier.AUDITOR]: {
     tier: MembershipTier.AUDITOR,
     displayName: "Auditor",
-    summary: "Auditor directory access with auditor profile tools and selected promotion features.",
+    summary: "Auditor service access with storefront, creator, job, Market promotion, and general advertising tools.",
     features: withFeatures({
       "feed.changeType": true,
       "groups.create": true,
       "groups.assignModerators": true,
       "groups.unlimitedSize": true,
       "market.createListing": true,
+      "market.createAd": true,
       "market.storefront": true,
-      "auditors.createProfile": true,
+      "jobs.createListing": true,
       "ads.createGeneral": true,
-      "invites.send": true,
+      "writers.access": true,
+      "support.createRequest": true,
       "moderation.siteEligible": true
     }),
     limits: {
@@ -172,6 +178,7 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       marketListingsPer14Days: 6,
       marketListingPhotoCap: 3,
       fundraiserPerMonth: 0,
+      marketActiveListingCap: null,
       storageLimitBytes: 5 * 1024 * 1024 * 1024
     }
   },
@@ -189,13 +196,15 @@ export const tierPolicies: Record<MembershipTier, TierPolicy> = {
       "writers.access": true,
       "fundraisers.create": true,
       "mail.orgMassSend": true,
-      "org.profile": true
+      "org.profile": true,
+      "support.createRequest": true
     }),
     limits: {
       groupMemberCap: null,
       marketListingsPer14Days: 0,
       marketListingPhotoCap: 0,
       fundraiserPerMonth: null,
+      marketActiveListingCap: null,
       storageLimitBytes: 5 * 1024 * 1024 * 1024
     }
   }
@@ -211,5 +220,10 @@ export function isMembershipFeatureKey(value: string): value is MembershipFeatur
 
 export function canRoleBypassFeature(role: UserRole, featureKey: MembershipFeatureKey) {
   if (!isAdminRole(role)) return false;
-  return featureKey === "admin.portal";
+  return (
+    featureKey === "admin.portal" ||
+    featureKey === "invites.send" ||
+    featureKey === "invites.bulkSend" ||
+    featureKey === "support.createRequest"
+  );
 }

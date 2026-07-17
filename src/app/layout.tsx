@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
-import { GlobalFeedbackLink } from "@/components/feedback/global-feedback-link";
+import { GlobalFeedbackLinkGate } from "@/components/feedback/global-feedback-link-gate";
 import { BackgroundGalleryUploadProvider } from "@/components/gallery/background-gallery-upload-provider";
 import { GlobalTooltipProvider } from "@/components/platform/global-tooltip-provider";
 import "./globals.css";
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <BackgroundGalleryUploadProvider>
           {children}
           <Suspense fallback={null}>
-            <GlobalFeedbackLink />
+            <GlobalFeedbackLinkGate />
           </Suspense>
           <GlobalTooltipProvider />
         </BackgroundGalleryUploadProvider>

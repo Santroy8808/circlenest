@@ -173,7 +173,7 @@ function getNavSections(input: {
   const marketItems = exploreSection.items.filter((item) => {
     if (item.href === "/market") return input.platformFeatures["marketplace.member_market"] !== false;
     if (item.href === "/auditors") return input.platformFeatures["directory.auditor_directory"] !== false;
-    if (item.href === "/events") return input.isAdmin || features["events.create"] === true;
+    if (item.href === "/events") return input.isAdmin;
     if (item.href === "/jobs") return input.isAdmin || features["jobs.browse"] === true;
     return true;
   });
@@ -184,12 +184,16 @@ function getNavSections(input: {
     }
     if (item.href === "/ads") return features["ads.createGeneral"] || features["ads.createFundraiser"];
     if (item.href === "/writers-corner") return input.platformFeatures["publishing.writers_corner"] !== false && features["writers.access"];
-    if (item.href === "/fundraisers") return features["fundraisers.create"];
+    if (item.href === "/fundraisers") return input.isAdmin;
     return false;
   });
   const visibleSettingsSection = {
     ...settingsSection,
-    items: settingsSection.items.filter((item) => item.href !== "/settings/feedback" || input.platformFeatures["support.feedback_center"] !== false)
+    items: settingsSection.items.filter(
+      (item) =>
+        item.href !== "/settings/feedback" ||
+        (input.platformFeatures["support.feedback_center"] !== false && (input.isAdmin || features["support.createRequest"] === true))
+    )
   };
   const memberSections = [visibleHomeSection, visibleCommunicationsSection, peopleSection];
   if (input.platformFeatures["community.groups"] !== false) memberSections.push(groupsSection);

@@ -1012,6 +1012,7 @@ function shouldIgnoreCardClick(target: EventTarget | null) {
 }
 
 export function FeedClient({
+  canRequestSupport = false,
   currentAuthor,
   defaultExpanded = false,
   initialHasMore,
@@ -1023,8 +1024,10 @@ export function FeedClient({
   postTargetProfileUserId,
   refreshPath = "/api/feed/posts",
   showComposerTrigger = true,
+  showModeFilters = true,
   showThreadLinks = true
 }: {
+  canRequestSupport?: boolean;
   currentAuthor?: FeedCurrentAuthor;
   defaultExpanded?: boolean;
   initialHasMore?: boolean;
@@ -1036,6 +1039,7 @@ export function FeedClient({
   postTargetProfileUserId?: string;
   refreshPath?: string;
   showComposerTrigger?: boolean;
+  showModeFilters?: boolean;
   showThreadLinks?: boolean;
 }) {
   const router = useRouter();
@@ -1560,21 +1564,23 @@ export function FeedClient({
           <strong>Stream</strong>
           <span>Post, react, reply, and return without losing your place.</span>
         </div>
-        <div className="feed-mode-tabs" role="tablist" aria-label="Stream filters">
-          {feedModes.map((mode) => (
-            <button
-              aria-selected={feedMode === mode.key}
-              className={feedMode === mode.key ? "feed-mode-tab is-active" : "feed-mode-tab"}
-              key={mode.key}
-              onClick={() => setFeedMode(mode.key)}
-              role="tab"
-              title={mode.helper}
-              type="button"
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
+        {showModeFilters ? (
+          <div className="feed-mode-tabs" role="tablist" aria-label="Stream filters">
+            {feedModes.map((mode) => (
+              <button
+                aria-selected={feedMode === mode.key}
+                className={feedMode === mode.key ? "feed-mode-tab is-active" : "feed-mode-tab"}
+                key={mode.key}
+                onClick={() => setFeedMode(mode.key)}
+                role="tab"
+                title={mode.helper}
+                type="button"
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
       {trustMessage ? (
         <p className="feed-trust-message" role="status">
@@ -1744,7 +1750,9 @@ export function FeedClient({
                     <summary aria-label="Post options">•••</summary>
                     <div className="feed-trust-popover">
                       {showThreadLinks ? <a href={`/posts/${post.id}`}>Open discussion</a> : null}
-                      <a href={`/feedback/new?from=${encodeURIComponent(`/posts/${post.id}`)}&title=${encodeURIComponent("Report stream post")}`}>Report post</a>
+                      {canRequestSupport ? (
+                        <a href={`/feedback/new?from=${encodeURIComponent(`/posts/${post.id}`)}&title=${encodeURIComponent("Report stream post")}`}>Report post</a>
+                      ) : null}
                       <button onClick={() => hidePost(post.id)} type="button">
                         Hide this post
                       </button>

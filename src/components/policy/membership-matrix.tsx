@@ -18,6 +18,7 @@ const availableFeatureRows = [
   { key: "writers.access", label: "Writers Corner" },
   { key: "fundraisers.create", label: "Create fundraisers" },
   { key: "invites.send", label: "Create membership invites" },
+  { key: "support.createRequest", label: "Create support requests" },
   { key: "mail.massSend", label: "Send internal mass mail" },
   { key: "mail.orgMassSend", label: "Send Org mass mail" },
   { key: "org.profile", label: "Org profile" }
@@ -30,6 +31,13 @@ function limitLabel(value: number | null, suffix: string) {
 function storageLabel(bytes: number) {
   if (bytes >= 1024 * 1024 * 1024) return `${bytes / (1024 * 1024 * 1024)} GB`;
   return `${bytes / (1024 * 1024)} MB`;
+}
+
+function marketLimitLabel(policy: TierPolicy) {
+  if (policy.limits.marketActiveListingCap !== null) {
+    return `${policy.limits.marketActiveListingCap} active at a time`;
+  }
+  return limitLabel(policy.limits.marketListingsPer14Days, " / 14 days");
 }
 
 export function MembershipMatrix({ policies }: { policies: TierPolicy[] }) {
@@ -45,7 +53,7 @@ export function MembershipMatrix({ policies }: { policies: TierPolicy[] }) {
         <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--muted)]">{policy.summary}</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border border-[var(--line)] p-3">Group cap: {policy.limits.groupMemberCap ?? "Unlimited"}</div>
-          <div className="rounded-md border border-[var(--line)] p-3">Market listings: {limitLabel(policy.limits.marketListingsPer14Days, " / 14 days")}</div>
+          <div className="rounded-md border border-[var(--line)] p-3">Market listings: {marketLimitLabel(policy)}</div>
           <div className="rounded-md border border-[var(--line)] p-3">Photos per listing: {policy.limits.marketListingPhotoCap ?? "Unlimited"}</div>
           <div className="rounded-md border border-[var(--line)] p-3">Storage: {storageLabel(policy.limits.storageLimitBytes)}</div>
         </div>

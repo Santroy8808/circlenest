@@ -132,6 +132,7 @@ export async function getMarketCreateState(userId: string) {
       viewerCanCreate: true,
       listingsRemaining: null,
       listingLimit: null,
+      listingLimitKind: null,
       photoCap: PROFESSIONAL_MARKET_PHOTO_CAP,
       storefrontEligible: true
     };
@@ -143,19 +144,43 @@ export async function getMarketCreateState(userId: string) {
       reason: featureAccess.reason,
       listingsRemaining: 0,
       listingLimit: 0,
+      listingLimitKind: null,
       photoCap: 0,
       storefrontEligible: false
     };
   }
 
+  const activeListingCap = policy.limits.marketActiveListingCap;
   const listingLimit = policy.limits.marketListingsPer14Days;
   const photoCap = policy.limits.marketListingPhotoCap ?? PROFESSIONAL_MARKET_PHOTO_CAP;
+
+  if (activeListingCap !== null) {
+    const activeListings = await prisma.marketListing.count({
+      where: {
+        sellerUserId: userId,
+        status: MarketListingStatus.ACTIVE,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+      }
+    });
+    const remaining = Math.max(0, activeListingCap - activeListings);
+
+    return {
+      viewerCanCreate: remaining > 0,
+      reason: remaining > 0 ? undefined : `You can have ${activeListingCap} active Market listing at a time.`,
+      listingsRemaining: remaining,
+      listingLimit: activeListingCap,
+      listingLimitKind: "active" as const,
+      photoCap,
+      storefrontEligible: storefrontAccess.allowed
+    };
+  }
 
   if (listingLimit === null) {
     return {
       viewerCanCreate: true,
       listingsRemaining: null,
       listingLimit: null,
+      listingLimitKind: null,
       photoCap,
       storefrontEligible: storefrontAccess.allowed
     };
@@ -179,6 +204,7 @@ export async function getMarketCreateState(userId: string) {
     reason: remaining > 0 ? undefined : `You have used all ${listingLimit} Market listings for this 14-day period.`,
     listingsRemaining: remaining,
     listingLimit,
+    listingLimitKind: "rolling14" as const,
     photoCap,
     storefrontEligible: storefrontAccess.allowed
   };
@@ -454,7 +480,9 @@ export async function createMarketListing(userId: string, input: unknown) {
   }
 
   const policy = await getEffectivePolicyForUser(userId);
-  const cappedListingWindow = policy?.limits.marketListingsPer14Days !== null;
+  const cappedListingWindow = policy
+    ? policy.limits.marketListingsPer14Days !== null || policy.limits.marketActiveListingCap !== null
+    : false;
   const listing = await prisma.marketListing.create({
     data: {
       slug: await uniqueMarketSlug(parsed.data.title),

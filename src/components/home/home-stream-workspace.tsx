@@ -25,6 +25,7 @@ type LatestAlert = {
 
 type HomeStreamWorkspaceProps = {
   bannerUrl?: string | null;
+  canRequestSupport?: boolean;
   currentAuthor: CurrentAuthor;
   initialChatThreads: ChatThreadView[];
   initialFeedHasMore: boolean;
@@ -33,6 +34,7 @@ type HomeStreamWorkspaceProps = {
   initialReservedStreamAds: AdPlacementCardView[];
   isAdmin?: boolean;
   latestAlert?: LatestAlert | null;
+  showStreamFilters?: boolean;
 };
 
 function initials(value: string) {
@@ -366,6 +368,7 @@ function HomeCommDock({
 
 export function HomeStreamWorkspace({
   bannerUrl,
+  canRequestSupport = false,
   currentAuthor,
   initialChatThreads,
   initialFeedHasMore,
@@ -373,7 +376,8 @@ export function HomeStreamWorkspace({
   initialPosts,
   initialReservedStreamAds,
   isAdmin = false,
-  latestAlert
+  latestAlert,
+  showStreamFilters = true
 }: HomeStreamWorkspaceProps) {
   const [commOpen, setCommOpen] = useState(false);
   const [bannerFailed, setBannerFailed] = useState(false);
@@ -459,6 +463,7 @@ export function HomeStreamWorkspace({
         </div>
         <section className="mt-5">
           <FeedClient
+            canRequestSupport={canRequestSupport}
             currentAuthor={currentAuthor}
             initialHasMore={initialFeedHasMore}
             initialNextCursor={initialFeedNextCursor}
@@ -466,6 +471,7 @@ export function HomeStreamWorkspace({
             initialPosts={initialPosts}
             isAdmin={isAdmin}
             showComposerTrigger={false}
+            showModeFilters={showStreamFilters}
           />
         </section>
       </div>

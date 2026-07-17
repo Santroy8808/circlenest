@@ -95,6 +95,7 @@ export type MarketCreateState = {
   reason?: string;
   listingsRemaining: number | null;
   listingLimit: number | null;
+  listingLimitKind: "active" | "rolling14" | null;
   photoCap: number;
   storefrontEligible: boolean;
 };

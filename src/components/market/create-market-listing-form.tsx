@@ -201,7 +201,9 @@ export function CreateMarketListingForm({
         </p>
         {createState.listingLimit !== null ? (
           <p className="mt-3 text-sm text-[var(--gold)]">
-            {createState.listingsRemaining} of {createState.listingLimit} listings left this 14-day period.
+            {createState.listingLimitKind === "active"
+              ? `${createState.listingsRemaining} of ${createState.listingLimit} active listing slots available.`
+              : `${createState.listingsRemaining} of ${createState.listingLimit} listings left this 14-day period.`}
           </p>
         ) : null}
       </div>

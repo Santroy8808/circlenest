@@ -35,6 +35,7 @@ const featureRows = [
   { key: "writers.access", label: "Writers Corner" },
   { key: "fundraisers.create", label: "Create fundraisers" },
   { key: "invites.send", label: "Send invites" },
+  { key: "support.createRequest", label: "Create support requests" },
   { key: "mail.massSend", label: "Mass mail" },
   { key: "mail.orgMassSend", label: "Org mass mail" },
   { key: "org.profile", label: "Org profile" },
@@ -187,7 +188,13 @@ export function AdminTierPolicyEditor({ initialView }: { initialView: TierPolicy
         </div>
         {[
           { label: "Group member cap", value: (policy: TierPolicy) => limitLabel(policy.limits.groupMemberCap) },
-          { label: "Market listings", value: (policy: TierPolicy) => limitLabel(policy.limits.marketListingsPer14Days, " / 14d") },
+          {
+            label: "Market listings",
+            value: (policy: TierPolicy) =>
+              policy.limits.marketActiveListingCap !== null
+                ? `${policy.limits.marketActiveListingCap} active`
+                : limitLabel(policy.limits.marketListingsPer14Days, " / 14d")
+          },
           { label: "Market photos", value: (policy: TierPolicy) => limitLabel(policy.limits.marketListingPhotoCap) },
           { label: "Fundraisers", value: (policy: TierPolicy) => limitLabel(policy.limits.fundraiserPerMonth, " / month") },
           { label: "Storage", value: (policy: TierPolicy) => storageLabel(policy.limits.storageLimitBytes) }

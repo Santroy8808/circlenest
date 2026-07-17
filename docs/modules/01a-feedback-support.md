@@ -6,9 +6,9 @@ Provide a global issue-reporting path and a Settings-based Feedback Center for s
 
 ## User-Facing Surfaces
 
-- Floating `Report issue` control.
-- Ticket creation page at `/feedback/new`.
-- Feedback Center at `/settings/feedback` for authenticated members.
+- Floating `Report issue` control for eligible paid memberships and admins.
+- Protected ticket creation page at `/feedback/new`; Free and signed-out users cannot submit support requests.
+- Feedback Center at `/settings/feedback` for eligible paid memberships and admins.
 - Each ticket is categorized as `Support request`, `Report a problem`, or `Feature request`.
 
 ## Primary Code Areas
@@ -28,12 +28,11 @@ Provide a global issue-reporting path and a Settings-based Feedback Center for s
 - User clicks `Report issue` from any route.
 - The page captures current route, user agent, viewport, severity, title, and description.
 - The selected request kind is stored on the ticket so administrators can triage support, problems, and feature suggestions separately.
-- Logged-in reports attach to the current user.
-- Logged-out reports may include an optional contact email.
+- Reports attach to the eligible authenticated user.
 
 ## Access Rules
 
-Ticket creation is available to authenticated and unauthenticated users. Ticket review and status changes will belong to the admin/moderation module.
+Ticket creation requires `support.createRequest`, which is available to eligible paid memberships and admins. Free and signed-out users cannot open support tickets. Ticket review and status changes belong to the admin/moderation module.
 
 ## Integrations
 
@@ -45,8 +44,9 @@ The global entry point should stay small and visible without blocking normal app
 
 ## Smoke Checklist
 
-- Floating report button appears on auth and app pages.
-- Feedback Center appears in Settings and the Settings control-panel menu.
+- Floating report button appears only for accounts with `support.createRequest` access.
+- Feedback Center appears in Settings and the Settings control-panel menu only for eligible accounts.
 - The request-kind selector changes the guidance and accepts support and feature submissions.
+- Free accounts do not see the report control, and direct page/API attempts are rejected.
 - Creating a ticket writes a `FeedbackTicket` and initial `FeedbackTicketEvent`.
 - The ticket records the page where the issue was reported.

@@ -8,6 +8,8 @@ import { getPublicProfileByUsername } from "@/modules/profile-identity/profile-i
 import { safeListProfileFeedPosts } from "@/modules/feed-stream/feed-stream.service";
 import { FeedClient } from "@/components/feed/feed-client";
 import { redirect } from "next/navigation";
+import { isAdminRole } from "@/lib/platform/roles";
+import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const session = await auth();
@@ -19,7 +21,10 @@ export default async function PublicProfilePage({ params }: { params: { username
   const profile = await getPublicProfileByUsername(params.username, session.user.id);
   const isOwner = Boolean(session?.user?.username && session.user.username === params.username.toLowerCase());
   const activeActor = await getActiveAccountActor(session.user.id);
-  const profilePosts = profile ? await safeListProfileFeedPosts(profile.id, 20) : [];
+  const [profilePosts, policy] = await Promise.all([
+    profile ? safeListProfileFeedPosts(profile.id, 20) : Promise.resolve([]),
+    getEffectivePolicyForUser(session.user.id)
+  ]);
   const actorUser = profile
     ? await prisma.user.findUnique({
         where: { id: activeActor.actorUserId },
@@ -41,6 +46,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <ProfileCard profile={profile} ownerControls={isOwner} />
           <section className="mt-5">
             <FeedClient
+              canRequestSupport={isAdminRole(session.user.role) || Boolean(policy?.features["support.createRequest"])}
               currentAuthor={{
                 id: activeActor.actorUserId,
                 avatarUrl: actorUser?.profile?.avatarUrl,

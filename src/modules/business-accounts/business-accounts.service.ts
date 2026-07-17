@@ -76,7 +76,7 @@ function actorView(input: {
 }
 
 export async function listAccountActors(privateUserId: string): Promise<AccountActorView[]> {
-  const [user, businessAccess] = await Promise.all([
+  const [user, auditorAccess, businessAccess] = await Promise.all([
     prisma.user.findUnique({
       where: { id: privateUserId },
       include: {
@@ -116,6 +116,7 @@ export async function listAccountActors(privateUserId: string): Promise<AccountA
       }
       }
     }),
+    canUserAccessFeature(privateUserId, "auditors.createProfile"),
     canUserAccessFeature(privateUserId, "market.storefront")
   ]);
 
@@ -123,7 +124,9 @@ export async function listAccountActors(privateUserId: string): Promise<AccountA
 
   return [
     actorView({ user, kind: "PERSONAL" }),
-    ...user.privateAuditorAccounts.map((account) => actorView({ user: account.auditorUser, kind: "AUDITOR" })),
+    ...(auditorAccess.allowed
+      ? user.privateAuditorAccounts.map((account) => actorView({ user: account.auditorUser, kind: "AUDITOR" }))
+      : []),
     ...(businessAccess.allowed
       ? user.privateBusinessAccounts.map((account) => actorView({ user: account.businessUser, kind: "BUSINESS" }))
       : [])
@@ -135,19 +138,22 @@ export async function resolveAccountActorUserId(privateUserId: string, requested
     return { ok: true as const, actorUserId: privateUserId, kind: "PERSONAL" as const };
   }
 
-  const auditorAccount = await prisma.auditorAccount.findFirst({
-    where: {
-      privateUserId,
-      auditorUserId: requestedActorUserId,
-      active: true
-    },
-    select: {
-      auditorUserId: true
-    }
-  });
+  const auditorAccess = await canUserAccessFeature(privateUserId, "auditors.createProfile");
+  if (auditorAccess.allowed) {
+    const auditorAccount = await prisma.auditorAccount.findFirst({
+      where: {
+        privateUserId,
+        auditorUserId: requestedActorUserId,
+        active: true
+      },
+      select: {
+        auditorUserId: true
+      }
+    });
 
-  if (auditorAccount) {
-    return { ok: true as const, actorUserId: auditorAccount.auditorUserId, kind: "AUDITOR" as const };
+    if (auditorAccount) {
+      return { ok: true as const, actorUserId: auditorAccount.auditorUserId, kind: "AUDITOR" as const };
+    }
   }
 
   const businessAccess = await canUserAccessFeature(privateUserId, "market.storefront");
