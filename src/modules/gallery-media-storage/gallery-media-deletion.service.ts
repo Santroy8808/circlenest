@@ -376,21 +376,34 @@ export async function queueGalleryMediaDeletionWithinTransaction(
   const mediaAssetIds = normalizedMediaAssetIds(requestedMediaAssetIds);
   if (mediaAssetIds.length === 0) return { kind: "ASSETS_NOT_FOUND" as const };
 
-  if (!await lockOwnerAndAssets(transaction, ownerUserId, mediaAssetIds)) {
-    return { kind: "ASSETS_NOT_FOUND" as const };
-  }
-
   const idempotencyKey = galleryMediaDeletionIdempotencyKey(ownerUserId, mediaAssetIds);
-  const existing = await transaction.destructiveActionRequest.findUnique({
+  const targetHash = galleryMediaDeletionTargetHash(ownerUserId, mediaAssetIds);
+  const findExistingRequest = () => transaction.destructiveActionRequest.findUnique({
     where: { idempotencyKey },
     select: {
       id: true,
+      kind: true,
+      targetType: true,
+      targetId: true,
+      requestedByUserId: true,
       platformJobId: true,
       status: true,
       platformJob: { select: { status: true } }
     }
   });
-  if (existing) {
+  const resolveExistingRequest = async (existing: Awaited<ReturnType<typeof findExistingRequest>>) => {
+    if (!existing) return null;
+    if (
+      existing.kind !== DestructiveActionKind.DELETE_MEDIA ||
+      existing.targetType !== "MediaAssetBatch" ||
+      existing.targetId !== targetHash ||
+      existing.requestedByUserId !== ownerUserId
+    ) {
+      return {
+        kind: "RECOVERY_INVALID" as const,
+        error: "The existing media deletion request does not match the requested photos."
+      };
+    }
     if (
       existing.platformJobId &&
       existing.status !== DestructiveActionStatus.SUCCEEDED &&
@@ -414,7 +427,19 @@ export async function queueGalleryMediaDeletionWithinTransaction(
       status: existing.status,
       mediaAssetIds
     };
+  };
+
+  // A completed request must remain replayable even after its MediaAsset rows are gone.
+  const preflightReplay = await resolveExistingRequest(await findExistingRequest());
+  if (preflightReplay) return preflightReplay;
+
+  if (!await lockOwnerAndAssets(transaction, ownerUserId, mediaAssetIds)) {
+    return { kind: "ASSETS_NOT_FOUND" as const };
   }
+
+  // Recheck after the owner/asset lock so concurrent first-time requests converge safely.
+  const lockedReplay = await resolveExistingRequest(await findExistingRequest());
+  if (lockedReplay) return lockedReplay;
 
   const assets = await loadDeletionAssets(transaction, ownerUserId, mediaAssetIds);
   if (assets.length !== mediaAssetIds.length || assets.some((asset) => asset.status !== MediaAssetStatus.READY)) {
@@ -441,7 +466,6 @@ export async function queueGalleryMediaDeletionWithinTransaction(
 
   const requestId = randomUUID();
   const jobId = randomUUID();
-  const targetHash = galleryMediaDeletionTargetHash(ownerUserId, mediaAssetIds);
   const payload = {
     version: GALLERY_MEDIA_DELETE_PAYLOAD_VERSION,
     destructiveActionRequestId: requestId,

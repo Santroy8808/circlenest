@@ -133,7 +133,7 @@ Passwords and administrator credentials are intentionally excluded from this rec
 | F-004 | Stream media | Create a Stream post with a public picture using the complete R2 flow | Pass - live | Phone-style/public Stream image upload completed through the production upload flow and rendered on Home. |
 | F-005 | Stream interaction | React, comment, reply, quote reply, and share | Partial live pass | Self reply worked. Full Stream reaction/share variants were not conclusively completed; direct-message reaction, reply, and quote reply were proven separately in `F-010`. |
 | F-006 | Profile | View and edit the personal profile; another member can see allowed fields | Fail - live | Onboarding/profile data saved and rendered, but the member's own profile said `Nothing in this stream yet` while that member's new posts were visible on Home. See `LIVE-003`. |
-| F-007 | Gallery | Upload, view, change visibility, comment, and set avatar/banner | Fail - live | Upload and visibility change passed. `Set as avatar` caused a full client-side exception and did not apply the avatar. See `LIVE-001`. |
+| F-007 | Gallery | Upload, view, change visibility, comment, and set avatar/banner | Repair complete; production retest pending | The retained live failure is repaired in code: profile-media responses are bounded and validated, avatar/banner updates require the exact requested asset and target field, and gallery deletion now has a durable queued/retry lifecycle. Focused tests, production build, and local light/dark responsive visual checks pass. A post-deployment avatar/banner retest is still required. See `LIVE-001`. |
 | F-008 | People | Search members, open profiles, and use supported connection/family actions | Not run | |
 | F-009 | Groups | Browse, create/join, post, upload media, and use creator moderation | Pass - live | Free created a group/topic; Contributor joined, reacted, and posted a photo reply; Free creator moderation controls were present and usable. Copy/encoding defects remain (`LIVE-010`). |
 | F-010 | Comm Center | Start/open a thread; send, react, reply, quote reply, and send a picture | Pass - live | Cross-account text and picture sending, reaction, normal reply, and quote/reply all completed and preserved the correct message context. |
@@ -198,6 +198,12 @@ Passwords and administrator credentials are intentionally excluded from this rec
 
 Status note: `TIER-*` and `ADM-*` findings originated in source inspection and are annotated below where production reproduced them. `LIVE-*` findings were observed directly in authenticated production workflows. No application code was changed during this audit.
 
+### Repair progress after the audit
+
+| Finding | Repair state | Verification completed | Remaining release check |
+|---|---|---|---|
+| `LIVE-001` / `F-007` | Repaired in code | Exact profile-media response validation, durable deletion queue/retry coverage, focused regression tests, production build, and gallery visual checks at desktop, `390px`, and `320px` in light and dark themes | Re-run the avatar/banner workflow against production after deployment |
+
 ### Tier, Eligibility, and Member Experience Findings
 
 | ID | Severity | Affected tests | Finding | Likely cause / probable source | Focused repair target |
@@ -239,7 +245,7 @@ Status note: `TIER-*` and `ADM-*` findings originated in source inspection and a
 
 | ID | Severity | Affected tests | Reproduction and actual result | Likely cause / probable source | Focused repair target |
 |---|---|---|---|---|---|
-| LIVE-001 | S1 | F-007 | As Free, upload a personal gallery picture, change visibility to Members/comments, open it, then select `Set as avatar`. The page crashes to the global client-side application-error screen and the avatar is not applied. | Gallery `use as avatar` client mutation/error handling or the server-side photo/asset resolver is returning an unhandled shape/error. | Reproduce with the retained QA asset, capture server/client trace, fix the underlying asset ownership/visibility contract, and add personal/business gallery regression tests. |
+| LIVE-001 | S1 | F-007 | Historical production result: as Free, upload a personal gallery picture, change visibility to Members/comments, open it, then select `Set as avatar`. The page crashed to the global client-side application-error screen and the avatar was not applied. Repair status: fixed in code; production retest pending. | The profile-media client trusted an unbounded response and did not verify that the server applied the exact asset URL to the requested avatar/banner field. The gallery lifecycle also lacked durable deletion state and recovery. | The client/server contract, bounded response handling, exact target verification, durable deletion queue, retry workflow, and regression coverage are complete. Re-run this workflow after deployment before closing the finding. |
 | LIVE-002 | S2 | F-002, F-014 | Free Home renders `Latest`, `Friends`, `Groups`, and `Pics` Stream filters despite the current Free policy removing these controls. | Stream filter rendering uses general membership/authentication rather than the canonical tier capability. | Drive filter rendering and API acceptance from one effective entitlement; test Free absence and Contributor presence. |
 | LIVE-003 | S2 | F-006 | A Free member's new posts appear on Home, while that same member's own profile says `Nothing in this stream yet`. | Profile Stream query likely uses a different identity/audience predicate than Home, or fails to join the newly created personal author identity. | Compare Home/profile query predicates and author identity IDs; add immediate-post profile visibility tests. |
 | LIVE-004 | S1 | F-003, F-004 | Main Stream posts render a `MEMBERS` badge, and Communicate exposes no audience selector even though the declared Stream policy is public. | Composer/default audience and display badge appear to use a members-only visibility constant or legacy policy. | Decide and encode the canonical public audience server-side, migrate/label existing data truthfully, and add end-to-end audience/privacy tests. |

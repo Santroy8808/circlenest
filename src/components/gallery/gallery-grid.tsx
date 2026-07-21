@@ -2,11 +2,15 @@
 
 import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
-import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
+import { promptForDeletePassword } from "@/lib/client/delete-password";
 import type { GalleryAssetView } from "@/modules/gallery-media-storage/types";
+import {
+  requestGalleryAssetDeletion
+} from "./gallery-deletion-request";
+import { galleryDeletionStatusMessage } from "./gallery-deletion-status";
 
 const DEFAULT_TAGS = ["Family", "Friends", "Events"];
 const SYSTEM_GALLERY_TAGS = new Set(["stream images", "stream post images", "stream reply images", "ad", "ad images", "ad creative"]);
@@ -36,7 +40,15 @@ function createdDateKey(asset: GalleryAssetView) {
   return asset.createdAt.slice(0, 10);
 }
 
-export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
+export function GalleryGrid({
+  assets,
+  initialMessage = "",
+  messageRevision = "initial"
+}: {
+  assets: GalleryAssetView[];
+  initialMessage?: string;
+  messageRevision?: string;
+}) {
   const router = useRouter();
   const quickUploadInputRef = useRef<HTMLInputElement>(null);
   const { addFilesAndUpload, isUploading } = useBackgroundGalleryUploads();
@@ -48,16 +60,22 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const [tagChoice, setTagChoice] = useState(DEFAULT_TAGS[0]);
   const [tagTarget, setTagTarget] = useState<"selected" | "visible">("selected");
   const [customTag, setCustomTag] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState("");
+  const [pendingDeletion, setPendingDeletion] = useState<{
+    source: "selection" | "tile";
+    mediaAssetIds: string[];
+  } | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const deletePending = pendingDeletion !== null;
+  const controlsPending = isPending || deletePending;
   const tagName = tagChoice === "Custom" ? customTag.trim() : tagChoice;
   const hasSearch = Boolean(searchQuery.trim() || dateFrom || dateTo);
   const availableTags = useMemo(() => {
     const byName = new Map<string, string>();
 
-    [...DEFAULT_TAGS, ...galleryAssets.flatMap((asset) => asset.tags)].forEach((tag) => {
+    [...DEFAULT_TAGS, ...galleryAssets.filter((asset) => !isSystemGalleryAsset(asset)).flatMap((asset) => asset.tags)].forEach((tag) => {
       const clean = tag.trim();
 
       if (clean && !byName.has(clean.toLowerCase())) {
@@ -70,7 +88,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
   const visibleAssets = useMemo(() => {
     return galleryAssets.filter((asset) => {
       const cleanSearchQuery = searchQuery.trim();
-      if (isSystemGalleryAsset(asset) && !cleanSearchQuery) return false;
+      if (isSystemGalleryAsset(asset)) return false;
 
       const createdDate = createdDateKey(asset);
       const matchesSearch =
@@ -85,9 +103,14 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     });
   }, [dateFrom, dateTo, galleryAssets, searchQuery]);
   const hiddenSystemCount = galleryAssets.filter(isSystemGalleryAsset).length;
+  const manageableAssetCount = galleryAssets.length - hiddenSystemCount;
   const visibleIds = visibleAssets.map((asset) => asset.id);
   const selectedVisibleIds = selectedIds.filter((id) => visibleIds.includes(id));
   const tagTargetIds = tagTarget === "visible" ? visibleIds : selectedVisibleIds;
+
+  useEffect(() => {
+    setMessage(initialMessage);
+  }, [initialMessage, messageRevision]);
 
   function clearSearch() {
     setSearchQuery("");
@@ -141,7 +164,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     });
   }
 
-  function deleteAssets(targetIds: string[]) {
+  async function deleteAssets(targetIds: string[], source: "selection" | "tile") {
     setError("");
     setMessage("");
 
@@ -159,24 +182,27 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
       return;
     }
 
-    startTransition(async () => {
-      const response = await fetch("/api/media/assets/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withDeletePassword({ mediaAssetIds: targetIds }, deletePassword))
+    setPendingDeletion({ source, mediaAssetIds: targetIds });
+    try {
+      const result = await requestGalleryAssetDeletion({
+        mediaAssetIds: targetIds,
+        deletePassword
       });
-      const payload = (await response.json()) as { error?: string; deletedMediaAssetIds?: string[]; deletedCount?: number };
-
-      if (!response.ok || !payload.deletedMediaAssetIds) {
-        setError(payload.error ?? "Could not delete photos.");
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
 
-      setGalleryAssets((current) => current.filter((asset) => !payload.deletedMediaAssetIds?.includes(asset.id)));
-      setSelectedIds((current) => current.filter((id) => !payload.deletedMediaAssetIds?.includes(id)));
-      setMessage(`Deleted ${payload.deletedCount ?? targetIds.length} photo${(payload.deletedCount ?? targetIds.length) === 1 ? "" : "s"}.`);
-      router.refresh();
-    });
+      const hiddenIds = new Set(result.mediaAssetIds);
+      setGalleryAssets((current) => current.filter((asset) => !hiddenIds.has(asset.id)));
+      setSelectedIds((current) => current.filter((id) => !hiddenIds.has(id)));
+      setMessage(galleryDeletionStatusMessage(result.status, result.mediaAssetIds.length));
+      router.replace(`/profile/gallery?deletionRequest=${encodeURIComponent(result.destructiveActionRequestId)}`);
+    } catch {
+      setError("Could not queue photo deletion. Please try again.");
+    } finally {
+      setPendingDeletion(null);
+    }
   }
 
   function queuePrivateUploads(files: FileList | null) {
@@ -203,9 +229,11 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
     />
   );
 
-  if (galleryAssets.length === 0) {
+  if (manageableAssetCount === 0) {
     return (
       <section className="surface rounded-md p-6 text-center">
+        {message ? <p aria-live="polite" className="gallery-feedback gallery-feedback--success mb-5 text-left" role="status">{message}</p> : null}
+        {error ? <p className="gallery-feedback gallery-feedback--error mb-5 text-left" role="alert">{error}</p> : null}
         <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos yet</h2>
         <p className="mt-2 text-[var(--muted)]">Upload your first photo to start building My Pics.</p>
         {quickUploadInput}
@@ -258,7 +286,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
               <button
                 className="btn-secondary"
                 data-tooltip="Select every photo currently shown."
-                disabled={visibleAssets.length === 0 || isPending}
+                disabled={visibleAssets.length === 0 || controlsPending}
                 onClick={() => setSelectedIds(visibleIds)}
                 title="Select all visible photos"
                 type="button"
@@ -268,7 +296,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
               <button
                 className="btn-secondary"
                 data-tooltip="Clear the selected photos."
-                disabled={selectedIds.length === 0 || isPending}
+                disabled={selectedIds.length === 0 || controlsPending}
                 onClick={() => setSelectedIds([])}
                 title="Clear selected photos"
                 type="button"
@@ -276,14 +304,15 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                 Clear
               </button>
               <button
+                aria-busy={pendingDeletion?.source === "selection"}
                 className="btn-secondary"
                 data-tooltip="Delete the selected photos."
-                disabled={selectedVisibleIds.length === 0 || isPending}
-                onClick={() => deleteAssets(selectedVisibleIds)}
+                disabled={selectedVisibleIds.length === 0 || controlsPending}
+                onClick={() => void deleteAssets(selectedVisibleIds, "selection")}
                 title="Delete selected photos"
                 type="button"
               >
-                Delete
+                {pendingDeletion?.source === "selection" ? "Queueing..." : "Delete"}
               </button>
             </div>
 
@@ -344,7 +373,7 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                     <span className="form-label">Custom</span>
                     <input
                       className="form-field"
-                      disabled={tagChoice !== "Custom" || isPending}
+                      disabled={tagChoice !== "Custom" || controlsPending}
                       maxLength={40}
                       onChange={(event) => setCustomTag(event.target.value)}
                       placeholder="Type a tag"
@@ -374,10 +403,10 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                     </button>
                   </div>
                   <div className="gallery-tag-actions">
-                    <button className="btn-primary" data-tooltip="Add this tag to the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "add")} type="button">
+                    <button className="btn-primary" data-tooltip="Add this tag to the chosen photos." disabled={tagTargetIds.length === 0 || controlsPending || !tagName} onClick={() => updateTag(tagTargetIds, "add")} type="button">
                       Apply
                     </button>
-                    <button className="btn-secondary" data-tooltip="Remove this tag from the chosen photos." disabled={tagTargetIds.length === 0 || isPending || !tagName} onClick={() => updateTag(tagTargetIds, "remove")} type="button">
+                    <button className="btn-secondary" data-tooltip="Remove this tag from the chosen photos." disabled={tagTargetIds.length === 0 || controlsPending || !tagName} onClick={() => updateTag(tagTargetIds, "remove")} type="button">
                       Remove
                     </button>
                   </div>
@@ -390,19 +419,23 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--muted)]">
           <span>{selectedVisibleIds.length} selected</span>
           <span>
-            {visibleAssets.length} shown{!searchQuery.trim() && hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
+            {visibleAssets.length} shown{hiddenSystemCount > 0 ? `, ${hiddenSystemCount} stream/ad hidden` : ""}
           </span>
         </div>
-        {message ? <p className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
-        {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
+        {message ? <p aria-live="polite" className="gallery-feedback gallery-feedback--success mt-4" role="status">{message}</p> : null}
+        {error ? <p className="gallery-feedback gallery-feedback--error mt-4" role="alert">{error}</p> : null}
       </div>
 
       {visibleAssets.length === 0 ? (
         <section className="surface rounded-md p-6 text-center">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos match your search</h2>
-          <button className="btn-secondary mt-5" data-tooltip="Clear all gallery search fields." onClick={clearSearch} type="button">
-            Clear
-          </button>
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">
+            {hasSearch ? "No photos match your search" : "No photos yet"}
+          </h2>
+          {hasSearch ? (
+            <button className="btn-secondary mt-5" data-tooltip="Clear all gallery search fields." onClick={clearSearch} type="button">
+              Clear
+            </button>
+          ) : null}
         </section>
       ) : (
         <section className="gallery-grid">
@@ -412,11 +445,18 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
             return (
               <article key={asset.id} className={selected ? "gallery-tile is-selected" : "gallery-tile"}>
                 <label className="gallery-select" data-tooltip="Select this photo.">
-                  <input checked={selected} disabled={isPending} onChange={() => toggleSelected(asset.id)} type="checkbox" />
+                  <input checked={selected} disabled={controlsPending} onChange={() => toggleSelected(asset.id)} type="checkbox" />
                   <span>Select</span>
                 </label>
-                <button className="gallery-delete-button" data-tooltip="Delete this photo." disabled={isPending} onClick={() => deleteAssets([asset.id])} type="button">
-                  Delete
+                <button
+                  aria-busy={pendingDeletion?.source === "tile" && pendingDeletion.mediaAssetIds.includes(asset.id)}
+                  className="gallery-delete-button"
+                  data-tooltip="Delete this photo."
+                  disabled={controlsPending}
+                  onClick={() => void deleteAssets([asset.id], "tile")}
+                  type="button"
+                >
+                  {pendingDeletion?.source === "tile" && pendingDeletion.mediaAssetIds.includes(asset.id) ? "Queueing..." : "Delete"}
                 </button>
                 <Link className="gallery-tile-link" data-tooltip="Open this photo." href={`/profile/gallery/${asset.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -428,8 +468,8 @@ export function GalleryGrid({ assets }: { assets: GalleryAssetView[] }) {
                     src={assetImageUrl(asset)}
                   />
                   <div className="gallery-tile-meta">
-                    <p className="text-xs text-[var(--muted)]">{new Date(asset.createdAt).toLocaleDateString()}</p>
-                    {asset.tags.length > 0 ? <p className="mt-1 truncate text-xs text-[var(--gold)]">{asset.tags.join(", ")}</p> : null}
+                    <p className="gallery-tile-date">{new Date(asset.createdAt).toLocaleDateString()}</p>
+                    {asset.tags.length > 0 ? <p className="gallery-tile-tags">{asset.tags.join(", ")}</p> : null}
                   </div>
                 </Link>
               </article>

@@ -189,7 +189,12 @@ test("manifest inventories main and thumbnail keys in both buckets with VITAL re
 
 function queueTransaction(input?: {
   asset?: typeof baseAsset;
-  existing?: { id: string; platformJobId: string; status: DestructiveActionStatus } | null;
+  existing?: {
+    id: string;
+    platformJobId: string;
+    status: DestructiveActionStatus;
+    platformJob?: { status: PlatformJobStatus } | null;
+  } | null;
   feedPostCount?: number;
   uploadIntentCreatedAt?: Date;
 }) {
@@ -211,7 +216,16 @@ function queueTransaction(input?: {
     destructiveActionRequest: {
       findUnique: async () => {
         events.push("find-request");
-        return input?.existing ?? null;
+        return input?.existing
+          ? {
+              kind: "DELETE_MEDIA",
+              targetType: "MediaAssetBatch",
+              targetId: galleryMediaDeletionTargetHash("owner-1", ["asset-a"]),
+              requestedByUserId: "owner-1",
+              platformJob: null,
+              ...input.existing
+            }
+          : null;
       },
       create: async (value: unknown) => {
         events.push("create-request");
@@ -307,7 +321,7 @@ test("queue transaction locks owner then asset and atomically creates the durabl
   const result = await queueGalleryMediaDeletionWithinTransaction(mock.transaction, "owner-1", ["asset-a"]);
 
   assert.equal(result.kind, "QUEUED");
-  assert.deepEqual(mock.events.slice(0, 3), ["lock-user", "lock-assets", "find-request"]);
+  assert.deepEqual(mock.events.slice(0, 4), ["find-request", "lock-user", "lock-assets", "find-request"]);
   assert.deepEqual(mock.lockValues[1], ["owner-1", "asset-a"]);
   assert.equal(mock.events.indexOf("create-request") < mock.events.indexOf("create-manifest"), true);
   assert.equal(mock.events.indexOf("create-manifest") < mock.events.indexOf("seal-request"), true);
@@ -346,7 +360,22 @@ test("duplicate deletion requests converge on the existing durable request", asy
   const result = await queueGalleryMediaDeletionWithinTransaction(mock.transaction, "owner-1", ["asset-a"]);
 
   assert.equal(result.kind, "ALREADY_REQUESTED");
-  assert.deepEqual(mock.events, ["lock-user", "lock-assets", "find-request"]);
+  assert.deepEqual(mock.events, ["find-request"]);
+});
+
+test("completed deletion replay succeeds after the asset rows have been removed", async () => {
+  const mock = queueTransaction({
+    existing: {
+      id: "request-existing",
+      platformJobId: "job-existing",
+      status: DestructiveActionStatus.SUCCEEDED
+    }
+  });
+  const result = await queueGalleryMediaDeletionWithinTransaction(mock.transaction, "owner-1", ["asset-a"]);
+
+  assert.equal(result.kind, "ALREADY_REQUESTED");
+  assert.equal(result.status, DestructiveActionStatus.SUCCEEDED);
+  assert.deepEqual(mock.events, ["find-request"]);
 });
 
 test("queue rejects external live references before creating a request", async () => {
