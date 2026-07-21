@@ -5,20 +5,21 @@ import { consumeRateLimit, rateLimitHeaders } from "@/lib/platform/rate-limit";
 import { getRequestContext } from "@/lib/platform/request-context";
 import { createFeedbackTicket } from "@/modules/feedback-support/feedback-support.service";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
-import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
+import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 
 export async function POST(request: NextRequest) {
-  if (!(await isFeatureEnabled("support.feedback_center"))) {
-    return NextResponse.json({ error: "Feedback Center is temporarily unavailable." }, { status: 503 });
-  }
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const access = await canUserAccessFeature(session.user.id, "support.createRequest");
-  if (!access.allowed) {
-    return NextResponse.json({ error: "Support requests are not included with this membership." }, { status: 403 });
+  const routeAccess = await resolveMembershipRouteAccess(session.user.id, "supportCreate", "api");
+  if (!routeAccess.allowed) {
+    return NextResponse.json({ error: routeAccess.error }, { status: routeAccess.status });
+  }
+
+  if (!(await isFeatureEnabled("support.feedback_center"))) {
+    return NextResponse.json({ error: "Feedback Center is temporarily unavailable." }, { status: 503 });
   }
 
   const context = getRequestContext(request);

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MembershipTier,
-  MembershipUpgradeOfferStatus
+  MembershipUpgradeOfferStatus,
+  UserRole
 } from "@prisma/client";
 import {
   buildContributorUpgradeOfferView,
@@ -12,8 +13,15 @@ import {
 } from "@/modules/membership-policy/contributor-upgrade";
 import {
   classifyContributorGrantCommand,
+  classifyContributorRevokeCommand,
+  contributorAcceptanceReconciliationOperationId,
   contributorGrantCommandFingerprint,
-  grantContributorBetaOfferSchema
+  contributorRevokeCommandFingerprint,
+  evaluateContributorAdminSnapshots,
+  evaluateContributorRevocationGeneration,
+  grantContributorBetaOfferSchema,
+  idempotentContributorAcceptanceNeedsReconciliation,
+  revokeContributorBetaOfferSchema
 } from "@/modules/membership-policy/contributor-upgrade.service";
 import {
   getOperationalTierContract,
@@ -100,6 +108,90 @@ test("Contributor grant replay fingerprint binds the full command payload", () =
   );
 });
 
+test("idempotent Contributor acceptance skips membership reconciliation when its invariant holds", () => {
+  assert.equal(
+    idempotentContributorAcceptanceNeedsReconciliation({
+      membershipTier: MembershipTier.CONTRIBUTOR,
+      storageLimitBytes: BigInt(2 * 1024 * 1024 * 1024),
+      expectedStorageLimitBytes: BigInt(2 * 1024 * 1024 * 1024),
+      eligibilityActive: false,
+      offeredContributorOfferCount: 0
+    }),
+    false
+  );
+});
+
+test("idempotent Contributor acceptance reconciles every persisted invariant drift", () => {
+  const valid = {
+    membershipTier: MembershipTier.CONTRIBUTOR,
+    storageLimitBytes: BigInt(2 * 1024 * 1024 * 1024),
+    expectedStorageLimitBytes: BigInt(2 * 1024 * 1024 * 1024),
+    eligibilityActive: false,
+    offeredContributorOfferCount: 0
+  };
+
+  assert.equal(
+    idempotentContributorAcceptanceNeedsReconciliation({
+      ...valid,
+      membershipTier: MembershipTier.FREE
+    }),
+    true
+  );
+  assert.equal(
+    idempotentContributorAcceptanceNeedsReconciliation({
+      ...valid,
+      storageLimitBytes: BigInt(200 * 1024 * 1024)
+    }),
+    true
+  );
+  assert.equal(
+    idempotentContributorAcceptanceNeedsReconciliation({
+      ...valid,
+      eligibilityActive: true
+    }),
+    true
+  );
+  assert.equal(
+    idempotentContributorAcceptanceNeedsReconciliation({
+      ...valid,
+      offeredContributorOfferCount: 1
+    }),
+    true
+  );
+});
+
+test("Contributor acceptance reconciliation identity binds the membership row version", () => {
+  const first = contributorAcceptanceReconciliationOperationId({
+    userId: "member-1",
+    offerId: "offer-1",
+    membershipUpdatedAt: new Date("2026-07-21T12:00:00.000Z")
+  });
+  assert.equal(
+    first,
+    contributorAcceptanceReconciliationOperationId({
+      userId: "member-1",
+      offerId: "offer-1",
+      membershipUpdatedAt: new Date("2026-07-21T12:00:00.000Z")
+    })
+  );
+  assert.notEqual(
+    first,
+    contributorAcceptanceReconciliationOperationId({
+      userId: "member-1",
+      offerId: "offer-1",
+      membershipUpdatedAt: new Date("2026-07-21T12:00:01.000Z")
+    })
+  );
+  assert.notEqual(
+    first,
+    contributorAcceptanceReconciliationOperationId({
+      userId: "member-1",
+      offerId: "offer-2",
+      membershipUpdatedAt: new Date("2026-07-21T12:00:00.000Z")
+    })
+  );
+});
+
 test("Contributor grant command ids replay only the identical administrator command", () => {
   const audit = {
     actorUserId: "admin-1",
@@ -140,6 +232,163 @@ test("Contributor grant command ids replay only the identical administrator comm
   assert.deepEqual(
     classifyContributorGrantCommand({ audit, actorUserId: "admin-2", fingerprint: "fingerprint-1" }),
     { state: "conflict" }
+  );
+});
+
+test("Contributor offer revocation requires and fingerprints the full administrator command", () => {
+  assert.equal(
+    revokeContributorBetaOfferSchema.safeParse({ targetUserId: "member-1", offerId: "offer-1" }).success,
+    false
+  );
+  assert.equal(
+    revokeContributorBetaOfferSchema.safeParse({
+      commandId: "revoke-command-1",
+      targetUserId: "member-1",
+      offerId: "offer-1",
+      reason: "Eligibility withdrawn"
+    }).success,
+    true
+  );
+
+  const fingerprint = contributorRevokeCommandFingerprint({
+    targetUserId: "member-1",
+    offerId: "offer-1",
+    reason: "Eligibility withdrawn"
+  });
+  assert.notEqual(
+    fingerprint,
+    contributorRevokeCommandFingerprint({
+      targetUserId: "member-1",
+      offerId: "offer-1",
+      reason: "Different reason"
+    })
+  );
+  assert.notEqual(
+    fingerprint,
+    contributorRevokeCommandFingerprint({
+      targetUserId: "member-1",
+      offerId: "offer-2",
+      reason: "Eligibility withdrawn"
+    })
+  );
+  assert.notEqual(
+    fingerprint,
+    contributorRevokeCommandFingerprint({
+      targetUserId: "member-2",
+      offerId: "offer-1",
+      reason: "Eligibility withdrawn"
+    })
+  );
+});
+
+test("Contributor revoke command ids replay only the identical administrator command", () => {
+  const audit = {
+    actorUserId: "admin-1",
+    action: "contributor.offer.revoked",
+    metadata: {
+      commandFingerprint: "revoke-fingerprint-1",
+      result: {
+        offerId: "offer-1",
+        status: "REVOKED",
+        revokedAt: "2026-07-21T12:00:00.000Z",
+        alreadyRevoked: false
+      }
+    }
+  };
+  assert.deepEqual(
+    classifyContributorRevokeCommand({
+      audit,
+      actorUserId: "admin-1",
+      fingerprint: "revoke-fingerprint-1"
+    }),
+    {
+      state: "replay",
+      revocation: {
+        offerId: "offer-1",
+        status: "REVOKED",
+        revokedAt: "2026-07-21T12:00:00.000Z",
+        alreadyRevoked: false
+      }
+    }
+  );
+  assert.deepEqual(
+    classifyContributorRevokeCommand({
+      audit,
+      actorUserId: "admin-1",
+      fingerprint: "changed"
+    }),
+    { state: "conflict" }
+  );
+  assert.deepEqual(
+    classifyContributorRevokeCommand({
+      audit,
+      actorUserId: "admin-2",
+      fingerprint: "revoke-fingerprint-1"
+    }),
+    { state: "conflict" }
+  );
+});
+
+test("locked administrator snapshots reject role and activation races", () => {
+  const target = {
+    id: "member-1",
+    role: UserRole.MEMBER,
+    deactivatedAt: null
+  };
+  assert.equal(
+    evaluateContributorAdminSnapshots({
+      actor: { id: "admin-1", role: UserRole.ADMIN, deactivatedAt: null },
+      target
+    }).allowed,
+    true
+  );
+
+  assert.deepEqual(
+    evaluateContributorAdminSnapshots({
+      actor: { id: "admin-1", role: UserRole.MEMBER, deactivatedAt: null },
+      target
+    }),
+    { allowed: false, error: "Admin access required." }
+  );
+  assert.deepEqual(
+    evaluateContributorAdminSnapshots({
+      actor: { id: "admin-1", role: UserRole.ADMIN, deactivatedAt: null },
+      target: { ...target, role: UserRole.ADMIN }
+    }),
+    {
+      allowed: false,
+      error: "That account is protected from this administrator action."
+    }
+  );
+  assert.deepEqual(
+    evaluateContributorAdminSnapshots({
+      actor: { id: "admin-1", role: UserRole.ADMIN, deactivatedAt: null },
+      target: { ...target, deactivatedAt: new Date("2026-07-21T12:00:00.000Z") }
+    }),
+    {
+      allowed: false,
+      error: "The target member was not found or is inactive."
+    }
+  );
+});
+
+test("only the current Contributor offer generation may deactivate shared eligibility", () => {
+  assert.deepEqual(
+    evaluateContributorRevocationGeneration({
+      requestedOfferId: "offer-current",
+      currentOfferId: "offer-current"
+    }),
+    { allowed: true }
+  );
+  assert.deepEqual(
+    evaluateContributorRevocationGeneration({
+      requestedOfferId: "offer-old",
+      currentOfferId: "offer-new"
+    }),
+    {
+      allowed: false,
+      error: "This Contributor offer has been superseded by a newer offer. Refresh the account before revoking."
+    }
   );
 });
 
@@ -201,15 +450,22 @@ test("only the targeted eligible Free member may accept", () => {
   );
 });
 
-test("expired and revoked offers cannot be accepted or displayed", () => {
+test("expired, revoked, and terminated accepted offers cannot be accepted or displayed", () => {
   const expired = offer({ expiresAt: new Date("2026-07-21T11:59:59.000Z") });
   const revoked = offer({
     status: MembershipUpgradeOfferStatus.REVOKED,
     revokedAt: new Date("2026-07-21T11:00:00.000Z")
   });
+  const terminatedAccepted = offer({
+    status: MembershipUpgradeOfferStatus.ACCEPTED,
+    acceptedAt: new Date("2026-07-20T14:00:00.000Z"),
+    revokedAt: new Date("2026-07-21T11:00:00.000Z")
+  });
 
   assert.equal(buildContributorUpgradeOfferView(expired, now), null);
   assert.equal(buildContributorUpgradeOfferView(revoked, now), null);
+  assert.equal(terminatedAccepted.status, MembershipUpgradeOfferStatus.ACCEPTED);
+  assert.equal(buildContributorUpgradeOfferView(terminatedAccepted, now), null);
   assert.deepEqual(
     evaluateContributorOfferAcceptance({
       actorUserId: "target-user",
@@ -219,6 +475,16 @@ test("expired and revoked offers cannot be accepted or displayed", () => {
       now
     }),
     { allowed: false, reason: "EXPIRED" }
+  );
+  assert.deepEqual(
+    evaluateContributorOfferAcceptance({
+      actorUserId: "target-user",
+      persistedTier: MembershipTier.CONTRIBUTOR,
+      offer: terminatedAccepted,
+      eligibility: { ...activeEligibility, active: false },
+      now
+    }),
+    { allowed: false, reason: "REVOKED" }
   );
 });
 

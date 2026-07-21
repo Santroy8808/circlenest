@@ -7,6 +7,7 @@ import {
   rateLimitExceededResponse,
   withRateLimitHeaders
 } from "@/lib/platform/request-rate-limit";
+import { isOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import { createSubscriptionCheckoutSession } from "@/modules/membership-policy/subscriptions.service";
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
@@ -48,6 +49,13 @@ export async function POST(request: Request) {
   if (!targetTier) {
     return withRateLimitHeaders(
       NextResponse.json({ error: "Choose a valid membership tier." }, { status: 400 }),
+      rateLimit
+    );
+  }
+
+  if (!isOperationalMembershipTier(targetTier)) {
+    return withRateLimitHeaders(
+      NextResponse.json({ error: "Not found." }, { status: 404 }),
       rateLimit
     );
   }

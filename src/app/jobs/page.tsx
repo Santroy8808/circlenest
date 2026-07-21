@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { JobsBoardClient } from "@/components/jobs/jobs-board-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
-import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { safeListJobListings, viewerCanCreateJob } from "@/modules/jobs/jobs.service";
 import { getListingViewPreference } from "@/modules/listing-preferences/listing-preferences.service";
@@ -16,7 +15,7 @@ export default async function JobsPage() {
   }
 
   const browseAccess = await canUserAccessFeature(session.user.id, "jobs.browse");
-  if (!isAdminRole(session.user.role) && !browseAccess.allowed) notFound();
+  if (!browseAccess.allowed) notFound();
 
   const activeActor = await getActiveAccountActor(session.user.id);
   const [listings, canCreate, initialView] = await Promise.all([

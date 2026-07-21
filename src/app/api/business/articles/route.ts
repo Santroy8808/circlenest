@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminRole } from "@/lib/platform/roles";
-import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
+import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 import { createBusinessArticle } from "@/modules/business-storefront/business-storefront.service";
 
 export async function POST(request: Request) {
@@ -11,8 +10,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  if (!isAdminRole(session.user.role) && !(await canUserAccessFeature(session.user.id, "market.storefront")).allowed) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  const routeAccess = await resolveMembershipRouteAccess(session.user.id, "businessManage", "api");
+  if (!routeAccess.allowed) {
+    return NextResponse.json({ error: routeAccess.error }, { status: routeAccess.status });
   }
 
   const body = await request.json();

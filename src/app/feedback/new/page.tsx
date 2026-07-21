@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AuthCard } from "@/components/auth/auth-card";
 import { FeedbackTicketForm } from "@/components/feedback/feedback-ticket-form";
-import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
+import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
+import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 
 export default async function NewFeedbackTicketPage({
   searchParams
@@ -14,8 +15,11 @@ export default async function NewFeedbackTicketPage({
     redirect("/login?callbackUrl=/feedback/new");
   }
 
-  const access = await canUserAccessFeature(session.user.id, "support.createRequest");
-  if (!access.allowed) notFound();
+  const [routeAccess, featureEnabled] = await Promise.all([
+    resolveMembershipRouteAccess(session.user.id, "supportCreate", "page"),
+    isFeatureEnabled("support.feedback_center")
+  ]);
+  if (!routeAccess.allowed || !featureEnabled) notFound();
 
   return (
     <AuthCard

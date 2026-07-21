@@ -21,6 +21,7 @@ import {
   findUsableFreeInviteForSignup,
   FreeInviteError
 } from "@/modules/membership-policy/free-account-invites.service";
+import { transitionOperationalMembershipInTransaction } from "@/modules/membership-policy/operational-membership-transition.service";
 import { recordSessionStart } from "@/modules/platform-activity/platform-activity.service";
 import { normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
@@ -261,12 +262,21 @@ export async function createMemberAccount(
      * immutable command receipt that authorized its creation.
      */
     atomicAudit?: Omit<AuditInput, "targetId">;
+    /** Transaction-local authorization fence for privileged provisioning. */
+    privilegedTransactionGuard?: (transaction: Prisma.TransactionClient) => Promise<void>;
   } = {}
 ) {
   const parsed = signupSchema.safeParse(input);
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid signup." };
+  }
+
+  if (options.atomicAudit && !options.privilegedTransactionGuard) {
+    return { ok: false as const, error: "Privileged account provisioning requires transaction authorization." };
+  }
+  if (options.tier === MembershipTier.CONTRIBUTOR && (!options.atomicAudit || !options.privilegedTransactionGuard)) {
+    return { ok: false as const, error: "Contributor provisioning requires privileged transaction authorization." };
   }
 
   const passwordPolicy = validatePasswordStrength(parsed.data.password);
@@ -286,6 +296,10 @@ export async function createMemberAccount(
 
   try {
     const user = await prisma.$transaction(async (tx) => {
+      if (options.privilegedTransactionGuard) {
+        await options.privilegedTransactionGuard(tx);
+      }
+
       let inviteId: string | null = null;
 
       if (!options.skipInviteCode) {
@@ -298,6 +312,7 @@ export async function createMemberAccount(
         inviteId = invite.invite.id;
       }
 
+      const requestedTier = options.tier ?? MembershipTier.FREE;
       const createdUser = await tx.user.create({
         data: {
           email,
@@ -314,7 +329,7 @@ export async function createMemberAccount(
           },
           membership: {
             create: {
-              tier: options.tier ?? MembershipTier.FREE
+              tier: MembershipTier.FREE
             }
           }
         },
@@ -332,6 +347,17 @@ export async function createMemberAccount(
         });
       }
 
+      if (requestedTier === MembershipTier.CONTRIBUTOR) {
+        await transitionOperationalMembershipInTransaction(tx, {
+          userId: createdUser.id,
+          targetTier: MembershipTier.CONTRIBUTOR,
+          source: "PRIVILEGED_PROVISIONING",
+          actorUserId: options.atomicAudit?.actorUserId ?? null,
+          reason: "Privileged Contributor account provisioning.",
+          expectedCurrentTier: MembershipTier.FREE
+        });
+      }
+
       if (options.atomicAudit) {
         await writeAuditLog(
           {
@@ -342,7 +368,12 @@ export async function createMemberAccount(
         );
       }
 
-      return createdUser;
+      return requestedTier === MembershipTier.CONTRIBUTOR
+        ? tx.user.findUniqueOrThrow({
+            where: { id: createdUser.id },
+            include: { membership: true, profile: true }
+          })
+        : createdUser;
     });
 
     await recordSecurityEvent({

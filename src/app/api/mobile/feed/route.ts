@@ -6,11 +6,13 @@ import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modu
 import {
   createFeedComment,
   createFeedPost,
+  FeedFilterAccessError,
   getFeedPostThreadPage,
   listFeedPostsPage,
   reactToFeedComment,
   reactToFeedPost
 } from "@/modules/feed-stream/feed-stream.service";
+import { parseFeedStreamMode } from "@/modules/feed-stream/feed-route-contract";
 
 function mobileFeedPage(request: NextRequest) {
   const cursorCreatedAt = request.nextUrl.searchParams.get("cursorCreatedAt")?.trim();
@@ -48,7 +50,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ post: page.post, nextCursor: page.nextCursor, hasMore: page.hasMore });
   }
 
-  const page = await listFeedPostsPage(pageInput, session.user.id);
+  const modeResult = parseFeedStreamMode(request.nextUrl.searchParams.get("mode"));
+  if (!modeResult.ok) {
+    return NextResponse.json({ error: modeResult.error }, { status: 400 });
+  }
+  const mode = modeResult.mode;
+
+  let page;
+  try {
+    page = await listFeedPostsPage(pageInput, session.user.id, mode);
+  } catch (error) {
+    if (error instanceof FeedFilterAccessError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    throw error;
+  }
   const posts = "cursor" in pageInput ? page.items : [...page.pinnedItems, ...page.items];
   await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, "MOBILE");
   const reservedStreamAds = await getAdPlacementPool({
@@ -63,6 +79,7 @@ export async function GET(request: NextRequest) {
     items: page.items,
     nextCursor: page.nextCursor,
     hasMore: page.hasMore,
+    mode,
     reservedStreamAds
   });
 }

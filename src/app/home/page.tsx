@@ -1,4 +1,4 @@
-import { AdPlacement, MembershipTier } from "@prisma/client";
+import { AdPlacement } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { HomeStreamWorkspace } from "@/components/home/home-stream-workspace";
@@ -89,7 +89,7 @@ export default async function AppHomePage() {
         initialPosts={posts}
         isAdmin={isAdmin}
         latestAlert={latestAlert}
-        showStreamFilters={isAdmin || Boolean(policy && policy.actualTier !== MembershipTier.FREE)}
+        showStreamFilters={Boolean(policy?.features["feed.changeType"])}
       />
     </AppShell>
   );

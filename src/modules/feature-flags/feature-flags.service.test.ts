@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { UserRole } from "@prisma/client";
 import {
   FEATURE_FLAG_CATEGORIES,
   FEATURE_FLAG_DEFINITIONS,
+  canLockedActorManageFeatureFlags,
   getFeatureFlagCategory,
   getRegisteredFeatureFlag,
   isFeatureFlagVersionMatch
@@ -23,4 +25,12 @@ test("optimistic feature versions accept the current version and reject stale ve
   assert.equal(isFeatureFlagVersionMatch(undefined, 7), true);
   assert.equal(isFeatureFlagVersionMatch(7, 7), true);
   assert.equal(isFeatureFlagVersionMatch(6, 7), false);
+});
+
+test("feature mutations re-authorize the locked current actor snapshot", () => {
+  assert.equal(canLockedActorManageFeatureFlags({ role: UserRole.ADMIN, deactivatedAt: null }), true);
+  assert.equal(canLockedActorManageFeatureFlags({ role: UserRole.GOD, deactivatedAt: null }), true);
+  assert.equal(canLockedActorManageFeatureFlags({ role: UserRole.MEMBER, deactivatedAt: null }), false);
+  assert.equal(canLockedActorManageFeatureFlags({ role: UserRole.ADMIN, deactivatedAt: new Date() }), false);
+  assert.equal(canLockedActorManageFeatureFlags(null), false);
 });

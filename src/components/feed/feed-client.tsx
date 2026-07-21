@@ -42,7 +42,7 @@ type FeedCurrentAuthor = {
   avatarUrl?: string | null;
 };
 
-type FeedMode = "latest" | "friends";
+type FeedMode = "public" | "friends";
 
 type ReplyTarget = {
   parentCommentId?: string;
@@ -87,8 +87,8 @@ const quickReactions = [
 const publicQuickReactions = quickReactions.filter((reaction) => reaction.type !== FeedReactionType.DISLIKE);
 
 const feedModes: Array<{ key: FeedMode; label: string; helper: string }> = [
-  { key: "latest", label: "Latest", helper: "Newest member posts first." },
-  { key: "friends", label: "Friends", helper: "Posts shared to friends." }
+  { key: "public", label: "Public", helper: "Newest public posts first." },
+  { key: "friends", label: "Friends", helper: "Public and friends-only posts from your friends." }
 ];
 
 const emojiChoices = ["\u{1F600}", "\u{1F602}", "\u{1F60D}", "\u{1F64F}", "\u{1F525}", "\u{1F389}", "\u{1F44F}", "\u{1F4AF}", "\u{2728}", "\u{2615}"];
@@ -1043,8 +1043,8 @@ export function FeedClient({
   showThreadLinks?: boolean;
 }) {
   const router = useRouter();
-  const feedCacheKey = `theta-space.feed-cache:${refreshPath}`;
-  const [initialFeedCache] = useState(() => readFeedCache(feedCacheKey));
+  const publicFeedCacheKey = `theta-space.feed-cache:${refreshPath}:public`;
+  const [initialFeedCache] = useState(() => readFeedCache(publicFeedCacheKey));
   const [posts, setPosts] = useState<FeedPostView[]>(() => {
     return initialFeedCache?.posts?.length ? initialFeedCache.posts : initialPosts;
   });
@@ -1067,7 +1067,8 @@ export function FeedClient({
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState("");
-  const [feedMode, setFeedMode] = useState<FeedMode>("latest");
+  const [feedMode, setFeedMode] = useState<FeedMode>("public");
+  const [isChangingFeedMode, setIsChangingFeedMode] = useState(false);
   const [body, setBody] = useState("");
   const [postFormatState, setPostFormatState] = useState<ComposerFormatState>({});
   const [composerOpen, setComposerOpen] = useState(false);
@@ -1093,11 +1094,17 @@ export function FeedClient({
   const reservedStreamImpressionRef = useRef("");
   const pullStartYRef = useRef<number | null>(null);
   const composerIdentity = currentAuthor ?? { displayName: "You", username: "member", avatarUrl: null };
+  const feedCacheKey = `theta-space.feed-cache:${refreshPath}:${feedMode}`;
   const visiblePosts = posts.filter((post) => {
     if (hiddenPostIds[post.id] || quietAuthorIds[post.author.id]) return false;
-    if (feedMode === "friends") return post.visibility === FeedVisibility.FRIENDS;
     return true;
   });
+
+  function feedRequestPath(mode: FeedMode) {
+    const url = new URL(refreshPath, window.location.origin);
+    url.searchParams.set("mode", mode);
+    return `${url.pathname}${url.search}`;
+  }
 
   function commentKey(postId: string, parentCommentId?: string) {
     return parentCommentId ? `${postId}:${parentCommentId}` : postId;
@@ -1113,7 +1120,9 @@ export function FeedClient({
   }, []);
 
   const refreshFeed = useCallback(async () => {
-    const response = await fetch(refreshPath, { cache: "no-store" });
+    const url = new URL(refreshPath, window.location.origin);
+    url.searchParams.set("mode", feedMode);
+    const response = await fetch(`${url.pathname}${url.search}`, { cache: "no-store" });
     const payload = (await response.json()) as FeedCachePayload;
     if (!response.ok) throw new Error(payload.error ?? "Could not refresh the stream.");
 
@@ -1123,7 +1132,40 @@ export function FeedClient({
     setHasMore(Boolean(payload.hasMore && payload.nextCursor));
     setPaginationReady(true);
     setLoadMoreError("");
-  }, [refreshPath]);
+  }, [feedMode, refreshPath]);
+
+  async function changeFeedMode(nextMode: FeedMode) {
+    if (nextMode === feedMode || isChangingFeedMode) return;
+    setIsChangingFeedMode(true);
+    setError("");
+    setLoadMoreError("");
+    try {
+      const cached = readFeedCache(`theta-space.feed-cache:${refreshPath}:${nextMode}`);
+      if (cached?.posts) {
+        setPosts(cached.posts);
+        setReservedStreamAds(cached.reservedStreamAds ?? []);
+        setNextCursor(cached.nextCursor ?? null);
+        setHasMore(Boolean(cached.hasMore && cached.nextCursor));
+        setPaginationReady(true);
+        setFeedMode(nextMode);
+        return;
+      }
+
+      const response = await fetch(feedRequestPath(nextMode), { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as FeedCachePayload;
+      if (!response.ok) throw new Error(payload.error ?? "Could not change the Stream filter.");
+      setPosts(payload.posts ?? payload.items ?? []);
+      setReservedStreamAds(payload.reservedStreamAds ?? []);
+      setNextCursor(payload.nextCursor ?? null);
+      setHasMore(Boolean(payload.hasMore && payload.nextCursor));
+      setPaginationReady(true);
+      setFeedMode(nextMode);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not change the Stream filter.");
+    } finally {
+      setIsChangingFeedMode(false);
+    }
+  }
 
   async function loadMorePosts() {
     if (!nextCursor || isLoadingMore) return;
@@ -1133,6 +1175,7 @@ export function FeedClient({
 
     try {
       const url = new URL(refreshPath, window.location.origin);
+      url.searchParams.set("mode", feedMode);
       url.searchParams.set("cursorCreatedAt", nextCursor.createdAt);
       url.searchParams.set("cursorId", nextCursor.id);
       url.searchParams.set("limit", "20");
@@ -1214,7 +1257,7 @@ export function FeedClient({
   useEffect(() => {
     const firstReservedAd = reservedStreamAds[0];
 
-    if (!showThreadLinks || feedMode !== "latest" || visiblePosts.length <= RESERVED_STREAM_SLOT_INDEX || !firstReservedAd) return;
+    if (!showThreadLinks || feedMode !== "public" || visiblePosts.length <= RESERVED_STREAM_SLOT_INDEX || !firstReservedAd) return;
     if (reservedStreamImpressionRef.current === firstReservedAd.id) return;
 
     reservedStreamImpressionRef.current = firstReservedAd.id;
@@ -1570,8 +1613,9 @@ export function FeedClient({
               <button
                 aria-selected={feedMode === mode.key}
                 className={feedMode === mode.key ? "feed-mode-tab is-active" : "feed-mode-tab"}
+                disabled={isChangingFeedMode}
                 key={mode.key}
-                onClick={() => setFeedMode(mode.key)}
+                onClick={() => void changeFeedMode(mode.key)}
                 role="tab"
                 title={mode.helper}
                 type="button"
@@ -1670,7 +1714,7 @@ export function FeedClient({
           const commentSummary = post.comments.length + replyCount;
           const visibleReactionCounts = publicQuickReactions.filter((reaction) => (post.reactions[reaction.type] ?? 0) > 0);
           const commentSummaryLabel = `${commentSummary} ${commentSummary === 1 ? "comment" : "comments"}`;
-          const reservedStreamAd = showThreadLinks && feedMode === "latest" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
+          const reservedStreamAd = showThreadLinks && feedMode === "public" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
           const postLevelReplyInThread = Boolean(replyTarget && !replyTarget.parentCommentId && !showThreadLinks);
           const hasImageMedia = Boolean(post.media?.publicUrl && post.media.mimeType.startsWith("image/"));
           const isLongBody =

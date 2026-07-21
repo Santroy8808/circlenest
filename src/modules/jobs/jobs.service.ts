@@ -59,9 +59,15 @@ async function getViewerRole(userId: string) {
 }
 
 export async function viewerCanCreateJob(userId: string) {
-  const role = await getViewerRole(userId);
-  if (isAdminRole(role)) return true;
   return (await canUserAccessFeature(userId, "jobs.createListing")).allowed;
+}
+
+export function canViewerPromoteJob(input: {
+  viewerUserId: string;
+  employerUserId: string;
+  canCreateGeneralAd: boolean;
+}) {
+  return input.viewerUserId === input.employerUserId && input.canCreateGeneralAd;
 }
 
 type JobPayload = Prisma.JobListingGetPayload<{ include: { employer: { include: { profile: true } } } }>;
@@ -196,8 +202,15 @@ export async function getJobListingDetail(viewerUserId: string, listingIdOrSlug:
     return { ok: false as const, error: "Job listing not found." };
   }
 
-  const role = await getViewerRole(viewerUserId);
-  const canPromote = isAdminRole(role) || job.employerUserId === viewerUserId || (await canUserAccessFeature(viewerUserId, "ads.createGeneral")).allowed;
+  const [role, generalAdAccess] = await Promise.all([
+    getViewerRole(viewerUserId),
+    canUserAccessFeature(viewerUserId, "ads.createGeneral")
+  ]);
+  const canPromote = canViewerPromoteJob({
+    viewerUserId,
+    employerUserId: job.employerUserId,
+    canCreateGeneralAd: generalAdAccess.allowed
+  });
   const detail: JobListingDetailView = {
     ...toJobCardView(job),
     description: job.description,

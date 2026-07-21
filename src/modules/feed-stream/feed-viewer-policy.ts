@@ -40,6 +40,15 @@ export function profileFeedPrincipalWhere(profileUserId: string): Prisma.FeedPos
   };
 }
 
+export function streamModeWhere(
+  viewerUserId: string,
+  mode: "public" | "friends"
+): Prisma.FeedPostWhereInput {
+  return mode === "public"
+    ? { visibility: publicStreamVisibilityFilter() }
+    : friendAuthoredPostWhere(viewerUserId);
+}
+
 function visibleActorWhere(viewerUserId: string): Prisma.UserWhereInput {
   return {
     OR: [

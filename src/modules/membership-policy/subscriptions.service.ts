@@ -6,10 +6,12 @@ import {
   MembershipTier,
   MembershipUpgradeMode,
   Prisma,
-  StripeCheckoutKind
+  StripeCheckoutKind,
+  type AuditLog
 } from "@prisma/client";
 import type Stripe from "stripe";
 import { writeAuditLog } from "@/lib/platform/audit";
+import { createCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { getStripeClient, getStripeRuntimeConfig, getStripeWebhookSecret } from "@/lib/platform/stripe";
@@ -25,8 +27,136 @@ import { processStripeWebhookEventOnce } from "@/modules/billing/stripe-webhook-
 import { getTierPolicy, isOperationalMembershipTier, normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import { ensureLaunchDefaults, stripePriceIdForTier } from "@/modules/membership-policy/launch-access.service";
 import { getContributorUpgradeOfferForUser } from "@/modules/membership-policy/contributor-upgrade.service";
+import type { OperationalTier } from "@/modules/membership-policy/membership-access";
+import {
+  runSerializableOperationalMembershipTransaction,
+  transitionOperationalMembershipInTransaction
+} from "@/modules/membership-policy/operational-membership-transition.service";
 
 const MODULE_KEY = "membership-subscriptions";
+const STRIPE_SUBSCRIPTION_SYNC_ACTION = "stripe.subscription.synced";
+
+export type StripeSubscriptionSyncIdentity = {
+  operationId: string;
+  providerEventId?: string | null;
+  providerEventType?: string | null;
+};
+
+type StripeSubscriptionSyncReceipt = {
+  activeTier: OperationalTier;
+  accountBlocked: boolean;
+  deletionRequestId: string | null;
+};
+
+export function stripeSubscriptionSyncOperationId(input: {
+  providerEventId?: string | null;
+  checkoutIntentId?: string | null;
+  subscriptionId: string;
+  targetTier?: MembershipTier;
+  stripeCustomerId?: string | null;
+  subscriptionStatus?: MembershipSubscriptionStatus;
+  subscriptionCurrentPeriodEnd?: Date | null;
+  subscriptionCancelAtPeriodEnd?: boolean;
+}) {
+  if (input.providerEventId) return `stripe-webhook:${input.providerEventId}:subscription-sync`;
+  if (input.checkoutIntentId) {
+    return `stripe-checkout:${input.checkoutIntentId}:${input.subscriptionId}:subscription-sync`;
+  }
+  if (
+    input.targetTier === undefined ||
+    input.stripeCustomerId === undefined ||
+    input.subscriptionStatus === undefined ||
+    input.subscriptionCurrentPeriodEnd === undefined ||
+    input.subscriptionCancelAtPeriodEnd === undefined
+  ) {
+    throw new Error("Fallback Stripe subscription sync identity requires the complete persisted snapshot.");
+  }
+  const stateVersion = createCommandFingerprint({
+    actorUserId: "SYSTEM_STRIPE",
+    action: "stripe.subscription.snapshot.version",
+    target: { type: "StripeSubscription", id: input.subscriptionId },
+    payload: {
+      targetTier: input.targetTier,
+      stripeCustomerId: input.stripeCustomerId,
+      subscriptionStatus: input.subscriptionStatus,
+      subscriptionCurrentPeriodEnd: input.subscriptionCurrentPeriodEnd?.toISOString() ?? null,
+      subscriptionCancelAtPeriodEnd: input.subscriptionCancelAtPeriodEnd
+    }
+  });
+  return `stripe-subscription:${input.subscriptionId}:snapshot:${stateVersion}`;
+}
+
+export function stripeSubscriptionSyncFingerprint(input: {
+  userId: string;
+  targetTier: MembershipTier;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string;
+  subscriptionStatus: MembershipSubscriptionStatus;
+  subscriptionCurrentPeriodEnd: Date | null;
+  subscriptionCancelAtPeriodEnd: boolean;
+  checkoutIntentId?: string | null;
+  identity: StripeSubscriptionSyncIdentity;
+}) {
+  return createCommandFingerprint({
+    actorUserId: "SYSTEM_STRIPE",
+    action: STRIPE_SUBSCRIPTION_SYNC_ACTION,
+    target: { type: "User", id: input.userId },
+    payload: {
+      operationId: input.identity.operationId,
+      providerEventId: input.identity.providerEventId ?? null,
+      providerEventType: input.identity.providerEventType ?? null,
+      targetTier: input.targetTier,
+      stripeCustomerId: input.stripeCustomerId,
+      stripeSubscriptionId: input.stripeSubscriptionId,
+      subscriptionStatus: input.subscriptionStatus,
+      subscriptionCurrentPeriodEnd: input.subscriptionCurrentPeriodEnd?.toISOString() ?? null,
+      subscriptionCancelAtPeriodEnd: input.subscriptionCancelAtPeriodEnd,
+      checkoutIntentId: input.checkoutIntentId ?? null
+    }
+  });
+}
+
+export function classifyStripeSubscriptionSyncReplay(input: {
+  audit: Pick<AuditLog, "actorUserId" | "module" | "action" | "targetType" | "targetId" | "metadata">;
+  userId: string;
+  commandFingerprint: string;
+}) {
+  const metadata = input.audit.metadata;
+  const record = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : null;
+  const receipt = record?.syncReceipt;
+  const receiptRecord = receipt && typeof receipt === "object" && !Array.isArray(receipt)
+    ? receipt as Record<string, unknown>
+    : null;
+  const activeTier = receiptRecord?.activeTier;
+  const validTier = activeTier === MembershipTier.FREE || activeTier === MembershipTier.CONTRIBUTOR;
+  const deletionRequestId = receiptRecord?.deletionRequestId;
+  const validReceipt =
+    validTier &&
+    typeof receiptRecord?.accountBlocked === "boolean" &&
+    (deletionRequestId === null || typeof deletionRequestId === "string");
+
+  if (
+    input.audit.actorUserId === null &&
+    input.audit.module === MODULE_KEY &&
+    input.audit.action === STRIPE_SUBSCRIPTION_SYNC_ACTION &&
+    input.audit.targetType === "User" &&
+    input.audit.targetId === input.userId &&
+    record?.commandFingerprint === input.commandFingerprint &&
+    validReceipt
+  ) {
+    return {
+      state: "replay" as const,
+      receipt: {
+        activeTier: activeTier as OperationalTier,
+        accountBlocked: receiptRecord.accountBlocked as boolean,
+        deletionRequestId: deletionRequestId as string | null
+      }
+    };
+  }
+  return { state: "conflict" as const };
+}
 
 export type SubscriptionUpgradePlanView = {
   tier: MembershipTier;
@@ -821,7 +951,14 @@ export async function createSubscriptionCheckoutSession(input: {
         targetTier: input.targetTier,
         stripeCustomerId: customerId,
         subscription: await stripe.subscriptions.retrieve(stripeSubscriptionId),
-        checkoutIntentId: intentResult.intent.id
+        checkoutIntentId: intentResult.intent.id,
+        syncIdentity: {
+          operationId: stripeSubscriptionSyncOperationId({
+            checkoutIntentId: intentResult.intent.id,
+            subscriptionId: stripeSubscriptionId
+          }),
+          providerEventType: "checkout.reconciliation"
+        }
       });
     } else {
       throw new Error("Stripe checkout remained open for a deactivated account.");
@@ -976,9 +1113,44 @@ async function persistStripeSubscription(input: {
   stripeCustomerId: string | null;
   subscription: Stripe.Subscription;
   checkoutIntentId?: string;
+  syncIdentity: StripeSubscriptionSyncIdentity;
 }) {
   const status = statusFromStripe(input.subscription.status);
-  return prisma.$transaction(async (tx) => {
+  const subscriptionCurrentPeriodEnd = stripePeriodEnd(input.subscription);
+  const commandFingerprint = stripeSubscriptionSyncFingerprint({
+    userId: input.userId,
+    targetTier: input.targetTier,
+    stripeCustomerId: input.stripeCustomerId,
+    stripeSubscriptionId: input.subscription.id,
+    subscriptionStatus: status,
+    subscriptionCurrentPeriodEnd,
+    subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end),
+    checkoutIntentId: input.checkoutIntentId,
+    identity: input.syncIdentity
+  });
+
+  const run = () => runSerializableOperationalMembershipTransaction(async (tx) => {
+    const existingAudit = await tx.auditLog.findUnique({
+      where: { operationId: input.syncIdentity.operationId }
+    });
+    if (existingAudit) {
+      const replay = classifyStripeSubscriptionSyncReplay({
+        audit: existingAudit,
+        userId: input.userId,
+        commandFingerprint
+      });
+      if (replay.state !== "replay") {
+        throw new Error("Stripe subscription sync operation id conflicts with another request.");
+      }
+      return {
+        updatedMembership: replay.receipt.deletionRequestId
+          ? null
+          : await tx.membership.findUnique({ where: { userId: input.userId } }),
+        ...replay.receipt,
+        replayed: true as const
+      };
+    }
+
     const [user, deletionRequest] = await Promise.all([
       tx.user.findUnique({
         where: { id: input.userId },
@@ -1008,27 +1180,24 @@ async function persistStripeSubscription(input: {
       accountBlocked: Boolean(user.deactivatedAt || deletionRequest)
     });
     const activeTier = application.activeTier;
+    let membershipTransition: Awaited<ReturnType<typeof transitionOperationalMembershipInTransaction>> | null = null;
+    if (!deletionRequest) {
+      membershipTransition = await transitionOperationalMembershipInTransaction(tx, {
+        userId: input.userId,
+        targetTier: activeTier as OperationalTier,
+        source: "STRIPE_SUBSCRIPTION",
+        reason: `Stripe subscription synchronized with ${status} status.`
+      });
+    }
     const updatedMembership = deletionRequest
       ? null
-      : await tx.membership.upsert({
+      : await tx.membership.update({
           where: { userId: input.userId },
-          update: {
-            tier: activeTier,
-            storageLimitBytes: BigInt(application.storageLimitBytes),
+          data: {
             stripeCustomerId: input.stripeCustomerId,
             stripeSubscriptionId: input.subscription.id,
             subscriptionStatus: status,
-            subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
-            subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
-          },
-          create: {
-            userId: input.userId,
-            tier: activeTier,
-            storageLimitBytes: BigInt(application.storageLimitBytes),
-            stripeCustomerId: input.stripeCustomerId,
-            stripeSubscriptionId: input.subscription.id,
-            subscriptionStatus: status,
-            subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
+            subscriptionCurrentPeriodEnd,
             subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
           }
         });
@@ -1064,13 +1233,70 @@ async function persistStripeSubscription(input: {
       }
     }
 
+    const accountBlocked = Boolean(user.deactivatedAt || deletionRequest);
+    const deletionRequestId = deletionRequest?.id ?? null;
+    const syncReceipt = {
+      activeTier: activeTier as OperationalTier,
+      accountBlocked,
+      deletionRequestId
+    } satisfies StripeSubscriptionSyncReceipt;
+    const targetPolicy = getTierPolicy(input.targetTier);
+    await writeAuditLog({
+      operationId: input.syncIdentity.operationId,
+      requestId: input.syncIdentity.providerEventId ?? input.syncIdentity.operationId,
+      module: MODULE_KEY,
+      action: STRIPE_SUBSCRIPTION_SYNC_ACTION,
+      targetType: "User",
+      targetId: input.userId,
+      severity: canActivateStatus(status) ? "info" : "warning",
+      before: membershipTransition
+        ? {
+            tier: membershipTransition.before.tier,
+            storageLimitBytes: membershipTransition.before.storageLimitBytes?.toString() ?? null,
+            platformCredits: membershipTransition.before.platformCredits
+          }
+        : { accountBlocked: true },
+      after: membershipTransition
+        ? {
+            tier: membershipTransition.after.tier,
+            storageLimitBytes: membershipTransition.after.storageLimitBytes.toString(),
+            platformCredits: membershipTransition.after.platformCredits,
+            stripeSubscriptionId: input.subscription.id,
+            subscriptionStatus: status
+          }
+        : { accountBlocked: true },
+      metadata: {
+        commandFingerprint,
+        providerEventId: input.syncIdentity.providerEventId ?? null,
+        providerEventType: input.syncIdentity.providerEventType ?? null,
+        targetTier: input.targetTier,
+        activeTier,
+        targetTierName: targetPolicy.displayName,
+        stripeSubscriptionId: input.subscription.id,
+        subscriptionStatus: status,
+        accountBlocked,
+        deletionBound: Boolean(deletionRequestId),
+        syncReceipt
+      } as Prisma.InputJsonObject
+    }, tx);
+
     return {
       updatedMembership,
       activeTier,
-      accountBlocked: Boolean(user.deactivatedAt || deletionRequest),
-      deletionRequestId: deletionRequest?.id ?? null
+      accountBlocked,
+      deletionRequestId,
+      replayed: false as const
     };
   });
+
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return run();
+    }
+    throw error;
+  }
 }
 
 async function applyStripeSubscription(input: {
@@ -1079,9 +1305,9 @@ async function applyStripeSubscription(input: {
   stripeCustomerId: string | null;
   subscription: Stripe.Subscription;
   checkoutIntentId?: string;
+  syncIdentity: StripeSubscriptionSyncIdentity;
 }) {
   let subscription = input.subscription;
-  const targetPolicy = getTierPolicy(input.targetTier);
   const membership = await persistStripeSubscription(input);
 
   if (membership.deletionRequestId) {
@@ -1100,24 +1326,6 @@ async function applyStripeSubscription(input: {
       source: "webhook"
     });
   }
-
-  const status = statusFromStripe(subscription.status);
-  await writeAuditLog({
-    module: MODULE_KEY,
-    action: "stripe.subscription.synced",
-    targetType: "User",
-    targetId: input.userId,
-    severity: canActivateStatus(status) ? "info" : "warning",
-    metadata: {
-      targetTier: input.targetTier,
-      activeTier: membership.activeTier,
-      targetTierName: targetPolicy.displayName,
-      stripeSubscriptionId: subscription.id,
-      subscriptionStatus: status,
-      accountBlocked: membership.accountBlocked,
-      deletionBound: Boolean(membership.deletionRequestId)
-    } as Prisma.InputJsonObject
-  });
 
   return membership.updatedMembership;
 }
@@ -1222,7 +1430,15 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
         targetTier,
         stripeCustomerId: typeof session.customer === "string" ? session.customer : session.customer?.id ?? null,
         subscription,
-        checkoutIntentId: intent?.id
+        checkoutIntentId: intent?.id,
+        syncIdentity: {
+          operationId: stripeSubscriptionSyncOperationId({
+            providerEventId: event.id,
+            subscriptionId: subscription.id
+          }),
+          providerEventId: event.id,
+          providerEventType: event.type
+        }
       });
     }
 
@@ -1279,7 +1495,15 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
         targetTier,
         stripeCustomerId: typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id ?? null,
         subscription,
-        checkoutIntentId
+        checkoutIntentId,
+        syncIdentity: {
+          operationId: stripeSubscriptionSyncOperationId({
+            providerEventId: event.id,
+            subscriptionId: subscription.id
+          }),
+          providerEventId: event.id,
+          providerEventType: event.type
+        }
       });
     }
   });

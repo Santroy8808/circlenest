@@ -1,71 +1,75 @@
-import { ConductScanMode } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import {
+  ADMIN_NO_STORE_HEADERS,
+  adminRouteErrorStatus,
+  isAllowedConductAdminCommand,
+  isRecord
+} from "@/app/api/admin/_shared/admin-route-contract";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
 import {
-  approveConductCandidate,
-  assignConductCandidate,
-  dismissConductCandidate,
-  getConductAdminView,
-  restrictConductCandidatePair,
-  updateConductConfig
-} from "@/modules/conduct-reporting/admin.service";
-import { overrideConductDisputeResolution } from "@/modules/conduct-reporting/disputes.service";
-import { getConductConfig, queueConductScan } from "@/modules/conduct-reporting/scanner.service";
-import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
+  assignConductReport,
+  transitionConductReport
+} from "@/modules/admin-moderation/conduct-transitions.service";
+import { getConductAdminView } from "@/modules/conduct-reporting/admin.service";
 
 async function requireAdmin() {
   const session = await auth();
-  return session?.user && !session.user.revoked && (await isAdminUser(session.user.id)) ? session.user : null;
+  if (!session?.user || session.user.revoked) {
+    return { ok: false as const, status: 401, code: "UNAUTHENTICATED", error: "Login required." };
+  }
+  if (!(await isAdminUser(session.user.id))) {
+    return { ok: false as const, status: 403, code: "FORBIDDEN", error: "Admin access required." };
+  }
+  return { ok: true as const, user: session.user };
 }
 
 export async function GET() {
-  const user = await requireAdmin();
-  if (!user) return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-  return NextResponse.json(await getConductAdminView());
+  const authorization = await requireAdmin();
+  if (!authorization.ok) {
+    return NextResponse.json(
+      { error: authorization.error, code: authorization.code },
+      { status: authorization.status, headers: ADMIN_NO_STORE_HEADERS }
+    );
+  }
+  return NextResponse.json(await getConductAdminView(), { headers: ADMIN_NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
-  const user = await requireAdmin();
-  if (!user) return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  const authorization = await requireAdmin();
+  if (!authorization.ok) {
+    return NextResponse.json(
+      { error: authorization.error, code: authorization.code },
+      { status: authorization.status, headers: ADMIN_NO_STORE_HEADERS }
+    );
+  }
+  const user = authorization.user;
   const body = await readJsonRequest(request, 128 * 1024);
   if (!body.ok) return body.response;
-  const value = body.value && typeof body.value === "object" && !Array.isArray(body.value) ? (body.value as Record<string, unknown>) : {};
-  let result: unknown;
-  if (value.action === "configure") {
-    result = { ok: true, config: await updateConductConfig(user.id, (value.config ?? {}) as never) };
-  } else if (value.action === "run") {
-    if (!(await isFeatureEnabled("operations.communication_review"))) {
-      return NextResponse.json({ error: "Communication Review Scanner is disabled in Feature Controls." }, { status: 400 });
-    }
-    const config = await getConductConfig();
-    if (!config.manualEnabled) return NextResponse.json({ error: "Manual communication review is disabled." }, { status: 400 });
-    const start = typeof value.windowStart === "string" ? new Date(value.windowStart) : new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const end = typeof value.windowEnd === "string" ? new Date(value.windowEnd) : new Date();
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return NextResponse.json({ error: "Valid review dates are required." }, { status: 400 });
-    const run = await queueConductScan({
-      mode: value.backfill ? ConductScanMode.BACKFILL : ConductScanMode.MANUAL,
-      requestedByUserId: user.id,
-      windowStart: start,
-      windowEnd: end,
-      groupId: typeof value.groupId === "string" ? value.groupId : null,
-      dryRun: Boolean(value.dryRun)
-    });
-    result = { ok: true, runReference: run.reference };
-  } else if (value.action === "approve-candidate" && typeof value.reference === "string") {
-    result = await approveConductCandidate(user.id, value.reference, value.reason);
-  } else if (value.action === "dismiss-candidate" && typeof value.reference === "string") {
-    result = await dismissConductCandidate(user.id, value.reference, value.reason);
-  } else if (value.action === "assign-candidate" && typeof value.reference === "string") {
-    result = await assignConductCandidate(user.id, value.reference, typeof value.moderatorUserId === "string" ? value.moderatorUserId : null);
-  } else if (value.action === "restrict-pair" && typeof value.reference === "string" && typeof value.otherUserId === "string") {
-    result = await restrictConductCandidatePair({ actorUserId: user.id, candidateReference: value.reference, otherUserId: value.otherUserId, requestedDays: Number(value.requestedDays), reason: typeof value.reason === "string" ? value.reason : "" });
-  } else if (value.action === "override-dispute" && typeof value.reference === "string") {
-    result = await overrideConductDisputeResolution(user.id, value.reference, value.outcome === "DISMISSED" ? "DISMISSED" : "RESOLVED", value.reason);
-  } else {
-    return NextResponse.json({ error: "Unsupported communication review action." }, { status: 400 });
+  const value = isRecord(body.value) ? body.value : {};
+
+  if (!isAllowedConductAdminCommand(value.action)) {
+    return NextResponse.json(
+      {
+        error: "That legacy conduct action is disabled until it has an atomic, versioned command service.",
+        code: "VALIDATION_FAILED",
+        field: "action"
+      },
+      { status: 422, headers: ADMIN_NO_STORE_HEADERS }
+    );
   }
-  const response = result as { ok?: boolean; error?: string };
-  return response.ok === false ? NextResponse.json({ error: response.error ?? "Action failed." }, { status: 400 }) : NextResponse.json(result);
+  const commandResult = value.action === "conduct-report.transition"
+    ? await transitionConductReport(user.id, value)
+    : await assignConductReport(user.id, value);
+  if (!commandResult.ok) {
+    return NextResponse.json(
+      { error: commandResult.error.message, ...commandResult.error },
+      {
+        status: adminRouteErrorStatus(commandResult.error.code),
+        headers: ADMIN_NO_STORE_HEADERS
+      }
+    );
+  }
+  return NextResponse.json(commandResult, { headers: ADMIN_NO_STORE_HEADERS });
 }

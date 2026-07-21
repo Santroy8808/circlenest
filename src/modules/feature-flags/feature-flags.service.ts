@@ -203,6 +203,29 @@ async function canManageFeatureFlags(actorUserId: string) {
   return Boolean(user && !user.deactivatedAt && (user.role === UserRole.ADMIN || user.role === UserRole.GOD));
 }
 
+export function canLockedActorManageFeatureFlags(actor: { role: UserRole; deactivatedAt: Date | null } | null) {
+  return Boolean(
+    actor &&
+    !actor.deactivatedAt &&
+    (actor.role === UserRole.ADMIN || actor.role === UserRole.GOD)
+  );
+}
+
+class FeatureFlagAuthorizationConflict extends Error {}
+
+async function requireLockedFeatureFlagAdmin(transaction: Prisma.TransactionClient, actorUserId: string) {
+  await transaction.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${actorUserId} FOR UPDATE`
+  );
+  const actor = await transaction.user.findUnique({
+    where: { id: actorUserId },
+    select: { role: true, deactivatedAt: true }
+  });
+  if (!canLockedActorManageFeatureFlags(actor)) {
+    throw new FeatureFlagAuthorizationConflict("Admin access required.");
+  }
+}
+
 function cleanReason(value: unknown) {
   return typeof value === "string" ? value.trim().replace(/\r\n/g, "\n").slice(0, 1000) : "";
 }
@@ -315,6 +338,7 @@ export async function setRegisteredFeatureFlag(actorUserId: string, input: unkno
 
   try {
     const result = await prisma.$transaction(async (transaction) => {
+      await requireLockedFeatureFlagAdmin(transaction, actorUserId);
       const current = await transaction.featureFlag.findUnique({ where: { key: definition.key } });
       const actualVersion = current?.version ?? 0;
       if (!isFeatureFlagVersionMatch(expectedVersion, actualVersion)) {
@@ -378,6 +402,9 @@ export async function setRegisteredFeatureFlag(actorUserId: string, input: unkno
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return { ok: true as const, commandId, auditLogId: result.auditLogId, replayed: false as const, flag: result.flag };
   } catch (error) {
+    if (error instanceof FeatureFlagAuthorizationConflict) {
+      return { ok: false as const, error: error.message, code: "FORBIDDEN" as const };
+    }
     if (error instanceof FeatureFlagVersionConflict) return { ok: false as const, error: error.message, code: "VERSION_CONFLICT" as const };
     if (isUniqueConstraintError(error)) {
       const duplicate = await findFeatureCommandReplay(commandId);
@@ -440,6 +467,7 @@ export async function setRegisteredFeatureFlagCategory(actorUserId: string, inpu
 
   try {
     const result = await prisma.$transaction(async (transaction) => {
+      await requireLockedFeatureFlagAdmin(transaction, actorUserId);
       const currentFlags = await transaction.featureFlag.findMany({ where: { key: { in: definitions.map((item) => item.key) } } });
       const currentMap = new Map(currentFlags.map((flag) => [flag.key, flag]));
       const savedFlags = [];
@@ -506,6 +534,9 @@ export async function setRegisteredFeatureFlagCategory(actorUserId: string, inpu
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return { ok: true as const, commandId, auditLogId: result.auditLogId, replayed: false as const, flags: result.flags };
   } catch (error) {
+    if (error instanceof FeatureFlagAuthorizationConflict) {
+      return { ok: false as const, error: error.message, code: "FORBIDDEN" as const };
+    }
     if (error instanceof FeatureFlagVersionConflict) return { ok: false as const, error: error.message, code: "VERSION_CONFLICT" as const };
     if (isUniqueConstraintError(error)) {
       const duplicate = await findFeatureCommandReplay(commandId);
@@ -554,6 +585,7 @@ export async function resetRegisteredFeatureFlag(actorUserId: string, input: unk
 
   try {
     const result = await prisma.$transaction(async (transaction) => {
+      await requireLockedFeatureFlagAdmin(transaction, actorUserId);
       const existing = await transaction.featureFlag.findUnique({ where: { key: definition.key } });
       const actualVersion = existing?.version ?? 0;
       if (!isFeatureFlagVersionMatch(expectedVersion, actualVersion)) {
@@ -592,6 +624,9 @@ export async function resetRegisteredFeatureFlag(actorUserId: string, input: unk
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return { ok: true as const, commandId, auditLogId: result, replayed: false as const };
   } catch (error) {
+    if (error instanceof FeatureFlagAuthorizationConflict) {
+      return { ok: false as const, error: error.message, code: "FORBIDDEN" as const };
+    }
     if (error instanceof FeatureFlagVersionConflict) return { ok: false as const, error: error.message, code: "VERSION_CONFLICT" as const };
     if (isUniqueConstraintError(error)) {
       const duplicate = await findFeatureCommandReplay(commandId);

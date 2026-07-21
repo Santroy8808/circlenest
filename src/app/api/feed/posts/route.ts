@@ -4,7 +4,12 @@ import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { getAdPlacementPool, recordReservedStreamOrganicFeedUnits } from "@/modules/ads-credits/ads-credits.service";
-import { createFeedPost, listFeedPostsPage } from "@/modules/feed-stream/feed-stream.service";
+import {
+  createFeedPost,
+  FeedFilterAccessError,
+  listFeedPostsPage
+} from "@/modules/feed-stream/feed-stream.service";
+import { parseFeedStreamMode } from "@/modules/feed-stream/feed-route-contract";
 
 function deviceClassFromRequest(request: NextRequest) {
   return /android|iphone|ipad|ipod|mobile/i.test(request.headers.get("user-agent") ?? "") ? "MOBILE" : "DESKTOP";
@@ -34,11 +39,24 @@ export async function GET(request: NextRequest) {
 
   const actor = await getActiveAccountActor(session.user.id);
   const pageInput = feedPageFromRequest(request);
+  const modeResult = parseFeedStreamMode(request.nextUrl.searchParams.get("mode"));
   if (!pageInput) {
     return NextResponse.json({ error: "Both feed cursor fields are required." }, { status: 400 });
   }
+  if (!modeResult.ok) {
+    return NextResponse.json({ error: modeResult.error }, { status: 400 });
+  }
+  const mode = modeResult.mode;
 
-  const page = await listFeedPostsPage(pageInput, actor.actorUserId);
+  let page;
+  try {
+    page = await listFeedPostsPage(pageInput, actor.actorUserId, mode);
+  } catch (error) {
+    if (error instanceof FeedFilterAccessError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    throw error;
+  }
 
   const posts = "cursor" in pageInput ? page.items : [...page.pinnedItems, ...page.items];
   await recordReservedStreamOrganicFeedUnits(session.user.id, posts.length, deviceClassFromRequest(request));
@@ -54,6 +72,7 @@ export async function GET(request: NextRequest) {
     items: page.items,
     nextCursor: page.nextCursor,
     hasMore: page.hasMore,
+    mode,
     reservedStreamAds
   });
 }

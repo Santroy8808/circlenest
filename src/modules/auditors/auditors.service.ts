@@ -1,7 +1,6 @@
-import { ScientologyClassification, UserRole } from "@prisma/client";
+import { ScientologyClassification } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { isAdminRole } from "@/lib/platform/roles";
 import { ensureAuditorAccountForOwner, getAuditorAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { updateAuditorProfileSchema, type AuditorProfileView, type AuditorScientologySummary } from "@/modules/auditors/types";
@@ -79,19 +78,11 @@ function toAuditorProfileView(input: {
   };
 }
 
-async function getViewerRole(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true }
-  });
-
-  return user?.role ?? UserRole.MEMBER;
-}
-
-export async function viewerCanCreateAuditorProfile(userId: string) {
-  const role = await getViewerRole(userId);
-  if (isAdminRole(role)) return { allowed: true, reason: "Admin role grants this platform control." };
-  return canUserAccessFeature(userId, "auditors.createProfile");
+export async function viewerCanCreateAuditorProfile(
+  userId: string,
+  resolveAccess: typeof canUserAccessFeature = canUserAccessFeature
+) {
+  return resolveAccess(userId, "auditors.createProfile");
 }
 
 export async function listAuditors(input?: { query?: string | null }) {

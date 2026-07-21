@@ -4,7 +4,8 @@ import {
   nextWriterChapterSortOrder,
   writerStorefrontPublishingAllowed,
   writerAccessAllowsRead,
-  writerAccessAllowsWrite
+  writerAccessAllowsWrite,
+  writerCanEditOwnedContent
 } from "@/modules/writers-corner/writers-corner.service";
 
 test("Free readers retain Writers Corner read access without mutation access", () => {
@@ -33,5 +34,32 @@ test("an existing storefront cannot bypass the publisher's membership entitlemen
       hasEnabledStorefront: true
     }),
     true
+  );
+});
+
+test("writer editing requires both canonical write access and content ownership", () => {
+  assert.equal(
+    writerCanEditOwnedContent({
+      viewerUserId: "author",
+      authorUserId: "author",
+      canWrite: true
+    }),
+    true
+  );
+  assert.equal(
+    writerCanEditOwnedContent({
+      viewerUserId: "administrator",
+      authorUserId: "author",
+      canWrite: true
+    }),
+    false
+  );
+  assert.equal(
+    writerCanEditOwnedContent({
+      viewerUserId: "author",
+      authorUserId: "author",
+      canWrite: false
+    }),
+    false
   );
 });

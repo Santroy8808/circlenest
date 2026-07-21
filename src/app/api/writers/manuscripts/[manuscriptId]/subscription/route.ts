@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
+import { resolvePlatformApiFeatureAccess } from "@/modules/feature-flags/api-feature-access";
 import { subscribeToManuscript, unsubscribeFromManuscript } from "@/modules/writers-corner/writers-corner.service";
 
 export async function POST(request: Request, { params }: { params: { manuscriptId: string } }) {
@@ -8,6 +9,14 @@ export async function POST(request: Request, { params }: { params: { manuscriptI
 
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const featureAccess = await resolvePlatformApiFeatureAccess("publishing.writers_corner");
+  if (!featureAccess.allowed) {
+    return NextResponse.json(
+      { error: featureAccess.error, code: featureAccess.code },
+      { status: featureAccess.status }
+    );
   }
 
   const body = await request.json();
@@ -26,6 +35,15 @@ export async function DELETE(request: Request, { params }: { params: { manuscrip
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+
+  const featureAccess = await resolvePlatformApiFeatureAccess("publishing.writers_corner");
+  if (!featureAccess.allowed) {
+    return NextResponse.json(
+      { error: featureAccess.error, code: featureAccess.code },
+      { status: featureAccess.status }
+    );
+  }
+
   const deletePasswordError = requireDeletePasswordFromRequest(request);
   if (deletePasswordError) return deletePasswordError;
 

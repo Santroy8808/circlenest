@@ -13,11 +13,12 @@ import {
 import {
   type FeedPostPolicyAction,
   type FeedViewerPolicy,
-  friendAuthoredPostWhere,
   profileFeedPrincipalWhere,
   resolveFeedViewerPolicy,
-  scopeFeedPostWhere
+  scopeFeedPostWhere,
+  streamModeWhere
 } from "@/modules/feed-stream/feed-viewer-policy";
+import { publicStreamVisibilityFilter } from "@/modules/feed-stream/feed-visibility";
 import {
   assertFeedChildWriteAllowed,
   assertFeedCommentWriteAllowed,
@@ -405,6 +406,7 @@ async function fetchFeedPostPage(
         where: scopeFeedPostWhere(policy, "view", {
           targetProfileUserId: null,
           isAdminAnnouncement: true,
+          visibility: publicStreamVisibilityFilter(),
           dismissals: {
             none: {
               userId: policy.viewerUserId
@@ -419,7 +421,7 @@ async function fetchFeedPostPage(
     where: scopeFeedPostWhere(policy, "view", {
       targetProfileUserId: null,
       isAdminAnnouncement: false,
-      ...(mode === "friends" && policy.viewerUserId ? friendAuthoredPostWhere(policy.viewerUserId) : {}),
+      ...streamModeWhere(policy.viewerUserId, mode),
       ...feedDescendingCursorWhere(page.cursor)
     }),
     include: feedPostInclude(policy),

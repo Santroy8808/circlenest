@@ -1,9 +1,16 @@
-import { createHash } from "crypto";
-import { AuditSeverity, MembershipTier, UserRole, type AuditLog } from "@prisma/client";
+import { createHash, createHmac } from "node:crypto";
+import { AuditSeverity, MembershipTier, Prisma, UserRole, type AuditLog } from "@prisma/client";
 import { z } from "zod";
 import { findAuditLogByOperationId, writeAuditLog } from "@/lib/platform/audit";
+import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
+import { readPlatformEnv } from "@/lib/platform/env";
 import { evaluateAdminActorTarget, isAdminRole } from "@/lib/platform/roles";
+import {
+  AdminTargetAuthorizationError,
+  lockAndAuthorizeAdminActor,
+  lockAndAuthorizeAdminActorTarget
+} from "@/modules/admin-moderation/account-target-authorization";
 import { createMemberAccount } from "@/modules/auth-security/auth-security.service";
 import { hashPassword, validatePasswordStrength } from "@/modules/auth-security/password";
 import { normalizeFreeAccountInviteCode } from "@/modules/membership-policy/free-account-invites.service";
@@ -37,6 +44,44 @@ export const adminResetPasswordSchema = z.object({
   reason: z.string().min(3).max(240)
 });
 
+export function adminPasswordResetPasswordDigest(password: string, secret: string) {
+  return createHmac("sha256", secret)
+    .update("theta-space:admin-password-reset:v1\0", "utf8")
+    .update(password, "utf8")
+    .digest("hex");
+}
+
+export function adminPasswordResetCommandFingerprint(input: {
+  actorUserId: string;
+  targetUserId: string;
+  reason: string;
+  passwordDigest: string;
+}) {
+  return createCommandFingerprint({
+    actorUserId: input.actorUserId,
+    action: "password.reset",
+    target: { type: "User", id: input.targetUserId },
+    payload: {
+      reason: input.reason.trim(),
+      passwordDigest: input.passwordDigest
+    }
+  });
+}
+
+export function isMatchingAdminPasswordResetReplay(
+  replay: Pick<AuditLog, "actorUserId" | "action" | "targetType" | "targetId" | "metadata">,
+  actorUserId: string,
+  targetUserId: string,
+  commandFingerprint: string
+) {
+  return isMatchingCommandFingerprint(replay, {
+    actorUserId,
+    action: "password.reset",
+    target: { type: "User", id: targetUserId },
+    fingerprint: commandFingerprint
+  });
+}
+
 async function findUserByIdentifier(identifier: string) {
   const normalized = identifier.trim().replace(/^@/, "").toLowerCase();
 
@@ -55,14 +100,105 @@ function userLabel(user: { email: string; username: string; profile?: { displayN
   return user.profile?.displayName ?? user.username ?? user.email;
 }
 
+type PasswordResetTarget = {
+  id: string;
+  email: string;
+  username: string;
+  profile?: { displayName: string | null } | null;
+};
+
+export async function resetAccountPasswordInTransaction(
+  transaction: Prisma.TransactionClient,
+  input: {
+    actorUserId: string;
+    target: PasswordResetTarget;
+    passwordHash: string;
+    commandId: string;
+    commandFingerprint: string;
+    reason: string;
+    changedAt?: Date;
+  }
+) {
+  await lockAndAuthorizeAdminActorTarget(transaction, input.actorUserId, input.target.id);
+  const currentPasswordState = await transaction.user.findUniqueOrThrow({
+    where: { id: input.target.id },
+    select: { sessionVersion: true, lastPasswordChangedAt: true }
+  });
+  const changedAt = input.changedAt ?? new Date();
+  const updated = await transaction.user.update({
+    where: { id: input.target.id },
+    data: {
+      passwordHash: input.passwordHash,
+      lastPasswordChangedAt: changedAt,
+      failedLoginCount: 0,
+      sessionVersion: { increment: 1 }
+    },
+    select: { sessionVersion: true, lastPasswordChangedAt: true }
+  });
+
+  await writeAuditLog({
+    operationId: input.commandId,
+    actorUserId: input.actorUserId,
+    module: MODULE_KEY,
+    action: "password.reset",
+    targetType: "User",
+    targetId: input.target.id,
+    severity: AuditSeverity.warning,
+    before: {
+      sessionVersion: currentPasswordState.sessionVersion,
+      lastPasswordChangedAt: currentPasswordState.lastPasswordChangedAt?.toISOString() ?? null
+    },
+    after: {
+      sessionVersion: updated.sessionVersion,
+      lastPasswordChangedAt: updated.lastPasswordChangedAt?.toISOString() ?? null
+    },
+    metadata: {
+      commandFingerprint: input.commandFingerprint,
+      account: userLabel(input.target),
+      reason: input.reason.trim(),
+      sessionsRevoked: true
+    }
+  }, transaction);
+
+  return updated;
+}
+
 type AdminCreateUserRequest = z.infer<typeof adminCreateUserSchema>;
 
+export type AdminCreatedAccountReceipt = Readonly<{
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  role: UserRole;
+  tier: MembershipTier;
+}>;
+
+export function toAdminCreatedAccountReceipt(user: AdminCreatedAccountReceipt): AdminCreatedAccountReceipt {
+  return Object.freeze({
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    tier: user.tier
+  });
+}
+
+export function adminAccountCreationPasswordDigest(password: string, secret: string) {
+  return createHmac("sha256", secret)
+    .update("theta-space:admin-account-creation:v1\0", "utf8")
+    .update(password, "utf8")
+    .digest("hex");
+}
+
 /** Stable, non-secret identity for the provisioning request bound to command replay. */
-export function adminAccountCreationRequestId(input: AdminCreateUserRequest) {
+export function adminAccountCreationRequestId(input: AdminCreateUserRequest, secret: string) {
   const canonicalRequest = JSON.stringify({
     email: input.email.trim().toLowerCase(),
     username: input.username.trim().replace(/^@/, "").toLowerCase(),
     displayName: input.displayName.trim(),
+    passwordDigest: adminAccountCreationPasswordDigest(input.password, secret),
     tier: input.tier,
     inviteCode: input.inviteCode?.trim() ? normalizeFreeAccountInviteCode(input.inviteCode) : null,
     reason: input.reason.trim()
@@ -91,9 +227,30 @@ async function replayAdminAccountCreation(
   if (!isMatchingAdminAccountCreationReplay(replay, actorUserId, requestId)) {
     return { ok: false as const, error: "That administrator command id has already been used." };
   }
-  const user = await prisma.user.findUnique({ where: { id: replay.targetId! } });
+  const user = await prisma.user.findUnique({
+    where: { id: replay.targetId! },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+      profile: { select: { displayName: true } },
+      membership: { select: { tier: true } }
+    }
+  });
   return user
-    ? { ok: true as const, user, replayed: true as const }
+    ? {
+        ok: true as const,
+        user: toAdminCreatedAccountReceipt({
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          displayName: user.profile?.displayName ?? user.username,
+          role: user.role,
+          tier: user.membership?.tier ?? MembershipTier.FREE
+        }),
+        replayed: true as const
+      }
     : { ok: false as const, error: "The original account-creation result is no longer available." };
 }
 
@@ -108,7 +265,14 @@ export async function adminCreateUserAccount(actorUserId: string, input: unknown
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid account creation request." };
   }
 
-  const requestId = adminAccountCreationRequestId(parsed.data);
+  const accountCreationSecret = readPlatformEnv().NEXTAUTH_SECRET;
+  if (!accountCreationSecret) {
+    return {
+      ok: false as const,
+      error: "Account creation is unavailable because secure command verification is not configured."
+    };
+  }
+  const requestId = adminAccountCreationRequestId(parsed.data, accountCreationSecret);
   const replay = await findAuditLogByOperationId(parsed.data.commandId);
   if (replay) {
     return replayAdminAccountCreation(replay, actorUserId, requestId);
@@ -128,6 +292,9 @@ export async function adminCreateUserAccount(actorUserId: string, input: unknown
       tier: parsed.data.tier,
       role: UserRole.MEMBER,
       skipInviteCode: !inviteCode,
+      privilegedTransactionGuard: async (tx) => {
+        await lockAndAuthorizeAdminActor(tx, actorUserId);
+      },
       atomicAudit: {
         operationId: parsed.data.commandId,
         requestId,
@@ -157,7 +324,11 @@ export async function adminCreateUserAccount(actorUserId: string, input: unknown
     return result;
   }
 
-  return { ok: true as const, user: result.user, replayed: false as const };
+  return {
+    ok: true as const,
+    user: toAdminCreatedAccountReceipt(result.user),
+    replayed: false as const
+  };
 }
 
 export async function adminResetAccountPassword(actorUserId: string, input: unknown) {
@@ -199,50 +370,56 @@ export async function adminResetAccountPassword(actorUserId: string, input: unkn
     return { ok: false as const, error: "That account is protected from this administrator action." };
   }
 
+  const passwordResetSecret = readPlatformEnv().NEXTAUTH_SECRET;
+  if (!passwordResetSecret) {
+    return {
+      ok: false as const,
+      error: "Password reset is unavailable because secure command verification is not configured."
+    };
+  }
+  const passwordDigest = adminPasswordResetPasswordDigest(parsed.data.password, passwordResetSecret);
+  const commandFingerprint = adminPasswordResetCommandFingerprint({
+    actorUserId,
+    targetUserId: user.id,
+    reason: parsed.data.reason,
+    passwordDigest
+  });
+
   const replay = await findAuditLogByOperationId(parsed.data.commandId);
   if (replay) {
-    return replay.actorUserId === actorUserId && replay.action === "password.reset" && replay.targetId === user.id
+    return isMatchingAdminPasswordResetReplay(replay, actorUserId, user.id, commandFingerprint)
       ? { ok: true as const, userLabel: userLabel(user), replayed: true as const }
       : { ok: false as const, error: "That administrator command id has already been used." };
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
-  await prisma.$transaction(async (tx) => {
-    const changedAt = new Date();
-    const updated = await tx.user.update({
-      where: { id: user.id },
-      data: {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await resetAccountPasswordInTransaction(tx, {
+        actorUserId,
+        target: user,
         passwordHash,
-        lastPasswordChangedAt: changedAt,
-        failedLoginCount: 0,
-        sessionVersion: { increment: 1 }
-      },
-      select: { sessionVersion: true, lastPasswordChangedAt: true }
-    });
-
-    await writeAuditLog({
-      operationId: parsed.data.commandId,
-      actorUserId,
-      module: MODULE_KEY,
-      action: "password.reset",
-      targetType: "User",
-      targetId: user.id,
-      severity: AuditSeverity.warning,
-      before: {
-        sessionVersion: user.sessionVersion,
-        lastPasswordChangedAt: user.lastPasswordChangedAt?.toISOString() ?? null
-      },
-      after: {
-        sessionVersion: updated.sessionVersion,
-        lastPasswordChangedAt: updated.lastPasswordChangedAt?.toISOString() ?? null
-      },
-      metadata: {
-        account: userLabel(user),
-        reason: parsed.data.reason,
-        sessionsRevoked: true
+        commandId: parsed.data.commandId,
+        commandFingerprint,
+        reason: parsed.data.reason
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    if (error instanceof AdminTargetAuthorizationError) {
+      return { ok: false as const, error: error.message };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const concurrentReplay = await findAuditLogByOperationId(parsed.data.commandId);
+      if (
+        concurrentReplay &&
+        isMatchingAdminPasswordResetReplay(concurrentReplay, actorUserId, user.id, commandFingerprint)
+      ) {
+        return { ok: true as const, userLabel: userLabel(user), replayed: true as const };
       }
-    }, tx);
-  });
+      return { ok: false as const, error: "That administrator command id has already been used." };
+    }
+    throw error;
+  }
 
   return { ok: true as const, userLabel: userLabel(user), replayed: false as const };
 }

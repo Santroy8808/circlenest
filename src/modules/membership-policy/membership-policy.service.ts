@@ -1,5 +1,4 @@
 import { MembershipTier, Prisma, UserRole } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { findAuditLogByOperationId, writeAuditLog } from "@/lib/platform/audit";
 import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
@@ -97,18 +96,23 @@ export function resolvePolicy(input: {
   const base = getTierPolicy(tier);
   const globalOverrides = input.globalOverrides ?? {};
   const overrides = input.overrides ?? {};
+  const features = {
+    ...base.features,
+    ...globalOverrides,
+    ...overrides,
+    "admin.portal": role === UserRole.ADMIN || role === UserRole.GOD
+  };
+
+  for (const featureKey of membershipFeatureKeys) {
+    if (canRoleBypassFeature(role, featureKey)) features[featureKey] = true;
+  }
 
   return {
     ...base,
     role,
     actualTier,
     overrides,
-    features: {
-      ...base.features,
-      ...globalOverrides,
-      ...overrides,
-      "admin.portal": role === UserRole.ADMIN || role === UserRole.GOD
-    }
+    features
   };
 }
 
@@ -226,7 +230,7 @@ export async function getGodTierPolicyEditorView(actorUserId: string) {
 }
 
 export async function setGlobalTierFeatureOverride(input: {
-  commandId?: string;
+  commandId: string;
   actorUserId: string;
   tier: MembershipTier;
   featureKey: string;
@@ -264,7 +268,7 @@ export async function setGlobalTierFeatureOverride(input: {
     return { ok: false as const, error: "Password confirmation failed." };
   }
 
-  const commandId = input.commandId?.trim() || randomUUID();
+  const commandId = input.commandId.trim();
   if (commandId.length < 8 || commandId.length > 200) {
     return { ok: false as const, error: "Provide a valid command id." };
   }
@@ -300,6 +304,24 @@ export async function setGlobalTierFeatureOverride(input: {
 
   try {
     const override = await prisma.$transaction(async (tx) => {
+      const [currentActor] = await tx.$queryRaw<Array<{
+        id: string;
+        role: UserRole;
+        deactivatedAt: Date | null;
+        passwordHash: string | null;
+      }>>`
+        SELECT "id", "role", "deactivatedAt", "passwordHash"
+        FROM "User"
+        WHERE "id" = ${input.actorUserId}
+        FOR UPDATE
+      `;
+      if (!currentActor || currentActor.deactivatedAt || !isGodRole(currentActor.role)) {
+        throw new Error("GOD_AUTHORIZATION_CHANGED");
+      }
+      if (!currentActor.passwordHash || !(await verifyPassword(input.password, currentActor.passwordHash))) {
+        throw new Error("GOD_REAUTHENTICATION_CHANGED");
+      }
+
       const existing = await tx.membershipTierFeatureOverride.findUnique({
         where: { tier_featureKey: { tier: input.tier, featureKey: input.featureKey } }
       });
@@ -348,6 +370,12 @@ export async function setGlobalTierFeatureOverride(input: {
 
     return { ok: true as const, override, replayed: false as const };
   } catch (error) {
+    if (error instanceof Error && error.message === "GOD_AUTHORIZATION_CHANGED") {
+      return { ok: false as const, error: "God access is no longer active." };
+    }
+    if (error instanceof Error && error.message === "GOD_REAUTHENTICATION_CHANGED") {
+      return { ok: false as const, error: "Password confirmation is no longer valid." };
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const concurrentReplay = await findAuditLogByOperationId(commandId);
       if (concurrentReplay) {

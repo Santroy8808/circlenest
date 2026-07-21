@@ -5,7 +5,8 @@ import { createCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import {
   adminAccountCreationRequestId,
   adminCreateUserSchema,
-  isMatchingAdminAccountCreationReplay
+  isMatchingAdminAccountCreationReplay,
+  toAdminCreatedAccountReceipt
 } from "@/modules/admin-moderation/account-support.service";
 import { setMembershipPolicyOverride } from "@/modules/membership-policy/membership-policy.service";
 import {
@@ -25,6 +26,7 @@ const accountRequest = {
   inviteCode: "",
   reason: "Create a beta test account."
 };
+const accountCommandSecret = "test-account-command-secret";
 
 test("administrator provisioning accepts only operational membership tiers", () => {
   assert.equal(adminCreateUserSchema.safeParse(accountRequest).success, true);
@@ -36,14 +38,22 @@ test("administrator provisioning accepts only operational membership tiers", () 
 
 test("account-provisioning replay is bound to actor, action, and canonical request identity", () => {
   const parsed = adminCreateUserSchema.parse(accountRequest);
-  const requestId = adminAccountCreationRequestId(parsed);
+  const requestId = adminAccountCreationRequestId(parsed, accountCommandSecret);
   const normalizedRequestId = adminAccountCreationRequestId({
     ...parsed,
     email: "member@example.com",
     username: "new_member"
-  });
+  }, accountCommandSecret);
   assert.equal(requestId, normalizedRequestId);
-  assert.notEqual(requestId, adminAccountCreationRequestId({ ...parsed, tier: MembershipTier.CONTRIBUTOR }));
+  assert.notEqual(
+    requestId,
+    adminAccountCreationRequestId({ ...parsed, tier: MembershipTier.CONTRIBUTOR }, accountCommandSecret)
+  );
+  assert.notEqual(
+    requestId,
+    adminAccountCreationRequestId({ ...parsed, password: "A-different-password-456!" }, accountCommandSecret)
+  );
+  assert.notEqual(requestId, adminAccountCreationRequestId(parsed, "a-different-command-secret"));
 
   const replay = {
     actorUserId: "god-user",
@@ -55,6 +65,32 @@ test("account-provisioning replay is bound to actor, action, and canonical reque
   assert.equal(isMatchingAdminAccountCreationReplay(replay, "other-god", requestId), false);
   assert.equal(isMatchingAdminAccountCreationReplay({ ...replay, action: "password.reset" }, "god-user", requestId), false);
   assert.equal(isMatchingAdminAccountCreationReplay(replay, "god-user", `${requestId}:other`), false);
+});
+
+test("account-provisioning fresh and replay results use one explicit safe receipt", () => {
+  const source = {
+    id: "created-user",
+    email: "member@example.com",
+    username: "new_member",
+    displayName: "New Member",
+    role: UserRole.MEMBER,
+    tier: MembershipTier.FREE,
+    passwordHash: "must-never-leave-the-service",
+    sessionVersion: 22
+  };
+  const receipt = toAdminCreatedAccountReceipt(source);
+
+  assert.deepEqual(receipt, {
+    id: "created-user",
+    email: "member@example.com",
+    username: "new_member",
+    displayName: "New Member",
+    role: UserRole.MEMBER,
+    tier: MembershipTier.FREE
+  });
+  assert.equal("passwordHash" in receipt, false);
+  assert.equal("sessionVersion" in receipt, false);
+  assert.equal(Object.isFrozen(receipt), true);
 });
 
 test("policy overrides can share the command transaction without writing a duplicate generic audit", async () => {

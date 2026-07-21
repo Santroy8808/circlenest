@@ -11,6 +11,12 @@ import { ensureDefaultStripeCreditPackages, listStripeCreditPackages } from "@/m
 import { ensureLaunchDefaults, listSubscriptionPlanRules } from "@/modules/membership-policy/launch-access.service";
 import { isOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import { environmentSecretStore, isValidSecretEnvironmentVariable } from "@/modules/billing/environment-secret-store";
+import {
+  consumeStripeAdminReauthenticationProof,
+  StripeAdminReauthenticationError,
+  type StripeAdminMutationKind,
+  type StripeAdminReauthenticationProof
+} from "@/modules/billing/stripe-admin-reauth.service";
 
 const MODULE_KEY = "stripe-admin";
 
@@ -110,6 +116,24 @@ function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+async function consumeStripeProofWithoutMutation(input: {
+  actorUserId: string;
+  proof: StripeAdminReauthenticationProof;
+  kind: StripeAdminMutationKind;
+  validatedPayload: Record<string, unknown>;
+}) {
+  try {
+    await prisma.$transaction(
+      (transaction) => consumeStripeAdminReauthenticationProof(transaction, input),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+    return null;
+  } catch (error) {
+    if (error instanceof StripeAdminReauthenticationError) return error.message;
+    throw error;
+  }
+}
+
 function maskSecret(value?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
@@ -170,7 +194,11 @@ export async function getStripeSetupAdminView() {
 
 export type StripeSetupAdminView = Awaited<ReturnType<typeof getStripeSetupAdminView>>;
 
-export async function updateStripeConnection(actorUserId: string, input: unknown) {
+export async function updateStripeConnection(
+  actorUserId: string,
+  input: unknown,
+  reauthenticationProof: StripeAdminReauthenticationProof
+) {
   if (!(await isGodUser(actorUserId))) {
     return { ok: false as const, error: "God access is required to change payment secrets." };
   }
@@ -201,6 +229,13 @@ export async function updateStripeConnection(actorUserId: string, input: unknown
   });
   const replay = await findAuditLogByOperationId(parsed.data.commandId);
   if (replay) {
+    const proofError = await consumeStripeProofWithoutMutation({
+      actorUserId,
+      proof: reauthenticationProof,
+      kind: "connection",
+      validatedPayload: parsed.data
+    });
+    if (proofError) return { ok: false as const, error: proofError };
     return isMatchingCommandFingerprint(replay, { actorUserId, action, target, fingerprint: commandFingerprint })
       ? { ok: true as const, view: await getStripeSetupAdminView(), replayed: true as const }
       : { ok: false as const, error: "That administrator command id has already been used." };
@@ -208,6 +243,12 @@ export async function updateStripeConnection(actorUserId: string, input: unknown
 
   try {
     await prisma.$transaction(async (tx) => {
+      await consumeStripeAdminReauthenticationProof(tx, {
+        actorUserId,
+        proof: reauthenticationProof,
+        kind: "connection",
+        validatedPayload: parsed.data
+      });
       const existing = await tx.stripeIntegrationConfig.findUnique({ where: { id: "default" } });
       const nextPublishableKey = parsed.data.clearPublishableKey
         ? null
@@ -263,7 +304,17 @@ export async function updateStripeConnection(actorUserId: string, input: unknown
       }, tx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
+    if (error instanceof StripeAdminReauthenticationError) {
+      return { ok: false as const, error: error.message };
+    }
     if (isUniqueConstraintError(error)) {
+      const proofError = await consumeStripeProofWithoutMutation({
+        actorUserId,
+        proof: reauthenticationProof,
+        kind: "connection",
+        validatedPayload: parsed.data
+      });
+      if (proofError) return { ok: false as const, error: proofError };
       const concurrentReplay = await findAuditLogByOperationId(parsed.data.commandId);
       if (concurrentReplay) {
         if (isMatchingCommandFingerprint(concurrentReplay, { actorUserId, action, target, fingerprint: commandFingerprint })) {
@@ -279,7 +330,11 @@ export async function updateStripeConnection(actorUserId: string, input: unknown
   return { ok: true as const, view: await getStripeSetupAdminView(), replayed: false as const };
 }
 
-export async function updateStripeSubscriptionPrice(actorUserId: string, input: unknown) {
+export async function updateStripeSubscriptionPrice(
+  actorUserId: string,
+  input: unknown,
+  reauthenticationProof: StripeAdminReauthenticationProof
+) {
   if (!(await isGodUser(actorUserId))) {
     return { ok: false as const, error: "God access is required to change subscription pricing." };
   }
@@ -302,18 +357,38 @@ export async function updateStripeSubscriptionPrice(actorUserId: string, input: 
   });
   const replay = await findAuditLogByOperationId(parsed.data.commandId);
   if (replay) {
+    const proofError = await consumeStripeProofWithoutMutation({
+      actorUserId,
+      proof: reauthenticationProof,
+      kind: "subscription-price",
+      validatedPayload: parsed.data
+    });
+    if (proofError) return { ok: false as const, error: proofError };
     return isMatchingStripePricingReplay(replay, actorUserId, action, requestId, commandFingerprint)
       ? { ok: true as const, view: await getStripeSetupAdminView(), replayed: true as const }
       : { ok: false as const, error: "That administrator command id has already been used." };
   }
 
   if (!isOperationalMembershipTier(parsed.data.tier)) {
+    const proofError = await consumeStripeProofWithoutMutation({
+      actorUserId,
+      proof: reauthenticationProof,
+      kind: "subscription-price",
+      validatedPayload: parsed.data
+    });
+    if (proofError) return { ok: false as const, error: proofError };
     return { ok: false as const, error: "That membership tier is currently disabled." };
   }
 
   await ensureLaunchDefaults();
   try {
     await prisma.$transaction(async (tx) => {
+      await consumeStripeAdminReauthenticationProof(tx, {
+        actorUserId,
+        proof: reauthenticationProof,
+        kind: "subscription-price",
+        validatedPayload: parsed.data
+      });
       const previous = await tx.subscriptionPlanRule.findUnique({ where: { tier: parsed.data.tier } });
       const rule = await tx.subscriptionPlanRule.update({
         where: { tier: parsed.data.tier },
@@ -334,7 +409,17 @@ export async function updateStripeSubscriptionPrice(actorUserId: string, input: 
       }, tx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
+    if (error instanceof StripeAdminReauthenticationError) {
+      return { ok: false as const, error: error.message };
+    }
     if (isUniqueConstraintError(error)) {
+      const proofError = await consumeStripeProofWithoutMutation({
+        actorUserId,
+        proof: reauthenticationProof,
+        kind: "subscription-price",
+        validatedPayload: parsed.data
+      });
+      if (proofError) return { ok: false as const, error: proofError };
       const concurrentReplay = await recoverConcurrentStripePricingReplay(
         parsed.data.commandId,
         actorUserId,
@@ -355,7 +440,11 @@ export async function updateStripeSubscriptionPrice(actorUserId: string, input: 
   return { ok: true as const, view: await getStripeSetupAdminView(), replayed: false as const };
 }
 
-export async function upsertStripeCreditPackage(actorUserId: string, input: unknown) {
+export async function upsertStripeCreditPackage(
+  actorUserId: string,
+  input: unknown,
+  reauthenticationProof: StripeAdminReauthenticationProof
+) {
   if (!(await isGodUser(actorUserId))) {
     return { ok: false as const, error: "God access is required to change credit-package pricing." };
   }
@@ -384,6 +473,13 @@ export async function upsertStripeCreditPackage(actorUserId: string, input: unkn
   });
   const replay = await findAuditLogByOperationId(parsed.data.commandId);
   if (replay) {
+    const proofError = await consumeStripeProofWithoutMutation({
+      actorUserId,
+      proof: reauthenticationProof,
+      kind: "credit-package",
+      validatedPayload: parsed.data
+    });
+    if (proofError) return { ok: false as const, error: proofError };
     return isMatchingStripePricingReplay(replay, actorUserId, action, requestId, commandFingerprint)
       ? { ok: true as const, view: await getStripeSetupAdminView(), replayed: true as const }
       : { ok: false as const, error: "That administrator command id has already been used." };
@@ -391,6 +487,12 @@ export async function upsertStripeCreditPackage(actorUserId: string, input: unkn
 
   try {
     await prisma.$transaction(async (tx) => {
+      await consumeStripeAdminReauthenticationProof(tx, {
+        actorUserId,
+        proof: reauthenticationProof,
+        kind: "credit-package",
+        validatedPayload: parsed.data
+      });
       const previous = await tx.stripeCreditPackage.findUnique({ where: { key: parsed.data.key } });
       const packageRule = await tx.stripeCreditPackage.upsert({
         where: { key: parsed.data.key },
@@ -441,7 +543,17 @@ export async function upsertStripeCreditPackage(actorUserId: string, input: unkn
       }, tx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
+    if (error instanceof StripeAdminReauthenticationError) {
+      return { ok: false as const, error: error.message };
+    }
     if (isUniqueConstraintError(error)) {
+      const proofError = await consumeStripeProofWithoutMutation({
+        actorUserId,
+        proof: reauthenticationProof,
+        kind: "credit-package",
+        validatedPayload: parsed.data
+      });
+      if (proofError) return { ok: false as const, error: proofError };
       const concurrentReplay = await recoverConcurrentStripePricingReplay(
         parsed.data.commandId,
         actorUserId,

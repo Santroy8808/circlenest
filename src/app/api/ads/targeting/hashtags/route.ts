@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/platform/db";
-import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { normalizeAdTargetHashtag } from "@/modules/ads-credits/types";
 
@@ -14,7 +13,7 @@ export async function GET(request: Request) {
 
   const generalAccess = await canUserAccessFeature(session.user.id, "ads.createGeneral");
   const marketAdAccess = await canUserAccessFeature(session.user.id, "market.createAd");
-  if (!isAdminRole(session.user.role) && !generalAccess.allowed && !marketAdAccess.allowed) {
+  if (!generalAccess.allowed && !marketAdAccess.allowed) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

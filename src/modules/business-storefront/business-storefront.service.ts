@@ -12,7 +12,6 @@ import {
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { isAdminRole } from "@/lib/platform/roles";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
@@ -344,26 +343,11 @@ function toInquiryView(inquiry: {
   };
 }
 
-async function canManageBusinessProfile(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      role: true,
-      membership: {
-        select: {
-          tier: true
-        }
-      }
-    }
-  });
-
-  if (!user) return { allowed: false, reason: "User was not found." };
-  if (isAdminRole(user.role)) return { allowed: true, reason: "Admin role can manage business profiles." };
-
-  const businessAccess = await canUserAccessFeature(userId, "market.storefront");
-  if (businessAccess.allowed) return businessAccess;
-
-  return canUserAccessFeature(userId, "org.profile");
+export async function getBusinessProfileManagementAccess(
+  userId: string,
+  resolveAccess: typeof canUserAccessFeature = canUserAccessFeature
+) {
+  return resolveAccess(userId, "market.storefront");
 }
 
 async function getBusinessProfileKind(userId: string) {
@@ -429,7 +413,7 @@ async function ensureStorefrontInquirySender(tx: Prisma.TransactionClient) {
 }
 
 export async function getBusinessCenterView(userId: string): Promise<BusinessCenterView> {
-  const access = await canManageBusinessProfile(userId);
+  const access = await getBusinessProfileManagementAccess(userId);
   const linkedAccount = await getBusinessAccountForOwner(userId);
   const profileOwnerUserId = linkedAccount?.businessUserId ?? userId;
   let profile = await prisma.businessProfile.findUnique({
@@ -515,7 +499,7 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid business profile." };
   }
 
-  const access = await canManageBusinessProfile(userId);
+  const access = await getBusinessProfileManagementAccess(userId);
 
   if (!access.allowed) {
     return { ok: false as const, error: access.reason ?? "Business profile access required." };
@@ -699,7 +683,7 @@ export async function createBusinessArticle(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid article." };
   }
 
-  const access = await canManageBusinessProfile(userId);
+  const access = await getBusinessProfileManagementAccess(userId);
 
   if (!access.allowed) {
     return { ok: false as const, error: access.reason ?? "Business profile access required." };

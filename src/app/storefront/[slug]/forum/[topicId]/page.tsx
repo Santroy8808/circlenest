@@ -2,7 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { StorefrontForumTopicClient } from "@/components/business-storefront/storefront-forum-topic-client";
+import type { StorefrontForumPostView } from "@/modules/storefront-forum/types";
 import { safeGetStorefrontForumTopic } from "@/modules/storefront-forum/storefront-forum.service";
+import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
+
+function removeManagementControls(post: StorefrontForumPostView): StorefrontForumPostView {
+  return {
+    ...post,
+    viewerCanDelete: false,
+    replies: post.replies?.map(removeManagementControls)
+  };
+}
 
 export default async function StorefrontForumTopicPage({ params }: { params: { slug: string; topicId: string } }) {
   const session = await auth();
@@ -11,6 +21,18 @@ export default async function StorefrontForumTopicPage({ params }: { params: { s
   if (!result.ok) {
     notFound();
   }
+
+  const managementAccess = session?.user && !session.user.revoked
+    ? await resolveMembershipRouteAccess(session.user.id, "businessManage", "page")
+    : { allowed: false as const };
+  const viewerCanManage = result.viewerCanManage && managementAccess.allowed;
+  const topic = viewerCanManage
+    ? result.topic
+    : {
+        ...result.topic,
+        viewerCanDelete: false,
+        posts: result.topic.posts.map(removeManagementControls)
+      };
 
   return (
     <main className="public-storefront-surface">
@@ -23,7 +45,7 @@ export default async function StorefrontForumTopicPage({ params }: { params: { s
             Member login
           </Link>
         </div>
-        <StorefrontForumTopicClient profile={result.profile} topic={result.topic} viewerCanManage={result.viewerCanManage} />
+        <StorefrontForumTopicClient profile={result.profile} topic={topic} viewerCanManage={viewerCanManage} />
       </div>
     </main>
   );

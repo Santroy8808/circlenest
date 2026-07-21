@@ -5,12 +5,26 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getBusinessCenterView } from "@/modules/business-storefront/business-storefront.service";
 import { logUnavailableFeatureClick } from "@/modules/feature-availability/feature-availability.service";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
+import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 
 export default async function BusinessCenterStorefrontPage() {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
     redirect("/login?callbackUrl=/business-center/storefront");
+  }
+
+  const routeAccess = await resolveMembershipRouteAccess(session.user.id, "businessManage", "page");
+  if (!routeAccess.allowed) {
+    await logUnavailableFeatureClick({
+      actorUserId: session.user.id,
+      featureKey: "market.storefront",
+      label: "Business Storefront",
+      requestedPath: "/business-center/storefront",
+      source: "route-gate",
+      reason: routeAccess.error
+    });
+    notFound();
   }
 
   const [businessCenter, writersAccess] = await Promise.all([

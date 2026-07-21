@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NavSection } from "@/components/platform/control-panel-nav";
@@ -38,18 +39,22 @@ const bottomActions: Array<{ href: string; icon: IconName; label: string; countK
   { href: "/messages", icon: "chat", label: "Messages", countKey: "messages" },
   { href: "/mail", icon: "mail", label: "Mail", countKey: "mail" },
   { href: "/notifications", icon: "bell", label: "Notifications", countKey: "notifications" },
-  { href: "/alerts", icon: "alert", label: "Alerts", countKey: "alerts" }
+  { href: "/notifications?view=alerts", icon: "alert", label: "Alerts", countKey: "alerts" }
 ];
 
 const sectionIcons: Record<string, IconName> = {
   Account: "shield",
   Admin: "shield",
+  "Comm Center": "chat",
   Communications: "chat",
+  Groups: "people",
   Home: "home",
+  Market: "briefcase",
   People: "people",
   "Production Zone": "briefcase",
   Settings: "settings",
-  Status: "spark"
+  Status: "spark",
+  Tools: "spark"
 };
 
 function matchesPath(pathname: string, href: string) {
@@ -61,7 +66,7 @@ function sectionCount(section: NavSection, counts: Record<CountKey, number>) {
 }
 
 function sectionHref(section: NavSection) {
-  return section.items[0]?.href ?? "/home";
+  return section.href ?? section.items.find((item) => item.href)?.href ?? "/home";
 }
 
 function countForAction(counts: Record<CountKey, number>, countKey?: CountKey) {
@@ -208,10 +213,59 @@ export function AndroidAppControls({ counts, mailEnabled, platformFeatures, sect
     if (delta < -28) setSheetOpen(false);
   }
 
+  function logout() {
+    if (window.confirm("Log out of Theta-Space?")) {
+      void signOut({ callbackUrl: "/login" });
+    }
+  }
+
   return (
     <>
       {drawerOpen ? <button aria-label="Close control panel" className="android-drawer-scrim" onClick={() => setDrawerOpen(false)} type="button" /> : null}
       {sheetOpen ? <button aria-label="Close shortcuts" className="android-shortcut-scrim" onClick={() => setSheetOpen(false)} type="button" /> : null}
+      {drawerOpen ? (
+        <aside aria-label="Full control panel" className="android-control-drawer">
+          <div className="android-control-drawer-header">
+            <strong>Control panel</strong>
+            <button aria-label="Close control panel" onClick={() => setDrawerOpen(false)} type="button">
+              Close
+            </button>
+          </div>
+          <nav aria-label="All available destinations" className="android-control-drawer-sections">
+            {primarySections.map((section) => (
+              <section className="android-control-drawer-section" key={section.label}>
+                <Link href={sectionHref(section)} onClick={() => setDrawerOpen(false)}>
+                  {section.label}
+                  {sectionCount(section, liveCounts) > 0 ? (
+                    <span className="android-drawer-count">{sectionCount(section, liveCounts)}</span>
+                  ) : null}
+                </Link>
+                <div className="android-control-drawer-items">
+                  {section.items.map((item) =>
+                    item.href ? (
+                      <Link
+                        className={matchesPath(pathname, item.href) ? "is-active" : undefined}
+                        href={item.href}
+                        key={`${section.label}:${item.label}`}
+                        onClick={() => setDrawerOpen(false)}
+                      >
+                        <span>{item.label}</span>
+                        {item.countKey && liveCounts[item.countKey] > 0 ? (
+                          <span className="android-drawer-count">{liveCounts[item.countKey]}</span>
+                        ) : null}
+                      </Link>
+                    ) : item.action === "logout" ? (
+                      <button key={`${section.label}:${item.label}`} onClick={logout} type="button">
+                        {item.label}
+                      </button>
+                    ) : null
+                  )}
+                </div>
+              </section>
+            ))}
+          </nav>
+        </aside>
+      ) : null}
       <div className={sheetOpen ? "android-shortcut-sheet is-open" : "android-shortcut-sheet"} role="dialog" aria-label="Control panel shortcuts">
         <div className="android-shortcut-grid">
           {primarySections.map((section) => {

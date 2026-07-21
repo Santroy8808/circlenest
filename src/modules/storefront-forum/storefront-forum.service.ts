@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
-import { isAdminRole } from "@/lib/platform/roles";
 import { getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
+import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createStorefrontForumPostSchema,
   createStorefrontForumTopicSchema,
@@ -141,21 +141,39 @@ async function getForumProfile(slug: string) {
   });
 }
 
+export function storefrontManagementRelationshipAllows(input: {
+  viewerUserId: string;
+  ownerUserId: string;
+  linkedBusinessUserId?: string | null;
+  viewerActive: boolean;
+  capabilityAllowed: boolean;
+}) {
+  return Boolean(
+    input.viewerActive &&
+      input.capabilityAllowed &&
+      (input.viewerUserId === input.ownerUserId || input.linkedBusinessUserId === input.ownerUserId)
+  );
+}
+
 async function canManageStorefrontProfile(viewerUserId: string | null | undefined, ownerUserId: string) {
   if (!viewerUserId) return false;
 
-  const [viewer, linkedAccount] = await Promise.all([
+  const [viewer, linkedAccount, access] = await Promise.all([
     prisma.user.findUnique({
       where: { id: viewerUserId },
-      select: { role: true, deactivatedAt: true }
+      select: { deactivatedAt: true }
     }),
-    getBusinessAccountForOwner(viewerUserId)
+    getBusinessAccountForOwner(viewerUserId),
+    canUserAccessFeature(viewerUserId, "market.storefront")
   ]);
 
-  if (!viewer || viewer.deactivatedAt) return false;
-  if (isAdminRole(viewer.role)) return true;
-  if (viewerUserId === ownerUserId) return true;
-  return linkedAccount?.businessUserId === ownerUserId;
+  return storefrontManagementRelationshipAllows({
+    viewerUserId,
+    ownerUserId,
+    linkedBusinessUserId: linkedAccount?.businessUserId,
+    viewerActive: Boolean(viewer && !viewer.deactivatedAt),
+    capabilityAllowed: access.allowed
+  });
 }
 
 function requireGuestName(viewerUserId: string | null | undefined, guestName: string | undefined) {

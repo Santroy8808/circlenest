@@ -18,87 +18,10 @@ import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
-import { ControlPanelNav, type NavSection } from "@/components/platform/control-panel-nav";
+import { ControlPanelNav } from "@/components/platform/control-panel-nav";
 import { getWelcomeTutorialState } from "@/modules/tutorial/tutorial.service";
 import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
-
-const homeSection: NavSection = {
-  href: "/home",
-  label: "Home",
-  items: [
-    { label: "My Stream", href: "/home" },
-    { label: "My Pics", href: "/profile/gallery" },
-    { label: "Search", href: "/search" },
-    { label: "Logout", action: "logout" }
-  ]
-};
-
-const communicationsSection: NavSection = {
-  href: "/messages",
-  label: "Comm Center",
-  items: [
-    { label: "Messages", href: "/messages", countKey: "messages" },
-    { label: "Mail", href: "/mail", countKey: "mail" },
-    { label: "Notifications", href: "/notifications", countKey: "notifications" },
-    { label: "Alerts", href: "/notifications?view=alerts", countKey: "alerts" }
-  ]
-};
-
-const peopleSection: NavSection = {
-  href: "/people",
-  label: "People",
-  items: [
-    { label: "Browse People", href: "/people" },
-    { label: "Friends", href: "/friends" }
-  ]
-};
-
-const groupsSection: NavSection = {
-  href: "/groups",
-  label: "Groups",
-  items: [
-    { label: "Browse Groups", href: "/groups" },
-    { label: "Create Group", href: "/groups/create" }
-  ]
-};
-
-const exploreSection: NavSection = {
-  href: "/market",
-  label: "Market",
-  items: [
-    { label: "The Market", href: "/market" },
-    { label: "Events", href: "/events" },
-    { label: "Find a Job", href: "/jobs" },
-    { label: "Find an Auditor", href: "/auditors" }
-  ]
-};
-
-const advancedToolsSection: NavSection = {
-  href: "/business-center",
-  label: "Tools",
-  items: [
-    { label: "Business Center", href: "/business-center" },
-    { label: "Ads", href: "/ads" },
-    { label: "Writers Corner", href: "/writers-corner" },
-    { label: "Fundraisers", href: "/fundraisers" }
-  ]
-};
-
-const settingsSection: NavSection = {
-  href: "/settings",
-  label: "Settings",
-  items: [
-    { label: "Profile", href: "/profile" },
-    { label: "My Scientology", href: "/profile/scientology" },
-    { label: "My Resume", href: "/settings/profile/resume" },
-    { label: "Membership", href: "/membership" },
-    { label: "Tutorial", href: "/settings/tutorial" },
-    { label: "Users Manual", href: "/settings/users-manual" },
-    { label: "Progression Path", href: "/settings/progression-path" },
-    { label: "Feedback Center", href: "/settings/feedback" },
-    { label: "Settings", href: "/settings" }
-  ]
-};
+import { buildMemberNavigation } from "@/modules/navigation/member-navigation";
 
 const AD_RAIL_DISABLED_PREFIXES = [
   "/admin",
@@ -116,123 +39,6 @@ const zeroCounts = { alerts: 0, mail: 0, messages: 0, notifications: 0 };
 function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isMobileAdRailRequest: boolean) {
   if (!isSignedIn || isMobileAdRailRequest) return false;
   return !AD_RAIL_DISABLED_PREFIXES.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`));
-}
-
-function getNavSections(input: {
-  accountPurpose?: AccountPurpose;
-  features: Record<string, boolean>;
-  isAdmin: boolean;
-  isSignedIn: boolean;
-  mailEnabled: boolean;
-  platformFeatures: Record<string, boolean>;
-}): NavSection[] {
-  if (!input.isSignedIn) {
-    return [
-      {
-        label: "Home",
-        href: "/membership",
-        items: [{ label: "Membership", href: "/membership" }]
-      },
-      {
-        label: "Account",
-        href: "/login",
-        items: [{ label: "Login", href: "/login" }]
-      }
-    ];
-  }
-
-  if (input.accountPurpose === AccountPurpose.AUDITOR_SEEKER) {
-    return [
-      {
-        label: "Get Help",
-        href: "/auditors",
-        items: [
-          { label: "Find an Auditor", href: "/auditors" },
-          ...(input.mailEnabled ? [{ label: "Mail", href: "/mail", countKey: "mail" } as const] : []),
-          { label: "Profile", href: "/profile" },
-          { label: "Logout", action: "logout" }
-        ]
-      }
-    ];
-  }
-
-  const visibleHomeSection = {
-    ...homeSection,
-    items: homeSection.items.filter((item) => item.href !== "/profile/gallery" || input.platformFeatures["media.personal_gallery"] !== false)
-  };
-  const visibleCommunicationItems = communicationsSection.items.filter((item) => {
-    if (item.href === "/mail" || item.countKey === "mail") return input.mailEnabled;
-    if (item.href === "/messages" || item.countKey === "messages") return input.platformFeatures["communication.direct_messages"] !== false;
-    return true;
-  });
-  const visibleCommunicationsSection = {
-    ...communicationsSection,
-    href: visibleCommunicationItems[0]?.href ?? "/notifications",
-    items: visibleCommunicationItems
-  };
-  const features = input.features;
-  const marketItems = exploreSection.items.filter((item) => {
-    if (item.href === "/market") return input.platformFeatures["marketplace.member_market"] !== false;
-    if (item.href === "/auditors") return input.platformFeatures["directory.auditor_directory"] !== false;
-    if (item.href === "/events") return input.isAdmin;
-    if (item.href === "/jobs") return input.isAdmin || features["jobs.browse"] === true;
-    return true;
-  });
-  const toolsItems = advancedToolsSection.items.filter((item) => {
-    if (input.isAdmin) return true;
-    if (item.href === "/business-center") {
-      return features["market.storefront"] || features["org.profile"] || features["ads.createGeneral"];
-    }
-    if (item.href === "/ads") return features["ads.createGeneral"] || features["ads.createFundraiser"];
-    if (item.href === "/writers-corner") return input.platformFeatures["publishing.writers_corner"] !== false && features["writers.access"];
-    if (item.href === "/fundraisers") return input.isAdmin;
-    return false;
-  });
-  const visibleSettingsSection = {
-    ...settingsSection,
-    items: settingsSection.items.filter(
-      (item) =>
-        item.href !== "/settings/feedback" ||
-        (input.platformFeatures["support.feedback_center"] !== false && (input.isAdmin || features["support.createRequest"] === true))
-    )
-  };
-  const memberSections = [visibleHomeSection, visibleCommunicationsSection, peopleSection];
-  if (input.platformFeatures["community.groups"] !== false) memberSections.push(groupsSection);
-  if (marketItems.length > 0) memberSections.push({ ...exploreSection, href: marketItems[0]?.href ?? "/market", items: marketItems });
-  if (toolsItems.length > 0) {
-    const toolsHref = toolsItems.some((item) => item.href === advancedToolsSection.href) ? advancedToolsSection.href : toolsItems[0]?.href;
-    memberSections.push({ ...advancedToolsSection, href: toolsHref, items: toolsItems });
-  }
-  memberSections.push(visibleSettingsSection);
-
-  const sections: NavSection[] = [
-    ...memberSections,
-    {
-      label: "Admin",
-      href: input.isAdmin ? "/admin" : undefined,
-      items: input.isAdmin ? [{ label: "Admin Portal", href: "/admin" }] : []
-    },
-    {
-      label: "Status",
-      href: input.isAdmin ? "/health" : undefined,
-      items: input.isAdmin
-        ? [
-            { label: "Dev Status", href: "/dev/status-page" },
-            { label: "Health", href: "/health" },
-            { label: "Cutover", href: "/cutover" },
-            { label: "Docs", href: "/docs" },
-            { label: "System Map", href: "/docs/system-map" }
-          ]
-        : []
-    },
-    {
-      label: "Account",
-      href: input.isSignedIn ? undefined : "/login",
-      items: input.isSignedIn ? [] : [{ label: "Login", href: "/login" }]
-    }
-  ];
-
-  return sections.filter((section) => section.items.length > 0);
 }
 
 function isAllowedAuditorSeekerPath(currentPath: string) {
@@ -328,7 +134,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const tierFeatures: Record<string, boolean> = effectivePolicy?.features ?? {};
   const registeredFeatureFlags = await timeServerStep("shell.feature-flags", listRegisteredFeatureFlags(), { path: currentPath });
   const platformFeatures = Object.fromEntries(registeredFeatureFlags.map((flag) => [flag.key, flag.enabled]));
-  const canCreateAd = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
+  const canCreateAd = Boolean(tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"]);
   const actorPicker = isSignedIn && session?.user?.id
     ? await timeServerStep("shell.actor-picker", getAccountActorPicker(session.user.id), { path: currentPath })
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
@@ -342,7 +148,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })
     : { shouldPrompt: false };
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
-  const navSections = getNavSections({ accountPurpose: session?.user?.accountPurpose, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
+  const navSections = buildMemberNavigation({ accountPurpose: session?.user?.accountPurpose, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
 

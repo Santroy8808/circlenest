@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
+import { resolvePlatformApiFeatureAccess } from "@/modules/feature-flags/api-feature-access";
+import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 import {
   createChapter,
   createManuscript,
@@ -16,8 +18,20 @@ export async function GET(request: NextRequest) {
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
+  const routeAccess = await resolveMembershipRouteAccess(session.user.id, "writersCreate", "api");
+  if (!routeAccess.allowed) {
+    return NextResponse.json({ error: routeAccess.error }, { status: routeAccess.status });
+  }
+
+  const featureAccess = await resolvePlatformApiFeatureAccess("publishing.writers_corner");
+  if (!featureAccess.allowed) {
+    return NextResponse.json(
+      { error: featureAccess.error, code: featureAccess.code },
+      { status: featureAccess.status }
+    );
+  }
+
   const access = await getWriterAccessState(session.user.id);
-  if (!access.canWrite) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   const chapterId = request.nextUrl.searchParams.get("chapterId");
   if (chapterId) {
@@ -45,6 +59,19 @@ export async function POST(request: NextRequest) {
 
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
+
+  const routeAccess = await resolveMembershipRouteAccess(session.user.id, "writersCreate", "api");
+  if (!routeAccess.allowed) {
+    return NextResponse.json({ error: routeAccess.error }, { status: routeAccess.status });
+  }
+
+  const featureAccess = await resolvePlatformApiFeatureAccess("publishing.writers_corner");
+  if (!featureAccess.allowed) {
+    return NextResponse.json(
+      { error: featureAccess.error, code: featureAccess.code },
+      { status: featureAccess.status }
+    );
+  }
 
   const body = await request.json().catch(() => ({}));
   const result = body.manuscriptId

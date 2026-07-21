@@ -3,11 +3,14 @@ import test from "node:test";
 import { MembershipSubscriptionStatus, MembershipTier, MembershipUpgradeMode } from "@prisma/client";
 import {
   accountDeletionStripeIdempotencyKey,
+  classifyStripeSubscriptionSyncReplay,
   resolveContributorPlanEligibility,
   resolveStripeMembershipApplicationState,
   resolveStripeSubscriptionPeriodEnd,
   stripeCheckoutIntentMatchesUser,
-  stripeSubscriptionRequiresAccountDeletionCancellation
+  stripeSubscriptionRequiresAccountDeletionCancellation,
+  stripeSubscriptionSyncFingerprint,
+  stripeSubscriptionSyncOperationId
 } from "@/modules/membership-policy/subscriptions.service";
 
 test("current Contributor membership is never represented as an eligible upgrade", () => {
@@ -136,5 +139,205 @@ test("retained checkout evidence matches its deleted user only while deletion-bo
       deletionBound: true
     }),
     false
+  );
+});
+
+test("Stripe subscription sync retries use one stable provider operation identity", () => {
+  const first = stripeSubscriptionSyncOperationId({
+    providerEventId: "evt_subscription_updated_1",
+    subscriptionId: "sub_1"
+  });
+  const retry = stripeSubscriptionSyncOperationId({
+    providerEventId: "evt_subscription_updated_1",
+    subscriptionId: "sub_1"
+  });
+  const nextEvent = stripeSubscriptionSyncOperationId({
+    providerEventId: "evt_subscription_updated_2",
+    subscriptionId: "sub_1"
+  });
+
+  assert.equal(first, retry);
+  assert.notEqual(first, nextEvent);
+});
+
+test("a crash after atomic Stripe persistence recovers the exact durable audit receipt", () => {
+  const identity = {
+    operationId: stripeSubscriptionSyncOperationId({
+      providerEventId: "evt_subscription_updated_1",
+      subscriptionId: "sub_1"
+    }),
+    providerEventId: "evt_subscription_updated_1",
+    providerEventType: "customer.subscription.updated"
+  };
+  const fingerprint = stripeSubscriptionSyncFingerprint({
+    userId: "member-1",
+    targetTier: MembershipTier.CONTRIBUTOR,
+    stripeCustomerId: "cus_1",
+    stripeSubscriptionId: "sub_1",
+    subscriptionStatus: MembershipSubscriptionStatus.ACTIVE,
+    subscriptionCurrentPeriodEnd: new Date("2026-08-01T00:00:00.000Z"),
+    subscriptionCancelAtPeriodEnd: false,
+    checkoutIntentId: "checkout-intent-1",
+    identity
+  });
+  const audit = {
+    actorUserId: null,
+    module: "membership-subscriptions",
+    action: "stripe.subscription.synced",
+    targetType: "User",
+    targetId: "member-1",
+    metadata: {
+      commandFingerprint: fingerprint,
+      syncReceipt: {
+        activeTier: MembershipTier.CONTRIBUTOR,
+        accountBlocked: false,
+        deletionRequestId: null
+      }
+    }
+  };
+
+  assert.deepEqual(classifyStripeSubscriptionSyncReplay({
+    audit,
+    userId: "member-1",
+    commandFingerprint: fingerprint
+  }), {
+    state: "replay",
+    receipt: {
+      activeTier: MembershipTier.CONTRIBUTOR,
+      accountBlocked: false,
+      deletionRequestId: null
+    }
+  });
+});
+
+test("a provider operation id cannot replay a different subscription identity", () => {
+  const identity = {
+    operationId: "stripe-webhook:evt_1:subscription-sync",
+    providerEventId: "evt_1",
+    providerEventType: "customer.subscription.updated"
+  };
+  const fingerprint = stripeSubscriptionSyncFingerprint({
+    userId: "member-1",
+    targetTier: MembershipTier.CONTRIBUTOR,
+    stripeCustomerId: "cus_1",
+    stripeSubscriptionId: "sub_1",
+    subscriptionStatus: MembershipSubscriptionStatus.ACTIVE,
+    subscriptionCurrentPeriodEnd: null,
+    subscriptionCancelAtPeriodEnd: false,
+    identity
+  });
+  const conflictingFingerprint = stripeSubscriptionSyncFingerprint({
+    userId: "member-1",
+    targetTier: MembershipTier.CONTRIBUTOR,
+    stripeCustomerId: "cus_1",
+    stripeSubscriptionId: "sub_2",
+    subscriptionStatus: MembershipSubscriptionStatus.ACTIVE,
+    subscriptionCurrentPeriodEnd: null,
+    subscriptionCancelAtPeriodEnd: false,
+    identity
+  });
+  const audit = {
+    actorUserId: null,
+    module: "membership-subscriptions",
+    action: "stripe.subscription.synced",
+    targetType: "User",
+    targetId: "member-1",
+    metadata: {
+      commandFingerprint: fingerprint,
+      syncReceipt: {
+        activeTier: MembershipTier.CONTRIBUTOR,
+        accountBlocked: false,
+        deletionRequestId: null
+      }
+    }
+  };
+
+  assert.deepEqual(classifyStripeSubscriptionSyncReplay({
+    audit,
+    userId: "member-1",
+    commandFingerprint: conflictingFingerprint
+  }), { state: "conflict" });
+});
+
+test("Stripe sync fingerprint binds every persisted subscription snapshot field", () => {
+  const base = {
+    userId: "member-1",
+    targetTier: MembershipTier.CONTRIBUTOR,
+    stripeCustomerId: "cus_1",
+    stripeSubscriptionId: "sub_1",
+    subscriptionStatus: MembershipSubscriptionStatus.ACTIVE,
+    subscriptionCurrentPeriodEnd: new Date("2026-08-01T00:00:00.000Z"),
+    subscriptionCancelAtPeriodEnd: false,
+    identity: {
+      operationId: "stripe-webhook:evt_1:subscription-sync",
+      providerEventId: "evt_1",
+      providerEventType: "customer.subscription.updated"
+    }
+  };
+  const expected = stripeSubscriptionSyncFingerprint(base);
+  const changedFingerprints = [
+    stripeSubscriptionSyncFingerprint({
+      ...base,
+      subscriptionStatus: MembershipSubscriptionStatus.CANCELED
+    }),
+    stripeSubscriptionSyncFingerprint({
+      ...base,
+      subscriptionCurrentPeriodEnd: new Date("2026-09-01T00:00:00.000Z")
+    }),
+    stripeSubscriptionSyncFingerprint({ ...base, subscriptionCurrentPeriodEnd: null }),
+    stripeSubscriptionSyncFingerprint({ ...base, subscriptionCancelAtPeriodEnd: true })
+  ];
+  const audit = {
+    actorUserId: null,
+    module: "membership-subscriptions",
+    action: "stripe.subscription.synced",
+    targetType: "User",
+    targetId: "member-1",
+    metadata: {
+      commandFingerprint: expected,
+      syncReceipt: {
+        activeTier: MembershipTier.CONTRIBUTOR,
+        accountBlocked: false,
+        deletionRequestId: null
+      }
+    }
+  };
+
+  for (const changed of changedFingerprints) {
+    assert.notEqual(changed, expected);
+    assert.deepEqual(classifyStripeSubscriptionSyncReplay({
+      audit,
+      userId: "member-1",
+      commandFingerprint: changed
+    }), { state: "conflict" });
+  }
+});
+
+test("fallback Stripe sync operation ids are versioned by the persisted snapshot", () => {
+  const base = {
+    subscriptionId: "sub_manual",
+    targetTier: MembershipTier.CONTRIBUTOR,
+    stripeCustomerId: "cus_1",
+    subscriptionStatus: MembershipSubscriptionStatus.ACTIVE,
+    subscriptionCurrentPeriodEnd: new Date("2026-08-01T00:00:00.000Z"),
+    subscriptionCancelAtPeriodEnd: false
+  };
+  const first = stripeSubscriptionSyncOperationId(base);
+
+  assert.equal(stripeSubscriptionSyncOperationId(base), first);
+  assert.notEqual(
+    stripeSubscriptionSyncOperationId({ ...base, subscriptionStatus: MembershipSubscriptionStatus.CANCELED }),
+    first
+  );
+  assert.notEqual(
+    stripeSubscriptionSyncOperationId({
+      ...base,
+      subscriptionCurrentPeriodEnd: new Date("2026-09-01T00:00:00.000Z")
+    }),
+    first
+  );
+  assert.notEqual(
+    stripeSubscriptionSyncOperationId({ ...base, subscriptionCancelAtPeriodEnd: true }),
+    first
   );
 });

@@ -19,18 +19,42 @@ export function platformCreditAdjustmentConfirmation(username: string, amount: n
   return `ADJUST ${username} ${amount > 0 ? "+" : ""}${amount}`;
 }
 
-async function isAdminUser(userId?: string) {
-  if (!userId) return false;
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true }
-  });
-
-  return isAdminRole(user?.role);
-}
-
 function normalizeIdentifier(value: string) {
   return value.trim().replace(/^@/, "").toLowerCase();
+}
+
+const creditAccountSelect = {
+  id: true,
+  email: true,
+  username: true,
+  role: true,
+  deactivatedAt: true,
+  profile: {
+    select: {
+      displayName: true
+    }
+  },
+  membership: {
+    select: {
+      tier: true,
+      platformCredits: true
+    }
+  }
+} satisfies Prisma.UserSelect;
+
+type CreditAccountRecord = Prisma.UserGetPayload<{ select: typeof creditAccountSelect }>;
+
+function toCreditAccount(user: CreditAccountRecord) {
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    deactivatedAt: user.deactivatedAt,
+    displayName: user.profile?.displayName ?? user.username,
+    tier: user.membership?.tier ?? "FREE" as const,
+    platformCredits: user.membership?.platformCredits ?? 0
+  };
 }
 
 export async function findCreditAccount(identifier: string) {
@@ -42,40 +66,51 @@ export async function findCreditAccount(identifier: string) {
     where: {
       OR: [{ email: normalized }, { username: normalized }]
     },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      role: true,
-      profile: {
-        select: {
-          displayName: true
-        }
-      },
-      membership: {
-        select: {
-          tier: true,
-          platformCredits: true
-        }
-      }
-    }
+    select: creditAccountSelect
   });
 
   if (!user) return null;
 
-  return {
-    id: user.id,
-    email: user.email,
-    username: user.username,
-    role: user.role,
-    displayName: user.profile?.displayName ?? user.username,
-    tier: user.membership?.tier ?? "FREE",
-    platformCredits: user.membership?.platformCredits ?? 0
-  };
+  const { deactivatedAt: _deactivatedAt, ...account } = toCreditAccount(user);
+  return account;
 }
 
 export function wouldPlatformCreditAdjustmentBeNegative(balance: number, amount: number) {
   return balance + amount < 0;
+}
+
+export function validateLockedPlatformCreditActors(input: {
+  actor: { id: string; role: CreditAccountRecord["role"]; deactivatedAt: Date | null } | null;
+  target: ReturnType<typeof toCreditAccount> | null;
+  amount: number;
+  confirmation: string;
+}) {
+  if (!input.actor || input.actor.deactivatedAt || !isAdminRole(input.actor.role)) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+  if (!input.target) {
+    return { ok: false as const, error: "User was not found." };
+  }
+  if (input.target.deactivatedAt) {
+    return { ok: false as const, error: "That account is deactivated and cannot receive a credit adjustment." };
+  }
+  const authorization = evaluateAdminActorTarget({
+    actorUserId: input.actor.id,
+    actorRole: input.actor.role,
+    targetUserId: input.target.id,
+    targetRole: input.target.role
+  });
+  if (!authorization.allowed) {
+    return { ok: false as const, error: "That account is protected from this administrator action." };
+  }
+  const expectedConfirmation = platformCreditAdjustmentConfirmation(input.target.username, input.amount);
+  if (input.confirmation !== expectedConfirmation) {
+    return {
+      ok: false as const,
+      error: `Type ${expectedConfirmation} exactly to confirm this financial adjustment.`
+    };
+  }
+  return { ok: true as const };
 }
 
 export async function getPlatformCreditsAdminView() {
@@ -112,73 +147,79 @@ export async function getPlatformCreditsAdminView() {
 }
 
 export async function adjustPlatformCredits(actorUserId: string, input: unknown) {
-  if (!(await isAdminUser(actorUserId))) {
-    return { ok: false as const, error: "Admin access required." };
-  }
-
   const parsed = platformCreditAdjustmentSchema.safeParse(input);
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid credit adjustment." };
   }
 
-  const [actor, target] = await Promise.all([
-    prisma.user.findUnique({ where: { id: actorUserId }, select: { id: true, role: true, deactivatedAt: true } }),
-    findCreditAccount(parsed.data.userIdentifier)
-  ]);
-
-  if (!target) {
-    return { ok: false as const, error: "User was not found." };
-  }
-  if (!actor || actor.deactivatedAt || !isAdminRole(actor.role)) {
+  const preliminaryActor = await prisma.user.findUnique({
+    where: { id: actorUserId },
+    select: { role: true, deactivatedAt: true }
+  });
+  if (!preliminaryActor || preliminaryActor.deactivatedAt || !isAdminRole(preliminaryActor.role)) {
     return { ok: false as const, error: "Admin access required." };
   }
-  const authorization = evaluateAdminActorTarget({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    targetUserId: target.id,
-    targetRole: target.role
-  });
-  if (!authorization.allowed) {
-    return { ok: false as const, error: "That account is protected from this administrator action." };
-  }
-  const expectedConfirmation = platformCreditAdjustmentConfirmation(target.username, parsed.data.amount);
-  if (parsed.data.confirmation !== expectedConfirmation) {
-    return {
-      ok: false as const,
-      error: `Type ${expectedConfirmation} exactly to confirm this financial adjustment.`
-    };
+
+  const initialTarget = await findCreditAccount(parsed.data.userIdentifier);
+  if (!initialTarget) {
+    return { ok: false as const, error: "User was not found." };
   }
 
   const ledgerReason = `Admin platform credit adjustment: ${parsed.data.reason}`;
-  const replayResult = async () => {
-    const existing = await prisma.adCreditLedgerEntry.findUnique({ where: { idempotencyKey: parsed.data.idempotencyKey } });
-    if (!existing) return null;
-    if (
-      existing.userId !== target.id ||
-      existing.actorUserId !== actorUserId ||
-      existing.amount !== parsed.data.amount ||
-      existing.reason !== ledgerReason
-    ) {
-      return { ok: false as const, error: "That credit idempotency key has already been used for another adjustment." };
-    }
-    return {
-      ok: true as const,
-      account: {
-        ...target,
-        platformCredits: existing.balanceAfter ?? target.platformCredits
-      },
-      ledgerEntryId: existing.id,
-      replayed: true as const
-    };
+  type TransactionResult = {
+    account: Omit<ReturnType<typeof toCreditAccount>, "deactivatedAt">;
+    ledgerEntryId: string;
+    replayed: boolean;
   };
+  let updated: TransactionResult | null = null;
+  for (let attempt = 0; attempt < 3 && !updated; attempt += 1) {
+    try {
+      updated = await prisma.$transaction(async (tx): Promise<TransactionResult> => {
+        const lockedUserIds = [...new Set([actorUserId, initialTarget.id])].sort();
+        await tx.$queryRaw<Array<{ id: string }>>(
+          Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(lockedUserIds)}) ORDER BY "id" FOR UPDATE`
+        );
+        const [lockedActor, lockedTargetRecord] = await Promise.all([
+          tx.user.findUnique({
+            where: { id: actorUserId },
+            select: { id: true, role: true, deactivatedAt: true }
+          }),
+          tx.user.findUnique({ where: { id: initialTarget.id }, select: creditAccountSelect })
+        ]);
+        const lockedTarget = lockedTargetRecord ? toCreditAccount(lockedTargetRecord) : null;
+        const authorization = validateLockedPlatformCreditActors({
+          actor: lockedActor,
+          target: lockedTarget,
+          amount: parsed.data.amount,
+          confirmation: parsed.data.confirmation
+        });
+        if (!authorization.ok) throw new Error(`PLATFORM_CREDIT_REJECTED:${authorization.error}`);
+        const target = lockedTarget!;
 
-  const replay = await replayResult();
-  if (replay) return replay;
+        const existing = await tx.adCreditLedgerEntry.findUnique({
+          where: { idempotencyKey: parsed.data.idempotencyKey }
+        });
+        if (existing) {
+          if (
+            existing.userId !== target.id ||
+            existing.actorUserId !== actorUserId ||
+            existing.amount !== parsed.data.amount ||
+            existing.reason !== ledgerReason
+          ) {
+            throw new Error("PLATFORM_CREDIT_REJECTED:That credit idempotency key has already been used for another adjustment.");
+          }
+          const { deactivatedAt: _deactivatedAt, ...account } = target;
+          return {
+            account: {
+              ...account,
+              platformCredits: existing.balanceAfter ?? target.platformCredits
+            },
+            ledgerEntryId: existing.id,
+            replayed: true
+          };
+        }
 
-  let updated: { tier: typeof target.tier; platformCredits: number; ledgerEntryId: string };
-  try {
-    updated = await prisma.$transaction(async (tx) => {
       if (parsed.data.amount < 0) {
         const changed = await tx.membership.updateMany({
           where: {
@@ -188,7 +229,7 @@ export async function adjustPlatformCredits(actorUserId: string, input: unknown)
           data: { platformCredits: { increment: parsed.data.amount } }
         });
         if (changed.count !== 1) {
-          throw new Error("INSUFFICIENT_PLATFORM_CREDITS");
+          throw new Error("PLATFORM_CREDIT_REJECTED:This adjustment would make platform credits negative.");
         }
       } else {
         await tx.membership.upsert({
@@ -241,34 +282,40 @@ export async function adjustPlatformCredits(actorUserId: string, input: unknown)
         }
       }, tx);
 
-      return { ...membership, ledgerEntryId: ledgerEntry.id };
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === "INSUFFICIENT_PLATFORM_CREDITS") {
-      return { ok: false as const, error: "This adjustment would make platform credits negative." };
+        const { deactivatedAt: _deactivatedAt, ...account } = target;
+        return {
+          account: {
+            ...account,
+            tier: membership.tier,
+            platformCredits: membership.platformCredits
+          },
+          ledgerEntryId: ledgerEntry.id,
+          replayed: false
+        };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("PLATFORM_CREDIT_REJECTED:")) {
+        return { ok: false as const, error: error.message.slice("PLATFORM_CREDIT_REJECTED:".length) };
+      }
+      const retryableConcurrencyFailure =
+        error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2002" || error.code === "P2034");
+      if (retryableConcurrencyFailure && attempt < 2) continue;
+      throw error;
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const concurrentReplay = await replayResult();
-      if (concurrentReplay) return concurrentReplay;
-    }
-    throw error;
   }
+  if (!updated) throw new Error("Platform credit adjustment did not produce a transaction result.");
   await diagnostics.info(MODULE_KEY, "Admin adjusted platform credits.", {
     actorUserId,
-    targetUserId: target.id,
+    targetUserId: updated.account.id,
     amount: parsed.data.amount,
-    resultingBalance: updated.platformCredits,
+    resultingBalance: updated.account.platformCredits,
     ledgerEntryId: updated.ledgerEntryId
   });
 
   return {
     ok: true as const,
-    account: {
-      ...target,
-      tier: updated.tier,
-      platformCredits: updated.platformCredits
-    },
+    account: updated.account,
     ledgerEntryId: updated.ledgerEntryId,
-    replayed: false as const
+    replayed: updated.replayed
   };
 }

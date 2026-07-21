@@ -5,7 +5,18 @@ import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/pl
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { evaluateAdminActorTarget, isAdminRole } from "@/lib/platform/roles";
+import {
+  AdminTargetAuthorizationError,
+  lockAndAuthorizeAdminActorTarget
+} from "@/modules/admin-moderation/account-target-authorization";
 import { setMembershipPolicyOverride } from "@/modules/membership-policy/membership-policy.service";
+import type { OperationalTier } from "@/modules/membership-policy/membership-access";
+import {
+  OperationalMembershipTransitionConflictError,
+  runSerializableOperationalMembershipTransaction,
+  transitionOperationalMembershipInTransaction
+} from "@/modules/membership-policy/operational-membership-transition.service";
+import type { OperationalMembershipTransitionResult } from "@/modules/membership-policy/operational-membership-transition";
 import { getTierPolicy, isOperationalMembershipTier } from "@/modules/membership-policy/policy";
 
 const MODULE_KEY = "admin-status-change";
@@ -175,6 +186,7 @@ export async function changeInvitePermission(actorUserId: string, input: unknown
 
   try {
     await prisma.$transaction(async (tx) => {
+      await lockAndAuthorizeAdminActorTarget(tx, actorUserId, target.id);
       const result = await setMembershipPolicyOverride({
         actorUserId,
         targetUserId: target.id,
@@ -201,6 +213,9 @@ export async function changeInvitePermission(actorUserId: string, input: unknown
       }, tx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
+    if (error instanceof AdminTargetAuthorizationError) {
+      return { ok: false as const, error: error.message };
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const concurrentState = await getCommandState(
         parsed.data.commandId,
@@ -264,6 +279,7 @@ export async function changeBulkInvitePermission(actorUserId: string, input: unk
 
   try {
     await prisma.$transaction(async (tx) => {
+      await lockAndAuthorizeAdminActorTarget(tx, actorUserId, target.id);
       const result = await setMembershipPolicyOverride({
         actorUserId,
         targetUserId: target.id,
@@ -290,6 +306,9 @@ export async function changeBulkInvitePermission(actorUserId: string, input: unk
       }, tx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
+    if (error instanceof AdminTargetAuthorizationError) {
+      return { ok: false as const, error: error.message };
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const concurrentState = await getCommandState(
         parsed.data.commandId,
@@ -358,16 +377,13 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
   }
   if (commandState === "conflict") return { ok: false as const, error: "That administrator command id has already been used." };
 
-  if (target.tier === parsed.data.targetTier) {
-    return { ok: false as const, error: "Account is already on that membership tier." };
-  }
-
   const targetPolicy = getTierPolicy(parsed.data.targetTier);
   const previousTier = target.tier;
 
   if (parsed.data.targetTier === MembershipTier.ORG) {
     try {
       await prisma.$transaction(async (tx) => {
+        await lockAndAuthorizeAdminActorTarget(tx, actorUserId, target.id);
         await tx.membershipTierUpgradeEligibility.upsert({
           where: {
             userId_tier: {
@@ -423,6 +439,9 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
         }, tx);
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
+      if (error instanceof AdminTargetAuthorizationError) {
+        return { ok: false as const, error: error.message };
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         const concurrentState = await getCommandState(
           parsed.data.commandId,
@@ -459,25 +478,17 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
     };
   }
 
-  let updated: { tier: MembershipTier; storageLimitBytes: bigint; platformCredits: number };
+  let transition: OperationalMembershipTransitionResult;
   try {
-    updated = await prisma.$transaction(async (tx) => {
-      const membership = await tx.membership.upsert({
-        where: { userId: target.id },
-        update: {
-          tier: parsed.data.targetTier,
-          storageLimitBytes: BigInt(targetPolicy.limits.storageLimitBytes)
-        },
-        create: {
-          userId: target.id,
-          tier: parsed.data.targetTier,
-          storageLimitBytes: BigInt(targetPolicy.limits.storageLimitBytes)
-        },
-        select: {
-          tier: true,
-          storageLimitBytes: true,
-          platformCredits: true
-        }
+    transition = await runSerializableOperationalMembershipTransaction(async (tx) => {
+      await lockAndAuthorizeAdminActorTarget(tx, actorUserId, target.id);
+      const membershipTransition = await transitionOperationalMembershipInTransaction(tx, {
+        userId: target.id,
+        targetTier: parsed.data.targetTier as OperationalTier,
+        source: "ADMIN_CORRECTION",
+        actorUserId,
+        reason: parsed.data.reason,
+        expectedCurrentTier: target.tier
       });
 
       await tx.adminAction.create({
@@ -488,8 +499,12 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
           status: "completed",
           metadata: {
             targetUserId: target.id,
-            previousTier,
+            previousTier: membershipTransition.before.tier,
             targetTier: parsed.data.targetTier,
+            revokedContributorOfferCount: membershipTransition.revokedContributorOfferCount,
+            terminatedAcceptedContributorOfferCount: membershipTransition.terminatedAcceptedContributorOfferCount,
+            deactivatedContributorEligibilityCount: membershipTransition.deactivatedContributorEligibilityCount,
+            monthlyCreditLedgerEntryId: membershipTransition.monthlyCredits?.ledgerEntryId ?? null,
             reason: parsed.data.reason
           } as Prisma.InputJsonObject
         }
@@ -503,14 +518,39 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
         targetType: "User",
         targetId: target.id,
         severity: AuditSeverity.warning,
-        before: { tier: previousTier, storageLimitBytes: target.storageLimitBytes },
-        after: { tier: membership.tier, storageLimitBytes: membership.storageLimitBytes.toString() },
-        metadata: { commandFingerprint, reason: parsed.data.reason }
+        before: {
+          membershipExists: membershipTransition.before.exists,
+          tier: membershipTransition.before.tier,
+          storageLimitBytes: membershipTransition.before.storageLimitBytes?.toString() ?? null,
+          platformCredits: membershipTransition.before.platformCredits
+        },
+        after: {
+          membershipExists: true,
+          tier: membershipTransition.after.tier,
+          storageLimitBytes: membershipTransition.after.storageLimitBytes?.toString() ?? null,
+          platformCredits: membershipTransition.after.platformCredits
+        },
+        metadata: {
+          commandFingerprint,
+          reason: parsed.data.reason,
+          revokedContributorOfferCount: membershipTransition.revokedContributorOfferCount,
+          terminatedAcceptedContributorOfferCount: membershipTransition.terminatedAcceptedContributorOfferCount,
+          deactivatedContributorEligibilityCount: membershipTransition.deactivatedContributorEligibilityCount,
+          monthlyCreditLedgerEntryId: membershipTransition.monthlyCredits?.ledgerEntryId ?? null,
+          monthlyCreditPeriod: membershipTransition.monthlyCredits?.periodKey ?? null,
+          monthlyCreditAmount: membershipTransition.monthlyCredits?.amount ?? null
+        }
       }, tx);
 
-      return membership;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return membershipTransition;
+    });
   } catch (error) {
+    if (error instanceof AdminTargetAuthorizationError) {
+      return { ok: false as const, error: error.message };
+    }
+    if (error instanceof OperationalMembershipTransitionConflictError) {
+      return { ok: false as const, error: error.message };
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const concurrentState = await getCommandState(
         parsed.data.commandId,
@@ -532,18 +572,18 @@ export async function changeMembershipStatus(actorUserId: string, input: unknown
   await diagnostics.info(MODULE_KEY, "Admin changed membership status.", {
     actorUserId,
     targetUserId: target.id,
-    previousTier,
-    targetTier: updated.tier
+    previousTier: transition.before.tier,
+    targetTier: transition.after.tier
   });
 
   return {
     ok: true as const,
     account: {
       ...target,
-      tier: updated.tier,
+      tier: transition.after.tier,
       tierName: targetPolicy.displayName,
-      storageLimitBytes: updated.storageLimitBytes.toString(),
-      platformCredits: updated.platformCredits
+      storageLimitBytes: transition.after.storageLimitBytes.toString(),
+      platformCredits: transition.after.platformCredits
     },
     replayed: false as const
   };

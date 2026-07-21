@@ -153,15 +153,6 @@ function toScheduleRunView(run: {
 }
 
 async function getAdCreateAccess(userId: string) {
-  const actor = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true }
-  });
-
-  if (isAdminRole(actor?.role)) {
-    return { allowed: true, reason: undefined, fundraiserOnly: false, marketOnly: false, isAdmin: true };
-  }
-
   const generalAccess = await canUserAccessFeature(userId, "ads.createGeneral");
   if (generalAccess.allowed) {
     return { ...generalAccess, fundraiserOnly: false, marketOnly: false, isAdmin: false };
