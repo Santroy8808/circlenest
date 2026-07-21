@@ -82,6 +82,18 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
     definition: "The larger profile header image shown on profile and gallery pages when selected."
   },
   {
+    term: "Conduct Report",
+    definition: "A request for the moderation team to review one eligible public or group interaction. A report is not proof that someone broke a rule."
+  },
+  {
+    term: "Commendation",
+    definition: "Positive recognition you send for one eligible interaction. Commendations received appear in the private Reports and Commendations area."
+  },
+  {
+    term: "Dispute",
+    definition: "A structured discussion about a conduct report. Required participants or an authorized moderator must explicitly resolve it; it does not close merely because time passed."
+  },
+  {
     term: "Visibility",
     definition: "The audience setting for a picture or item. Some uploads are public, some are members-only, and some can be private depending on where they are used."
   },
@@ -342,9 +354,11 @@ export const usersManualSections: UsersManualSection[] = [
           "Open My Pics from Home, Settings, or the gallery icon.",
           "Upload pictures from the gallery upload page or from places that allow picture attachment.",
           "Open a picture to view the larger image and discussion.",
-          "Use available controls to set a picture as avatar or banner."
+          "Use available controls to set that exact picture as your avatar or banner.",
+          "To delete pictures, select one or more, confirm the warning, and enter the DELETE password. The pictures hide immediately while secure storage removal is verified.",
+          "Watch Secure deletion for Deletion queued, Removing photos, or Action needed. If Action needed appears, review the explanation and use Retry with fresh DELETE-password confirmation."
         ],
-        limits: ["Free Tier personal file storage is 200 MB.", "Visibility can be changed only through available picture settings.", "If comments are disabled by visibility or settings, discussion controls may not appear."],
+        limits: ["Free Tier personal file storage is 200 MB.", "Visibility can be changed only through available picture settings.", "If comments are disabled by visibility or settings, discussion controls may not appear.", "System-managed pictures cannot be selected or deleted.", "A picture still used by a live post, message, listing, or other feature must be detached there before deletion can begin."],
         faq: [
           {
             question: "Can I change a picture after upload?",
@@ -356,7 +370,15 @@ export const usersManualSections: UsersManualSection[] = [
           },
           {
             question: "Can I delete a picture?",
-            answer: "Use Delete photo when it is shown. Deleting removes the picture from your gallery and may affect places where it was used."
+            answer: "Yes. Select the picture, confirm the warning, and enter the DELETE password. It disappears from normal views immediately, but secure removal continues in the background until every stored copy is verified absent."
+          },
+          {
+            question: "Why does deletion say Action needed?",
+            answer: "Secure storage removal did not finish. Read the safe explanation, detach the picture from any feature still using it when requested, then choose Retry and confirm with the DELETE password again."
+          },
+          {
+            question: "How do I know my avatar or banner changed?",
+            answer: "The action reports success only after Theta-Space confirms that the exact selected My Pics image was applied to the exact avatar or banner field. A failed or mismatched response leaves your profile unchanged and shows an error."
           }
         ],
         visual: {
@@ -745,6 +767,32 @@ export const usersManualSections: UsersManualSection[] = [
           title: "Security reference",
           caption: "Security settings protect account access and interactions.",
           callouts: ["Open secure settings.", "Review blocked users.", "Change only what you intend."]
+        }
+      },
+      {
+        title: "Reports and Commendations",
+        href: "/settings/reports",
+        purpose: "Review conduct reports connected to your account, commendations you received, disputes, and active communication restrictions.",
+        howToUse: ["Open Settings, then Reports and Commendations.", "Open a report to read the evidence and status available to you.", "If you are the reported member, use the dispute option when you need to add your statement or eligible public/group context.", "When a dispute is ready to close, use the participant resolution control; a moderator may use an explicit recorded override when required."],
+        limits: ["A report asks for review; it does not prove misconduct.", "Private messages, group direct messages, internal mail, drafts, and private gallery content are outside communication review.", "Reporter identity and confidential moderator notes are shown only where policy allows.", "A pairwise restriction limits direct interaction only between the named accounts and does not expose or inspect existing private messages."],
+        faq: [
+          {
+            question: "What can I report or commend?",
+            answer: "Use the action shown on eligible Stream posts or replies, group forum content, and group-picture comments. Review the exact item before submitting."
+          },
+          {
+            question: "Does a dispute close automatically?",
+            answer: "No. Required participants must mark it resolved, or an authorized moderator must use an explicit override with a recorded reason."
+          },
+          {
+            question: "What is a pairwise communication restriction?",
+            answer: "It temporarily blocks new direct conversations and directed interactions between two named accounts. It does not inspect or reveal their prior private messages."
+          }
+        ],
+        visual: {
+          title: "Safety records reference",
+          caption: "Reports, commendations, disputes, and restrictions remain attached to the correct conduct record.",
+          callouts: ["Open the exact record.", "Read evidence and status.", "Use dispute and resolution controls deliberately."]
         }
       },
       {

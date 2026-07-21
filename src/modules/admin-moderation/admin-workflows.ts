@@ -348,11 +348,11 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
           entries: [
             {
               href: "/admin/actions/conduct-review",
-              title: "Communication Review",
+              title: "Conduct Report Review",
               category: "Platform Controls",
-              description: "Run manually, automatically, or on a schedule; review contextual conduct candidates and audit outcomes.",
+              description: "Search member conduct reports, inspect evidence and disputes, assign an active reviewer, and record an audited status decision.",
               badge: "review",
-              keywords: ["conduct", "communications", "scanner", "schedule", "manual", "automatic", "shadow", "reports"]
+              keywords: ["conduct", "reports", "evidence", "disputes", "reviewer", "assignment", "audit"]
             },
             {
               href: "/admin/actions/feature-flags",

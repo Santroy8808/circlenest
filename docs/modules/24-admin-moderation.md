@@ -13,6 +13,8 @@ Provide safe administrative and moderation operations through guided cards and w
 - `/api/admin/platform-credits` for platform-only credit adjustments.
 - `/api/admin/announcements` for public announcement publishing.
 - `/api/admin/stripe-setup` for Stripe connection, price ID, and credit-package setup.
+- `/admin/actions/conduct-review` for bounded conduct-report search, assignment, evidence review, and legal status decisions.
+- `/api/admin/conduct` for versioned, audited conduct queries and mutations.
 
 ## Primary Code Areas
 
@@ -29,7 +31,8 @@ Provide safe administrative and moderation operations through guided cards and w
 - `AdminAction` records completed admin operations.
 - `FeatureFlag` stores administrator overrides. Registered definitions, defaults, effects, and enforcement notes live in the feature-flag service catalog.
 - `DiagnosticLog` provides operational visibility.
-- Future report, category, announcement, support-note, and verification tables should attach here.
+- Conduct incidents, reports, evidence/history, disputes, participants, candidates, and restrictions provide the moderation record. `ConductIncident.version` protects aggregate decisions from stale writes.
+- Announcement, support, and verification records attach to their owning modules while privileged mutations remain visible through the admin audit history.
 
 ## Core Workflows
 
@@ -44,6 +47,9 @@ Provide safe administrative and moderation operations through guided cards and w
 - Platform Credits wizard grants/removes platform-only credits with ledger and audit records.
 - Stripe Setup wizard configures connection status, membership price IDs, and credit purchase packages.
 - Public Announcement wizard publishes notices through selected delivery channels.
+- Conduct Review searches reports on the server with bounded text, status, and reviewer filters; opens source/evidence/dispute context; assigns an active administrator; and exposes only state-legal decisions.
+- Conduct mutations require an administrative reason and note, reauthorize the acting administrator inside the transaction, compare report/incident versions, use stable lock order and bounded serializable retries, and persist an idempotent command receipt with conduct events, `AdminAction`, and `AuditLog`.
+- A stale conduct result must be refreshed and reviewed again. Generic report controls cannot reopen or otherwise bypass a linked dispute.
 - Other action wizards define safe flow until their mutation policies are explicit.
 
 ## Access Rules
@@ -63,6 +69,7 @@ Provide safe administrative and moderation operations through guided cards and w
 - View-as-role preview.
 - Audit viewer.
 - Reports queue.
+- Conduct report review.
 - Business verification.
 - Public announcements.
 - Stripe Setup.
@@ -78,7 +85,8 @@ Provide safe administrative and moderation operations through guided cards and w
 
 ## Diagnostics And Audit
 
-- Feature flag, Status Change, Platform Credits, Stripe Setup, and Public Announcement updates write audit and diagnostic logs.
+- Feature flag, Status Change, Platform Credits, Stripe Setup, Public Announcement, and successful Conduct Review updates write audit records.
+- Conduct Review also writes a durable command receipt and conduct event so an identical retry replays safely while a reused command for a different decision is rejected.
 - Stripe Setup masks saved secret values in reads and only exposes presence/last-four style status to the UI.
 - Portal reads recent audit and diagnostic entries.
 
@@ -90,6 +98,11 @@ Provide safe administrative and moderation operations through guided cards and w
 - Non-admin users cannot access `/api/admin/stripe-setup`.
 - Feature flag update writes audit/admin action, changes the effective state, and rejects unknown keys.
 - A direct URL or API mutation cannot bypass a disabled registered feature.
+- Conduct report search rejects unknown/unbounded filters and returns the report/incident versions required for safe decisions.
+- Conduct assignment rejects inactive or unauthorized assignees and detects an intervening assignment.
+- Conduct status controls match the server's legal-transition policy, require reason and note, and reject stale versions without overwriting newer work.
+- Linked disputes cannot be bypassed by generic report reopen controls.
+- An identical conduct command retry returns its durable receipt without duplicating audit/history events.
 - Status Change can find a member, change tier, reset storage limit to the selected tier policy, and write audit/admin action.
 - Stripe Setup can save keys, membership price IDs, and credit packages without exposing raw saved secrets.
 - Dashboard shows Phase 24 as Ready and Phase 25 as Next.

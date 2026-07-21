@@ -16,6 +16,8 @@ This file is a map. Use it to load only the files needed for the active task.
 - Human testing readiness: `docs/human-testing-readiness.md`
 - Cutover runbook: `docs/cutover-runbook.md`
 - Production snapshot: `docs/production-repo-snapshot.md`
+- Active release audit: `docs/qa/2026-07-21-free-contributor-admin-release-audit.md`
+- Gallery/conduct repair snapshot: `docs/handoff/snapshots/2026-07-21-gallery-conduct-repairs.md`
 
 ## High-Value Desktop Files
 
@@ -64,8 +66,13 @@ This file is a map. Use it to load only the files needed for the active task.
 - Gallery detail page: `src/app/profile/gallery/[assetId]/page.tsx`
 - Gallery upload page: `src/app/profile/gallery/upload/page.tsx`
 - Media service: `src/modules/media/media.service.ts`
+- Gallery storage service: `src/modules/gallery-media-storage/gallery-media-storage.service.ts`
+- Durable Gallery deletion service/job: `src/modules/gallery-media-storage/gallery-media-deletion.service.ts`
+- Shared media-reference fence: `src/lib/platform/media-asset-reference-fence.ts`
 - Media upload intent API: `src/app/api/media/upload-intent/route.ts`
 - Media complete upload API: `src/app/api/media/complete-upload/route.ts`
+- Gallery deletion API: `src/app/api/media/assets/delete/route.ts`
+- Avatar/banner media API: `src/app/api/profile/media/route.ts`
 - Media asset API: `src/app/api/media/assets/[mediaAssetId]/route.ts`
 - Media tags API: `src/app/api/media/assets/tags/route.ts`
 
@@ -104,6 +111,13 @@ This file is a map. Use it to load only the files needed for the active task.
 - Admin workflow pages: `src/app/admin/workflows/`
 - Admin action pages: `src/app/admin/actions/[actionKey]/page.tsx`
 - Admin moderation service: `src/modules/admin-moderation/admin-moderation.service.ts`
+- Conduct report workspace UI: `src/components/admin-moderation/admin-conduct-review.tsx`
+- Conduct UI/API contract: `src/components/admin-moderation/conduct-review-ui-contract.ts`
+- Conduct admin API and bounded query: `src/app/api/admin/conduct/`
+- Conduct admin operations: `src/modules/conduct-reporting/admin.service.ts`
+- Conduct report creation: `src/modules/conduct-reporting/conduct-reporting.service.ts`
+- Conduct disputes: `src/modules/conduct-reporting/disputes.service.ts`
+- Versioned conduct transitions: `src/modules/admin-moderation/conduct-transitions.service.ts`
 
 ## Database And Generated Code
 

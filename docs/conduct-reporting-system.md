@@ -141,48 +141,40 @@ Admin-editable configuration includes:
 
 Secrets remain environment variables. The UI never displays provider keys.
 
-## Review queue
+## Current admin report workspace
 
-Reviewers can filter by reference, account, location, group, source, status, policy code, date, or assigned moderator. A candidate view shows the bounded evidence snapshot, location/permalink, involved accounts, model/local rationale, policy version, duplicate history, and allowed actions. Dismissal and approval both require a reason and create history events.
+`/admin/actions/conduct-review` is the operational report-review workspace. It provides bounded server-side text search plus report-status and assigned-reviewer filters. Each result exposes the report, shared incident, member, source, evidence, policy, assignment, and linked-dispute context needed for a decision.
 
-## Staged implementation checklist
+An administrator may assign or unassign an active administrator and apply only the status transitions legal for the report's current state. Every mutation requires an administrative reason and note. The server reauthorizes the acting administrator, compares report/incident versions, locks records in stable order, retries bounded serialization conflicts, and stores an idempotent command receipt with conduct events, `AdminAction`, and `AuditLog` records. A stale-version conflict must be refreshed and reviewed again; the UI must never silently overwrite the newer decision. An ordinary report transition cannot bypass a linked dispute.
 
-### Stage 1 - Data and type schema
+## Scanner candidate review
 
-- [ ] Add enums and models for configuration, incidents, reports, commendations, disputes, dispute participants/messages, restrictions, review candidates, scan runs, lease/cursor, and append-only events.
-- [ ] Add stable references, indexes, uniqueness/fingerprint constraints, and ownership relations.
-- [ ] Generate Prisma client, apply the additive schema, and run type checking.
+Scanner candidates are separate from member-submitted conduct reports. Candidate approval/assignment has atomic backend support, but the full candidate filtering and manual/automatic/scheduled scanner-control experience described elsewhere in this document is not the current report-workspace UI. Do not describe location, group, source, policy, or date filters as available on the report page until they are implemented and verified there.
 
-### Stage 2 - Core business logic
+## Implementation status (2026-07-21)
 
-- [ ] Add reference generation, evidence hashing, source allowlist, permission resolution, notification routing, and audit events.
-- [ ] Add manual report/commendation services and account folders.
-- [ ] Add dispute lifecycle and explicit resolution/override rules.
-- [ ] Add pairwise restriction creation, escalation/decay, and authoritative interaction guard.
-- [ ] Add scanner lease/cursor/idempotency, candidate detection, bounded context, provider abstraction, structured validation, budgets, metrics, and scheduling.
+### Implemented and regression-tested
 
-### Stage 3 - Routes and enforcement
+- Conduct incidents, reports, evidence/history, disputes, participants, candidates, and administrative audit records are persistent. `ConductIncident.version` supplies aggregate compare-and-set protection.
+- Manual report creation is serializable, deduplicated, versioned, notification-aware, and safe under concurrent submissions.
+- Dispute opening, statements, participant resolution, administrative override, and aggregate incident recomputation use stable lock ordering and bounded serialization retries.
+- Admin report search is bounded and server-backed. Text, status, and reviewer filters operate in the same query.
+- Assignment accepts only an active authorized administrator (or unassignment) and detects intervening changes.
+- Report transitions expose only legal state changes, require reason and note, preserve linked-dispute rules, and create durable idempotent receipts plus conduct/admin/audit history.
+- Candidate approval and assignment reauthorize the actor and serialize against the shared incident.
+- Forty-nine focused tests cover query parsing, UI/API contracts, transition parity, durable replay, authorization, locking, report creation, candidate handling, disputes, notifications, and aggregate status.
 
-- [ ] Add authenticated member APIs for reports, commendations, folders, disputes, statements, and participant resolution.
-- [ ] Add admin APIs for configuration, run/preview/backfill, run history, review queue, assignment, approval, dismissal, and override.
-- [ ] Register the platform-job handler and due-schedule enqueue function.
-- [ ] Enforce pairwise restrictions in feed replies/comments/mentions, group forum replies/mentions, and creation of new direct-message conversations without reading message history.
+### Partially implemented or awaiting broader verification
 
-### Stage 4 - Interactive UI
+- Member report/commendation, Reports and Commendations, dispute, and restriction surfaces exist, but remain part of the broader release audit and require the complete cross-account production matrix before release closure.
+- Pairwise restriction behavior and every public/group write boundary must remain in the release regression suite.
+- The current admin page is the report-review workspace. Scanner candidate operations and report operations must remain visibly distinct.
 
-- [ ] Add Report and Commend actions to eligible stream/group content.
-- [ ] Add the member Reports and Commendations folder and dispute screens.
-- [ ] Add Platform Management Communication Review controls, history, and review queue.
-- [ ] Add clear safe-mode, privacy-boundary, budget, and run-status copy.
+### Not yet declared complete
 
-### Stage 5 - Verification and documentation
-
-- [ ] Add at least 40 contextual evaluation fixtures.
-- [ ] Add unit tests for references, evidence hashes, fingerprints, scheduling, escalation/decay, and structured-output validation.
-- [ ] Add authorization/query-boundary/integration tests proving private messages and mail are never scanned.
-- [ ] Add manual-report, commendation, dispute, restriction, notification, idempotency, retry, and scheduling tests.
-- [ ] Update environment examples, Admin Hat, Users Manual, and module documentation.
-- [ ] Run Prisma validation/generation, typecheck, lint, focused tests, and production build.
+- The complete manual/automatic/scheduled scanner operations UI, provider configuration, budgets, run history, and shadow-mode browser workflow.
+- The contextual evaluation fixture set and full proof that every future scanner adapter excludes private chat and mail.
+- Automated reports, warnings, and restrictions. These remain disabled in the safe initial mode.
 
 ## Acceptance criteria
 

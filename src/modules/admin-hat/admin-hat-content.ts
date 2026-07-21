@@ -166,6 +166,12 @@ const functionDetailsByTitle: Record<
     cautions: ["Announcements can interrupt users, pin stream content, or queue email depending on channels.", "Keep admin/system wording distinct from normal user posts."],
     expectedResult: "The announcement is delivered through selected channels and recent announcements can be reviewed or dismissed."
   },
+  "Conduct Report Review": {
+    whenToUse: "Use this to investigate and decide member-submitted conduct reports without losing evidence, dispute context, or the audit trail.",
+    beforeYouStart: ["Use text, status, and reviewer filters to locate the exact report.", "Open the source, evidence, incident, member, and linked-dispute context.", "Confirm the current reviewer and status before choosing an action."],
+    cautions: ["Assign only an active administrator who should own the review.", "Every assignment or status decision requires a specific administrative reason and note.", "The page offers only legal transitions; do not use ordinary report controls to bypass a linked dispute.", "If the page reports a stale-version conflict, refresh and review the newer state before trying again."],
+    expectedResult: "The assignment or legal status decision is saved once, returns a durable receipt, and creates conduct, admin-action, and audit history."
+  },
   "Reports Queue": {
     whenToUse: "Use this for inbound bug, abuse, content, feedback, and support work.",
     beforeYouStart: ["Open the ticket and source URL if available.", "Check severity and current status."],
@@ -260,6 +266,18 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
   {
     term: "Public Announcement",
     definition: "An admin-created notice delivered by selected channels such as login pop-up, pinned stream announcement, chat, mail, or queued personal email."
+  },
+  {
+    term: "Conduct Report",
+    definition: "A member-submitted request to review one eligible public or group interaction. A report is an allegation, not proof of misconduct."
+  },
+  {
+    term: "Conduct Incident",
+    definition: "The shared case record that groups reports about the same source content and preserves evidence, status, assignment, dispute context, and append-only history."
+  },
+  {
+    term: "Stale Review",
+    definition: "A safety conflict showing that another authorized action changed the report or incident after the page was loaded. Refresh and review the new state; never assume the older decision still applies."
   },
   {
     term: "Stream Retention",
