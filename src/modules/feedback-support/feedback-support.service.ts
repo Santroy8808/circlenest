@@ -4,6 +4,8 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { hashPrivateSignal } from "@/lib/platform/private-signals";
 import { createFeedbackTicketSchema } from "@/modules/feedback-support/types";
+import { getMembershipAccessForUser } from "@/modules/membership-policy/contributor-upgrade.service";
+import { hasMembershipCapability } from "@/modules/membership-policy/membership-access";
 
 const MODULE_KEY = "feedback-support";
 
@@ -23,6 +25,15 @@ function safeTicketPagePath(value?: string) {
 }
 
 export async function createFeedbackTicket(input: unknown, context: { userId?: string; userAgent?: string } = {}) {
+  if (!context.userId) {
+    return { ok: false as const, error: "Contributor access is required to create a support request." };
+  }
+
+  const access = await getMembershipAccessForUser(context.userId);
+  if (!hasMembershipCapability(access, "support.create")) {
+    return { ok: false as const, error: "Contributor access is required to create a support request." };
+  }
+
   const parsed = createFeedbackTicketSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -34,7 +45,7 @@ export async function createFeedbackTicket(input: unknown, context: { userId?: s
       data: {
         publicId: createPublicTicketId(),
         reporterUserId: context.userId,
-        reporterEmail: context.userId ? undefined : parsed.data.reporterEmail || undefined,
+        reporterEmail: undefined,
         pageUrl: safeTicketPagePath(parsed.data.pageUrl),
         title: parsed.data.title,
         description: parsed.data.description,

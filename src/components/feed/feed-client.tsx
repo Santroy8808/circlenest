@@ -1320,7 +1320,7 @@ export function FeedClient({
         const response = await fetch("/api/feed/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body, visibility: FeedVisibility.MEMBERS, mediaAssetId, targetProfileUserId: postTargetProfileUserId })
+          body: JSON.stringify({ body, visibility: FeedVisibility.PUBLIC, mediaAssetId, targetProfileUserId: postTargetProfileUserId })
         });
         const payload = (await response.json()) as { error?: string; post?: FeedPostView | null };
 

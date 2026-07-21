@@ -1,7 +1,10 @@
 import {
   BillingCheckoutIntentStatus,
+  DestructiveActionKind,
+  DestructiveActionStatus,
   MembershipSubscriptionStatus,
   MembershipTier,
+  MembershipUpgradeMode,
   Prisma,
   StripeCheckoutKind
 } from "@prisma/client";
@@ -21,7 +24,7 @@ import {
 import { processStripeWebhookEventOnce } from "@/modules/billing/stripe-webhook-events.service";
 import { getTierPolicy, isOperationalMembershipTier, normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import { ensureLaunchDefaults, stripePriceIdForTier } from "@/modules/membership-policy/launch-access.service";
-import { getPublicPolicyMatrix } from "@/modules/membership-policy/membership-policy.service";
+import { getContributorUpgradeOfferForUser } from "@/modules/membership-policy/contributor-upgrade.service";
 
 const MODULE_KEY = "membership-subscriptions";
 
@@ -36,6 +39,12 @@ export type SubscriptionUpgradePlanView = {
   hiddenUntilEligible: boolean;
   current: boolean;
   checkoutReady: boolean;
+  upgradeMode: MembershipUpgradeMode;
+  offerId: string | null;
+  currentPriceCents: number;
+  futureMonthlyPriceCents: number | null;
+  betaMessage: string | null;
+  canAcceptOffer: boolean;
 };
 
 export type SubscriptionBillingSummary = {
@@ -47,31 +56,453 @@ export type SubscriptionBillingSummary = {
   canManageBilling: boolean;
 };
 
-function activeEligibilityWhere(userId: string, tier: MembershipTier) {
-  return {
-    userId,
-    tier,
-    active: true,
-    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
-  };
-}
-
 function statusFromStripe(status: Stripe.Subscription.Status): MembershipSubscriptionStatus {
   if (status === "active") return MembershipSubscriptionStatus.ACTIVE;
   if (status === "trialing") return MembershipSubscriptionStatus.TRIALING;
   if (status === "past_due") return MembershipSubscriptionStatus.PAST_DUE;
-  if (status === "canceled") return MembershipSubscriptionStatus.CANCELED;
+  if (status === "canceled" || status === "incomplete_expired") return MembershipSubscriptionStatus.CANCELED;
   if (status === "unpaid") return MembershipSubscriptionStatus.UNPAID;
   return MembershipSubscriptionStatus.INCOMPLETE;
 }
 
-function stripePeriodEnd(subscription: Stripe.Subscription) {
-  const periodEnd = typeof (subscription as { current_period_end?: number }).current_period_end === "number" ? (subscription as { current_period_end?: number }).current_period_end : null;
+export function resolveStripeSubscriptionPeriodEnd(input: {
+  itemCurrentPeriodEnds: Array<number | null | undefined>;
+  legacyCurrentPeriodEnd?: number | null;
+}) {
+  const itemPeriodEnds = input.itemCurrentPeriodEnds.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0
+  );
+  const periodEnd = itemPeriodEnds.length > 0
+    ? Math.min(...itemPeriodEnds)
+    : typeof input.legacyCurrentPeriodEnd === "number" &&
+        Number.isFinite(input.legacyCurrentPeriodEnd) &&
+        input.legacyCurrentPeriodEnd > 0
+      ? input.legacyCurrentPeriodEnd
+      : null;
+
   return periodEnd ? new Date(periodEnd * 1000) : null;
+}
+
+function stripePeriodEnd(subscription: Stripe.Subscription) {
+  const legacyCurrentPeriodEnd = (subscription as Stripe.Subscription & { current_period_end?: number | null })
+    .current_period_end;
+  return resolveStripeSubscriptionPeriodEnd({
+    itemCurrentPeriodEnds: subscription.items.data.map((item) => item.current_period_end),
+    legacyCurrentPeriodEnd
+  });
+}
+
+export function stripeSubscriptionRequiresAccountDeletionCancellation(status: Stripe.Subscription.Status) {
+  return status !== "canceled" && status !== "incomplete_expired";
+}
+
+export function accountDeletionStripeIdempotencyKey(
+  destructiveActionRequestId: string,
+  resourceKind: "subscription" | "checkout-session",
+  stripeResourceId: string
+) {
+  return `account-delete:${destructiveActionRequestId}:${resourceKind}:${stripeResourceId}`;
+}
+
+export function stripeCheckoutIntentMatchesUser(input: {
+  intentUserId: string | null;
+  eventUserId: string;
+  deletionBound: boolean;
+}) {
+  return input.intentUserId === input.eventUserId || (input.intentUserId === null && input.deletionBound);
 }
 
 function canActivateStatus(status: MembershipSubscriptionStatus) {
   return status === MembershipSubscriptionStatus.ACTIVE || status === MembershipSubscriptionStatus.TRIALING;
+}
+
+export function resolveStripeMembershipApplicationState(input: {
+  subscriptionStatus: MembershipSubscriptionStatus;
+  targetTier: MembershipTier;
+  accountBlocked: boolean;
+}) {
+  const activeTier =
+    !input.accountBlocked &&
+    canActivateStatus(input.subscriptionStatus) &&
+    isOperationalMembershipTier(input.targetTier)
+      ? input.targetTier
+      : MembershipTier.FREE;
+  return {
+    activeTier,
+    storageLimitBytes: getTierPolicy(activeTier).limits.storageLimitBytes
+  };
+}
+
+type StripeClient = Awaited<ReturnType<typeof getStripeClient>>;
+
+async function listStripeSubscriptionsForCustomer(stripe: StripeClient, stripeCustomerId: string) {
+  const subscriptions: Stripe.Subscription[] = [];
+  let startingAfter: string | undefined;
+
+  while (true) {
+    const page = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "all",
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {})
+    });
+    subscriptions.push(...page.data);
+    if (!page.has_more) return subscriptions;
+
+    const lastSubscription = page.data.at(-1);
+    if (!lastSubscription) {
+      throw new Error("Stripe returned an incomplete subscription page.");
+    }
+    startingAfter = lastSubscription.id;
+  }
+}
+
+async function listOpenStripeSubscriptionCheckoutSessionsForCustomer(
+  stripe: StripeClient,
+  stripeCustomerId: string
+) {
+  const sessions: Stripe.Checkout.Session[] = [];
+  let startingAfter: string | undefined;
+
+  while (true) {
+    const page = await stripe.checkout.sessions.list({
+      customer: stripeCustomerId,
+      status: "open",
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {})
+    });
+    sessions.push(...page.data.filter((session) => session.mode === "subscription"));
+    if (!page.has_more) return sessions;
+
+    const lastSession = page.data.at(-1);
+    if (!lastSession) {
+      throw new Error("Stripe returned an incomplete checkout-session page.");
+    }
+    startingAfter = lastSession.id;
+  }
+}
+
+async function cancelStripeSubscriptionForAccountDeletion(input: {
+  stripe: StripeClient;
+  subscription: Stripe.Subscription;
+  destructiveActionRequestId: string;
+}) {
+  if (!stripeSubscriptionRequiresAccountDeletionCancellation(input.subscription.status)) {
+    return { subscription: input.subscription, cancellationPerformed: false as const };
+  }
+
+  const subscription = await input.stripe.subscriptions.cancel(
+    input.subscription.id,
+    {
+      invoice_now: false,
+      prorate: false,
+      cancellation_details: {
+        comment: "Theta-Space account deletion"
+      }
+    },
+    {
+      idempotencyKey: accountDeletionStripeIdempotencyKey(
+        input.destructiveActionRequestId,
+        "subscription",
+        input.subscription.id
+      )
+    }
+  );
+  if (stripeSubscriptionRequiresAccountDeletionCancellation(subscription.status)) {
+    throw new Error(`Stripe did not confirm cancellation of subscription ${subscription.id}.`);
+  }
+
+  return { subscription, cancellationPerformed: true as const };
+}
+
+async function expireStripeCheckoutSessionForAccountDeletion(input: {
+  stripe: StripeClient;
+  stripeCheckoutSessionId: string;
+  idempotencyKey: string;
+}) {
+  let session = await input.stripe.checkout.sessions.retrieve(input.stripeCheckoutSessionId);
+  if (session.status !== "open") return session;
+
+  try {
+    session = await input.stripe.checkout.sessions.expire(
+      input.stripeCheckoutSessionId,
+      {},
+      { idempotencyKey: input.idempotencyKey }
+    );
+  } catch (error) {
+    const latestSession = await input.stripe.checkout.sessions.retrieve(input.stripeCheckoutSessionId);
+    if (latestSession.status === "open") throw error;
+    session = latestSession;
+  }
+
+  return session;
+}
+
+async function recordAccountDeletionSubscriptionEvidence(input: {
+  userId: string;
+  destructiveActionRequestId: string;
+  stripeCustomerId: string | null;
+  subscription: Stripe.Subscription;
+  cancellationPerformed: boolean;
+  source: "account-cleanup" | "webhook";
+}) {
+  const operationId =
+    `account-delete:${input.destructiveActionRequestId}:stripe-subscription:${input.subscription.id}:terminal`;
+  await prisma.auditLog.upsert({
+    where: { operationId },
+    update: {},
+    create: {
+      operationId,
+      requestId: input.destructiveActionRequestId,
+      module: MODULE_KEY,
+      action: "stripe.subscription_terminal_for_account_deletion",
+      targetType: "User",
+      targetId: input.userId,
+      severity: "critical",
+      metadata: {
+        source: input.source,
+        stripeCustomerId: input.stripeCustomerId,
+        stripeSubscriptionId: input.subscription.id,
+        stripeSubscriptionStatus: input.subscription.status,
+        stripeCanceledAt: input.subscription.canceled_at,
+        stripeEndedAt: input.subscription.ended_at,
+        cancellationPerformed: input.cancellationPerformed
+      }
+    }
+  });
+}
+
+export async function cancelSubscriptionForAccountDeletion(input: {
+  userId: string;
+  destructiveActionRequestId: string;
+}) {
+  const [membership, checkoutIntents] = await Promise.all([
+    prisma.membership.findUnique({
+      where: { userId: input.userId },
+      select: {
+        stripeCustomerId: true,
+        stripeSubscriptionId: true
+      }
+    }),
+    prisma.billingCheckoutIntent.findMany({
+      where: {
+        userId: input.userId,
+        kind: StripeCheckoutKind.SUBSCRIPTION,
+        status: { in: [BillingCheckoutIntentStatus.PENDING, BillingCheckoutIntentStatus.SESSION_CREATED] },
+        stripeCheckoutSessionId: { not: null }
+      },
+      select: {
+        id: true,
+        stripeCheckoutSessionId: true
+      }
+    })
+  ]);
+  if (!membership?.stripeCustomerId && !membership?.stripeSubscriptionId && checkoutIntents.length === 0) {
+    return {
+      canceled: false,
+      cancellationPerformed: false,
+      stripeCustomerId: membership?.stripeCustomerId ?? null,
+      stripeSubscriptionId: membership?.stripeSubscriptionId ?? null,
+      stripeSubscriptionIds: [] as string[],
+      expiredCheckoutSessionIds: [] as string[]
+    };
+  }
+
+  const stripe = await getStripeClient();
+  const seedSubscriptionIds = new Set<string>();
+  const expiredCheckoutSessionIds = new Set<string>();
+  if (membership?.stripeSubscriptionId) seedSubscriptionIds.add(membership.stripeSubscriptionId);
+
+  for (const intent of checkoutIntents) {
+    if (!intent.stripeCheckoutSessionId) continue;
+    const session = await expireStripeCheckoutSessionForAccountDeletion({
+      stripe,
+      stripeCheckoutSessionId: intent.stripeCheckoutSessionId,
+      idempotencyKey: accountDeletionStripeIdempotencyKey(
+        input.destructiveActionRequestId,
+        "checkout-session",
+        intent.stripeCheckoutSessionId
+      )
+    });
+    if (session.status === "expired") {
+      expiredCheckoutSessionIds.add(session.id);
+      await prisma.billingCheckoutIntent.updateMany({
+        where: {
+          id: intent.id,
+          status: { in: [BillingCheckoutIntentStatus.PENDING, BillingCheckoutIntentStatus.SESSION_CREATED] }
+        },
+        data: {
+          status: BillingCheckoutIntentStatus.CANCELED,
+          canceledAt: new Date()
+        }
+      });
+      continue;
+    }
+
+    if (session.status === "complete") {
+      const stripeSubscriptionId =
+        typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+      if (!stripeSubscriptionId) {
+        throw new Error(`Completed Stripe checkout session ${session.id} has no subscription.`);
+      }
+      seedSubscriptionIds.add(stripeSubscriptionId);
+      await prisma.billingCheckoutIntent.updateMany({
+        where: {
+          id: intent.id,
+          status: { in: [BillingCheckoutIntentStatus.PENDING, BillingCheckoutIntentStatus.SESSION_CREATED] }
+        },
+        data: {
+          status: BillingCheckoutIntentStatus.COMPLETED,
+          completedAt: new Date(),
+          stripeSubscriptionId
+        }
+      });
+    }
+  }
+
+  if (membership?.stripeCustomerId) {
+    const openSessions = await listOpenStripeSubscriptionCheckoutSessionsForCustomer(
+      stripe,
+      membership.stripeCustomerId
+    );
+    for (const openSession of openSessions) {
+      const session = await expireStripeCheckoutSessionForAccountDeletion({
+        stripe,
+        stripeCheckoutSessionId: openSession.id,
+        idempotencyKey: accountDeletionStripeIdempotencyKey(
+          input.destructiveActionRequestId,
+          "checkout-session",
+          openSession.id
+        )
+      });
+      if (session.status === "expired") {
+        expiredCheckoutSessionIds.add(session.id);
+        continue;
+      }
+      if (session.status === "complete") {
+        const stripeSubscriptionId =
+          typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+        if (!stripeSubscriptionId) {
+          throw new Error(`Completed Stripe checkout session ${session.id} has no subscription.`);
+        }
+        seedSubscriptionIds.add(stripeSubscriptionId);
+      }
+    }
+  }
+
+  const subscriptions = new Map<string, Stripe.Subscription>();
+  const cancellationPerformedIds = new Set<string>();
+  for (let reconciliationPass = 0; reconciliationPass < 2; reconciliationPass += 1) {
+    if (membership?.stripeCustomerId) {
+      for (const subscription of await listStripeSubscriptionsForCustomer(stripe, membership.stripeCustomerId)) {
+        if (
+          stripeSubscriptionRequiresAccountDeletionCancellation(subscription.status) ||
+          seedSubscriptionIds.has(subscription.id) ||
+          subscriptions.has(subscription.id)
+        ) {
+          subscriptions.set(subscription.id, subscription);
+        }
+      }
+    }
+    for (const stripeSubscriptionId of seedSubscriptionIds) {
+      if (!subscriptions.has(stripeSubscriptionId)) {
+        subscriptions.set(stripeSubscriptionId, await stripe.subscriptions.retrieve(stripeSubscriptionId));
+      }
+    }
+
+    for (const subscription of subscriptions.values()) {
+      const cancellation = await cancelStripeSubscriptionForAccountDeletion({
+        stripe,
+        subscription,
+        destructiveActionRequestId: input.destructiveActionRequestId
+      });
+      subscriptions.set(cancellation.subscription.id, cancellation.subscription);
+      if (cancellation.cancellationPerformed) {
+        cancellationPerformedIds.add(cancellation.subscription.id);
+      }
+    }
+  }
+
+  const stillBillable = Array.from(subscriptions.values()).filter((subscription) =>
+    stripeSubscriptionRequiresAccountDeletionCancellation(subscription.status)
+  );
+  if (stillBillable.length > 0) {
+    throw new Error(`Stripe still reports ${stillBillable.length} billable subscription(s) for the deleting account.`);
+  }
+
+  const primarySubscription = membership?.stripeSubscriptionId
+    ? subscriptions.get(membership.stripeSubscriptionId) ?? null
+    : null;
+  const freePolicy = getTierPolicy(MembershipTier.FREE);
+  await prisma.$transaction(async (tx) => {
+    const latestMembership = await tx.membership.findUnique({
+      where: { userId: input.userId },
+      select: { stripeCustomerId: true, stripeSubscriptionId: true }
+    });
+    if (
+      Boolean(latestMembership) !== Boolean(membership) ||
+      latestMembership?.stripeCustomerId !== membership?.stripeCustomerId ||
+      latestMembership?.stripeSubscriptionId !== membership?.stripeSubscriptionId
+    ) {
+      throw new Error("Membership billing identity changed while its Stripe subscriptions were being canceled.");
+    }
+    if (!latestMembership) return;
+
+    await tx.membership.update({
+      where: { userId: input.userId },
+      data: {
+        tier: MembershipTier.FREE,
+        storageLimitBytes: BigInt(freePolicy.limits.storageLimitBytes),
+        subscriptionStatus:
+          subscriptions.size > 0 ? MembershipSubscriptionStatus.CANCELED : MembershipSubscriptionStatus.NONE,
+        subscriptionCurrentPeriodEnd: primarySubscription ? stripePeriodEnd(primarySubscription) : null,
+        subscriptionCancelAtPeriodEnd: false
+      }
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+  for (const subscription of subscriptions.values()) {
+    await recordAccountDeletionSubscriptionEvidence({
+      userId: input.userId,
+      destructiveActionRequestId: input.destructiveActionRequestId,
+      stripeCustomerId: membership?.stripeCustomerId ?? null,
+      subscription,
+      cancellationPerformed: cancellationPerformedIds.has(subscription.id),
+      source: "account-cleanup"
+    });
+  }
+
+  const stripeSubscriptionIds = Array.from(subscriptions.keys()).sort();
+  return {
+    canceled: stripeSubscriptionIds.length > 0,
+    cancellationPerformed: cancellationPerformedIds.size > 0,
+    stripeCustomerId: membership?.stripeCustomerId ?? null,
+    stripeSubscriptionId: membership?.stripeSubscriptionId ?? stripeSubscriptionIds[0] ?? null,
+    stripeSubscriptionIds,
+    expiredCheckoutSessionIds: Array.from(expiredCheckoutSessionIds).sort()
+  };
+}
+
+export function resolveContributorPlanEligibility(input: {
+  currentTier: MembershipTier;
+  selfServiceEnabled: boolean;
+  upgradeMode: MembershipUpgradeMode;
+  offerCanAccept: boolean;
+  stripePriceConfigured: boolean;
+}) {
+  const current = input.currentTier === MembershipTier.CONTRIBUTOR;
+  const eligible = !current && input.selfServiceEnabled && input.offerCanAccept;
+
+  return {
+    current,
+    eligible,
+    checkoutReady:
+      eligible &&
+      input.upgradeMode === MembershipUpgradeMode.STRIPE &&
+      input.stripePriceConfigured,
+    canAcceptOffer:
+      eligible && input.upgradeMode === MembershipUpgradeMode.BETA_FREE
+  };
 }
 
 export async function getSubscriptionBillingSummary(userId: string): Promise<SubscriptionBillingSummary> {
@@ -99,7 +530,7 @@ export async function getSubscriptionBillingSummary(userId: string): Promise<Sub
 export async function listAvailableSubscriptionUpgradePlans(userId: string): Promise<SubscriptionUpgradePlanView[]> {
   await ensureLaunchDefaults();
 
-  const [membership, plans, orgEligibility] = await Promise.all([
+  const [membership, plans, contributorOffer] = await Promise.all([
     prisma.membership.findUnique({
       where: { userId },
       select: {
@@ -108,37 +539,33 @@ export async function listAvailableSubscriptionUpgradePlans(userId: string): Pro
     }),
     prisma.subscriptionPlanRule.findMany({
       where: {
-        active: true
+        active: true,
+        memberVisible: true
       },
       orderBy: {
         standardPriceCents: "asc"
       }
     }),
-    prisma.membershipTierUpgradeEligibility.findFirst({
-      where: activeEligibilityWhere(userId, MembershipTier.ORG),
-      select: {
-        id: true
-      }
-    })
+    getContributorUpgradeOfferForUser(userId)
   ]);
 
   const currentTier = normalizeOperationalMembershipTier(membership?.tier);
-  const publicPaidTiers = new Set<MembershipTier>(
-    getPublicPolicyMatrix()
-      .map((policy) => policy.tier)
-      .filter((tier) => tier !== MembershipTier.FREE)
-  );
-  const allowedTiers = new Set<MembershipTier>(publicPaidTiers);
-
-  if (orgEligibility && isOperationalMembershipTier(MembershipTier.ORG)) {
-    allowedTiers.add(MembershipTier.ORG);
-  }
+  const contributorVisible =
+    currentTier === MembershipTier.CONTRIBUTOR || Boolean(contributorOffer);
 
   return plans
-    .filter((plan) => allowedTiers.has(plan.tier))
+    .filter((plan) => plan.tier === MembershipTier.CONTRIBUTOR && contributorVisible)
     .map((plan) => {
       const policy = getTierPolicy(plan.tier);
       const stripePriceId = plan.stripePriceId ?? stripePriceIdForTier(plan.tier);
+      const betaOffer = contributorOffer ?? null;
+      const eligibility = resolveContributorPlanEligibility({
+        currentTier,
+        selfServiceEnabled: plan.selfServiceEnabled,
+        upgradeMode: plan.upgradeMode,
+        offerCanAccept: betaOffer?.canAccept ?? false,
+        stripePriceConfigured: Boolean(stripePriceId)
+      });
 
       return {
         tier: plan.tier,
@@ -147,10 +574,16 @@ export async function listAvailableSubscriptionUpgradePlans(userId: string): Pro
         standardPriceCents: plan.standardPriceCents,
         stripePriceId,
         monthlyCreditBudget: plan.monthlyCreditBudget,
-        eligible: plan.tier !== MembershipTier.ORG || Boolean(orgEligibility),
-        hiddenUntilEligible: plan.tier === MembershipTier.ORG,
-        current: currentTier === plan.tier,
-        checkoutReady: Boolean(stripePriceId)
+        eligible: eligibility.eligible,
+        hiddenUntilEligible: true,
+        current: eligibility.current,
+        checkoutReady: eligibility.checkoutReady,
+        upgradeMode: plan.upgradeMode,
+        offerId: betaOffer?.id ?? null,
+        currentPriceCents: betaOffer?.currentPriceCents ?? plan.standardPriceCents,
+        futureMonthlyPriceCents: betaOffer?.futureMonthlyPriceCents ?? plan.futurePriceCents,
+        betaMessage: betaOffer?.message ?? null,
+        canAcceptOffer: eligibility.canAcceptOffer
       };
     });
 }
@@ -165,11 +598,27 @@ export async function createSubscriptionCheckoutSession(input: {
     return { ok: false as const, error: "Free tier does not require checkout." };
   }
 
+  if (!isOperationalMembershipTier(input.targetTier) || input.targetTier !== MembershipTier.CONTRIBUTOR) {
+    return { ok: false as const, error: "This membership tier is not available." };
+  }
+
+  const currentMembership = await prisma.membership.findUnique({
+    where: { userId: input.userId },
+    select: { tier: true }
+  });
+  if (normalizeOperationalMembershipTier(currentMembership?.tier) === input.targetTier) {
+    return { ok: false as const, error: `This account already has ${input.targetTier} membership.` };
+  }
+
   const availablePlans = await listAvailableSubscriptionUpgradePlans(input.userId);
   const targetPlan = availablePlans.find((plan) => plan.tier === input.targetTier);
 
   if (!targetPlan?.eligible) {
     return { ok: false as const, error: "This upgrade is not available for this account." };
+  }
+
+  if (targetPlan.upgradeMode === MembershipUpgradeMode.BETA_FREE) {
+    return { ok: false as const, error: "Accept the Contributor beta offer instead of starting checkout." };
   }
 
   if (!targetPlan.stripePriceId) {
@@ -205,6 +654,9 @@ export async function createSubscriptionCheckoutSession(input: {
   if (!user) {
     return { ok: false as const, error: "User was not found." };
   }
+  if (user.deactivatedAt) {
+    return { ok: false as const, error: "Subscription checkout is unavailable for a deactivated account." };
+  }
 
   const stripe = await getStripeClient();
   if (membership.stripeSubscriptionId && membership.subscriptionStatus !== MembershipSubscriptionStatus.CANCELED) {
@@ -232,6 +684,18 @@ export async function createSubscriptionCheckoutSession(input: {
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }]
   });
+
+  const checkoutUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { deactivatedAt: true }
+  });
+  if (!checkoutUser || checkoutUser.deactivatedAt) {
+    await prisma.billingCheckoutIntent.updateMany({
+      where: { id: intentResult.intent.id, status: BillingCheckoutIntentStatus.PENDING },
+      data: { status: BillingCheckoutIntentStatus.CANCELED, canceledAt: new Date() }
+    });
+    return { ok: false as const, error: "Subscription checkout is unavailable for a deactivated account." };
+  }
 
   if (canonicalIntent && canonicalIntent.id !== intentResult.intent.id) {
     await prisma.billingCheckoutIntent.updateMany({
@@ -302,6 +766,68 @@ export async function createSubscriptionCheckoutSession(input: {
   );
 
   await attachCheckoutSession(intentResult.intent.id, session);
+
+  const [currentUser, deletionRequest] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { deactivatedAt: true }
+    }),
+    prisma.destructiveActionRequest.findFirst({
+      where: {
+        kind: DestructiveActionKind.DELETE_ACCOUNT,
+        targetType: "User",
+        targetId: user.id,
+        status: {
+          in: [
+            DestructiveActionStatus.CONFIRMED,
+            DestructiveActionStatus.QUEUED,
+            DestructiveActionStatus.RUNNING,
+            DestructiveActionStatus.SUCCEEDED
+          ]
+        }
+      },
+      select: { id: true }
+    })
+  ]);
+  if (!currentUser || currentUser.deactivatedAt || deletionRequest) {
+    const blockedSession = await expireStripeCheckoutSessionForAccountDeletion({
+      stripe,
+      stripeCheckoutSessionId: session.id,
+      idempotencyKey: deletionRequest
+        ? accountDeletionStripeIdempotencyKey(deletionRequest.id, "checkout-session", session.id)
+        : `deactivated-account:${user.id}:checkout-session:${session.id}`
+    });
+    if (blockedSession.status === "expired") {
+      await prisma.billingCheckoutIntent.updateMany({
+        where: {
+          id: intentResult.intent.id,
+          status: { in: [BillingCheckoutIntentStatus.PENDING, BillingCheckoutIntentStatus.SESSION_CREATED] }
+        },
+        data: {
+          status: BillingCheckoutIntentStatus.CANCELED,
+          canceledAt: new Date()
+        }
+      });
+    } else if (blockedSession.status === "complete") {
+      const stripeSubscriptionId =
+        typeof blockedSession.subscription === "string"
+          ? blockedSession.subscription
+          : blockedSession.subscription?.id;
+      if (!stripeSubscriptionId || !currentUser) {
+        throw new Error("Blocked Stripe checkout completed without a reconcilable subscription.");
+      }
+      await applyStripeSubscription({
+        userId: user.id,
+        targetTier: input.targetTier,
+        stripeCustomerId: customerId,
+        subscription: await stripe.subscriptions.retrieve(stripeSubscriptionId),
+        checkoutIntentId: intentResult.intent.id
+      });
+    } else {
+      throw new Error("Stripe checkout remained open for a deactivated account.");
+    }
+    return { ok: false as const, error: "Subscription checkout was stopped because the account is deactivated." };
+  }
 
   await diagnostics.info(MODULE_KEY, "Stripe checkout session created.", {
     userId: user.id,
@@ -444,7 +970,7 @@ export async function createCustomerPortalSession(input: {
   return { ok: true as const, url: session.url };
 }
 
-async function applyStripeSubscription(input: {
+async function persistStripeSubscription(input: {
   userId: string;
   targetTier: MembershipTier;
   stripeCustomerId: string | null;
@@ -452,35 +978,62 @@ async function applyStripeSubscription(input: {
   checkoutIntentId?: string;
 }) {
   const status = statusFromStripe(input.subscription.status);
-  const targetPolicy = getTierPolicy(input.targetTier);
-  const activeTier = canActivateStatus(status) && isOperationalMembershipTier(input.targetTier) ? input.targetTier : MembershipTier.FREE;
-  const activePolicy = getTierPolicy(activeTier);
-
-  const membership = await prisma.$transaction(async (tx) => {
-    const updatedMembership = await tx.membership.upsert({
-      where: { userId: input.userId },
-      update: {
-        tier: activeTier,
-        storageLimitBytes: BigInt(activePolicy.limits.storageLimitBytes),
-        stripeCustomerId: input.stripeCustomerId,
-        stripeSubscriptionId: input.subscription.id,
-        subscriptionStatus: status,
-        subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
-        subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
-      },
-      create: {
-        userId: input.userId,
-        tier: activeTier,
-        storageLimitBytes: BigInt(activePolicy.limits.storageLimitBytes),
-        stripeCustomerId: input.stripeCustomerId,
-        stripeSubscriptionId: input.subscription.id,
-        subscriptionStatus: status,
-        subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
-        subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
-      }
+  return prisma.$transaction(async (tx) => {
+    const [user, deletionRequest] = await Promise.all([
+      tx.user.findUnique({
+        where: { id: input.userId },
+        select: { deactivatedAt: true }
+      }),
+      tx.destructiveActionRequest.findFirst({
+        where: {
+          kind: DestructiveActionKind.DELETE_ACCOUNT,
+          targetType: "User",
+          targetId: input.userId,
+          status: {
+            in: [
+              DestructiveActionStatus.CONFIRMED,
+              DestructiveActionStatus.QUEUED,
+              DestructiveActionStatus.RUNNING,
+              DestructiveActionStatus.SUCCEEDED
+            ]
+          }
+        },
+        select: { id: true }
+      })
+    ]);
+    if (!user) throw new Error("Stripe subscription user no longer exists.");
+    const application = resolveStripeMembershipApplicationState({
+      subscriptionStatus: status,
+      targetTier: input.targetTier,
+      accountBlocked: Boolean(user.deactivatedAt || deletionRequest)
     });
+    const activeTier = application.activeTier;
+    const updatedMembership = deletionRequest
+      ? null
+      : await tx.membership.upsert({
+          where: { userId: input.userId },
+          update: {
+            tier: activeTier,
+            storageLimitBytes: BigInt(application.storageLimitBytes),
+            stripeCustomerId: input.stripeCustomerId,
+            stripeSubscriptionId: input.subscription.id,
+            subscriptionStatus: status,
+            subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
+            subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
+          },
+          create: {
+            userId: input.userId,
+            tier: activeTier,
+            storageLimitBytes: BigInt(application.storageLimitBytes),
+            stripeCustomerId: input.stripeCustomerId,
+            stripeSubscriptionId: input.subscription.id,
+            subscriptionStatus: status,
+            subscriptionCurrentPeriodEnd: stripePeriodEnd(input.subscription),
+            subscriptionCancelAtPeriodEnd: Boolean(input.subscription.cancel_at_period_end)
+          }
+        });
 
-    if (input.targetTier === MembershipTier.ORG && canActivateStatus(status)) {
+    if (activeTier === MembershipTier.ORG) {
       await tx.membershipTierUpgradeEligibility.updateMany({
         where: {
           userId: input.userId,
@@ -496,15 +1049,59 @@ async function applyStripeSubscription(input: {
       const completed = await completeCheckoutIntent(tx, input.checkoutIntentId, input.subscription.id);
       if (!completed) {
         const intent = await tx.billingCheckoutIntent.findUnique({ where: { id: input.checkoutIntentId } });
-        if (intent?.status !== BillingCheckoutIntentStatus.COMPLETED) {
+        if (
+          deletionRequest &&
+          intent?.status === BillingCheckoutIntentStatus.CANCELED &&
+          (!intent.stripeSubscriptionId || intent.stripeSubscriptionId === input.subscription.id)
+        ) {
+          await tx.billingCheckoutIntent.update({
+            where: { id: intent.id },
+            data: { stripeSubscriptionId: input.subscription.id }
+          });
+        } else if (intent?.status !== BillingCheckoutIntentStatus.COMPLETED) {
           throw new Error("Subscription checkout intent could not be completed atomically.");
         }
       }
     }
 
-    return updatedMembership;
+    return {
+      updatedMembership,
+      activeTier,
+      accountBlocked: Boolean(user.deactivatedAt || deletionRequest),
+      deletionRequestId: deletionRequest?.id ?? null
+    };
   });
+}
 
+async function applyStripeSubscription(input: {
+  userId: string;
+  targetTier: MembershipTier;
+  stripeCustomerId: string | null;
+  subscription: Stripe.Subscription;
+  checkoutIntentId?: string;
+}) {
+  let subscription = input.subscription;
+  const targetPolicy = getTierPolicy(input.targetTier);
+  const membership = await persistStripeSubscription(input);
+
+  if (membership.deletionRequestId) {
+    const cancellation = await cancelStripeSubscriptionForAccountDeletion({
+      stripe: await getStripeClient(),
+      subscription,
+      destructiveActionRequestId: membership.deletionRequestId
+    });
+    subscription = cancellation.subscription;
+    await recordAccountDeletionSubscriptionEvidence({
+      userId: input.userId,
+      destructiveActionRequestId: membership.deletionRequestId,
+      stripeCustomerId: input.stripeCustomerId,
+      subscription,
+      cancellationPerformed: cancellation.cancellationPerformed,
+      source: "webhook"
+    });
+  }
+
+  const status = statusFromStripe(subscription.status);
   await writeAuditLog({
     module: MODULE_KEY,
     action: "stripe.subscription.synced",
@@ -513,14 +1110,16 @@ async function applyStripeSubscription(input: {
     severity: canActivateStatus(status) ? "info" : "warning",
     metadata: {
       targetTier: input.targetTier,
-      activeTier,
+      activeTier: membership.activeTier,
       targetTierName: targetPolicy.displayName,
-      stripeSubscriptionId: input.subscription.id,
-      subscriptionStatus: status
+      stripeSubscriptionId: subscription.id,
+      subscriptionStatus: status,
+      accountBlocked: membership.accountBlocked,
+      deletionBound: Boolean(membership.deletionRequestId)
     } as Prisma.InputJsonObject
   });
 
-  return membership;
+  return membership.updatedMembership;
 }
 
 async function userIdForSubscription(subscription: Stripe.Subscription) {
@@ -632,7 +1231,8 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
-      const subscription = event.data.object as Stripe.Subscription;
+      const eventSubscription = event.data.object as Stripe.Subscription;
+      const subscription = await stripe.subscriptions.retrieve(eventSubscription.id);
       const userId = await userIdForSubscription(subscription);
       const targetTier = await tierForSubscription(subscription);
 
@@ -641,10 +1241,32 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
       const checkoutIntentId = subscription.metadata?.checkoutIntentId;
       if (checkoutIntentId) {
         const intent = await prisma.billingCheckoutIntent.findUnique({ where: { id: checkoutIntentId } });
+        const deletionBound = intent?.userId === null
+          ? Boolean(await prisma.destructiveActionRequest.findFirst({
+              where: {
+                kind: DestructiveActionKind.DELETE_ACCOUNT,
+                targetType: "User",
+                targetId: userId,
+                status: {
+                  in: [
+                    DestructiveActionStatus.CONFIRMED,
+                    DestructiveActionStatus.QUEUED,
+                    DestructiveActionStatus.RUNNING,
+                    DestructiveActionStatus.SUCCEEDED
+                  ]
+                }
+              },
+              select: { id: true }
+            }))
+          : false;
         if (
           !intent ||
           intent.kind !== StripeCheckoutKind.SUBSCRIPTION ||
-          intent.userId !== userId ||
+          !stripeCheckoutIntentMatchesUser({
+            intentUserId: intent.userId,
+            eventUserId: userId,
+            deletionBound
+          }) ||
           intent.targetTier !== targetTier ||
           !subscription.items.data.some((item) => item.price.id === intent.stripePriceIdSnapshot)
         ) {

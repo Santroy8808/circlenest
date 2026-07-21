@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
+import { publicStreamVisibilityFilter } from "@/modules/feed-stream/feed-visibility";
 import type { SearchResultGroup, SearchResultItem, SearchView } from "@/modules/search-discovery/types";
 
 const MODULE_KEY = "search-discovery";
@@ -399,7 +400,7 @@ async function searchPosts(input: {
           : {
               OR: [
                 { authorUserId: input.viewerUserId },
-                { visibility: FeedVisibility.MEMBERS },
+                { visibility: publicStreamVisibilityFilter() },
                 {
                   visibility: FeedVisibility.FRIENDS,
                   authorUserId: {

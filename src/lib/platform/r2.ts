@@ -345,3 +345,43 @@ export async function deleteR2Object(storageKey: string, access: R2ObjectAccess 
     })
   );
 }
+
+function isMissingR2Object(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as {
+    name?: string;
+    Code?: string;
+    code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  return candidate.$metadata?.httpStatusCode === 404 ||
+    candidate.name === "NotFound" ||
+    candidate.name === "NoSuchKey" ||
+    candidate.Code === "NoSuchKey" ||
+    candidate.code === "NoSuchKey";
+}
+
+export async function verifyR2ObjectAbsent(
+  storageKey: string,
+  access: R2ObjectAccess = "public"
+) {
+  const retryDelaysMs = [150, 500, 1_250];
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+    try {
+      await headR2Object(storageKey, access);
+    } catch (error) {
+      if (isMissingR2Object(error)) return { ok: true as const };
+      return {
+        ok: false as const,
+        error: error instanceof Error ? error.message : "Media storage verification failed."
+      };
+    }
+    const retryDelayMs = retryDelaysMs[attempt];
+    if (typeof retryDelayMs === "number") {
+      await delay(retryDelayMs);
+      continue;
+    }
+    return { ok: false as const, error: "Media storage still contains the deleted object." };
+  }
+  return { ok: false as const, error: "Media storage still contains the deleted object." };
+}

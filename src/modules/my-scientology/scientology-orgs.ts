@@ -192,16 +192,39 @@ function normalizeOrgTerm(value: string) {
     .trim();
 }
 
-function scoreOrg(org: ScientologyOrg, rawQuery: string) {
-  const query = normalizeOrgTerm(rawQuery);
-  if (!query) return 0;
+type IndexedScientologyOrg = {
+  aliases: string[];
+  category: string;
+  city: string;
+  country: string;
+  org: ScientologyOrg;
+  organization: string;
+  searchText: string;
+};
 
+const SCIENTOLOGY_ORG_RESULT_CACHE_LIMIT = 128;
+const indexedScientologyOrgs: IndexedScientologyOrg[] = scientologyOrgs.map((org) => {
   const organization = normalizeOrgTerm(org.organization);
   const city = normalizeOrgTerm(org.city);
   const country = normalizeOrgTerm(org.country);
   const category = normalizeOrgTerm(org.category ?? "");
   const aliases = (org.aliases ?? []).map(normalizeOrgTerm);
-  const searchText = [organization, city, country, category, ...aliases].join(" ");
+  return {
+    aliases,
+    category,
+    city,
+    country,
+    org,
+    organization,
+    searchText: [organization, city, country, category, ...aliases].join(" ")
+  };
+});
+const scientologyOrgResultCache = new Map<string, ScientologyOrg[]>();
+
+function scoreOrg(indexedOrg: IndexedScientologyOrg, query: string) {
+  if (!query) return 0;
+
+  const { aliases, category, city, country, organization, searchText } = indexedOrg;
   const terms = query.split(" ").filter(Boolean);
 
   return terms.reduce((score, term) => {
@@ -225,15 +248,31 @@ export function formatScientologyOrg(org: ScientologyOrg) {
 
 export function findScientologyOrgs(query: string, limit = 8) {
   const normalizedQuery = normalizeOrgTerm(query);
+  const cleanLimit = Math.min(Math.max(limit, 1), 20);
 
   if (!normalizedQuery) {
-    return scientologyOrgs.slice(0, limit);
+    return scientologyOrgs.slice(0, cleanLimit);
   }
 
-  return scientologyOrgs
-    .map((org) => ({ org, score: scoreOrg(org, normalizedQuery) }))
+  const cacheKey = `${normalizedQuery}:${cleanLimit}`;
+  const cached = scientologyOrgResultCache.get(cacheKey);
+  if (cached) {
+    scientologyOrgResultCache.delete(cacheKey);
+    scientologyOrgResultCache.set(cacheKey, cached);
+    return [...cached];
+  }
+
+  const matches = indexedScientologyOrgs
+    .map((indexedOrg) => ({ org: indexedOrg.org, score: scoreOrg(indexedOrg, normalizedQuery) }))
     .filter((result) => result.score > 0)
     .sort((left, right) => right.score - left.score || left.org.organization.localeCompare(right.org.organization))
-    .slice(0, limit)
+    .slice(0, cleanLimit)
     .map((result) => result.org);
+
+  scientologyOrgResultCache.set(cacheKey, matches);
+  if (scientologyOrgResultCache.size > SCIENTOLOGY_ORG_RESULT_CACHE_LIMIT) {
+    const oldestKey = scientologyOrgResultCache.keys().next().value;
+    if (oldestKey) scientologyOrgResultCache.delete(oldestKey);
+  }
+  return [...matches];
 }

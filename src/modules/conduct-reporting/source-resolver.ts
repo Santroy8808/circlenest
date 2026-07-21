@@ -1,6 +1,7 @@
-import { ConductLocationType, FeedVisibility, GroupVisibility } from "@prisma/client";
+import { ConductLocationType, GroupVisibility } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { createConductFingerprint, hashConductEvidence } from "@/modules/conduct-reporting/references";
+import { publicStreamVisibilityFilter } from "@/modules/feed-stream/feed-visibility";
 
 export const CONDUCT_SCANNER_SOURCE_MODELS = [
   "FeedPost",
@@ -92,7 +93,7 @@ export async function resolveConductContentForViewer(
     const post = await prisma.feedPost.findFirst({
       where: {
         id: contentId,
-        visibility: FeedVisibility.MEMBERS,
+        visibility: publicStreamVisibilityFilter(),
         streamArchivedAt: null,
         streamDeletedAt: null,
         adminHoldAt: null
@@ -120,7 +121,7 @@ export async function resolveConductContentForViewer(
         id: contentId,
         deletedAt: null,
         post: {
-          visibility: FeedVisibility.MEMBERS,
+          visibility: publicStreamVisibilityFilter(),
           streamArchivedAt: null,
           streamDeletedAt: null,
           adminHoldAt: null

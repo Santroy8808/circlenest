@@ -27,6 +27,11 @@ import {
   visibleChatParticipantWhere
 } from "@/modules/chat-messages/chat-access-policy";
 import {
+  assertChatMessageWriteAllowed,
+  resolveChatRetentionClassForWrite,
+  validateEncryptedEnvelopeDevicesForWrite
+} from "@/modules/chat-messages/chat-retention";
+import {
   chatMessagePageSchema,
   completeChatUploadSchema,
   createChatUploadIntentSchema,
@@ -443,13 +448,17 @@ async function findOrCreateEncryptedThreadForParticipants(participantUserIds: st
 
   if (existing) return existing;
 
-  return prisma.encryptedChatThread.create({
-    data: {
-      participants: {
-        create: uniqueUserIds.map((userId) => ({ userId }))
-      }
-    },
-    include: { participants: true }
+  return prisma.$transaction(async (tx) => {
+    const retentionClass = await resolveChatRetentionClassForWrite(tx, uniqueUserIds);
+    return tx.encryptedChatThread.create({
+      data: {
+        retentionClass,
+        participants: {
+          create: uniqueUserIds.map((userId) => ({ userId }))
+        }
+      },
+      include: { participants: true }
+    });
   });
 }
 
@@ -558,6 +567,19 @@ async function mirrorDesktopMessageToThetaComm(
   if (envelopeInputs.length === 0) return;
 
   await prisma.$transaction(async (tx) => {
+    const allowed = await assertChatMessageWriteAllowed(tx, {
+      threadKind: "ENCRYPTED",
+      threadId: encryptedThread.id,
+      senderUserId
+    });
+    if (!allowed) return;
+    const devicesValid = await validateEncryptedEnvelopeDevicesForWrite(tx, {
+      participantUserIds: allowed.participantUserIds,
+      envelopes: envelopeInputs,
+      senderDevice: { id: bridgeDevice.id, userId: senderUserId, allowRevoked: true }
+    });
+    if (!devicesValid) return;
+
     const created = await tx.encryptedChatMessage.create({
       data: {
         threadId: encryptedThread.id,
@@ -617,21 +639,32 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
   const now = new Date();
   const thread =
     existing ??
-    (await prisma.chatThread.create({
-      data: {
-        type: ChatThreadType.DIRECT,
-        createdByUserId: input.senderUserId,
-        participants: {
-          create: [
-            { userId: input.senderUserId, lastReadAt: now },
-            { userId: target.id }
-          ]
-        }
-      },
-      include: { participants: true }
+    (await prisma.$transaction(async (tx) => {
+      const retentionClass = await resolveChatRetentionClassForWrite(tx, participantUserIds);
+      return tx.chatThread.create({
+        data: {
+          type: ChatThreadType.DIRECT,
+          createdByUserId: input.senderUserId,
+          retentionClass,
+          participants: {
+            create: [
+              { userId: input.senderUserId, lastReadAt: now },
+              { userId: target.id }
+            ]
+          }
+        },
+        include: { participants: true }
+      });
     }));
 
   const message = await prisma.$transaction(async (tx) => {
+    const allowed = await assertChatMessageWriteAllowed(tx, {
+      threadKind: "CHAT",
+      threadId: thread.id,
+      senderUserId: input.senderUserId
+    });
+    if (!allowed) return null;
+
     await tx.chatParticipant.updateMany({
       where: {
         threadId: thread.id,
@@ -666,6 +699,8 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
 
     return created;
   });
+
+  if (!message) return;
 
   const sender = toPersonView(message.sender);
   await prisma.notification.create({
@@ -900,36 +935,40 @@ export async function findOrCreateDirectChatThread(currentUserId: string, input:
     throw error;
   }
 
-  const thread = await prisma.chatThread.create({
-    data: {
-      type: ChatThreadType.DIRECT,
-      createdByUserId: currentUserId,
-      participants: {
-        create: [
-          {
-            userId: currentUserId,
-            lastReadAt: new Date()
-          },
-          {
-            userId: target.id
-          }
-        ]
-      }
-    },
-    include: {
-      participants: {
-        include: {
-          user: {
-            include: {
-              profile: true
+  const thread = await prisma.$transaction(async (tx) => {
+    const retentionClass = await resolveChatRetentionClassForWrite(tx, [currentUserId, target.id]);
+    return tx.chatThread.create({
+      data: {
+        type: ChatThreadType.DIRECT,
+        createdByUserId: currentUserId,
+        retentionClass,
+        participants: {
+          create: [
+            {
+              userId: currentUserId,
+              lastReadAt: new Date()
+            },
+            {
+              userId: target.id
             }
-          }
+          ]
         }
       },
-      messages: {
-        include: chatMessageInclude()
+      include: {
+        participants: {
+          include: {
+            user: {
+              include: {
+                profile: true
+              }
+            }
+          }
+        },
+        messages: {
+          include: chatMessageInclude()
+        }
       }
-    }
+    });
   });
 
   await diagnostics.info(MODULE_KEY, "Direct chat thread created.", {
@@ -974,32 +1013,36 @@ export async function createGroupChatThread(currentUserId: string, input: unknow
     return { ok: false as const, error: "A group chat cannot include members who have blocked one another." };
   }
 
-  const thread = await prisma.chatThread.create({
-    data: {
-      type: ChatThreadType.GROUP,
-      title: parsed.data.title,
-      createdByUserId: currentUserId,
-      participants: {
-        create: participantUserIds.map((userId) => ({
-          userId,
-          lastReadAt: userId === currentUserId ? new Date() : undefined
-        }))
-      }
-    },
-    include: {
-      participants: {
-        include: {
-          user: {
-            include: {
-              profile: true
-            }
-          }
+  const thread = await prisma.$transaction(async (tx) => {
+    const retentionClass = await resolveChatRetentionClassForWrite(tx, participantUserIds);
+    return tx.chatThread.create({
+      data: {
+        type: ChatThreadType.GROUP,
+        title: parsed.data.title,
+        createdByUserId: currentUserId,
+        retentionClass,
+        participants: {
+          create: participantUserIds.map((userId) => ({
+            userId,
+            lastReadAt: userId === currentUserId ? new Date() : undefined
+          }))
         }
       },
-      messages: {
-        include: chatMessageInclude()
+      include: {
+        participants: {
+          include: {
+            user: {
+              include: {
+                profile: true
+              }
+            }
+          }
+        },
+        messages: {
+          include: chatMessageInclude()
+        }
       }
-    }
+    });
   });
 
   await diagnostics.info(MODULE_KEY, "Group chat thread created.", {
@@ -1099,6 +1142,14 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     });
 
     if (!authorizedThread) return null;
+
+    const allowed = await assertChatMessageWriteAllowed(tx, {
+      threadKind: "CHAT",
+      threadId: parsed.data.threadId,
+      senderUserId,
+      attachmentMediaAssetIds: mediaAssetIds
+    });
+    if (!allowed) return null;
 
     const created = await tx.chatMessage.create({
       data: {

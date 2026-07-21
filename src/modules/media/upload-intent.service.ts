@@ -7,6 +7,10 @@ import {
   type UploadIntent
 } from "@prisma/client";
 import { z } from "zod";
+import {
+  AccountDeletionFenceConflictError,
+  assertAccountDeletionFenceOpen
+} from "@/lib/platform/account-deletion-fence";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { consumeRateLimit } from "@/lib/platform/rate-limit";
@@ -622,6 +626,19 @@ export async function consumeVerifiedUploadIntent<T>(input: {
   }
   const storageLimitBytes = BigInt(effectivePolicy.limits.storageLimitBytes);
   const outcome = await prisma.$transaction(async (transaction) => {
+    try {
+      await assertAccountDeletionFenceOpen(
+        transaction,
+        [input.ownerUserId],
+        "Upload cannot be finalized because the owner account is deactivated or already queued for deletion."
+      );
+    } catch (error) {
+      if (error instanceof AccountDeletionFenceConflictError) {
+        return { kind: "result" as const, result: failure("CONFLICT", error.message) };
+      }
+      throw error;
+    }
+
     const intent = await transaction.uploadIntent.findUnique({ where: { id: input.intentId } });
 
     if (!intent || intent.ownerUserId !== input.ownerUserId) {

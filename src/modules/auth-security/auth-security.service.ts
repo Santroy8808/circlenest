@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { AccountPurpose, AuthSecurityEventType, AuditSeverity, MembershipTier, Prisma, UserRole } from "@prisma/client";
-import { writeAuditLog } from "@/lib/platform/audit";
+import { writeAuditLog, type AuditInput } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
@@ -255,6 +255,12 @@ export async function createMemberAccount(
     role?: UserRole;
     context?: RequestContext;
     skipInviteCode?: boolean;
+    /**
+     * Optional audit record that must commit with the new account. This is used
+     * by privileged account provisioning so a user can never exist without the
+     * immutable command receipt that authorized its creation.
+     */
+    atomicAudit?: Omit<AuditInput, "targetId">;
   } = {}
 ) {
   const parsed = signupSchema.safeParse(input);
@@ -324,6 +330,16 @@ export async function createMemberAccount(
           userId: createdUser.id,
           email
         });
+      }
+
+      if (options.atomicAudit) {
+        await writeAuditLog(
+          {
+            ...options.atomicAudit,
+            targetId: createdUser.id
+          },
+          tx
+        );
       }
 
       return createdUser;

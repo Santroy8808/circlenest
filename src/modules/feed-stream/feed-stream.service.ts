@@ -13,9 +13,18 @@ import {
 import {
   type FeedPostPolicyAction,
   type FeedViewerPolicy,
+  friendAuthoredPostWhere,
+  profileFeedPrincipalWhere,
   resolveFeedViewerPolicy,
   scopeFeedPostWhere
 } from "@/modules/feed-stream/feed-viewer-policy";
+import {
+  assertFeedChildWriteAllowed,
+  assertFeedCommentWriteAllowed,
+  assertNewFeedPostWriteAllowed
+} from "@/modules/feed-stream/feed-write-fence";
+import { getMembershipAccessForUser } from "@/modules/membership-policy/contributor-upgrade.service";
+import { hasMembershipCapability } from "@/modules/membership-policy/membership-access";
 import {
   DEFAULT_FEED_COMMENT_PAGE_LIMIT,
   type FeedPage,
@@ -199,6 +208,10 @@ export type FeedPostPage = FeedPage<FeedPostView> & {
   pinnedItems: FeedPostView[];
 };
 
+export type FeedStreamMode = "public" | "friends";
+
+export class FeedFilterAccessError extends Error {}
+
 export type FeedPostThreadPage = {
   post: FeedPostView | null;
   nextCursor: FeedPage<FeedCommentView>["nextCursor"];
@@ -378,11 +391,15 @@ function fetchFeedPostPreview(postId: string, policy: FeedViewerPolicy) {
   });
 }
 
-async function fetchFeedPostPage(input: FeedPageRequest | undefined, policy: FeedViewerPolicy) {
+async function fetchFeedPostPage(
+  input: FeedPageRequest | undefined,
+  policy: FeedViewerPolicy,
+  mode: FeedStreamMode
+) {
   const page = parseFeedPageRequest(input);
   if (!policy.viewerUserId) return { pinned: [], normal: [], page };
 
-  const pinnedPromise = page.cursor
+  const pinnedPromise = page.cursor || mode !== "public"
     ? Promise.resolve([])
     : prisma.feedPost.findMany({
         where: scopeFeedPostWhere(policy, "view", {
@@ -402,6 +419,7 @@ async function fetchFeedPostPage(input: FeedPageRequest | undefined, policy: Fee
     where: scopeFeedPostWhere(policy, "view", {
       targetProfileUserId: null,
       isAdminAnnouncement: false,
+      ...(mode === "friends" && policy.viewerUserId ? friendAuthoredPostWhere(policy.viewerUserId) : {}),
       ...feedDescendingCursorWhere(page.cursor)
     }),
     include: feedPostInclude(policy),
@@ -424,17 +442,7 @@ async function fetchProfileFeedPostPage(
   const posts = await prisma.feedPost.findMany({
     where: scopeFeedPostWhere(policy, "view", {
       AND: [
-        {
-          OR: [
-            {
-              authorUserId: profileUserId,
-              targetProfileUserId: null
-            },
-            {
-              targetProfileUserId: profileUserId
-            }
-          ]
-        },
+        profileFeedPrincipalWhere(profileUserId),
         cursorWhere
       ]
     }),
@@ -631,10 +639,18 @@ async function canCreateProfileTargetedPost(
 
 export async function listFeedPostsPage(
   input: FeedPageRequest = {},
-  viewerUserId?: string
+  viewerUserId?: string,
+  mode: FeedStreamMode = "public"
 ): Promise<FeedPostPage> {
+  if (mode !== "public") {
+    if (!viewerUserId) throw new FeedFilterAccessError("Contributor access is required to filter the Stream.");
+    const access = await getMembershipAccessForUser(viewerUserId);
+    if (!hasMembershipCapability(access, "stream.filters")) {
+      throw new FeedFilterAccessError("Contributor access is required to filter the Stream.");
+    }
+  }
   const policy = await resolveFeedViewerPolicy(viewerUserId);
-  const result = await withFeedDbTimeout(fetchFeedPostPage(input, policy), "feed lookup");
+  const result = await withFeedDbTimeout(fetchFeedPostPage(input, policy, mode), "feed lookup");
   const normalPage = takeFeedPage(result.normal as unknown as FeedPostRecord[], result.page.limit);
   await markFeedPostsViewed([...result.pinned, ...normalPage.items].map((post) => post.id));
 
@@ -724,11 +740,15 @@ export async function deleteFeedPost(userId: string, postId: string) {
     return { ok: false as const, error: "You are not authorized to delete this post." };
   }
 
-  const deleted = await prisma.feedPost.updateMany({
-    where: scopeFeedPostWhere(policy, "delete", { id: postId, streamDeletedAt: null }),
-    data: {
-      streamDeletedAt: new Date()
-    }
+  const deleted = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedChildWriteAllowed(tx, { postId, actorUserId: userId });
+    if (!allowed) return { count: 0 };
+    return tx.feedPost.updateMany({
+      where: scopeFeedPostWhere(policy, "delete", { id: postId, streamDeletedAt: null }),
+      data: {
+        streamDeletedAt: new Date()
+      }
+    });
   });
 
   if (deleted.count === 0) {
@@ -746,22 +766,26 @@ export async function deleteFeedComment(userId: string, commentId: string) {
     return { ok: false as const, error: "You are not authorized to delete this comment." };
   }
 
-  const deleted = await prisma.feedComment.updateMany({
-    where: {
-      id: commentId,
-      deletedAt: null,
-      OR: [
-        { authorUserId: userId },
-        {
-          post: {
-            is: scopeFeedPostWhere(policy, "delete", {})
+  const deleted = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedCommentWriteAllowed(tx, { commentId, actorUserId: userId });
+    if (!allowed) return { count: 0 };
+    return tx.feedComment.updateMany({
+      where: {
+        id: commentId,
+        deletedAt: null,
+        OR: [
+          { authorUserId: userId },
+          {
+            post: {
+              is: scopeFeedPostWhere(policy, "delete", {})
+            }
           }
-        }
-      ]
-    },
-    data: {
-      deletedAt: new Date()
-    }
+        ]
+      },
+      data: {
+        deletedAt: new Date()
+      }
+    });
   });
 
   if (deleted.count === 0) {
@@ -790,19 +814,26 @@ export async function dismissFeedPost(userId: string, postId: string) {
     return { ok: false as const, error: "Only pinned announcements can be dismissed permanently." };
   }
 
-  await prisma.feedPostDismissal.upsert({
-    where: {
-      postId_userId: {
+  const dismissed = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedChildWriteAllowed(tx, { postId, actorUserId: userId });
+    if (!allowed) return false;
+    await tx.feedPostDismissal.upsert({
+      where: {
+        postId_userId: {
+          postId,
+          userId
+        }
+      },
+      update: {},
+      create: {
         postId,
         userId
       }
-    },
-    update: {},
-    create: {
-      postId,
-      userId
-    }
+    });
+    return true;
   });
+
+  if (!dismissed) return { ok: false as const, error: "Post not found." };
 
   await diagnostics.info(MODULE_KEY, "Pinned feed announcement dismissed.", { userId, postId });
   return { ok: true as const };
@@ -910,14 +941,25 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
   }
 
   const post = await prisma.$transaction(async (tx) => {
+    await assertNewFeedPostWriteAllowed(tx, {
+      actorUserId: authorUserId,
+      additionalUserIds: parsed.data.targetProfileUserId ? [parsed.data.targetProfileUserId] : [],
+      mediaAssetIds: parsed.data.mediaAssetId ? [parsed.data.mediaAssetId] : []
+    });
     const createdPost = await tx.feedPost.create({
       data: {
         authorUserId,
         body: parsed.data.body.trim(),
-        visibility: parsed.data.visibility,
+        visibility: FeedVisibility.PUBLIC,
         mediaAssetId: parsed.data.mediaAssetId || undefined,
         targetProfileUserId: parsed.data.targetProfileUserId || undefined
       }
+    });
+
+    await assertFeedChildWriteAllowed(tx, {
+      postId: createdPost.id,
+      actorUserId: authorUserId,
+      mediaAssetIds: createdPost.mediaAssetId ? [createdPost.mediaAssetId] : []
     });
 
     await attachFeedPostHashtags(tx, {
@@ -1006,6 +1048,14 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
   }
 
   const comment = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedChildWriteAllowed(tx, {
+      postId: parsed.data.postId,
+      actorUserId: authorUserId,
+      commentId: parsed.data.parentCommentId || undefined,
+      mediaAssetIds: parsed.data.mediaAssetId ? [parsed.data.mediaAssetId] : []
+    });
+    if (!allowed) return null;
+
     const createdComment = await tx.feedComment.create({
       data: {
         authorUserId,
@@ -1020,7 +1070,8 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
       actorUserId: authorUserId,
       body: createdComment.body,
       commentId: createdComment.id,
-      mediaAssetId: createdComment.mediaAssetId
+      mediaAssetId: createdComment.mediaAssetId,
+      postId: createdComment.postId
     });
 
     const notificationResult = await notifyFeedCommentCreated(authorUserId, createdComment.id, tx);
@@ -1028,6 +1079,9 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
 
     return createdComment;
   });
+  if (!comment) {
+    return { ok: false as const, error: "Post or parent comment is no longer available." };
+  }
   await recordPostCommentSignal(authorUserId, comment.postId);
 
   const postView = await fetchFeedPostPreview(comment.postId, policy);
@@ -1054,6 +1108,12 @@ export async function reactToFeedPost(userId: string, input: unknown) {
   }
 
   const authorizedReaction = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedChildWriteAllowed(tx, {
+      postId: parsed.data.postId,
+      actorUserId: userId
+    });
+    if (!allowed) return null;
+
     const post = await tx.feedPost.findFirst({
       where: scopeFeedPostWhere(policy, "interact", { id: parsed.data.postId }),
       select: { authorUserId: true }
@@ -1136,6 +1196,12 @@ export async function reactToFeedComment(userId: string, input: unknown) {
   }
 
   const authorizedReaction = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedCommentWriteAllowed(tx, {
+      commentId: parsed.data.commentId,
+      actorUserId: userId
+    });
+    if (!allowed) return null;
+
     const comment = await tx.feedComment.findFirst({
       where: {
         id: parsed.data.commentId,

@@ -1,5 +1,7 @@
 import { MembershipTier, Prisma, UserRole } from "@prisma/client";
-import { writeAuditLog } from "@/lib/platform/audit";
+import { randomUUID } from "node:crypto";
+import { findAuditLogByOperationId, writeAuditLog } from "@/lib/platform/audit";
+import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isGodRole } from "@/lib/platform/roles";
@@ -14,7 +16,11 @@ import {
   normalizeOperationalMembershipTier,
   tierPolicies
 } from "@/modules/membership-policy/policy";
-import { getActivePromotionalTierForUser } from "@/modules/membership-policy/launch-access.service";
+import {
+  getContributorUpgradeOfferForUser,
+  getMembershipAccessForUser
+} from "@/modules/membership-policy/contributor-upgrade.service";
+import type { ContributorUpgradeOfferView } from "@/modules/membership-policy/contributor-upgrade";
 
 const MODULE_KEY = "membership-policy";
 
@@ -28,6 +34,7 @@ export type EffectivePolicy = ReturnType<typeof getTierPolicy> & {
     label: string;
     expiresAt: string;
   };
+  contributorOffer?: ContributorUpgradeOfferView;
   overrides: FeatureOverrideMap;
 };
 
@@ -130,7 +137,7 @@ export function evaluateFeatureAccess(
 }
 
 export async function getEffectivePolicyForUser(userId: string) {
-  const [user, globalOverrides] = await Promise.all([
+  const [user, globalOverrides, membershipAccess, contributorOffer] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -142,15 +149,15 @@ export async function getEffectivePolicyForUser(userId: string) {
         }
       }
     }),
-    listGlobalTierFeatureOverrides()
+    listGlobalTierFeatureOverrides(),
+    getMembershipAccessForUser(userId),
+    getContributorUpgradeOfferForUser(userId)
   ]);
 
   if (!user) return null;
 
-  const actualTier = user.membership?.tier ?? MembershipTier.FREE;
-  const promotionalAccess = await getActivePromotionalTierForUser(user.id, actualTier);
-  const requestedTier = promotionalAccess?.tier ?? actualTier;
-  const effectiveTier = normalizeOperationalMembershipTier(requestedTier);
+  const actualTier = membershipAccess.persistedTier;
+  const effectiveTier = membershipAccess.operationalTier;
 
   const overrides = user.membershipOverrides.reduce<FeatureOverrideMap>((acc, override) => {
     if (isMembershipFeatureKey(override.featureKey)) {
@@ -170,13 +177,7 @@ export async function getEffectivePolicyForUser(userId: string) {
   return {
     ...policy,
     actualTier,
-    promotionalAccess: promotionalAccess
-      ? {
-          tier: promotionalAccess.tier,
-          label: promotionalAccess.label,
-          expiresAt: promotionalAccess.expiresAt.toISOString()
-        }
-      : undefined
+    contributorOffer: contributorOffer ?? undefined
   };
 }
 
@@ -225,6 +226,7 @@ export async function getGodTierPolicyEditorView(actorUserId: string) {
 }
 
 export async function setGlobalTierFeatureOverride(input: {
+  commandId?: string;
   actorUserId: string;
   tier: MembershipTier;
   featureKey: string;
@@ -243,6 +245,7 @@ export async function setGlobalTierFeatureOverride(input: {
   if (input.featureKey === "admin.portal") {
     return { ok: false as const, error: "Admin Portal is role-based and cannot be tier-assigned." };
   }
+  const featureKey: MembershipFeatureKey = input.featureKey;
 
   const actor = await prisma.user.findUnique({
     where: { id: input.actorUserId },
@@ -261,46 +264,109 @@ export async function setGlobalTierFeatureOverride(input: {
     return { ok: false as const, error: "Password confirmation failed." };
   }
 
-  const previousAllowed = (await getEffectivePolicyMatrix()).find((policy) => policy.tier === input.tier)?.features[input.featureKey] ?? getTierPolicy(input.tier).features[input.featureKey];
+  const commandId = input.commandId?.trim() || randomUUID();
+  if (commandId.length < 8 || commandId.length > 200) {
+    return { ok: false as const, error: "Provide a valid command id." };
+  }
   const reason = input.reason?.trim() || "God tier policy edit.";
-  const override = await prisma.membershipTierFeatureOverride.upsert({
-    where: {
-      tier_featureKey: {
-        tier: input.tier,
-        featureKey: input.featureKey
-      }
-    },
-    update: {
-      allowed: input.allowed,
-      reason,
-      createdByUserId: input.actorUserId
-    },
-    create: {
-      tier: input.tier,
-      featureKey: input.featureKey,
-      allowed: input.allowed,
-      reason,
-      createdByUserId: input.actorUserId
-    }
-  });
-
-  await writeAuditLog({
+  const action = "tier.feature.override.set";
+  const target = { type: "MembershipTier", id: input.tier };
+  const commandFingerprint = createCommandFingerprint({
     actorUserId: input.actorUserId,
-    module: MODULE_KEY,
-    action: "tier.feature.override.set",
-    targetType: "MembershipTier",
-    targetId: input.tier,
-    severity: "critical",
-    metadata: {
+    action,
+    target,
+    payload: {
       tier: input.tier,
       featureKey: input.featureKey,
-      previousAllowed,
       allowed: input.allowed,
       reason
-    } as Prisma.InputJsonObject
+    }
   });
+  const replay = await findAuditLogByOperationId(commandId);
+  if (replay) {
+    if (!isMatchingCommandFingerprint(replay, {
+      actorUserId: input.actorUserId,
+      action,
+      target,
+      fingerprint: commandFingerprint
+    })) {
+      return { ok: false as const, error: "That administrator command id has already been used." };
+    }
+    const override = await prisma.membershipTierFeatureOverride.findUnique({
+      where: { tier_featureKey: { tier: input.tier, featureKey: input.featureKey } }
+    });
+    return { ok: true as const, override, replayed: true as const };
+  }
 
-  return { ok: true as const, override };
+  try {
+    const override = await prisma.$transaction(async (tx) => {
+      const existing = await tx.membershipTierFeatureOverride.findUnique({
+        where: { tier_featureKey: { tier: input.tier, featureKey: input.featureKey } }
+      });
+      const previousAllowed = existing?.allowed ?? getTierPolicy(input.tier).features[featureKey];
+      const saved = await tx.membershipTierFeatureOverride.upsert({
+        where: {
+          tier_featureKey: {
+            tier: input.tier,
+            featureKey: input.featureKey
+          }
+        },
+        update: {
+          allowed: input.allowed,
+          reason,
+          createdByUserId: input.actorUserId
+        },
+        create: {
+          tier: input.tier,
+          featureKey: input.featureKey,
+          allowed: input.allowed,
+          reason,
+          createdByUserId: input.actorUserId
+        }
+      });
+
+      await writeAuditLog({
+        operationId: commandId,
+        actorUserId: input.actorUserId,
+        module: MODULE_KEY,
+        action,
+        targetType: target.type,
+        targetId: target.id,
+        severity: "critical",
+        metadata: {
+          commandFingerprint,
+          tier: input.tier,
+          featureKey: input.featureKey,
+          previousAllowed,
+          allowed: input.allowed,
+          reason
+        } as Prisma.InputJsonObject
+      }, tx);
+
+      return saved;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return { ok: true as const, override, replayed: false as const };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const concurrentReplay = await findAuditLogByOperationId(commandId);
+      if (concurrentReplay) {
+        if (!isMatchingCommandFingerprint(concurrentReplay, {
+          actorUserId: input.actorUserId,
+          action,
+          target,
+          fingerprint: commandFingerprint
+        })) {
+          return { ok: false as const, error: "That administrator command id has already been used." };
+        }
+        const override = await prisma.membershipTierFeatureOverride.findUnique({
+          where: { tier_featureKey: { tier: input.tier, featureKey: input.featureKey } }
+        });
+        return { ok: true as const, override, replayed: true as const };
+      }
+    }
+    throw error;
+  }
 }
 
 export async function setMembershipPolicyOverride(input: {
@@ -310,12 +376,16 @@ export async function setMembershipPolicyOverride(input: {
   allowed: boolean;
   reason?: string;
   expiresAt?: Date;
-}) {
+}, options: {
+  writer?: Pick<Prisma.TransactionClient, "membershipPolicyOverride" | "auditLog">;
+  writeGenericAudit?: boolean;
+} = {}) {
   if (!isMembershipFeatureKey(input.featureKey)) {
     return { ok: false as const, error: "Unknown feature key." };
   }
 
-  const override = await prisma.membershipPolicyOverride.upsert({
+  const writer = options.writer ?? prisma;
+  const override = await writer.membershipPolicyOverride.upsert({
     where: {
       userId_featureKey: {
         userId: input.targetUserId,
@@ -338,19 +408,21 @@ export async function setMembershipPolicyOverride(input: {
     }
   });
 
-  await writeAuditLog({
-    actorUserId: input.actorUserId,
-    module: MODULE_KEY,
-    action: "policy.override.set",
-    targetType: "User",
-    targetId: input.targetUserId,
-    severity: "warning",
-    metadata: {
-      featureKey: input.featureKey,
-      allowed: input.allowed,
-      expiresAt: input.expiresAt?.toISOString()
-    } as Prisma.InputJsonObject
-  });
+  if (options.writeGenericAudit !== false) {
+    await writeAuditLog({
+      actorUserId: input.actorUserId,
+      module: MODULE_KEY,
+      action: "policy.override.set",
+      targetType: "User",
+      targetId: input.targetUserId,
+      severity: "warning",
+      metadata: {
+        featureKey: input.featureKey,
+        allowed: input.allowed,
+        expiresAt: input.expiresAt?.toISOString()
+      } as Prisma.InputJsonObject
+    }, writer);
+  }
 
   return { ok: true as const, override };
 }

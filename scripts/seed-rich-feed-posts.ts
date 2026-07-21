@@ -264,7 +264,7 @@ async function main() {
       data: {
         authorUserId: author.id,
         body: postBody(index, author),
-        visibility: index % 7 === 0 ? FeedVisibility.FRIENDS : FeedVisibility.MEMBERS,
+        visibility: index % 7 === 0 ? FeedVisibility.FRIENDS : FeedVisibility.PUBLIC,
         mediaAssetId: media?.id,
         createdAt
       }

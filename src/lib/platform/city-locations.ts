@@ -27,6 +27,31 @@ type CityLocationRecord = {
   searchValues: Array<{ value: string; weight: number }>;
 };
 
+type RankedCityLocationRecord = {
+  record: CityLocationRecord;
+  score: number;
+};
+
+type CityLocationSearchIndex = {
+  prefixBuckets: Map<string, number[]>;
+  records: CityLocationRecord[];
+};
+
+type PreparedCityLocationQuery = {
+  compact: string;
+  normalized: string;
+  terms: string[];
+};
+
+export const CITY_LOCATION_MIN_QUERY_LENGTH = 2;
+export const CITY_LOCATION_RECOMMENDED_DEBOUNCE_MS = 180;
+
+const CITY_LOCATION_RESULT_CACHE_LIMIT = 256;
+const CITY_LOCATION_PREFIX_LENGTH = 2;
+const CITY_LOCATION_LATENCY_SAMPLE_LIMIT = 256;
+const cityLocationLatencySamples: number[] = [];
+const normalizedSharedLocationTerms = new Map<string, string>();
+
 const POPULAR_CITY_LABELS = [
   "New York, New York, United States",
   "Los Angeles, California, United States",
@@ -110,6 +135,7 @@ const POPULAR_CITY_LABELS = [
 ];
 
 const COUNTRY_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
+const COUNTRY_NAME_CACHE = new Map<string, string>();
 
 const REGION_NAMES_BY_COUNTRY: Record<string, Record<string, string>> = {
   AU: {
@@ -256,7 +282,8 @@ const CITY_ALIASES_BY_LABEL = new Map<string, string[]>([
 
 const POPULAR_CITY_PRIORITY = new Map(POPULAR_CITY_LABELS.map((label, index) => [compact(label), index + 1]));
 
-let cachedWorldCityRecords: CityLocationRecord[] | null = null;
+let cachedWorldCitySearchIndex: CityLocationSearchIndex | null = null;
+const cachedWorldCitySearchResults = new Map<string, RankedCityLocationRecord[]>();
 
 function normalizeSearch(value: string) {
   return value
@@ -271,8 +298,20 @@ function compact(value: string) {
   return normalizeSearch(value).replace(/\s+/g, "");
 }
 
+function normalizeSharedLocationTerm(value: string) {
+  const cached = normalizedSharedLocationTerms.get(value);
+  if (cached !== undefined) return cached;
+  const normalized = normalizeSearch(value);
+  normalizedSharedLocationTerms.set(value, normalized);
+  return normalized;
+}
+
 function countryName(countryCode: string) {
-  return COUNTRY_NAMES.of(countryCode) ?? countryCode;
+  const cached = COUNTRY_NAME_CACHE.get(countryCode);
+  if (cached) return cached;
+  const name = COUNTRY_NAMES.of(countryCode) ?? countryCode;
+  COUNTRY_NAME_CACHE.set(countryCode, name);
+  return name;
 }
 
 function regionName(city: WorldCity) {
@@ -285,26 +324,25 @@ function buildSearchValues({
   aliases,
   city,
   country,
-  label,
+  normalizedLabel,
   region
 }: {
   aliases: string[];
   city: string;
   country: string;
-  label: string;
+  normalizedLabel: string;
   region: string;
 }) {
   const values = [
-    { raw: city, weight: 0 },
-    ...aliases.map((alias) => ({ raw: alias, weight: 0 })),
-    { raw: label, weight: 2 },
-    { raw: region, weight: 8 },
-    { raw: country, weight: 25 }
+    { value: normalizeSearch(city), weight: 0 },
+    ...aliases.map((alias) => ({ value: normalizeSearch(alias), weight: 0 })),
+    { value: normalizedLabel, weight: 2 },
+    { value: normalizeSharedLocationTerm(region), weight: 8 },
+    { value: normalizeSharedLocationTerm(country), weight: 25 }
   ];
   const seen = new Set<string>();
 
   return values
-    .map(({ raw, weight }) => ({ value: normalizeSearch(raw), weight }))
     .filter(({ value }) => Boolean(value))
     .filter(({ value }) => {
       if (seen.has(value)) return false;
@@ -328,7 +366,8 @@ function cityRecordFromParts({
   label: string;
   region: string;
 }): CityLocationRecord {
-  const labelKey = compact(label);
+  const normalizedLabel = normalizeSearch(label);
+  const labelKey = normalizedLabel.replace(/\s+/g, "");
   const priority = POPULAR_CITY_PRIORITY.get(labelKey) ?? fallbackPriority;
   const mergedAliases = [...aliases, ...(CITY_ALIASES_BY_LABEL.get(labelKey) ?? [])];
 
@@ -339,7 +378,7 @@ function cityRecordFromParts({
     label,
     priority,
     region,
-    searchValues: buildSearchValues({ aliases: mergedAliases, city, country, label, region })
+    searchValues: buildSearchValues({ aliases: mergedAliases, city, country, normalizedLabel, region })
   };
 }
 
@@ -368,8 +407,45 @@ function addRecord(record: CityLocationRecord | null, records: CityLocationRecor
   records.push(record);
 }
 
-function getWorldCityRecords() {
-  if (cachedWorldCityRecords) return cachedWorldCityRecords;
+function normalizedSearchBucketKeys(normalized: string) {
+  if (!normalized) return [];
+
+  const keys = new Set<string>();
+  for (const candidate of [normalized, ...normalized.split(" ")]) {
+    const key = candidate.replace(/\s+/g, "").slice(0, CITY_LOCATION_PREFIX_LENGTH);
+    if (key.length === CITY_LOCATION_PREFIX_LENGTH) keys.add(key);
+  }
+  return [...keys];
+}
+
+function searchBucketKeys(value: string) {
+  return normalizedSearchBucketKeys(normalizeSearch(value));
+}
+
+function buildCityLocationSearchIndex(records: CityLocationRecord[]): CityLocationSearchIndex {
+  const bucketSets = new Map<string, Set<number>>();
+
+  records.forEach((record, recordIndex) => {
+    const recordKeys = new Set<string>();
+    for (const { value } of record.searchValues) {
+      for (const key of normalizedSearchBucketKeys(value)) recordKeys.add(key);
+    }
+
+    for (const key of recordKeys) {
+      const bucket = bucketSets.get(key);
+      if (bucket) bucket.add(recordIndex);
+      else bucketSets.set(key, new Set([recordIndex]));
+    }
+  });
+
+  return {
+    prefixBuckets: new Map([...bucketSets].map(([key, indexes]) => [key, [...indexes]])),
+    records
+  };
+}
+
+function getWorldCitySearchIndex() {
+  if (cachedWorldCitySearchIndex) return cachedWorldCitySearchIndex;
 
   const seen = new Set<string>();
   const records: CityLocationRecord[] = [];
@@ -402,8 +478,8 @@ function getWorldCityRecords() {
     );
   });
 
-  cachedWorldCityRecords = records;
-  return records;
+  cachedWorldCitySearchIndex = buildCityLocationSearchIndex(records);
+  return cachedWorldCitySearchIndex;
 }
 
 function cityRecordFromValue(value: string, index: number): CityLocationRecord | null {
@@ -427,10 +503,17 @@ function cityRecordFromValue(value: string, index: number): CityLocationRecord |
   });
 }
 
-function scoreRecord(record: CityLocationRecord, query: string) {
-  const normalizedQuery = normalizeSearch(query);
-  const compactQuery = compact(query);
-  if (normalizedQuery.length < 2) return null;
+function prepareCityLocationQuery(query: string): PreparedCityLocationQuery {
+  const normalized = normalizeSearch(query);
+  return {
+    compact: normalized.replace(/\s+/g, ""),
+    normalized,
+    terms: normalized.split(" ").filter(Boolean)
+  };
+}
+
+function scoreRecord(record: CityLocationRecord, query: PreparedCityLocationQuery) {
+  if (query.normalized.length < CITY_LOCATION_MIN_QUERY_LENGTH) return null;
 
   let bestScore: number | null = null;
 
@@ -438,12 +521,12 @@ function scoreRecord(record: CityLocationRecord, query: string) {
     const compactValue = normalizedValue.replace(/\s+/g, "");
     let score: number | null = null;
 
-    if (normalizedValue === normalizedQuery || compactValue === compactQuery) {
+    if (normalizedValue === query.normalized || compactValue === query.compact) {
       score = weight;
-    } else if (normalizedValue.startsWith(normalizedQuery) || compactValue.startsWith(compactQuery)) {
+    } else if (normalizedValue.startsWith(query.normalized) || compactValue.startsWith(query.compact)) {
       score = weight + 10;
-    } else if (normalizedValue.includes(normalizedQuery) || compactValue.includes(compactQuery)) {
-      score = weight + 40 + Math.max(normalizedValue.indexOf(normalizedQuery), 0);
+    } else if (normalizedValue.includes(query.normalized) || compactValue.includes(query.compact)) {
+      score = weight + 40 + Math.max(normalizedValue.indexOf(query.normalized), 0);
     }
 
     if (score !== null) {
@@ -451,9 +534,8 @@ function scoreRecord(record: CityLocationRecord, query: string) {
     }
   }
 
-  const terms = normalizedQuery.split(" ").filter(Boolean);
   const normalizedLabel = normalizeSearch(record.label);
-  if (terms.length > 1 && terms.every((term) => normalizedLabel.includes(term))) {
+  if (query.terms.length > 1 && query.terms.every((term) => normalizedLabel.includes(term))) {
     bestScore = bestScore === null ? 70 : Math.min(bestScore, 70);
   }
 
@@ -461,32 +543,134 @@ function scoreRecord(record: CityLocationRecord, query: string) {
   return bestScore * 1_000_000_000 + record.priority;
 }
 
+function insertRankedRecord(
+  ranked: RankedCityLocationRecord[],
+  entry: RankedCityLocationRecord,
+  limit: number
+) {
+  let low = 0;
+  let high = ranked.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (ranked[middle].score <= entry.score) low = middle + 1;
+    else high = middle;
+  }
+
+  if (low >= limit) return;
+  ranked.splice(low, 0, entry);
+  if (ranked.length > limit) ranked.pop();
+}
+
+function rankCityRecords(records: Iterable<CityLocationRecord>, query: PreparedCityLocationQuery, limit: number) {
+  const ranked: RankedCityLocationRecord[] = [];
+  for (const record of records) {
+    const score = scoreRecord(record, query);
+    if (score === null) continue;
+    insertRankedRecord(ranked, { record, score }, limit);
+  }
+  return ranked;
+}
+
+function getWorldCityCandidates(query: PreparedCityLocationQuery) {
+  const index = getWorldCitySearchIndex();
+  const queryKeys = normalizedSearchBucketKeys(query.normalized);
+  const candidateIndexes = new Set<number>();
+
+  for (const key of queryKeys) {
+    for (const recordIndex of index.prefixBuckets.get(key) ?? []) candidateIndexes.add(recordIndex);
+  }
+
+  if (candidateIndexes.size === 0) return index.records;
+  return [...candidateIndexes].map((recordIndex) => index.records[recordIndex]);
+}
+
+function getCachedWorldCityResults(query: PreparedCityLocationQuery, limit: number) {
+  const cacheKey = `${query.normalized}:${limit}`;
+  const cached = cachedWorldCitySearchResults.get(cacheKey);
+  if (cached) {
+    cachedWorldCitySearchResults.delete(cacheKey);
+    cachedWorldCitySearchResults.set(cacheKey, cached);
+    return cached;
+  }
+
+  const ranked = rankCityRecords(getWorldCityCandidates(query), query, limit);
+  cachedWorldCitySearchResults.set(cacheKey, ranked);
+  if (cachedWorldCitySearchResults.size > CITY_LOCATION_RESULT_CACHE_LIMIT) {
+    const oldestKey = cachedWorldCitySearchResults.keys().next().value;
+    if (oldestKey) cachedWorldCitySearchResults.delete(oldestKey);
+  }
+  return ranked;
+}
+
+function suggestionFromRecord(record: CityLocationRecord): CityLocationSuggestion {
+  return {
+    city: record.city,
+    country: record.country,
+    label: record.label,
+    region: record.region
+  };
+}
+
+export function warmCityLocationSearchIndex() {
+  const index = getWorldCitySearchIndex();
+  return {
+    prefixBucketCount: index.prefixBuckets.size,
+    recordCount: index.records.length
+  };
+}
+
+export function getCityLocationSearchLatencySnapshot() {
+  if (cityLocationLatencySamples.length === 0) {
+    return { maxMs: 0, p50Ms: 0, p95Ms: 0, sampleCount: 0 };
+  }
+
+  const sorted = [...cityLocationLatencySamples].sort((left, right) => left - right);
+  const percentile = (value: number) => sorted[Math.ceil(sorted.length * value) - 1] ?? 0;
+  return {
+    maxMs: sorted.at(-1) ?? 0,
+    p50Ms: percentile(0.5),
+    p95Ms: percentile(0.95),
+    sampleCount: sorted.length
+  };
+}
+
+function recordCityLocationSearchLatency(durationMs: number) {
+  cityLocationLatencySamples.push(durationMs);
+  if (cityLocationLatencySamples.length > CITY_LOCATION_LATENCY_SAMPLE_LIMIT) cityLocationLatencySamples.shift();
+  if (cityLocationLatencySamples.length === 100 || cityLocationLatencySamples.length === 200) {
+    console.info("[theta.location-search]", getCityLocationSearchLatencySnapshot());
+  }
+}
+
 export function searchCityLocations(query: string, limit = 8, extraCityValues: string[] = []): CityLocationSuggestion[] {
+  const startedAt = performance.now();
   const cleanLimit = Math.min(Math.max(limit, 1), 12);
+  const preparedQuery = prepareCityLocationQuery(query);
+  if (preparedQuery.normalized.length < CITY_LOCATION_MIN_QUERY_LENGTH) {
+    recordCityLocationSearchLatency(performance.now() - startedAt);
+    return [];
+  }
+
   const platformRecords = extraCityValues
     .map((value, index) => cityRecordFromValue(value, index))
     .filter((record): record is CityLocationRecord => Boolean(record));
 
-  const records = [...platformRecords, ...getWorldCityRecords()];
+  const ranked = [
+    ...getCachedWorldCityResults(preparedQuery, cleanLimit),
+    ...rankCityRecords(platformRecords, preparedQuery, cleanLimit)
+  ]
+    .sort((left, right) => left.score - right.score);
   const seen = new Set<string>();
   const suggestions: CityLocationSuggestion[] = [];
 
-  for (const { record } of records
-    .map((record) => ({ record, score: scoreRecord(record, query) }))
-    .filter((entry): entry is { record: CityLocationRecord; score: number } => entry.score !== null)
-    .sort((left, right) => left.score - right.score)
-  ) {
+  for (const { record } of ranked) {
     const key = compact(record.label);
     if (seen.has(key)) continue;
     seen.add(key);
-    suggestions.push({
-      city: record.city,
-      country: record.country,
-      label: record.label,
-      region: record.region
-    });
+    suggestions.push(suggestionFromRecord(record));
     if (suggestions.length >= cleanLimit) break;
   }
 
+  recordCityLocationSearchLatency(performance.now() - startedAt);
   return suggestions;
 }

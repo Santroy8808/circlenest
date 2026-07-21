@@ -1,4 +1,4 @@
-import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, MediaAssetStatus, ProfileVisibility, ScientologyVisibility, SocialRelationshipType } from "@prisma/client";
+import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, MediaAssetStatus, Prisma, ProfileVisibility, ScientologyVisibility, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { setProfileMediaSchema, updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
@@ -6,6 +6,19 @@ import { listApprovedFamilyMembers } from "@/modules/social-graph/social-graph.s
 
 const MODULE_KEY = "profile-identity";
 const PROFILE_DB_TIMEOUT_MS = 2500;
+
+export function isProfileMediaMimeType(mimeType: string) {
+  return mimeType.trim().toLowerCase().startsWith("image/");
+}
+
+export function profileMediaAssetSelectionWhere(userId: string, mediaAssetId: string) {
+  return {
+    id: mediaAssetId,
+    ownerUserId: userId,
+    status: MediaAssetStatus.READY,
+    mimeType: { startsWith: "image/", mode: "insensitive" as const }
+  } satisfies Prisma.MediaAssetWhereInput;
+}
 
 function withProfileDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -251,49 +264,60 @@ export async function setProfileMediaFromGallery(userId: string, input: unknown)
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid profile image." };
   }
 
-  const [user, asset] = await Promise.all([
-    prisma.user.findUnique({
+  const selection = await prisma.$transaction(async (transaction) => {
+    const user = await transaction.user.findUnique({
       where: { id: userId },
       include: { profile: true }
-    }),
-    prisma.mediaAsset.findFirst({
-      where: {
-        id: parsed.data.mediaAssetId,
-        ownerUserId: userId,
-        status: MediaAssetStatus.READY,
-        mimeType: { in: ["image/jpeg", "image/png", "image/webp"] }
+    });
+
+    if (!user) return { kind: "USER_NOT_FOUND" as const };
+
+    const asset = await transaction.mediaAsset.findFirst({
+      where: profileMediaAssetSelectionWhere(userId, parsed.data.mediaAssetId),
+      select: {
+        id: true,
+        mimeType: true
+      }
+    });
+
+    if (!asset || !isProfileMediaMimeType(asset.mimeType)) {
+      return { kind: "ASSET_NOT_FOUND" as const };
+    }
+
+    const mediaUrl = `/api/media/assets/${asset.id}`;
+    const profile = await transaction.profile.upsert({
+      where: { userId },
+      update: parsed.data.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },
+      create: {
+        userId,
+        displayName: user.profile?.displayName ?? user.username,
+        avatarUrl: parsed.data.target === "avatar" ? mediaUrl : null,
+        bannerUrl: parsed.data.target === "banner" ? mediaUrl : null
       },
       select: {
-        id: true
+        userId: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        updatedAt: true
       }
-    })
-  ]);
+    });
 
-  if (!user) {
+    return { kind: "SELECTED" as const, assetId: asset.id, mediaUrl, profile };
+  });
+
+  if (selection.kind === "USER_NOT_FOUND") {
     return { ok: false as const, error: "User was not found." };
   }
 
-  if (!asset) {
+  if (selection.kind === "ASSET_NOT_FOUND") {
     return { ok: false as const, error: "That photo was not found in My Pics." };
   }
 
-  const mediaUrl = `/api/media/assets/${asset.id}`;
-  const profile = await prisma.profile.upsert({
-    where: { userId },
-    update: parsed.data.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },
-    create: {
-      userId,
-      displayName: user.profile?.displayName ?? user.username,
-      avatarUrl: parsed.data.target === "avatar" ? mediaUrl : null,
-      bannerUrl: parsed.data.target === "banner" ? mediaUrl : null
-    }
-  });
-
   await diagnostics.info(MODULE_KEY, "Profile media selected from gallery.", {
     userId,
-    mediaAssetId: asset.id,
+    mediaAssetId: selection.assetId,
     target: parsed.data.target
   });
 
-  return { ok: true as const, profile, mediaUrl };
+  return { ok: true as const, profile: selection.profile, mediaUrl: selection.mediaUrl };
 }

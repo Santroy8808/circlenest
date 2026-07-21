@@ -244,7 +244,7 @@ async function main() {
     data: {
       authorUserId: midearmon.id,
       body: "[Theta demo] Testing the main stream loop: post, reply, reaction, notification, and return.",
-      visibility: FeedVisibility.MEMBERS,
+      visibility: FeedVisibility.PUBLIC,
       mediaAssetId: businessPhoto.id,
       createdAt: daysAgo(1)
     }

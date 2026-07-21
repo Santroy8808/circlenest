@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/lib/platform/db";
 import { readPlatformEnv } from "@/lib/platform/env";
+import { environmentSecretStore } from "@/modules/billing/environment-secret-store";
 
 let stripeClient: Stripe | null = null;
 let stripeClientSecretKey: string | null = null;
@@ -15,12 +16,12 @@ export type StripeRuntimeConfig = {
   creditCheckoutEnabled: boolean;
   source: {
     publishableKey: "database" | "env" | "missing";
-    secretKey: "database" | "env" | "missing";
-    webhookSecret: "database" | "env" | "missing";
+    secretKey: "env" | "missing";
+    webhookSecret: "env" | "missing";
   };
 };
 
-function sourceFor(databaseValue: string | null | undefined, envValue: string | null | undefined) {
+function publishableKeySource(databaseValue: string | null | undefined, envValue: string | null | undefined) {
   if (databaseValue?.trim()) return "database" as const;
   if (envValue?.trim()) return "env" as const;
   return "missing" as const;
@@ -29,12 +30,29 @@ function sourceFor(databaseValue: string | null | undefined, envValue: string | 
 export async function getStripeRuntimeConfig(): Promise<StripeRuntimeConfig> {
   const env = readPlatformEnv();
   const saved = await prisma.stripeIntegrationConfig.findUnique({
-    where: { id: "default" }
+    where: { id: "default" },
+    select: {
+      mode: true,
+      publishableKey: true,
+      secretKeyEnvVar: true,
+      webhookSecretEnvVar: true,
+      currency: true,
+      subscriptionCheckoutEnabled: true,
+      creditCheckoutEnabled: true
+    }
   });
 
   const publishableKey = saved?.publishableKey?.trim() || env.STRIPE_PUBLISHABLE_KEY || null;
-  const secretKey = saved?.secretKey?.trim() || env.STRIPE_SECRET_KEY || null;
-  const webhookSecret = saved?.webhookSecret?.trim() || env.STRIPE_WEBHOOK_SECRET || null;
+  const secretKeyEnvVar = saved ? saved.secretKeyEnvVar?.trim() || null : "STRIPE_SECRET_KEY";
+  const webhookSecretEnvVar = saved ? saved.webhookSecretEnvVar?.trim() || null : "STRIPE_WEBHOOK_SECRET";
+  const [secretKey, webhookSecret] = await Promise.all([
+    secretKeyEnvVar
+      ? environmentSecretStore.resolve({ provider: "environment", environmentVariable: secretKeyEnvVar })
+      : Promise.resolve(null),
+    webhookSecretEnvVar
+      ? environmentSecretStore.resolve({ provider: "environment", environmentVariable: webhookSecretEnvVar })
+      : Promise.resolve(null)
+  ]);
 
   return {
     mode: saved?.mode ?? "TEST",
@@ -45,9 +63,9 @@ export async function getStripeRuntimeConfig(): Promise<StripeRuntimeConfig> {
     subscriptionCheckoutEnabled: saved?.subscriptionCheckoutEnabled ?? true,
     creditCheckoutEnabled: saved?.creditCheckoutEnabled ?? false,
     source: {
-      publishableKey: sourceFor(saved?.publishableKey, env.STRIPE_PUBLISHABLE_KEY),
-      secretKey: sourceFor(saved?.secretKey, env.STRIPE_SECRET_KEY),
-      webhookSecret: sourceFor(saved?.webhookSecret, env.STRIPE_WEBHOOK_SECRET)
+      publishableKey: publishableKeySource(saved?.publishableKey, env.STRIPE_PUBLISHABLE_KEY),
+      secretKey: secretKey ? "env" : "missing",
+      webhookSecret: webhookSecret ? "env" : "missing"
     }
   };
 }

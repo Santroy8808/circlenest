@@ -872,7 +872,7 @@ async function seedFeed(accounts: CreatedAccount[], userMedia: Map<string, Media
       data: {
         authorUserId: author.id,
         body: `${pick(feedBodies, index)} #demo-${index + 1}`,
-        visibility: index % 6 === 0 ? FeedVisibility.FRIENDS : FeedVisibility.MEMBERS,
+        visibility: index % 6 === 0 ? FeedVisibility.FRIENDS : FeedVisibility.PUBLIC,
         mediaAssetId: media?.id,
         createdAt: daysAgo(88 - (index % 86), index * 3)
       }

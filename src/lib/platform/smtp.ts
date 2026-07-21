@@ -6,6 +6,7 @@ type SendSmtpMailInput = {
   subject: string;
   text: string;
   html?: string;
+  messageId?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer;
@@ -56,6 +57,7 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
     subject: input.subject,
     text: input.text,
     html: input.html,
+    messageId: input.messageId,
     attachments: input.attachments
   });
 }

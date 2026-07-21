@@ -14,6 +14,8 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
+    "db:stripe-secrets:preflight": "tsx scripts/stripe-secret-migration-preflight.ts",
+    "db:feed-visibility:backfill": "tsx scripts/backfill-public-feed-visibility.ts",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo-network": "tsx scripts/seed-demo-network.ts",

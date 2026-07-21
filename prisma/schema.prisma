@@ -138,6 +138,23 @@ enum DestructiveActionStatus {
   CANCELLED
 }
 
+enum DestructiveStorageAction {
+  DELETE
+  PRESERVE
+}
+
+enum DestructiveStorageStatus {
+  PLANNED
+  DELETE_ACKNOWLEDGED
+  VERIFIED
+  FAILED
+}
+
+enum DestructiveStorageAccess {
+  PUBLIC
+  PRIVATE
+}
+
 enum DeliveryChannel {
   CHAT
   MAIL
@@ -283,6 +300,7 @@ enum UploadIntentStatus {
 }
 
 enum FeedVisibility {
+  PUBLIC
   MEMBERS
   FRIENDS
   PRIVATE
@@ -1168,8 +1186,6 @@ model StripeIntegrationConfig {
   id                          String                @id @default("default")
   mode                        StripeIntegrationMode @default(TEST)
   publishableKey              String?
-  secretKey                   String?
-  webhookSecret               String?
   secretKeyEnvVar             String?
   webhookSecretEnvVar         String?
   currency                    String                @default("usd")
@@ -1354,6 +1370,8 @@ model PlatformJob {
   runAfter                 DateTime                  @default(now())
   lockedAt                 DateTime?
   lockedBy                 String?
+  leaseToken               String?                   @unique
+  leaseExpiresAt           DateTime?
   startedAt                DateTime?
   completedAt              DateTime?
   createdAt                DateTime                  @default(now())
@@ -1363,38 +1381,65 @@ model PlatformJob {
   @@index([status, runAfter, createdAt])
   @@index([kind, status, runAfter])
   @@index([lockedAt])
+  @@index([status, leaseExpiresAt])
 }
 
 model DestructiveActionRequest {
-  id                          String                  @id @default(cuid())
-  idempotencyKey              String                  @unique @default(cuid())
+  id                          String                           @id @default(cuid())
+  idempotencyKey              String                           @unique @default(cuid())
   kind                        DestructiveActionKind
-  status                      DestructiveActionStatus @default(PENDING_CONFIRMATION)
+  status                      DestructiveActionStatus          @default(PENDING_CONFIRMATION)
   targetType                  String
   targetId                    String
   reason                      String
   requestedByUserId           String?
   confirmedByUserId           String?
-  confirmationSecurityEventId String?                 @unique
-  platformJobId               String?                 @unique
+  confirmationSecurityEventId String?                          @unique
+  platformJobId               String?                          @unique
   confirmedAt                 DateTime?
   startedAt                   DateTime?
   completedAt                 DateTime?
   failedAt                    DateTime?
   error                       String?
   result                      Json?
-  retentionClass              RecordRetentionClass    @default(VITAL)
-  createdAt                   DateTime                @default(now())
-  updatedAt                   DateTime                @updatedAt
-  requestedBy                 User?                   @relation("DestructiveActionRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
-  confirmedBy                 User?                   @relation("DestructiveActionConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
-  confirmationSecurityEvent   AuthSecurityEvent?      @relation(fields: [confirmationSecurityEventId], references: [id], onDelete: SetNull)
-  platformJob                 PlatformJob?            @relation(fields: [platformJobId], references: [id], onDelete: SetNull)
+  retentionClass              RecordRetentionClass             @default(VITAL)
+  createdAt                   DateTime                         @default(now())
+  updatedAt                   DateTime                         @updatedAt
+  requestedBy                 User?                            @relation("DestructiveActionRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  confirmedBy                 User?                            @relation("DestructiveActionConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmationSecurityEvent   AuthSecurityEvent?               @relation(fields: [confirmationSecurityEventId], references: [id], onDelete: SetNull)
+  platformJob                 PlatformJob?                     @relation(fields: [platformJobId], references: [id], onDelete: SetNull)
+  storageObjects              DestructiveActionStorageObject[]
 
   @@index([status, createdAt])
   @@index([kind, targetType, targetId, createdAt])
   @@index([requestedByUserId, createdAt])
   @@index([confirmedByUserId, confirmedAt])
+}
+
+model DestructiveActionStorageObject {
+  id             String                   @id @default(cuid())
+  requestId      String
+  sourceType     String
+  sourceId       String
+  storageKey     String
+  access         DestructiveStorageAccess
+  action         DestructiveStorageAction
+  status         DestructiveStorageStatus @default(PLANNED)
+  attemptCount   Int                      @default(0)
+  lastError      String?
+  attemptedAt    DateTime?
+  acknowledgedAt DateTime?
+  verifiedAt     DateTime?
+  metadata       Json?
+  retentionClass RecordRetentionClass     @default(VITAL)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  request        DestructiveActionRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@unique([requestId, access, storageKey])
+  @@index([requestId, action, status])
+  @@index([status, updatedAt])
 }
 
 model UserApplicationUsageMetric {
@@ -1758,7 +1803,7 @@ model FeedPost {
   id                  String              @id @default(cuid())
   authorUserId        String
   body                String
-  visibility          FeedVisibility      @default(MEMBERS)
+  visibility          FeedVisibility      @default(PUBLIC)
   mediaAssetId        String?
   targetProfileUserId String?
   isAdminAnnouncement Boolean             @default(false)
@@ -1915,19 +1960,21 @@ model FriendRelationshipRequest {
 }
 
 model ChatThread {
-  id              String            @id @default(cuid())
+  id              String               @id @default(cuid())
   type            ChatThreadType
   title           String?
   createdByUserId String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   lastMessageAt   DateTime?
-  createdBy       User?             @relation("ChatThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  retentionClass  RecordRetentionClass @default(STANDARD)
+  createdBy       User?                @relation("ChatThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   participants    ChatParticipant[]
   messages        ChatMessage[]
 
   @@index([type, lastMessageAt])
   @@index([createdByUserId, createdAt])
+  @@index([retentionClass])
 }
 
 model ChatParticipant {
@@ -2001,14 +2048,16 @@ model ChatAttachment {
 }
 
 model EncryptedChatThread {
-  id            String                     @id @default(cuid())
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
-  lastMessageAt DateTime?
-  participants  EncryptedChatParticipant[]
-  messages      EncryptedChatMessage[]
+  id             String                     @id @default(cuid())
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  lastMessageAt  DateTime?
+  retentionClass RecordRetentionClass       @default(STANDARD)
+  participants   EncryptedChatParticipant[]
+  messages       EncryptedChatMessage[]
 
   @@index([lastMessageAt])
+  @@index([retentionClass])
 }
 
 model EncryptedChatParticipant {
@@ -2740,6 +2789,8 @@ model AdCampaign {
   body                         String
   destinationUrl               String?
   destinationKind              AdDestinationKind          @default(STOREFRONT)
+  targetSnapshot               Json?
+  targetSnapshotAt             DateTime?
   placement                    AdPlacement                @default(RIGHT_STREAM)
   status                       AdCampaignStatus           @default(ACTIVE)
   targetLocation               String?
@@ -3012,16 +3063,19 @@ model Notification {
 }
 
 model Alert {
-  id        String    @id @default(cuid())
-  userId    String
-  title     String
-  body      String?
-  href      String?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  userId     String
+  title      String
+  body       String?
+  href       String?
+  sourceType String?
+  sourceId   String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt, createdAt])
+  @@index([sourceType, sourceId])
 }
 
 model ConductConfig {

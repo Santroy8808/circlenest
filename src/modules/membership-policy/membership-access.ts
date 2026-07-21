@@ -53,9 +53,11 @@ export type MembershipQuotas = {
 export type ContributorOfferStatus = "OFFERED" | "ACCEPTED" | "EXPIRED" | "REVOKED";
 
 export type ContributorOffer = {
+  id: string;
   status: ContributorOfferStatus;
-  grantedByAdminId: string;
+  grantedByAdminId: string | null;
   grantedAt: Date;
+  validFrom: Date;
   acceptedAt: Date | null;
   revokedAt: Date | null;
   expiresAt: Date | null;
@@ -97,6 +99,7 @@ const freeCapabilities = [
 const contributorCapabilities = [
   ...freeCapabilities,
   "stream.filters",
+  "market.promoteListing",
   "writers.use",
   "support.create"
 ] as const satisfies readonly Capability[];
@@ -146,11 +149,16 @@ function offerHasNotExpired(offer: ContributorOffer, now: Date) {
   return offer.expiresAt === null || offer.expiresAt.getTime() > now.getTime();
 }
 
+function offerHasStarted(offer: ContributorOffer, now: Date) {
+  return offer.validFrom.getTime() <= now.getTime();
+}
+
 export function isContributorOfferEligible(offer: ContributorOffer | null | undefined, now = new Date()) {
   return Boolean(
     offer &&
       offer.status === "OFFERED" &&
       offer.revokedAt === null &&
+      offerHasStarted(offer, now) &&
       offerHasNotExpired(offer, now)
   );
 }
@@ -173,10 +181,7 @@ export function resolveMembershipAccess(input: {
     ? input.contributorOffer ?? null
     : null;
   const normalizedTier = normalizeOperationalTier(persistedTier);
-  const operationalTier =
-    normalizedTier === MembershipTier.CONTRIBUTOR || isContributorOfferAccepted(contributorOffer)
-      ? MembershipTier.CONTRIBUTOR
-      : MembershipTier.FREE;
+  const operationalTier = normalizedTier;
   const contract = operationalTierContracts[operationalTier];
 
   return {

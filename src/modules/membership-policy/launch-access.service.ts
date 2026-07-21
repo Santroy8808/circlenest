@@ -1,14 +1,17 @@
-import { AuditSeverity, MembershipTier, Prisma, PromotionAccessScope } from "@prisma/client";
+import {
+  MembershipTier,
+  MembershipUpgradeOfferStatus,
+  MembershipUpgradeMode,
+  Prisma,
+  PromotionAccessScope
+} from "@prisma/client";
 import { z } from "zod";
-import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { readPlatformEnv } from "@/lib/platform/env";
-import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { listFreeAccountInviteAdminView } from "@/modules/membership-policy/free-account-invites.service";
+import { grantContributorBetaOffer } from "@/modules/membership-policy/contributor-upgrade.service";
 import { isOperationalMembershipTier } from "@/modules/membership-policy/policy";
-
-const MODULE_KEY = "launch-access";
 
 const subscriptionDefaults = [
   {
@@ -19,16 +22,24 @@ const subscriptionDefaults = [
     founderMemberCap: null,
     founderWindowDays: null,
     monthlyCreditBudget: 0,
+    memberVisible: true,
+    selfServiceEnabled: false,
+    upgradeMode: MembershipUpgradeMode.NONE,
+    futurePriceCents: null,
     populationCreditTiers: []
   },
   {
     tier: MembershipTier.CONTRIBUTOR,
     displayName: "Contributor",
     standardPriceCents: 499,
-    founderPriceCents: 199,
-    founderMemberCap: 50,
-    founderWindowDays: 180,
+    founderPriceCents: null,
+    founderMemberCap: null,
+    founderWindowDays: null,
     monthlyCreditBudget: 10,
+    memberVisible: true,
+    selfServiceEnabled: true,
+    upgradeMode: MembershipUpgradeMode.BETA_FREE,
+    futurePriceCents: 499,
     populationCreditTiers: [
       { members: 0, credits: 10 },
       { members: 250, credits: 25 },
@@ -44,6 +55,10 @@ const subscriptionDefaults = [
     founderMemberCap: 50,
     founderWindowDays: 180,
     monthlyCreditBudget: 25,
+    memberVisible: false,
+    selfServiceEnabled: false,
+    upgradeMode: MembershipUpgradeMode.NONE,
+    futurePriceCents: null,
     populationCreditTiers: [
       { members: 0, credits: 25 },
       { members: 250, credits: 50 },
@@ -59,6 +74,10 @@ const subscriptionDefaults = [
     founderMemberCap: null,
     founderWindowDays: null,
     monthlyCreditBudget: 10,
+    memberVisible: false,
+    selfServiceEnabled: false,
+    upgradeMode: MembershipUpgradeMode.NONE,
+    futurePriceCents: null,
     populationCreditTiers: []
   },
   {
@@ -69,6 +88,10 @@ const subscriptionDefaults = [
     founderMemberCap: null,
     founderWindowDays: null,
     monthlyCreditBudget: 10,
+    memberVisible: false,
+    selfServiceEnabled: false,
+    upgradeMode: MembershipUpgradeMode.NONE,
+    futurePriceCents: null,
     populationCreditTiers: []
   }
 ] as const;
@@ -129,9 +152,10 @@ export function stripePriceIdForTier(tier: MembershipTier) {
 }
 
 export const launchAccessGrantSchema = z.object({
+  commandId: z.string().trim().min(8).max(160),
   scope: z.nativeEnum(PromotionAccessScope),
   userIdentifier: z.string().trim().max(160).optional(),
-  sourceTier: z.nativeEnum(MembershipTier).default(MembershipTier.FREE),
+  sourceTier: z.literal(MembershipTier.FREE).default(MembershipTier.FREE),
   targetTier: z.literal(MembershipTier.CONTRIBUTOR),
   durationMonths: z.coerce.number().int().min(1).max(24).optional(),
   durationValue: z.coerce.number().int().min(1).max(730).optional(),
@@ -144,10 +168,10 @@ async function isAdminUser(userId?: string) {
   if (!userId) return false;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true }
+    select: { role: true, deactivatedAt: true }
   });
 
-  return isAdminRole(user?.role);
+  return Boolean(user && !user.deactivatedAt && isAdminRole(user.role));
 }
 
 export async function ensureLaunchDefaults() {
@@ -158,7 +182,18 @@ export async function ensureLaunchDefaults() {
       return prisma.subscriptionPlanRule.upsert({
         where: { tier: plan.tier },
         update: {
+          displayName: plan.displayName,
+          standardPriceCents: plan.standardPriceCents,
+          founderPriceCents: plan.founderPriceCents,
+          founderMemberCap: plan.founderMemberCap,
+          founderWindowDays: plan.founderWindowDays,
+          monthlyCreditBudget: plan.monthlyCreditBudget,
           active: isOperationalMembershipTier(plan.tier),
+          memberVisible: plan.memberVisible,
+          selfServiceEnabled: plan.selfServiceEnabled,
+          upgradeMode: plan.upgradeMode,
+          futurePriceCents: plan.futurePriceCents,
+          populationCreditTiers: plan.populationCreditTiers as unknown as Prisma.InputJsonArray,
           ...(stripePriceId ? { stripePriceId } : {})
         },
         create: {
@@ -171,6 +206,10 @@ export async function ensureLaunchDefaults() {
           founderWindowDays: plan.founderWindowDays,
           monthlyCreditBudget: plan.monthlyCreditBudget,
           active: isOperationalMembershipTier(plan.tier),
+          memberVisible: plan.memberVisible,
+          selfServiceEnabled: plan.selfServiceEnabled,
+          upgradeMode: plan.upgradeMode,
+          futurePriceCents: plan.futurePriceCents,
           populationCreditTiers: plan.populationCreditTiers as unknown as Prisma.InputJsonArray
         }
       });
@@ -194,15 +233,16 @@ export async function listLaunchAccessAdminView() {
       orderBy: { standardPriceCents: "asc" }
     }),
     prisma.adExperienceRule.findMany({ orderBy: { key: "asc" } }),
-    prisma.membershipPromotionGrant.findMany({
+    prisma.membershipUpgradeOffer.findMany({
       where: {
-        active: true,
         targetTier: MembershipTier.CONTRIBUTOR,
-        expiresAt: { gt: new Date() }
+        status: MembershipUpgradeOfferStatus.OFFERED,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
       },
-      orderBy: { expiresAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: 50,
       include: {
+        eligibility: { select: { reason: true } },
         user: {
           select: {
             email: true,
@@ -237,13 +277,13 @@ export async function listLaunchAccessAdminView() {
     })),
     activeGrants: activeGrants.map((grant) => ({
       id: grant.id,
-      scope: grant.scope,
+      scope: PromotionAccessScope.USER,
       userLabel: grant.user?.profile?.displayName ?? grant.user?.username ?? grant.user?.email ?? "All matching users",
-      sourceTier: grant.sourceTier,
+      sourceTier: MembershipTier.FREE,
       targetTier: grant.targetTier,
-      label: grant.label,
-      reason: grant.reason,
-      expiresAt: grant.expiresAt.toISOString()
+      label: "Contributor beta offer",
+      reason: grant.eligibility.reason,
+      expiresAt: grant.expiresAt?.toISOString() ?? null
     })),
     freeInvites
   };
@@ -273,31 +313,6 @@ export async function listSubscriptionPlanRules() {
   }));
 }
 
-export async function getActivePromotionalTierForUser(userId: string, currentTier: MembershipTier) {
-  const now = new Date();
-  const grants = await prisma.membershipPromotionGrant.findMany({
-    where: {
-      active: true,
-      sourceTier: currentTier,
-      startsAt: { lte: now },
-      expiresAt: { gt: now },
-      OR: [{ scope: PromotionAccessScope.GLOBAL, userId: null }, { scope: PromotionAccessScope.USER, userId }]
-    },
-    orderBy: [{ targetTier: "desc" }, { expiresAt: "desc" }]
-  });
-
-  const contributorGrant = grants.find((grant) => grant.targetTier === MembershipTier.CONTRIBUTOR);
-  const grant = contributorGrant ?? null;
-
-  return grant
-    ? {
-        tier: grant.targetTier,
-        label: grant.label,
-        expiresAt: grant.expiresAt
-      }
-    : null;
-}
-
 export async function createLaunchAccessGrant(actorUserId: string, input: unknown) {
   if (!(await isAdminUser(actorUserId))) {
     return { ok: false as const, error: "Admin access required." };
@@ -307,6 +322,10 @@ export async function createLaunchAccessGrant(actorUserId: string, input: unknow
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid launch access grant." };
+  }
+
+  if (parsed.data.scope !== PromotionAccessScope.USER) {
+    return { ok: false as const, error: "Contributor beta access must be granted to one specific Free member." };
   }
 
   const durationValue = parsed.data.durationValue ?? parsed.data.durationMonths;
@@ -320,27 +339,21 @@ export async function createLaunchAccessGrant(actorUserId: string, input: unknow
     return { ok: false as const, error: "Promotional access cannot exceed 24 months." };
   }
 
-  let userId: string | null = null;
+  const identifier = parsed.data.userIdentifier?.trim().replace(/^@/, "").toLowerCase();
 
-  if (parsed.data.scope === PromotionAccessScope.USER) {
-    const identifier = parsed.data.userIdentifier?.trim().replace(/^@/, "").toLowerCase();
+  if (!identifier) {
+    return { ok: false as const, error: "Choose a user for individual Contributor beta access." };
+  }
 
-    if (!identifier) {
-      return { ok: false as const, error: "Choose a user for individual promotional access." };
-    }
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: identifier }, { username: identifier }]
+    },
+    select: { id: true }
+  });
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { username: identifier }]
-      },
-      select: { id: true }
-    });
-
-    if (!user) {
-      return { ok: false as const, error: "User was not found." };
-    }
-
-    userId = user.id;
+  if (!user) {
+    return { ok: false as const, error: "User was not found." };
   }
 
   const startsAt = new Date();
@@ -352,45 +365,14 @@ export async function createLaunchAccessGrant(actorUserId: string, input: unknow
     expiresAt.setMonth(expiresAt.getMonth() + durationValue);
   }
 
-  const grant = await prisma.membershipPromotionGrant.create({
-    data: {
-      scope: parsed.data.scope,
-      userId,
-      sourceTier: parsed.data.sourceTier,
-      targetTier: parsed.data.targetTier,
-      label: parsed.data.label,
-      reason: parsed.data.reason || null,
-      startsAt,
-      expiresAt,
-      createdByUserId: actorUserId
-    }
+  const result = await grantContributorBetaOffer(actorUserId, {
+    commandId: parsed.data.commandId,
+    targetUserId: user.id,
+    expiresAt,
+    reason: parsed.data.reason || parsed.data.label
   });
 
-  await writeAuditLog({
-    actorUserId,
-    module: MODULE_KEY,
-    action: "launch-access.grant.created",
-    targetType: parsed.data.scope === PromotionAccessScope.USER ? "User" : "MembershipTier",
-    targetId: userId ?? parsed.data.sourceTier,
-    severity: AuditSeverity.warning,
-    metadata: {
-      scope: grant.scope,
-      sourceTier: grant.sourceTier,
-      targetTier: grant.targetTier,
-      durationValue,
-      durationUnit,
-      expiresAt: grant.expiresAt.toISOString()
-    } as Prisma.InputJsonObject
-  });
-  await diagnostics.info(MODULE_KEY, "Launch access promotional tier grant created.", {
-    actorUserId,
-    scope: grant.scope,
-    userId,
-    sourceTier: grant.sourceTier,
-    targetTier: grant.targetTier,
-    durationValue,
-    durationUnit
-  });
+  if (!result.ok) return result;
 
-  return { ok: true as const, grant };
+  return { ok: true as const, grant: result.offer };
 }

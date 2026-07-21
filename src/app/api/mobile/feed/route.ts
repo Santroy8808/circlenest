@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
   const result = await createFeedPost(session.user.id, {
     body: body.body,
-    visibility: FeedVisibility.MEMBERS,
+    visibility: FeedVisibility.PUBLIC,
     mediaAssetId: body.mediaAssetId ?? ""
   });
 

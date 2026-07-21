@@ -1,10 +1,22 @@
 import { FeedVisibility, MediaVisibility, Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { z } from "zod";
-import { writeAuditLog } from "@/lib/platform/audit";
+import {
+  AccountDeletionFenceConflictError,
+  assertAccountDeletionFenceOpen
+} from "@/lib/platform/account-deletion-fence";
+import { findAuditLogByOperationId, writeAuditLog } from "@/lib/platform/audit";
+import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
 import { getR2Object, getR2PublicUrl, putR2Object, type R2ObjectAccess } from "@/lib/platform/r2";
 import { isAdminRole } from "@/lib/platform/roles";
+import {
+  assertFeedChildWriteAllowed,
+  assertNewFeedPostWriteAllowed,
+  lockFeedPostForWrite
+} from "@/modules/feed-stream/feed-write-fence";
+import { publicStreamVisibilityFilter } from "@/modules/feed-stream/feed-visibility";
 
 const MODULE_KEY = "feed-retention";
 const STREAM_COMPRESSION_MIME_TYPE = "image/webp";
@@ -13,6 +25,56 @@ const STREAM_COMPRESSION_QUALITY = 76;
 const STREAM_COMPRESSION_MIN_SAVINGS_RATIO = 0.06;
 const STREAM_COMPRESSION_BATCH_LIMIT = 50;
 const COMPRESSIBLE_STREAM_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+const feedThreadDeletionFenceSelect = {
+  authorUserId: true,
+  targetProfileUserId: true,
+  mediaAsset: {
+    select: {
+      ownerUserId: true,
+      hashtags: { select: { taggedByUserId: true } }
+    }
+  },
+  reactions: { select: { userId: true } },
+  dismissals: { select: { userId: true } },
+  hashtags: { select: { taggedByUserId: true } },
+  comments: {
+    select: {
+      authorUserId: true,
+      mediaAsset: {
+        select: {
+          ownerUserId: true,
+          hashtags: { select: { taggedByUserId: true } }
+        }
+      },
+      reactions: { select: { userId: true } },
+      hashtags: { select: { taggedByUserId: true } }
+    }
+  }
+} satisfies Prisma.FeedPostSelect;
+
+type FeedThreadDeletionFenceTarget = Prisma.FeedPostGetPayload<{
+  select: typeof feedThreadDeletionFenceSelect;
+}>;
+
+export function feedThreadDeletionFenceUserIds(post: FeedThreadDeletionFenceTarget) {
+  return [...new Set([
+    post.authorUserId,
+    post.targetProfileUserId,
+    post.mediaAsset?.ownerUserId,
+    ...(post.mediaAsset?.hashtags.map((hashtag) => hashtag.taggedByUserId) ?? []),
+    ...post.reactions.map((reaction) => reaction.userId),
+    ...post.dismissals.map((dismissal) => dismissal.userId),
+    ...post.hashtags.map((hashtag) => hashtag.taggedByUserId),
+    ...post.comments.flatMap((comment) => [
+      comment.authorUserId,
+      comment.mediaAsset?.ownerUserId,
+      ...(comment.mediaAsset?.hashtags.map((hashtag) => hashtag.taggedByUserId) ?? []),
+      ...comment.reactions.map((reaction) => reaction.userId),
+      ...comment.hashtags.map((hashtag) => hashtag.taggedByUserId)
+    ])
+  ].filter((userId): userId is string => Boolean(userId)))].sort();
+}
 
 export const FREE_TIER_PERSONAL_STORAGE_BYTES = 200 * 1024 * 1024;
 
@@ -25,6 +87,7 @@ export const streamRetentionPolicy = {
 } as const;
 
 const holdSchema = z.object({
+  commandId: z.string().trim().min(8).max(200).optional(),
   postId: z.string().trim().min(1),
   reason: z.string().trim().min(5).max(1000),
   holdThread: z.boolean().default(true)
@@ -32,6 +95,10 @@ const holdSchema = z.object({
 
 const postIdSchema = z.object({
   postId: z.string().trim().min(1)
+});
+
+const releaseHoldSchema = postIdSchema.extend({
+  commandId: z.string().trim().min(8).max(200).optional()
 });
 
 const booleanQueryParam = (defaultValue: boolean) =>
@@ -111,7 +178,7 @@ function hoursAgo(now: Date, hours: number) {
 function publicStreamWhere(extra: Prisma.FeedPostWhereInput = {}): Prisma.FeedPostWhereInput {
   return {
     ...extra,
-    visibility: FeedVisibility.MEMBERS,
+    visibility: publicStreamVisibilityFilter(),
     targetProfileUserId: null,
     isAdminAnnouncement: false
   };
@@ -433,67 +500,183 @@ export async function holdFeedThread(actorUserId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid hold request." };
   }
 
-  const now = new Date();
-  const updated = await prisma.feedPost.updateMany({
-    where: { id: parsed.data.postId },
-    data: {
-      adminHoldAt: now,
-      adminHoldByUserId: actorUserId,
-      adminHoldReason: parsed.data.reason,
-      adminHoldThread: parsed.data.holdThread
-    }
+  const commandId = parsed.data.commandId ?? randomUUID();
+  const action = "stream.post_held";
+  const target = { type: "FeedPost", id: parsed.data.postId };
+  const commandFingerprint = createCommandFingerprint({
+    actorUserId,
+    action,
+    target,
+    payload: { reason: parsed.data.reason, holdThread: parsed.data.holdThread }
   });
-
-  if (updated.count === 0) {
-    return { ok: false as const, error: "Post was not found." };
+  const replay = await findAuditLogByOperationId(commandId);
+  if (replay) {
+    return isMatchingCommandFingerprint(replay, { actorUserId, action, target, fingerprint: commandFingerprint })
+      ? { ok: true as const, replayed: true as const }
+      : { ok: false as const, error: "That administrator command id has already been used." };
   }
 
-  await writeAuditLog({
-    actorUserId,
-    module: MODULE_KEY,
-    action: "stream.post_held",
-    targetType: "FeedPost",
-    targetId: parsed.data.postId,
-    severity: "critical",
-    metadata: parsed.data
-  });
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const lockedPost = await lockFeedPostForWrite(tx, parsed.data.postId);
+      if (!lockedPost) return false;
+      const current = await tx.feedPost.findUnique({
+        where: { id: parsed.data.postId },
+        select: {
+          ...feedThreadDeletionFenceSelect,
+          adminHoldAt: true,
+          adminHoldByUserId: true,
+          adminHoldReason: true,
+          adminHoldThread: true
+        }
+      });
+      if (!current) return false;
+      await assertAccountDeletionFenceOpen(
+        tx,
+        feedThreadDeletionFenceUserIds(current),
+        "This feed thread is linked to an account already queued for deletion. Place the hold before confirming account deletion."
+      );
+      const now = new Date();
+      await tx.feedPost.update({
+        where: { id: parsed.data.postId },
+        data: {
+          adminHoldAt: now,
+          adminHoldByUserId: actorUserId,
+          adminHoldReason: parsed.data.reason,
+          adminHoldThread: parsed.data.holdThread
+        }
+      });
 
-  return { ok: true as const };
+      await writeAuditLog({
+        operationId: commandId,
+        actorUserId,
+        module: MODULE_KEY,
+        action,
+        targetType: target.type,
+        targetId: target.id,
+        severity: "critical",
+        before: {
+          adminHoldAt: current.adminHoldAt?.toISOString() ?? null,
+          adminHoldByUserId: current.adminHoldByUserId,
+          adminHoldReason: current.adminHoldReason,
+          adminHoldThread: current.adminHoldThread
+        },
+        after: {
+          adminHoldAt: now.toISOString(),
+          adminHoldByUserId: actorUserId,
+          adminHoldReason: parsed.data.reason,
+          adminHoldThread: parsed.data.holdThread
+        },
+        metadata: { commandFingerprint, reason: parsed.data.reason, holdThread: parsed.data.holdThread }
+      }, tx);
+      return true;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (!updated) return { ok: false as const, error: "Post was not found." };
+  } catch (error) {
+    if (error instanceof AccountDeletionFenceConflictError) {
+      return { ok: false as const, error: error.message };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const concurrentReplay = await findAuditLogByOperationId(commandId);
+      if (concurrentReplay) {
+        return isMatchingCommandFingerprint(concurrentReplay, { actorUserId, action, target, fingerprint: commandFingerprint })
+          ? { ok: true as const, replayed: true as const }
+          : { ok: false as const, error: "That administrator command id has already been used." };
+      }
+    }
+    throw error;
+  }
+
+  return { ok: true as const, replayed: false as const };
 }
 
 export async function releaseFeedThreadHold(actorUserId: string, input: unknown) {
   const admin = await requireAdmin(actorUserId);
   if (!admin.ok) return admin;
 
-  const parsed = postIdSchema.safeParse(input);
+  const parsed = releaseHoldSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid post id." };
   }
 
-  const updated = await prisma.feedPost.updateMany({
-    where: { id: parsed.data.postId },
-    data: {
-      adminHoldAt: null,
-      adminHoldByUserId: null,
-      adminHoldReason: null,
-      adminHoldThread: true
-    }
-  });
-
-  if (updated.count === 0) {
-    return { ok: false as const, error: "Post was not found." };
+  const commandId = parsed.data.commandId ?? randomUUID();
+  const action = "stream.post_hold_released";
+  const target = { type: "FeedPost", id: parsed.data.postId };
+  const commandFingerprint = createCommandFingerprint({ actorUserId, action, target, payload: {} });
+  const replay = await findAuditLogByOperationId(commandId);
+  if (replay) {
+    return isMatchingCommandFingerprint(replay, { actorUserId, action, target, fingerprint: commandFingerprint })
+      ? { ok: true as const, replayed: true as const }
+      : { ok: false as const, error: "That administrator command id has already been used." };
   }
 
-  await writeAuditLog({
-    actorUserId,
-    module: MODULE_KEY,
-    action: "stream.post_hold_released",
-    targetType: "FeedPost",
-    targetId: parsed.data.postId,
-    severity: "warning"
-  });
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const lockedPost = await lockFeedPostForWrite(tx, parsed.data.postId);
+      if (!lockedPost) return false;
+      const current = await tx.feedPost.findUnique({
+        where: { id: parsed.data.postId },
+        select: {
+          ...feedThreadDeletionFenceSelect,
+          adminHoldAt: true,
+          adminHoldByUserId: true,
+          adminHoldReason: true,
+          adminHoldThread: true
+        }
+      });
+      if (!current) return false;
+      await assertAccountDeletionFenceOpen(
+        tx,
+        feedThreadDeletionFenceUserIds(current),
+        "This feed thread is linked to an account already queued for deletion. Release the hold before confirming account deletion."
+      );
+      await tx.feedPost.update({
+        where: { id: parsed.data.postId },
+        data: {
+          adminHoldAt: null,
+          adminHoldByUserId: null,
+          adminHoldReason: null,
+          adminHoldThread: true
+        }
+      });
+      await writeAuditLog({
+        operationId: commandId,
+        actorUserId,
+        module: MODULE_KEY,
+        action,
+        targetType: target.type,
+        targetId: target.id,
+        severity: "warning",
+        before: {
+          adminHoldAt: current.adminHoldAt?.toISOString() ?? null,
+          adminHoldByUserId: current.adminHoldByUserId,
+          adminHoldReason: current.adminHoldReason,
+          adminHoldThread: current.adminHoldThread
+        },
+        after: { adminHoldAt: null, adminHoldByUserId: null, adminHoldReason: null, adminHoldThread: true },
+        metadata: { commandFingerprint }
+      }, tx);
+      return true;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-  return { ok: true as const };
+    if (!updated) return { ok: false as const, error: "Post was not found." };
+  } catch (error) {
+    if (error instanceof AccountDeletionFenceConflictError) {
+      return { ok: false as const, error: error.message };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const concurrentReplay = await findAuditLogByOperationId(commandId);
+      if (concurrentReplay) {
+        return isMatchingCommandFingerprint(concurrentReplay, { actorUserId, action, target, fingerprint: commandFingerprint })
+          ? { ok: true as const, replayed: true as const }
+          : { ok: false as const, error: "That administrator command id has already been used." };
+      }
+    }
+    throw error;
+  }
+
+  return { ok: true as const, replayed: false as const };
 }
 
 export async function exportFeedThread(actorUserId: string, input: unknown) {
@@ -558,14 +741,55 @@ export async function importFeedThread(actorUserId: string, input: unknown) {
 
   const post = parsed.data.post as Prisma.FeedPostUncheckedCreateInput;
   if (!post.id) return { ok: false as const, error: "Import payload is missing the post id." };
+  const importedPostId = String(post.id);
+  const importedCommentIds = new Set(parsed.data.comments.map((comment) => String(comment.id ?? "")));
+  const hasCrossThreadChild =
+    parsed.data.comments.some((comment) => String(comment.postId ?? "") !== importedPostId) ||
+    parsed.data.postReactions.some((reaction) => String(reaction.postId ?? "") !== importedPostId) ||
+    parsed.data.postHashtags.some((hashtag) => String(hashtag.postId ?? "") !== importedPostId) ||
+    parsed.data.commentReactions.some((reaction) => !importedCommentIds.has(String(reaction.commentId ?? ""))) ||
+    parsed.data.commentHashtags.some((hashtag) => !importedCommentIds.has(String(hashtag.commentId ?? ""))) ||
+    parsed.data.comments.some((comment) =>
+      Boolean(comment.parentCommentId) && !importedCommentIds.has(String(comment.parentCommentId))
+    );
+  if (hasCrossThreadChild) {
+    return { ok: false as const, error: "Import payload contains child records from another feed thread." };
+  }
 
-  const existing = await prisma.feedPost.findUnique({ where: { id: String(post.id) }, select: { id: true } });
+  const existing = await prisma.feedPost.findUnique({ where: { id: importedPostId }, select: { id: true } });
   if (existing) {
     return { ok: false as const, error: "A post with that id already exists." };
   }
 
+  const referencedUserIds = [
+    actorUserId,
+    post.authorUserId,
+    post.targetProfileUserId,
+    ...parsed.data.comments.map((comment) => comment.authorUserId),
+    ...parsed.data.postReactions.map((reaction) => reaction.userId),
+    ...parsed.data.commentReactions.map((reaction) => reaction.userId),
+    ...parsed.data.postHashtags.map((hashtag) => hashtag.taggedByUserId),
+    ...parsed.data.commentHashtags.map((hashtag) => hashtag.taggedByUserId)
+  ].filter((userId): userId is string => typeof userId === "string" && Boolean(userId));
+  const referencedMediaAssetIds = [
+    post.mediaAssetId,
+    ...parsed.data.comments.map((comment) => comment.mediaAssetId)
+  ].filter((mediaAssetId): mediaAssetId is string => typeof mediaAssetId === "string" && Boolean(mediaAssetId));
+
   await prisma.$transaction(async (tx) => {
+    await assertNewFeedPostWriteAllowed(tx, {
+      actorUserId,
+      additionalUserIds: referencedUserIds,
+      mediaAssetIds: referencedMediaAssetIds
+    });
     await tx.feedPost.create({ data: post });
+    const allowed = await assertFeedChildWriteAllowed(tx, {
+      postId: importedPostId,
+      actorUserId,
+      additionalUserIds: referencedUserIds,
+      mediaAssetIds: referencedMediaAssetIds
+    });
+    if (!allowed) throw new Error("The imported feed post changed before its child records were restored.");
     for (const comment of parsed.data.comments) {
       await tx.feedComment.create({ data: comment as Prisma.FeedCommentUncheckedCreateInput });
     }
@@ -588,7 +812,7 @@ export async function importFeedThread(actorUserId: string, input: unknown) {
     module: MODULE_KEY,
     action: "stream.thread_imported",
     targetType: "FeedPost",
-    targetId: String(post.id),
+    targetId: importedPostId,
     severity: "critical",
     metadata: {
       sourceExportedAt: parsed.data.exportedAt,
@@ -596,5 +820,5 @@ export async function importFeedThread(actorUserId: string, input: unknown) {
     }
   });
 
-  return { ok: true as const, postId: String(post.id) };
+  return { ok: true as const, postId: importedPostId };
 }

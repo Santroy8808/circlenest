@@ -52,7 +52,7 @@ type LaunchAccessView = {
     targetTier: MembershipTier;
     label: string;
     reason: string | null;
-    expiresAt: string;
+    expiresAt: string | null;
   }>;
   freeInvites?: FreeInviteView[];
 };
@@ -498,7 +498,9 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-[var(--muted)]">
-                    {grant.scope} - {grant.userLabel} - expires {new Date(grant.expiresAt).toLocaleDateString()}
+                    {grant.scope} - {grant.userLabel} - {grant.expiresAt
+                      ? `expires ${new Date(grant.expiresAt).toLocaleDateString()}`
+                      : "no expiration"}
                   </p>
                 </article>
               ))

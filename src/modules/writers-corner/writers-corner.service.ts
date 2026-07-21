@@ -1,4 +1,4 @@
-import { ManuscriptVisibility, Prisma, UserRole } from "@prisma/client";
+import { ManuscriptVisibility, NotificationKind, Prisma, UserRole } from "@prisma/client";
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
@@ -17,6 +17,34 @@ import {
 } from "@/modules/writers-corner/types";
 
 const MODULE_KEY = "writers-corner";
+const WRITER_TRANSACTION_RETRIES = 3;
+
+export function nextWriterChapterSortOrder(lastSortOrder: number | null | undefined) {
+  return (lastSortOrder ?? 0) + 1;
+}
+
+export function writerAccessAllowsRead(access: { canRead: boolean }) {
+  return access.canRead;
+}
+
+export function writerAccessAllowsWrite(access: { canWrite: boolean }) {
+  return access.canWrite;
+}
+
+async function runSerializableWriterTransaction<T>(operation: (transaction: Prisma.TransactionClient) => Promise<T>) {
+  for (let attempt = 1; attempt <= WRITER_TRANSACTION_RETRIES; attempt += 1) {
+    try {
+      return await prisma.$transaction(operation, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      });
+    } catch (error) {
+      const retryable = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+      if (!retryable || attempt === WRITER_TRANSACTION_RETRIES) throw error;
+    }
+  }
+
+  throw new Error("Writer transaction retry limit reached.");
+}
 
 function slugify(value: string) {
   return value
@@ -225,6 +253,8 @@ async function getStorefrontOwnerUserIdsForPublisher(userId: string) {
 }
 
 async function canPublishToStorefront(userId: string) {
+  const entitlement = await canUserAccessFeature(userId, "market.storefront");
+  if (!entitlement.allowed) return false;
   const ownerUserIds = await getStorefrontOwnerUserIdsForPublisher(userId);
   const profile = await prisma.businessProfile.findFirst({
     where: {
@@ -239,19 +269,31 @@ async function canPublishToStorefront(userId: string) {
     }
   });
 
-  return Boolean(profile);
+  return writerStorefrontPublishingAllowed({
+    hasStorefrontEntitlement: entitlement.allowed,
+    hasEnabledStorefront: Boolean(profile)
+  });
+}
+
+export function writerStorefrontPublishingAllowed(input: {
+  hasStorefrontEntitlement: boolean;
+  hasEnabledStorefront: boolean;
+}) {
+  return input.hasStorefrontEntitlement && input.hasEnabledStorefront;
 }
 
 export async function getWriterAccessState(userId: string) {
   const role = await getViewerRole(userId);
   if (isAdminRole(role)) {
     return {
+      canRead: true,
       canWrite: true,
       canPublishToStorefront: await canPublishToStorefront(userId)
     };
   }
   const access = await canUserAccessFeature(userId, "writers.access");
   return {
+    canRead: true,
     canWrite: access.allowed,
     canPublishToStorefront: access.allowed ? await canPublishToStorefront(userId) : false,
     reason: access.reason
@@ -266,7 +308,13 @@ type ManuscriptPayload = Prisma.WriterManuscriptGetPayload<{
   };
 }>;
 
-function toManuscriptCard(manuscript: ManuscriptPayload, viewerUserId: string, viewerRole: UserRole, storefrontPublishingAvailable = false): ManuscriptCardView {
+function toManuscriptCard(
+  manuscript: ManuscriptPayload,
+  viewerUserId: string,
+  viewerRole: UserRole,
+  viewerCanWrite: boolean,
+  storefrontPublishingAvailable = false
+): ManuscriptCardView {
   return {
     id: manuscript.id,
     slug: manuscript.slug,
@@ -281,7 +329,7 @@ function toManuscriptCard(manuscript: ManuscriptPayload, viewerUserId: string, v
     subscriberCount: manuscript.subscriptions.length,
     viewerSubscribed: manuscript.subscriptions.some((subscription) => subscription.userId === viewerUserId),
     updatedAt: manuscript.updatedAt.toISOString(),
-    viewerCanEdit: isAdminRole(viewerRole) || manuscript.authorUserId === viewerUserId,
+    viewerCanEdit: viewerCanWrite && (isAdminRole(viewerRole) || manuscript.authorUserId === viewerUserId),
     author: {
       username: manuscript.author.username,
       displayName: profileName(manuscript.author)
@@ -301,7 +349,7 @@ function toChapterCard(chapter: { id: string; title: string; wordCount: number; 
 
 export async function listManuscripts(viewerUserId: string) {
   const access = await getWriterAccessState(viewerUserId);
-  if (!access.canWrite) return [];
+  if (!writerAccessAllowsRead(access)) return [];
 
   const viewerRole = await getViewerRole(viewerUserId);
   const storefrontPublishingAvailable = await canPublishToStorefront(viewerUserId);
@@ -325,7 +373,13 @@ export async function listManuscripts(viewerUserId: string) {
   });
 
   return manuscripts.map((manuscript) =>
-    toManuscriptCard(manuscript, viewerUserId, viewerRole, manuscript.authorUserId === viewerUserId && storefrontPublishingAvailable)
+    toManuscriptCard(
+      manuscript,
+      viewerUserId,
+      viewerRole,
+      access.canWrite,
+      manuscript.authorUserId === viewerUserId && storefrontPublishingAvailable
+    )
   );
 }
 
@@ -388,7 +442,7 @@ export async function createManuscript(userId: string, input: unknown) {
 
 export async function getManuscriptDetail(viewerUserId: string, manuscriptIdOrSlug: string) {
   const access = await getWriterAccessState(viewerUserId);
-  if (!access.canWrite) return { ok: false as const, error: "Manuscript not found." };
+  if (!writerAccessAllowsRead(access)) return { ok: false as const, error: "Manuscript not found." };
 
   const viewerRole = await getViewerRole(viewerUserId);
   const storefrontPublishingAvailable = await canPublishToStorefront(viewerUserId);
@@ -419,7 +473,13 @@ export async function getManuscriptDetail(viewerUserId: string, manuscriptIdOrSl
   }
 
   const detail: ManuscriptDetailView = {
-    ...toManuscriptCard(manuscript, viewerUserId, viewerRole, manuscript.authorUserId === viewerUserId && storefrontPublishingAvailable),
+    ...toManuscriptCard(
+      manuscript,
+      viewerUserId,
+      viewerRole,
+      access.canWrite,
+      manuscript.authorUserId === viewerUserId && storefrontPublishingAvailable
+    ),
     chapters: manuscript.chapters.map(toChapterCard)
   };
 
@@ -444,6 +504,11 @@ export async function updateManuscriptStorefrontPublishing(userId: string, manus
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid storefront publishing setting." };
+  }
+
+  const access = await getWriterAccessState(userId);
+  if (!writerAccessAllowsWrite(access)) {
+    return { ok: false as const, error: access.reason ?? "Contributor access required." };
   }
 
   const viewerRole = await getViewerRole(userId);
@@ -500,7 +565,7 @@ export async function updateManuscriptStorefrontPublishing(userId: string, manus
 
   return {
     ok: true as const,
-    manuscript: toManuscriptCard(updated, userId, viewerRole, await canPublishToStorefront(updated.authorUserId))
+    manuscript: toManuscriptCard(updated, userId, viewerRole, true, await canPublishToStorefront(updated.authorUserId))
   };
 }
 
@@ -511,74 +576,89 @@ export async function createChapter(userId: string, manuscriptIdOrSlug: string, 
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid chapter." };
   }
 
-  const viewerRole = await getViewerRole(userId);
-  const manuscript = await prisma.writerManuscript.findFirst({
-    where: {
-      OR: [{ id: manuscriptIdOrSlug }, { slug: manuscriptIdOrSlug }]
-    },
-    include: {
-      chapters: {
-        orderBy: {
-          sortOrder: "desc"
-        },
-        take: 1
-      }
-    }
-  });
-
-  if (!manuscript) return { ok: false as const, error: "Manuscript not found." };
-  if (!isAdminRole(viewerRole) && manuscript.authorUserId !== userId) {
-    return { ok: false as const, error: "Only the manuscript creator can add chapters." };
+  const access = await getWriterAccessState(userId);
+  if (!writerAccessAllowsWrite(access)) {
+    return { ok: false as const, error: access.reason ?? "Contributor access required." };
   }
 
+  const viewerRole = await getViewerRole(userId);
   const bodyHtml = sanitizeRichTextHtml(parsed.data.bodyHtml);
   const bodyText = (parsed.data.bodyText ?? plainTextFromHtml(bodyHtml ?? "")).trim();
-  const chapter = await prisma.writerChapter.create({
-    data: {
-      manuscriptId: manuscript.id,
-      title: parsed.data.title,
-      bodyText,
-      bodyHtml,
-      wordCount: countWords(bodyText),
-      sortOrder: (manuscript.chapters[0]?.sortOrder ?? 0) + 1,
-      publishedAt: new Date()
+  const creation = await runSerializableWriterTransaction(async (transaction) => {
+    const manuscript = await transaction.writerManuscript.findFirst({
+      where: {
+        OR: [{ id: manuscriptIdOrSlug }, { slug: manuscriptIdOrSlug }]
+      },
+      include: {
+        chapters: {
+          orderBy: {
+            sortOrder: "desc"
+          },
+          take: 1
+        }
+      }
+    });
+
+    if (!manuscript) return { ok: false as const, error: "Manuscript not found." };
+    if (!isAdminRole(viewerRole) && manuscript.authorUserId !== userId) {
+      return { ok: false as const, error: "Only the manuscript creator can add chapters." };
     }
+
+    const createdChapter = await transaction.writerChapter.create({
+      data: {
+        manuscriptId: manuscript.id,
+        title: parsed.data.title,
+        bodyText,
+        bodyHtml,
+        wordCount: countWords(bodyText),
+        sortOrder: nextWriterChapterSortOrder(manuscript.chapters[0]?.sortOrder),
+        publishedAt: new Date()
+      }
+    });
+
+    const subscribers = await transaction.writerManuscriptSubscription.findMany({
+      where: {
+        manuscriptId: manuscript.id,
+        notify: true,
+        userId: { not: manuscript.authorUserId }
+      },
+      select: { userId: true }
+    });
+
+    if (subscribers.length > 0) {
+      await transaction.notification.createMany({
+        data: subscribers.map((subscriber) => ({
+          idempotencyKey: `writer-chapter:${createdChapter.id}:${subscriber.userId}`,
+          kind: NotificationKind.WRITER_CHAPTER_PUBLISHED,
+          sourceType: "WriterChapter",
+          sourceId: createdChapter.id,
+          actionable: true,
+          userId: subscriber.userId,
+          title: `New chapter: ${parsed.data.title}`,
+          body: `${manuscript.title} has a new chapter ready to read.`,
+          href: `/writers-corner/${manuscript.slug}/chapters/${createdChapter.id}`
+        })),
+        skipDuplicates: true
+      });
+    }
+
+    return { ok: true as const, chapter: createdChapter, manuscriptId: manuscript.id };
   });
+
+  if (!creation.ok) return creation;
 
   await diagnostics.info(MODULE_KEY, "Chapter created.", {
     userId,
-    manuscriptId: manuscript.id,
-    chapterId: chapter.id
+    manuscriptId: creation.manuscriptId,
+    chapterId: creation.chapter.id
   });
 
-  const subscribers = await prisma.writerManuscriptSubscription.findMany({
-    where: {
-      manuscriptId: manuscript.id,
-      notify: true,
-      userId: {
-        not: manuscript.authorUserId
-      }
-    },
-    select: { userId: true }
-  });
-
-  if (subscribers.length > 0) {
-    await prisma.notification.createMany({
-      data: subscribers.map((subscriber) => ({
-        userId: subscriber.userId,
-        title: `New chapter: ${parsed.data.title}`,
-        body: `${manuscript.title} has a new chapter ready to read.`,
-        href: `/writers-corner/${manuscript.slug}/chapters/${chapter.id}`
-      }))
-    });
-  }
-
-  return { ok: true as const, chapter };
+  return { ok: true as const, chapter: creation.chapter };
 }
 
 export async function subscribeToManuscript(userId: string, manuscriptIdOrSlug: string, input: unknown) {
   const access = await getWriterAccessState(userId);
-  if (!access.canWrite) return { ok: false as const, error: "Manuscript not found." };
+  if (!writerAccessAllowsRead(access)) return { ok: false as const, error: "Manuscript not found." };
 
   const parsed = updateManuscriptSubscriptionSchema.safeParse(input);
 
@@ -624,7 +704,7 @@ export async function subscribeToManuscript(userId: string, manuscriptIdOrSlug: 
 
 export async function unsubscribeFromManuscript(userId: string, manuscriptIdOrSlug: string) {
   const access = await getWriterAccessState(userId);
-  if (!access.canWrite) return { ok: false as const, error: "Manuscript not found." };
+  if (!writerAccessAllowsRead(access)) return { ok: false as const, error: "Manuscript not found." };
 
   const manuscript = await prisma.writerManuscript.findFirst({
     where: {
@@ -647,7 +727,7 @@ export async function unsubscribeFromManuscript(userId: string, manuscriptIdOrSl
 
 export async function getChapterDetail(viewerUserId: string, chapterId: string) {
   const access = await getWriterAccessState(viewerUserId);
-  if (!access.canWrite) return { ok: false as const, error: "Chapter not found." };
+  if (!writerAccessAllowsRead(access)) return { ok: false as const, error: "Chapter not found." };
 
   const viewerRole = await getViewerRole(viewerUserId);
   const chapter = await prisma.writerChapter.findUnique({
@@ -676,7 +756,7 @@ export async function getChapterDetail(viewerUserId: string, chapterId: string) 
     ...toChapterCard(chapter),
     bodyText: chapter.bodyText,
     bodyHtml: chapter.bodyHtml,
-    viewerCanEdit: isAdminRole(viewerRole) || chapter.manuscript.authorUserId === viewerUserId,
+    viewerCanEdit: access.canWrite && (isAdminRole(viewerRole) || chapter.manuscript.authorUserId === viewerUserId),
     manuscript: {
       id: chapter.manuscript.id,
       slug: chapter.manuscript.slug,
@@ -707,6 +787,11 @@ export async function updateChapter(userId: string, chapterId: string, input: un
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid chapter." };
+  }
+
+  const access = await getWriterAccessState(userId);
+  if (!writerAccessAllowsWrite(access)) {
+    return { ok: false as const, error: access.reason ?? "Contributor access required." };
   }
 
   const existing = await prisma.writerChapter.findUnique({

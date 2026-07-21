@@ -8,6 +8,11 @@ import {
   resolveChatAccessContext,
   type ChatAccessContext
 } from "@/modules/chat-messages/chat-access-policy";
+import {
+  assertChatMessageWriteAllowed,
+  resolveChatRetentionClassForWrite,
+  validateEncryptedEnvelopeDevicesForWrite
+} from "@/modules/chat-messages/chat-retention";
 import { mirrorThetaCommMessageToDesktopChat } from "@/modules/chat-messages/chat-messages.service";
 
 type EnvelopeInput = {
@@ -63,12 +68,17 @@ async function findOrCreateEncryptedThread(context: ChatAccessContext, targetUse
 
   if (existing) return existing;
 
-  return prisma.encryptedChatThread.create({
-    data: {
-      participants: {
-        create: [{ userId: currentUserId }, { userId: target.id }]
+  const participantUserIds = [currentUserId, target.id];
+  return prisma.$transaction(async (tx) => {
+    const retentionClass = await resolveChatRetentionClassForWrite(tx, participantUserIds);
+    return tx.encryptedChatThread.create({
+      data: {
+        retentionClass,
+        participants: {
+          create: participantUserIds.map((userId) => ({ userId }))
+        }
       }
-    }
+    });
   });
 }
 
@@ -181,6 +191,19 @@ export async function POST(request: NextRequest) {
   }
 
   const message = await prisma.$transaction(async (tx) => {
+    const allowed = await assertChatMessageWriteAllowed(tx, {
+      threadKind: "ENCRYPTED",
+      threadId: thread.id,
+      senderUserId: session.user.id
+    });
+    if (!allowed) return null;
+    const devicesValid = await validateEncryptedEnvelopeDevicesForWrite(tx, {
+      participantUserIds: allowed.participantUserIds,
+      envelopes: finalEnvelopes,
+      senderDevice: { id: senderDevice.id, userId: session.user.id }
+    });
+    if (!devicesValid) return null;
+
     const created = await tx.encryptedChatMessage.create({
       data: {
         threadId: thread.id,
@@ -209,6 +232,10 @@ export async function POST(request: NextRequest) {
 
     return created;
   });
+
+  if (!message) {
+    return NextResponse.json({ error: "Encrypted chat thread not found." }, { status: 404 });
+  }
 
   if (desktopMirrorBody) {
     try {

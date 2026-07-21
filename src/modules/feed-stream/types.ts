@@ -3,7 +3,6 @@ import { z } from "zod";
 
 export const createFeedPostSchema = z.object({
   body: z.string().max(4000).default(""),
-  visibility: z.nativeEnum(FeedVisibility).default(FeedVisibility.MEMBERS),
   mediaAssetId: z.string().optional().or(z.literal("")),
   targetProfileUserId: z.string().optional().or(z.literal(""))
 }).refine((value) => value.body.trim().length > 0 || Boolean(value.mediaAssetId), {

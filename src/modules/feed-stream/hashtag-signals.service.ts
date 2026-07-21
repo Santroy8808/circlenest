@@ -1,5 +1,6 @@
 import { FeedReactionType, HashtagSignalKind, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { assertFeedChildWriteAllowed } from "@/modules/feed-stream/feed-write-fence";
 
 const HASHTAG_PATTERN = /(?:^|[\s([{])#([a-zA-Z0-9][a-zA-Z0-9_-]{1,63})\b/g;
 const REACTION_SIGNALS = [
@@ -85,9 +86,19 @@ async function createTagCreationSignals(tx: DbClient, actorUserId: string, hasht
   });
 }
 
-export async function attachFeedPostHashtags(tx: DbClient, input: { actorUserId: string; body: string; mediaAssetId?: string | null; postId: string }) {
+export async function attachFeedPostHashtags(
+  tx: Prisma.TransactionClient,
+  input: { actorUserId: string; body: string; mediaAssetId?: string | null; postId: string }
+) {
   const tags = parseHashtags(input.body);
   if (tags.length === 0) return;
+
+  const allowed = await assertFeedChildWriteAllowed(tx, {
+    postId: input.postId,
+    actorUserId: input.actorUserId,
+    mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : []
+  });
+  if (!allowed) throw new Error("The feed post changed before its hashtags were attached.");
 
   const hashtags = await ensureHashtags(tx, input.actorUserId, tags);
   const hashtagIds = hashtags.map((tag) => tag.id);
@@ -118,11 +129,19 @@ export async function attachFeedPostHashtags(tx: DbClient, input: { actorUserId:
 }
 
 export async function attachFeedCommentHashtags(
-  tx: DbClient,
-  input: { actorUserId: string; body: string; commentId: string; mediaAssetId?: string | null }
+  tx: Prisma.TransactionClient,
+  input: { actorUserId: string; body: string; commentId: string; mediaAssetId?: string | null; postId: string }
 ) {
   const tags = parseHashtags(input.body);
   if (tags.length === 0) return;
+
+  const allowed = await assertFeedChildWriteAllowed(tx, {
+    postId: input.postId,
+    commentId: input.commentId,
+    actorUserId: input.actorUserId,
+    mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : []
+  });
+  if (!allowed) throw new Error("The feed comment changed before its hashtags were attached.");
 
   const hashtags = await ensureHashtags(tx, input.actorUserId, tags);
   const hashtagIds = hashtags.map((tag) => tag.id);

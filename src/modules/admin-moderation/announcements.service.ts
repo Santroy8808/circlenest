@@ -1,14 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
-  ChatThreadType,
+  DeliveryChannel,
+  DeliveryOutboxStatus,
   FeedVisibility,
-  MailDeliveryKind,
-  MailRecipientType,
   MembershipTier,
   Prisma,
   UserRole
 } from "@prisma/client";
-import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
@@ -17,11 +16,11 @@ import {
   type AdminAnnouncementResult
 } from "@/modules/admin-moderation/types";
 import { isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
-import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
 const MODULE_KEY = "admin-moderation";
 
 const publicAnnouncementSchema = z.object({
+  commandId: z.string().trim().min(8).max(200).optional().or(z.literal("")),
   audienceKind: z.enum(announcementAudienceKinds),
   audienceValue: z.string().trim().max(2000).optional().or(z.literal("")),
   channels: z.array(z.enum(announcementDeliveryChannels)).min(1).max(5),
@@ -79,14 +78,10 @@ async function resolveAudience(input: z.infer<typeof publicAnnouncementSchema>) 
   if (input.audienceKind === "ALL_ACTIVE") {
     return prisma.user.findMany({
       where: baseWhere,
-      include: {
-        profile: true,
-        membership: true
-      },
+      select: { id: true, email: true },
       orderBy: {
         username: "asc"
-      },
-      take: 1000
+      }
     });
   }
 
@@ -103,14 +98,10 @@ async function resolveAudience(input: z.infer<typeof publicAnnouncementSchema>) 
           }
         }
       },
-      include: {
-        profile: true,
-        membership: true
-      },
+      select: { id: true, email: true },
       orderBy: {
         username: "asc"
-      },
-      take: 1000
+      }
     });
   }
 
@@ -123,14 +114,10 @@ async function resolveAudience(input: z.infer<typeof publicAnnouncementSchema>) 
         ...baseWhere,
         role: role.data
       },
-      include: {
-        profile: true,
-        membership: true
-      },
+      select: { id: true, email: true },
       orderBy: {
         username: "asc"
-      },
-      take: 1000
+      }
     });
   }
 
@@ -142,134 +129,102 @@ async function resolveAudience(input: z.infer<typeof publicAnnouncementSchema>) 
       ...baseWhere,
       OR: [{ email: { in: identifiers } }, { username: { in: identifiers } }]
     },
-    include: {
-      profile: true,
-      membership: true
-    },
+    select: { id: true, email: true },
     orderBy: {
       username: "asc"
-    },
-    take: 1000
-  });
-}
-
-async function deliverChat(actorUserId: string, title: string, body: string, recipientUserIds: string[]) {
-  let count = 0;
-
-  for (const recipientUserId of recipientUserIds.filter((userId) => userId !== actorUserId)) {
-    const thread = await prisma.chatThread.create({
-      data: {
-        type: ChatThreadType.GROUP,
-        title: `Announcement: ${title}`,
-        createdByUserId: actorUserId,
-        participants: {
-          create: [
-            {
-              userId: actorUserId,
-              lastReadAt: new Date()
-            },
-            {
-              userId: recipientUserId
-            }
-          ]
-        }
-      }
-    });
-
-    await prisma.chatMessage.create({
-      data: {
-        threadId: thread.id,
-        senderUserId: actorUserId,
-        body
-      }
-    });
-    await prisma.chatThread.update({
-      where: { id: thread.id },
-      data: { lastMessageAt: new Date() }
-    });
-    count += 1;
-  }
-
-  return count;
-}
-
-async function deliverMail(actorUserId: string, title: string, body: string, recipientUserIds: string[]) {
-  if (!isInternalMailEnabled()) return 0;
-  if (recipientUserIds.length === 0) return 0;
-
-  const thread = await prisma.mailThread.create({
-    data: {
-      subject: title,
-      deliveryKind: MailDeliveryKind.MASS_INTERNAL,
-      createdByUserId: actorUserId,
-      messages: {
-        create: {
-          senderUserId: actorUserId,
-          subject: title,
-          bodyText: body,
-          recipients: {
-            create: recipientUserIds.map((userId) => ({
-              userId,
-              type: MailRecipientType.TO
-            }))
-          }
-        }
-      }
-    },
-    include: {
-      messages: {
-        select: {
-          id: true,
-          createdAt: true
-        },
-        take: 1
-      }
     }
   });
-
-  await prisma.mailThread.update({
-    where: { id: thread.id },
-    data: {
-      lastMessageAt: thread.messages[0]?.createdAt ?? new Date()
-    }
-  });
-
-  await prisma.notification.createMany({
-    data: recipientUserIds.map((userId) => ({
-      userId,
-      title: `Platform announcement: ${title}`,
-      body: body.slice(0, 180),
-      href: `/mail?thread=${thread.id}`
-    }))
-  });
-
-  return recipientUserIds.length;
 }
 
-async function deliverLoginPopup(title: string, body: string, recipientUserIds: string[]) {
-  if (recipientUserIds.length === 0) return 0;
+type AnnouncementRecipient = { id: string; email: string | null };
+type AnnouncementChannel = (typeof announcementDeliveryChannels)[number];
 
-  await prisma.alert.createMany({
-    data: recipientUserIds.map((userId) => ({
-      userId,
+export function validateAnnouncementAudienceChannels(
+  audienceKind: (typeof announcementAudienceKinds)[number],
+  channels: readonly AnnouncementChannel[]
+) {
+  return channels.includes("GLOBAL_POST") && audienceKind !== "ALL_ACTIVE"
+    ? "A public Stream announcement must use the All active members audience. Use a private delivery channel for a targeted audience."
+    : null;
+}
+
+export function buildAnnouncementOutboxEntries(
+  announcementId: string,
+  actorUserId: string,
+  title: string,
+  body: string,
+  channels: readonly AnnouncementChannel[],
+  recipients: readonly AnnouncementRecipient[]
+) {
+  const payload = (channel: AnnouncementChannel) =>
+    ({
+      announcementId,
+      actorUserId,
+      channel,
       title,
       body,
-      href: "/alerts"
-    }))
-  });
+      ...(channel === "GLOBAL_POST" ? { visibility: "PUBLIC", isAdminAnnouncement: true } : {})
+    }) satisfies Prisma.InputJsonObject;
+  const entries: Array<{
+    announcementId: string;
+    recipientUserId: string | null;
+    recipientAddress: string | null;
+    channel: DeliveryChannel;
+    idempotencyKey: string;
+    payload: Prisma.InputJsonObject;
+  }> = [];
 
-  return recipientUserIds.length;
+  for (const channel of channels) {
+    if (channel === "GLOBAL_POST") {
+      entries.push({
+        announcementId,
+        recipientUserId: null,
+        recipientAddress: null,
+        channel: DeliveryChannel.GLOBAL_POST,
+        idempotencyKey: `announcement:${announcementId}:GLOBAL_POST:global`,
+        payload: payload(channel)
+      });
+      continue;
+    }
+
+    for (const recipient of recipients) {
+      if (channel === "CHAT" && recipient.id === actorUserId) continue;
+      if (channel === "PERSONAL_EMAIL" && !recipient.email) continue;
+      const deliveryChannel =
+        channel === "LOGIN_POPUP"
+          ? DeliveryChannel.POPUP
+          : channel === "PERSONAL_EMAIL"
+            ? DeliveryChannel.PERSONAL_EMAIL
+            : channel === "MAIL"
+              ? DeliveryChannel.MAIL
+              : DeliveryChannel.CHAT;
+      entries.push({
+        announcementId,
+        recipientUserId: recipient.id,
+        recipientAddress: channel === "PERSONAL_EMAIL" ? recipient.email : null,
+        channel: deliveryChannel,
+        idempotencyKey: `announcement:${announcementId}:${deliveryChannel}:${recipient.id}`,
+        payload: payload(channel)
+      });
+    }
+  }
+
+  return entries;
 }
 
-async function deliverGlobalPost(actorUserId: string, title: string, body: string) {
-  return prisma.feedPost.create({
-    data: {
-      authorUserId: actorUserId,
-      body: `Platform announcement: ${title}\n\n${body}`,
-      visibility: FeedVisibility.MEMBERS,
-      isAdminAnnouncement: true
-    }
-  });
+async function findAnnouncementReplay(commandId: string) {
+  const audit = await prisma.auditLog.findUnique({ where: { operationId: commandId } });
+  if (!audit) return null;
+  if (audit.module !== MODULE_KEY || audit.action !== "announcement.published" || audit.targetType !== "PublicAnnouncement" || !audit.targetId) {
+    return { ok: false as const, error: "That command id has already been used for another administrator operation." };
+  }
+  const announcement = await prisma.publicAnnouncement.findUnique({ where: { id: audit.targetId } });
+  if (!announcement) return { ok: false as const, error: "The stored announcement receipt is incomplete. Review the audit log." };
+  return { ok: true as const, commandId, auditLogId: audit.id, replayed: true as const, announcement: toAnnouncementResult(announcement) };
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 export async function publishPublicAnnouncement(actorUserId: string, input: unknown) {
@@ -282,9 +237,12 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid announcement." };
   }
 
-  if (parsed.data.channels.includes("MAIL") && !isInternalMailEnabled()) {
-    return { ok: false as const, error: "Internal Mail is currently unavailable." };
-  }
+  const audienceChannelError = validateAnnouncementAudienceChannels(parsed.data.audienceKind, parsed.data.channels);
+  if (audienceChannelError) return { ok: false as const, error: audienceChannelError };
+
+  const commandId = parsed.data.commandId || randomUUID();
+  const replay = await findAnnouncementReplay(commandId);
+  if (replay) return replay;
 
   let recipients;
   try {
@@ -293,102 +251,96 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not resolve audience." };
   }
 
-  const recipientUserIds = Array.from(new Set(recipients.map((recipient) => recipient.id)));
-  if (recipientUserIds.length === 0) {
+  const uniqueRecipients = Array.from(
+    new Map(recipients.map((recipient) => [recipient.id, { id: recipient.id, email: recipient.email }])).values()
+  );
+  if (uniqueRecipients.length === 0) {
     return { ok: false as const, error: "That audience has no active recipients." };
   }
 
-  const announcement = await prisma.publicAnnouncement.create({
-    data: {
-      createdByUserId: actorUserId,
-      title: parsed.data.title,
-      body: parsed.data.body,
-      audienceKind: parsed.data.audienceKind,
-      audienceValue: parsed.data.audienceValue || null,
-      channels: parsed.data.channels,
-      recipientCount: recipientUserIds.length,
-      metadata: {
-        reason: parsed.data.reason || null
+  let completed;
+  try {
+    completed = await prisma.$transaction(async (transaction) => {
+      const announcement = await transaction.publicAnnouncement.create({
+        data: {
+          createdByUserId: actorUserId,
+          title: parsed.data.title,
+          body: parsed.data.body,
+          audienceKind: parsed.data.audienceKind,
+          audienceValue: parsed.data.audienceValue || null,
+          channels: parsed.data.channels,
+          recipientCount: uniqueRecipients.length,
+          metadata: { commandId, reason: parsed.data.reason || null } as Prisma.InputJsonObject
+        }
+      });
+      const outboxEntries = buildAnnouncementOutboxEntries(
+        announcement.id,
+        actorUserId,
+        parsed.data.title,
+        parsed.data.body,
+        parsed.data.channels,
+        uniqueRecipients
+      );
+      if (outboxEntries.length > 0) {
+        await transaction.deliveryOutbox.createMany({ data: outboxEntries });
       }
-    }
-  });
-  let chatDeliveryCount = 0;
-  let mailDeliveryCount = 0;
-  let popupDeliveryCount = 0;
-  let globalPostDeliveryCount = 0;
-  let personalEmailQueuedCount = 0;
-  let feedPostId: string | null = null;
-
-  if (parsed.data.channels.includes("CHAT")) {
-    chatDeliveryCount = await deliverChat(actorUserId, parsed.data.title, parsed.data.body, recipientUserIds);
-  }
-
-  if (parsed.data.channels.includes("MAIL")) {
-    mailDeliveryCount = await deliverMail(actorUserId, parsed.data.title, parsed.data.body, recipientUserIds);
-  }
-
-  if (parsed.data.channels.includes("LOGIN_POPUP")) {
-    popupDeliveryCount = await deliverLoginPopup(parsed.data.title, parsed.data.body, recipientUserIds);
-  }
-
-  if (parsed.data.channels.includes("GLOBAL_POST")) {
-    const post = await deliverGlobalPost(actorUserId, parsed.data.title, parsed.data.body);
-    feedPostId = post.id;
-    globalPostDeliveryCount = 1;
-  }
-
-  if (parsed.data.channels.includes("PERSONAL_EMAIL")) {
-    personalEmailQueuedCount = recipients.filter((recipient) => Boolean(recipient.email)).length;
-  }
-
-  const updated = await prisma.publicAnnouncement.update({
-    where: { id: announcement.id },
-    data: {
-      chatDeliveryCount,
-      mailDeliveryCount,
-      popupDeliveryCount,
-      globalPostDeliveryCount,
-      personalEmailQueuedCount,
-      feedPostId
-    }
-  });
-
-  await prisma.adminAction.create({
-    data: {
-      actorUserId,
-      actionKey: "announcements",
-      module: MODULE_KEY,
-      status: "completed",
-      metadata: {
+      const personalEmailQueuedCount = outboxEntries.filter((entry) => entry.channel === DeliveryChannel.PERSONAL_EMAIL).length;
+      const updated = await transaction.publicAnnouncement.update({
+        where: { id: announcement.id },
+        data: { personalEmailQueuedCount }
+      });
+      const metadata = {
+        commandId,
         announcementId: updated.id,
+        audienceKind: updated.audienceKind,
+        audienceValue: updated.audienceValue,
         channels: updated.channels,
         recipientCount: updated.recipientCount,
+        outboxCount: outboxEntries.length,
         personalEmailQueuedCount
-      } as Prisma.InputJsonObject
+      } satisfies Prisma.InputJsonObject;
+      await transaction.adminAction.create({
+        data: { actorUserId, actionKey: "announcements", module: MODULE_KEY, status: "queued", metadata }
+      });
+      const audit = await transaction.auditLog.create({
+        data: {
+          operationId: commandId,
+          requestId: commandId,
+          actorUserId,
+          module: MODULE_KEY,
+          action: "announcement.published",
+          targetType: "PublicAnnouncement",
+          targetId: updated.id,
+          severity: "warning",
+          outcome: "SUCCESS",
+          before: Prisma.JsonNull,
+          after: toAnnouncementResult(updated) as unknown as Prisma.InputJsonObject,
+          metadata
+        }
+      });
+      return { announcement: updated, auditLogId: audit.id };
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      const duplicate = await findAnnouncementReplay(commandId);
+      if (duplicate) return duplicate;
     }
-  });
-  await writeAuditLog({
-    actorUserId,
-    module: MODULE_KEY,
-    action: "announcement.published",
-    targetType: "PublicAnnouncement",
-    targetId: updated.id,
-    severity: "warning",
-    metadata: {
-      audienceKind: updated.audienceKind,
-      audienceValue: updated.audienceValue,
-      channels: updated.channels,
-      recipientCount: updated.recipientCount
-    }
-  });
+    throw error;
+  }
   await diagnostics.info(MODULE_KEY, "Public announcement published.", {
     actorUserId,
-    announcementId: updated.id,
-    channels: updated.channels,
-    recipientCount: updated.recipientCount
+    announcementId: completed.announcement.id,
+    channels: completed.announcement.channels,
+    recipientCount: completed.announcement.recipientCount
   });
 
-  return { ok: true as const, announcement: toAnnouncementResult(updated) };
+  return {
+    ok: true as const,
+    commandId,
+    auditLogId: completed.auditLogId,
+    replayed: false as const,
+    announcement: toAnnouncementResult(completed.announcement)
+  };
 }
 
 export async function listRecentPublicAnnouncements(actorUserId?: string) {
@@ -420,13 +372,24 @@ export async function dismissPublicAnnouncement(actorUserId: string, announcemen
   }
 
   const dismissedAt = new Date();
-  const updated = await prisma.$transaction(async (tx) => {
-    const nextAnnouncement = await tx.publicAnnouncement.update({
-      where: { id: announcement.id },
-      data: {
-        dismissedAt,
-        dismissedByUserId: actorUserId
-      }
+  const commandId = `announcement-dismiss:${announcement.id}`;
+  const completed = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.publicAnnouncement.updateMany({
+      where: { id: announcement.id, dismissedAt: null },
+      data: { dismissedAt, dismissedByUserId: actorUserId }
+    });
+    if (claimed.count !== 1) {
+      const alreadyDismissed = await tx.publicAnnouncement.findUniqueOrThrow({ where: { id: announcement.id } });
+      return { announcement: alreadyDismissed, alreadyDismissed: true };
+    }
+    const nextAnnouncement = await tx.publicAnnouncement.findUniqueOrThrow({ where: { id: announcement.id } });
+
+    await tx.deliveryOutbox.updateMany({
+      where: {
+        announcementId: announcement.id,
+        status: { in: [DeliveryOutboxStatus.PENDING, DeliveryOutboxStatus.PROCESSING] }
+      },
+      data: { status: DeliveryOutboxStatus.CANCELLED, error: "Announcement dismissed before delivery." }
     });
 
     if (announcement.feedPostId) {
@@ -446,9 +409,8 @@ export async function dismissPublicAnnouncement(actorUserId: string, announcemen
     if (announcement.popupDeliveryCount > 0) {
       await tx.alert.updateMany({
         where: {
-          title: announcement.title,
-          body: announcement.body,
-          href: "/alerts",
+          sourceType: "PublicAnnouncement",
+          sourceId: announcement.id,
           readAt: null
         },
         data: {
@@ -471,27 +433,39 @@ export async function dismissPublicAnnouncement(actorUserId: string, announcemen
       }
     });
 
-    return nextAnnouncement;
+    await tx.auditLog.create({
+      data: {
+        operationId: commandId,
+        requestId: commandId,
+        actorUserId,
+        module: MODULE_KEY,
+        action: "announcement.dismissed",
+        targetType: "PublicAnnouncement",
+        targetId: nextAnnouncement.id,
+        severity: "warning",
+        outcome: "SUCCESS",
+        before: toAnnouncementResult(announcement) as unknown as Prisma.InputJsonObject,
+        after: toAnnouncementResult(nextAnnouncement) as unknown as Prisma.InputJsonObject,
+        metadata: {
+          commandId,
+          channels: nextAnnouncement.channels,
+          feedPostId: nextAnnouncement.feedPostId,
+          recipientCount: nextAnnouncement.recipientCount
+        } as Prisma.InputJsonObject
+      }
+    });
+
+    return { announcement: nextAnnouncement, alreadyDismissed: false };
   });
 
-  await writeAuditLog({
-    actorUserId,
-    module: MODULE_KEY,
-    action: "announcement.dismissed",
-    targetType: "PublicAnnouncement",
-    targetId: updated.id,
-    severity: "warning",
-    metadata: {
-      channels: updated.channels,
-      feedPostId: updated.feedPostId,
-      recipientCount: updated.recipientCount
-    }
-  });
+  if (completed.alreadyDismissed) {
+    return { ok: true as const, announcement: toAnnouncementResult(completed.announcement), alreadyDismissed: true };
+  }
   await diagnostics.info(MODULE_KEY, "Public announcement dismissed.", {
     actorUserId,
-    announcementId: updated.id,
-    feedPostId: updated.feedPostId
+    announcementId: completed.announcement.id,
+    feedPostId: completed.announcement.feedPostId
   });
 
-  return { ok: true as const, announcement: toAnnouncementResult(updated), alreadyDismissed: false };
+  return { ok: true as const, announcement: toAnnouncementResult(completed.announcement), alreadyDismissed: false };
 }

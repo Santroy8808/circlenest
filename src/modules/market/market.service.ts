@@ -50,17 +50,104 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
-async function uniqueMarketSlug(title: string) {
+type MarketDatabase = typeof prisma | Prisma.TransactionClient;
+
+export function buildRollingMarketQuotaWhere(userId: string, cutoff: Date): Prisma.MarketListingWhereInput {
+  return {
+    sellerUserId: userId,
+    createdAt: { gte: cutoff }
+  };
+}
+
+export function planMarketPhotoAdditions(input: {
+  existingPhotoIds: string[];
+  requestedPhotoIds: string[];
+  photoCap: number;
+}) {
+  const existing = new Set(input.existingPhotoIds);
+  const requested = [...new Set(input.requestedPhotoIds)];
+  const newPhotoIds = requested.filter((mediaAssetId) => !existing.has(mediaAssetId));
+  const finalPhotoCount = existing.size + newPhotoIds.length;
+  return {
+    newPhotoIds,
+    finalPhotoCount,
+    capExceeded: finalPhotoCount > input.photoCap
+  };
+}
+
+async function uniqueMarketSlug(title: string, database: MarketDatabase = prisma) {
   const base = slugify(title) || "listing";
   let candidate = base;
   let index = 2;
 
-  while (await prisma.marketListing.findUnique({ where: { slug: candidate }, select: { id: true } })) {
+  while (await database.marketListing.findUnique({ where: { slug: candidate }, select: { id: true } })) {
     candidate = `${base}-${index}`;
     index += 1;
   }
 
   return candidate;
+}
+
+async function withSerializableMarketTransaction<T>(
+  operation: (transaction: Prisma.TransactionClient) => Promise<T>
+) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await prisma.$transaction(operation, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      });
+    } catch (error) {
+      const conflict = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+      if (!conflict || attempt === 2) throw error;
+    }
+  }
+
+  throw new Error("Market transaction retry limit reached.");
+}
+
+async function assertMarketCreateLimit(
+  transaction: Prisma.TransactionClient,
+  input: {
+    userId: string;
+    isAdmin: boolean;
+    activeListingCap: number | null;
+    listingLimit: number | null;
+    now: Date;
+  }
+) {
+  if (input.isAdmin) return { ok: true as const };
+
+  if (input.activeListingCap !== null) {
+    const activeListings = await transaction.marketListing.count({
+      where: {
+        sellerUserId: input.userId,
+        status: MarketListingStatus.ACTIVE,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }]
+      }
+    });
+
+    return activeListings < input.activeListingCap
+      ? { ok: true as const }
+      : {
+          ok: false as const,
+          error: `You can have ${input.activeListingCap} active Market listing at a time.`
+        };
+  }
+
+  if (input.listingLimit === null) return { ok: true as const };
+
+  const cutoff = new Date(input.now);
+  cutoff.setDate(cutoff.getDate() - CONTRIBUTOR_LISTING_DAYS);
+  const used = await transaction.marketListing.count({
+    where: buildRollingMarketQuotaWhere(input.userId, cutoff)
+  });
+
+  return used < input.listingLimit
+    ? { ok: true as const }
+    : {
+        ok: false as const,
+        error: `You have used all ${input.listingLimit} Market listings for this 14-day period.`
+      };
 }
 
 function profileName(user: { username: string; profile: { displayName: string | null } | null }) {
@@ -187,15 +274,7 @@ export async function getMarketCreateState(userId: string) {
   }
 
   const used = await prisma.marketListing.count({
-    where: {
-      sellerUserId: userId,
-      createdAt: {
-        gte: recentCutoff(CONTRIBUTOR_LISTING_DAYS)
-      },
-      status: {
-        not: MarketListingStatus.ARCHIVED
-      }
-    }
+    where: buildRollingMarketQuotaWhere(userId, recentCutoff(CONTRIBUTOR_LISTING_DAYS))
   });
   const remaining = Math.max(0, listingLimit - used);
 
@@ -207,6 +286,31 @@ export async function getMarketCreateState(userId: string) {
     listingLimitKind: "rolling14" as const,
     photoCap,
     storefrontEligible: storefrontAccess.allowed
+  };
+}
+
+async function getMarketPhotoAccessState(userId: string) {
+  const [role, policy, featureAccess] = await Promise.all([
+    getViewerRole(userId),
+    getEffectivePolicyForUser(userId),
+    canUserAccessFeature(userId, "market.createListing")
+  ]);
+
+  if (isAdminRole(role)) {
+    return { allowed: true as const, photoCap: PROFESSIONAL_MARKET_PHOTO_CAP };
+  }
+
+  if (!featureAccess.allowed || !policy) {
+    return {
+      allowed: false as const,
+      photoCap: 0,
+      reason: featureAccess.reason ?? "You cannot manage Market listing photos."
+    };
+  }
+
+  return {
+    allowed: true as const,
+    photoCap: policy.limits.marketListingPhotoCap ?? PROFESSIONAL_MARKET_PHOTO_CAP
   };
 }
 
@@ -352,10 +456,10 @@ export async function createMarketPhotoUploadIntent(userId: string, input: unkno
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid photo." };
   }
 
-  const state = await getMarketCreateState(userId);
+  const state = await getMarketPhotoAccessState(userId);
 
-  if (!state.viewerCanCreate) {
-    return { ok: false as const, error: state.reason ?? "You cannot create Market listings." };
+  if (!state.allowed) {
+    return { ok: false as const, error: state.reason };
   }
 
   const intent = await createUploadIntent(userId, {
@@ -385,10 +489,10 @@ export async function completeMarketPhotoUpload(userId: string, input: unknown) 
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid upload completion." };
   }
 
-  const state = await getMarketCreateState(userId);
+  const state = await getMarketPhotoAccessState(userId);
 
-  if (!state.viewerCanCreate) {
-    return { ok: false as const, error: state.reason ?? "You cannot create Market listings." };
+  if (!state.allowed) {
+    return { ok: false as const, error: state.reason };
   }
 
   const verified = await completeUploadIntent(userId, { intentId: parsed.data.intentId });
@@ -460,52 +564,72 @@ export async function createMarketListing(userId: string, input: unknown) {
     return { ok: false as const, error: `This tier supports ${state.photoCap} photos per listing.` };
   }
 
-  const photos = parsed.data.photoMediaAssetIds.length
-    ? await prisma.mediaAsset.findMany({
-        where: {
-          id: { in: parsed.data.photoMediaAssetIds },
-          ownerUserId: userId,
-          mimeType: {
-            startsWith: "image/"
-          }
-        },
-        select: {
-          id: true
-        }
-      })
-    : [];
-
-  if (photos.length !== parsed.data.photoMediaAssetIds.length) {
-    return { ok: false as const, error: "One or more listing photos could not be found." };
+  const [policy, role] = await Promise.all([getEffectivePolicyForUser(userId), getViewerRole(userId)]);
+  if (!policy && !isAdminRole(role)) {
+    return { ok: false as const, error: "You cannot create Market listings." };
   }
 
-  const policy = await getEffectivePolicyForUser(userId);
-  const cappedListingWindow = policy
-    ? policy.limits.marketListingsPer14Days !== null || policy.limits.marketActiveListingCap !== null
-    : false;
-  const listing = await prisma.marketListing.create({
-    data: {
-      slug: await uniqueMarketSlug(parsed.data.title),
-      sellerUserId: userId,
-      title: parsed.data.title,
-      description: parsed.data.description,
-      category: parsed.data.category,
-      location: parsed.data.location || null,
-      contactEmail: parsed.data.contactEmail || null,
-      contactPhone: parsed.data.contactPhone || null,
-      contactNotes: parsed.data.contactNotes || null,
-      allowMessages: parsed.data.allowMessages,
-      carouselEnabled: parsed.data.carouselEnabled && parsed.data.photoMediaAssetIds.length > 1,
-      priceCents: parsed.data.priceCents ?? null,
-      expiresAt: cappedListingWindow ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
-      photos: {
-        create: parsed.data.photoMediaAssetIds.map((mediaAssetId, index) => ({
-          mediaAssetId,
-          sortOrder: index
-        }))
-      }
+  const limits = policy?.limits ?? {
+    marketActiveListingCap: null,
+    marketListingsPer14Days: null
+  };
+  const now = new Date();
+  const creation = await withSerializableMarketTransaction(async (transaction) => {
+    const limit = await assertMarketCreateLimit(transaction, {
+      userId,
+      isAdmin: isAdminRole(role),
+      activeListingCap: limits.marketActiveListingCap,
+      listingLimit: limits.marketListingsPer14Days,
+      now
+    });
+    if (!limit.ok) return limit;
+
+    const photos = parsed.data.photoMediaAssetIds.length
+      ? await transaction.mediaAsset.findMany({
+          where: {
+            id: { in: parsed.data.photoMediaAssetIds },
+            ownerUserId: userId,
+            status: MediaAssetStatus.READY,
+            visibility: MediaVisibility.PUBLIC,
+            mimeType: { startsWith: "image/", mode: "insensitive" }
+          },
+          select: { id: true }
+        })
+      : [];
+
+    if (photos.length !== parsed.data.photoMediaAssetIds.length) {
+      return { ok: false as const, error: "One or more listing photos could not be found." };
     }
+
+    const listing = await transaction.marketListing.create({
+      data: {
+        slug: await uniqueMarketSlug(parsed.data.title, transaction),
+        sellerUserId: userId,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        category: parsed.data.category,
+        location: parsed.data.location || null,
+        contactEmail: parsed.data.contactEmail || null,
+        contactPhone: parsed.data.contactPhone || null,
+        contactNotes: parsed.data.contactNotes || null,
+        allowMessages: parsed.data.allowMessages,
+        carouselEnabled: parsed.data.carouselEnabled && parsed.data.photoMediaAssetIds.length > 1,
+        priceCents: parsed.data.priceCents ?? null,
+        expiresAt: limits.marketListingsPer14Days !== null ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
+        photos: {
+          create: parsed.data.photoMediaAssetIds.map((mediaAssetId, index) => ({
+            mediaAssetId,
+            sortOrder: index
+          }))
+        }
+      }
+    });
+
+    return { ok: true as const, listing };
   });
+
+  if (!creation.ok) return creation;
+  const listing = creation.listing;
 
   await diagnostics.info(MODULE_KEY, "Market listing created.", {
     userId,
@@ -516,16 +640,16 @@ export async function createMarketListing(userId: string, input: unknown) {
   return { ok: true as const, listing };
 }
 
-async function assertMarketPhotoOwnership(userId: string, photoMediaAssetIds: string[]) {
+async function assertMarketPhotoOwnership(database: MarketDatabase, userId: string, photoMediaAssetIds: string[]) {
   if (!photoMediaAssetIds.length) return { ok: true as const, photos: [] as Array<{ id: string }> };
 
-  const photos = await prisma.mediaAsset.findMany({
+  const photos = await database.mediaAsset.findMany({
     where: {
       id: { in: photoMediaAssetIds },
       ownerUserId: userId,
-      mimeType: {
-        startsWith: "image/"
-      }
+      status: MediaAssetStatus.READY,
+      visibility: MediaVisibility.PUBLIC,
+      mimeType: { startsWith: "image/", mode: "insensitive" }
     },
     select: {
       id: true
@@ -546,78 +670,101 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid listing." };
   }
 
-  const listing = await prisma.marketListing.findFirst({
+  const listingOwner = await prisma.marketListing.findFirst({
     where: {
       OR: [{ id: listingIdOrSlug }, { slug: listingIdOrSlug }],
       status: {
         not: MarketListingStatus.ARCHIVED
       }
     },
-    include: {
-      photos: {
-        orderBy: {
-          sortOrder: "asc"
-        }
-      }
-    }
+    select: { id: true, sellerUserId: true }
   });
 
-  if (!listing) {
+  if (!listingOwner) {
     return { ok: false as const, error: "Listing not found." };
   }
 
   const role = await getViewerRole(viewerUserId);
-  const canManage = isAdminRole(role) || listing.sellerUserId === viewerUserId;
+  const canManage = isAdminRole(role) || listingOwner.sellerUserId === viewerUserId;
 
   if (!canManage) {
     return { ok: false as const, error: "You cannot edit this listing." };
   }
 
-  const state = await getMarketCreateState(listing.sellerUserId);
+  const photoAccess = await getMarketPhotoAccessState(listingOwner.sellerUserId);
   const requestedPhotoIds = parsed.data.photoMediaAssetIds ?? [];
-  const existingPhotoIds = new Set(listing.photos.map((photo) => photo.mediaAssetId));
-  const newPhotoIds = requestedPhotoIds.filter((mediaAssetId) => !existingPhotoIds.has(mediaAssetId));
+  const update = await withSerializableMarketTransaction(async (transaction) => {
+    const listing = await transaction.marketListing.findFirst({
+      where: {
+        id: listingOwner.id,
+        status: { not: MarketListingStatus.ARCHIVED }
+      },
+      include: {
+        photos: {
+          orderBy: { sortOrder: "asc" }
+        }
+      }
+    });
 
-  if (newPhotoIds.length > 0 && listing.photos.length + newPhotoIds.length > state.photoCap) {
-    return { ok: false as const, error: `This tier supports ${state.photoCap} photos per listing.` };
-  }
-
-  const photoOwnership = await assertMarketPhotoOwnership(listing.sellerUserId, newPhotoIds);
-
-  if (!photoOwnership.ok) {
-    return photoOwnership;
-  }
-
-  const maxSortOrder = listing.photos.reduce((max, photo) => Math.max(max, photo.sortOrder), -1);
-  const updated = await prisma.marketListing.update({
-    where: {
-      id: listing.id
-    },
-    data: {
-      title: parsed.data.title,
-      description: parsed.data.description,
-      category: parsed.data.category,
-      location: parsed.data.location || null,
-      contactEmail: parsed.data.contactEmail || null,
-      contactPhone: parsed.data.contactPhone || null,
-      contactNotes: parsed.data.contactNotes || null,
-      allowMessages: parsed.data.allowMessages ?? true,
-      carouselEnabled: (parsed.data.carouselEnabled ?? listing.carouselEnabled) && listing.photos.length + newPhotoIds.length > 1,
-      priceCents: parsed.data.priceCents ?? null,
-      photos: newPhotoIds.length
-        ? {
-            create: newPhotoIds.map((mediaAssetId, index) => ({
-              mediaAssetId,
-              sortOrder: maxSortOrder + index + 1
-            }))
-          }
-        : undefined
+    if (!listing) return { ok: false as const, error: "Listing not found." };
+    if (!isAdminRole(role) && listing.sellerUserId !== viewerUserId) {
+      return { ok: false as const, error: "You cannot edit this listing." };
     }
+
+    const photoPlan = planMarketPhotoAdditions({
+      existingPhotoIds: listing.photos.map((photo) => photo.mediaAssetId),
+      requestedPhotoIds,
+      photoCap: photoAccess.photoCap
+    });
+    const newPhotoIds = photoPlan.newPhotoIds;
+
+    if (newPhotoIds.length > 0 && (!photoAccess.allowed || photoPlan.capExceeded)) {
+      return {
+        ok: false as const,
+        error: photoAccess.allowed
+          ? `This tier supports ${photoAccess.photoCap} photos per listing.`
+          : photoAccess.reason
+      };
+    }
+
+    const photoOwnership = await assertMarketPhotoOwnership(transaction, listing.sellerUserId, newPhotoIds);
+    if (!photoOwnership.ok) return photoOwnership;
+
+    const maxSortOrder = listing.photos.reduce((max, photo) => Math.max(max, photo.sortOrder), -1);
+    const updated = await transaction.marketListing.update({
+      where: { id: listing.id },
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        category: parsed.data.category,
+        location: parsed.data.location || null,
+        contactEmail: parsed.data.contactEmail || null,
+        contactPhone: parsed.data.contactPhone || null,
+        contactNotes: parsed.data.contactNotes || null,
+        allowMessages: parsed.data.allowMessages ?? true,
+        carouselEnabled:
+          (parsed.data.carouselEnabled ?? listing.carouselEnabled) && photoPlan.finalPhotoCount > 1,
+        priceCents: parsed.data.priceCents ?? null,
+        photos: newPhotoIds.length
+          ? {
+              create: newPhotoIds.map((mediaAssetId, index) => ({
+                mediaAssetId,
+                sortOrder: maxSortOrder + index + 1
+              }))
+            }
+          : undefined
+      }
+    });
+
+    return { ok: true as const, listing: updated };
   });
+
+  if (!update.ok) return update;
+  const updated = update.listing;
 
   await diagnostics.info(MODULE_KEY, "Market listing updated.", {
     userId: viewerUserId,
-    listingId: listing.id,
+    listingId: updated.id,
     category: updated.category
   });
 
@@ -654,7 +801,11 @@ export async function getMarketListingDetail(viewerUserId: string, listingIdOrSl
   }
 
   const role = await getViewerRole(viewerUserId);
-  const canPromote = isAdminRole(role) || listing.sellerUserId === viewerUserId || (await canUserAccessFeature(viewerUserId, "market.createAd")).allowed;
+  const promotionAccess = await canUserAccessFeature(viewerUserId, "market.createAd");
+  const canPromote = canViewerPromoteListing({
+    isOwner: listing.sellerUserId === viewerUserId,
+    hasPromotionEntitlement: promotionAccess.allowed
+  });
   const detail: MarketListingDetailView = {
     ...toMarketCardView(listing),
     description: listing.description,
@@ -672,6 +823,13 @@ export async function getMarketListingDetail(viewerUserId: string, listingIdOrSl
   };
 
   return { ok: true as const, listing: detail };
+}
+
+export function canViewerPromoteListing(input: {
+  isOwner: boolean;
+  hasPromotionEntitlement: boolean;
+}) {
+  return input.isOwner && input.hasPromotionEntitlement;
 }
 
 export async function safeGetMarketListingDetail(viewerUserId: string, listingIdOrSlug: string) {

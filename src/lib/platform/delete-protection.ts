@@ -165,42 +165,47 @@ export const protectedRetentionRecords = [
   {
     table: "ChatThread",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Message thread record.",
+    reason: "Only VITAL-tagged administrator communication threads are protected.",
   },
   {
     table: "ChatMessage",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Message content record.",
+    reason: "Only messages belonging to a VITAL-tagged chat thread are protected.",
   },
   {
     table: "ChatParticipant",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Message participant record.",
+    reason: "Only participants belonging to a VITAL-tagged chat thread are protected.",
   },
   {
     table: "ChatAttachment",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Message attachment record.",
+    reason: "Only attachments belonging to a VITAL-tagged chat thread are protected.",
+  },
+  {
+    table: "ChatMessageReaction",
+    tags: [protectedRetentionTags.adminCommunication],
+    reason: "Only reactions belonging to a VITAL-tagged chat thread are protected.",
   },
   {
     table: "EncryptedChatThread",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Encrypted message thread record.",
+    reason: "Only VITAL-tagged encrypted administrator communication threads are protected.",
   },
   {
     table: "EncryptedChatMessage",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Encrypted message content record.",
+    reason: "Only messages belonging to a VITAL-tagged encrypted chat thread are protected.",
   },
   {
     table: "EncryptedChatParticipant",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Encrypted message participant record.",
+    reason: "Only participants belonging to a VITAL-tagged encrypted chat thread are protected.",
   },
   {
     table: "EncryptedChatEnvelope",
     tags: [protectedRetentionTags.adminCommunication],
-    reason: "Encrypted message delivery envelope.",
+    reason: "Only envelopes belonging to a VITAL-tagged encrypted chat thread are protected.",
   },
 ] satisfies ProtectedRetentionRecord[];
 
@@ -212,11 +217,12 @@ export const protectedRetentionTables = protectedRetentionRecords.reduce<
 }, {});
 
 export function getDeletePassword() {
-  return (
-    process.env.DELETE_PASSWORD ??
-    process.env.DELETE_CONFIRMATION_PASSWORD ??
-    DEFAULT_DELETE_PASSWORD
-  );
+  const configured = process.env.DELETE_PASSWORD ?? process.env.DELETE_CONFIRMATION_PASSWORD;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("DELETE_PASSWORD is not configured for production destructive actions.");
+  }
+  return DEFAULT_DELETE_PASSWORD;
 }
 
 export function validateDeletePassword(value: unknown) {

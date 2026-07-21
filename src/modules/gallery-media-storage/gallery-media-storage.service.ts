@@ -7,10 +7,14 @@ import {
   UploadIntentPurpose,
   UploadIntentStatus
 } from "@prisma/client";
-import { copyR2Object, deleteR2Object, getR2PublicUrl, type R2ObjectAccess } from "@/lib/platform/r2";
+import { deleteR2Object, getR2PublicUrl, type R2ObjectAccess } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { canAccessMedia, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
+import {
+  moveGalleryVisibilityStorageObjects,
+  type GalleryVisibilityStorageObject
+} from "@/modules/gallery-media-storage/gallery-visibility-storage-move";
 import {
   completeUploadIntent as verifyDurableUploadIntent,
   consumeVerifiedUploadIntent,
@@ -760,32 +764,44 @@ export async function updateGalleryAssetSettings(userId: string, input: unknown)
   const commentsEnabled = parsed.data.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled;
   const fromAccess = storageAccessForVisibility(asset.visibility);
   const toAccess = storageAccessForVisibility(parsed.data.visibility);
-  const storageKeys = [asset.storageKey, metadata.thumbnailStorageKey].filter((key): key is string => Boolean(key));
-  const copiedKeys: string[] = [];
+  const storageObjects: GalleryVisibilityStorageObject[] = [
+    {
+      storageKey: asset.storageKey,
+      label: "photo",
+      expectedSizeBytes: Number(asset.sizeBytes),
+      expectedMimeType: asset.mimeType
+    },
+    ...(metadata.thumbnailStorageKey
+      ? [{ storageKey: metadata.thumbnailStorageKey, label: "photo thumbnail", expectedMimeType: "image/jpeg" }]
+      : [])
+  ];
 
   if (fromAccess !== toAccess) {
-    try {
-      for (const storageKey of storageKeys) {
-        await copyR2Object(storageKey, fromAccess, toAccess);
-        copiedKeys.push(storageKey);
-      }
+    const storageMove = await moveGalleryVisibilityStorageObjects({
+      objects: storageObjects,
+      sourceAccess: fromAccess,
+      destinationAccess: toAccess
+    });
 
-      if (fromAccess === "public" && toAccess === "private") {
-        await Promise.all(storageKeys.map((storageKey) => deleteR2Object(storageKey, fromAccess)));
-      }
-    } catch (error) {
+    if (!storageMove.ok) {
       await diagnostics.error(MODULE_KEY, "Gallery visibility storage move failed.", {
         userId,
         mediaAssetId: asset.id,
         fromVisibility: asset.visibility,
         toVisibility: parsed.data.visibility,
-        storageKeys,
-        error: error instanceof Error ? error.message : "unknown"
+        storageKeys: storageObjects.map((object) => object.storageKey),
+        storageMoveCode: storageMove.code,
+        storageMoveProgress: storageMove.progress,
+        error: storageMove.error
       });
 
-      await Promise.all(copiedKeys.map((storageKey) => deleteR2Object(storageKey, toAccess).catch(() => null)));
-
-      return { ok: false as const, error: "Could not move that photo to the selected visibility. Try again." };
+      return {
+        ok: false as const,
+        code: storageMove.code,
+        retryable: storageMove.retryable,
+        state: "STORAGE_MOVE_INCOMPLETE" as const,
+        error: "The photo storage move is incomplete. Its visibility was not changed. Try again to finish."
+      };
     }
   }
 
@@ -810,47 +826,25 @@ export async function updateGalleryAssetSettings(userId: string, input: unknown)
       mediaAssetId: asset.id,
       fromVisibility: asset.visibility,
       toVisibility: parsed.data.visibility,
+      storageTransitionComplete: fromAccess !== toAccess,
       error: error instanceof Error ? error.message : "unknown"
     });
 
-    if (fromAccess !== toAccess) {
-      if (toAccess === "public") {
-        await Promise.all(copiedKeys.map((storageKey) => deleteR2Object(storageKey, toAccess).catch(() => null)));
-      } else {
-        await Promise.all(
-          copiedKeys.map(async (storageKey) => {
-            try {
-              await copyR2Object(storageKey, toAccess, fromAccess);
-              await deleteR2Object(storageKey, toAccess);
-            } catch (rollbackError) {
-              await diagnostics.error(MODULE_KEY, "Gallery visibility storage rollback failed.", {
-                userId,
-                mediaAssetId: asset.id,
-                storageKey,
-                error: rollbackError instanceof Error ? rollbackError.message : "unknown"
-              });
-            }
-          })
-        );
-      }
-    }
-
-    return { ok: false as const, error: "Could not save that photo visibility. Try again." };
-  }
-
-  if (fromAccess === "private" && toAccess === "public") {
-    await Promise.all(
-      storageKeys.map((storageKey) =>
-        deleteR2Object(storageKey, fromAccess).catch(async (error) => {
-          await diagnostics.error(MODULE_KEY, "Gallery private object cleanup failed after public move.", {
-            userId,
-            mediaAssetId: asset.id,
-            storageKey,
-            error: error instanceof Error ? error.message : "unknown"
-          });
-        })
-      )
-    );
+    return fromAccess !== toAccess
+      ? {
+          ok: false as const,
+          code: "GALLERY_VISIBILITY_SAVE_PENDING" as const,
+          retryable: true as const,
+          state: "STORAGE_MOVED_DATABASE_PENDING" as const,
+          error: "The photo moved, but its visibility change was not saved. Try again to finish."
+        }
+      : {
+          ok: false as const,
+          code: "GALLERY_VISIBILITY_SAVE_FAILED" as const,
+          retryable: true as const,
+          state: "DATABASE_UPDATE_FAILED" as const,
+          error: "Could not save that photo visibility. Try again."
+        };
   }
 
   await diagnostics.info(MODULE_KEY, "Gallery asset visibility updated.", {

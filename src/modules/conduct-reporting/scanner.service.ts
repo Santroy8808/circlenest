@@ -2,7 +2,6 @@ import {
   ConductLocationType,
   ConductScanMode,
   ConductScanStatus,
-  FeedVisibility,
   type ConductConfig,
   type PlatformJob,
   type Prisma
@@ -14,6 +13,7 @@ import { asJson, createConductFingerprint, createConductReference, hashConductEv
 import { assertConductScannerModelBoundary, CONDUCT_SCANNER_SOURCE_MODELS } from "@/modules/conduct-reporting/source-resolver";
 import { enqueuePlatformJob, type PlatformJobHandlerResult } from "@/modules/platform-jobs/platform-jobs.service";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
+import { publicStreamVisibilityFilter } from "@/modules/feed-stream/feed-visibility";
 
 type EligibleItem = {
   locationType: ConductLocationType;
@@ -89,7 +89,7 @@ async function listEligibleItems(run: { windowStart: Date; windowEnd: Date; grou
     prisma.feedPost.findMany({
       where: {
         updatedAt: range,
-        visibility: FeedVisibility.MEMBERS,
+        visibility: publicStreamVisibilityFilter(),
         streamArchivedAt: null,
         streamDeletedAt: null,
         adminHoldAt: null,
@@ -103,7 +103,12 @@ async function listEligibleItems(run: { windowStart: Date; windowEnd: Date; grou
       where: {
         updatedAt: range,
         deletedAt: null,
-        post: { visibility: FeedVisibility.MEMBERS, streamArchivedAt: null, streamDeletedAt: null, adminHoldAt: null },
+        post: {
+          visibility: publicStreamVisibilityFilter(),
+          streamArchivedAt: null,
+          streamDeletedAt: null,
+          adminHoldAt: null
+        },
         ...(run.groupId ? { id: "__NO_GROUP_FEED_MATCH__" } : {})
       },
       select: { id: true, postId: true, authorUserId: true, body: true, createdAt: true, updatedAt: true },

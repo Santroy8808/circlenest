@@ -1,5 +1,6 @@
 import { FeedVisibility, Prisma, SocialRelationshipType, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { publicStreamVisibilityFilter } from "@/modules/feed-stream/feed-visibility";
 
 export type FeedPostPolicyAction = "view" | "interact" | "update" | "delete";
 
@@ -18,6 +19,26 @@ const ACTIVE_STREAM_POSTS: Prisma.FeedPostWhereInput = {
   streamArchivedAt: null,
   streamDeletedAt: null
 };
+
+/**
+ * A profile Stream is keyed by the owning user, never by a display identity.
+ * This shared predicate keeps Home and profile queries on the same author/target
+ * identity contract so a newly-created personal post is immediately visible on
+ * its author's profile.
+ */
+export function profileFeedPrincipalWhere(profileUserId: string): Prisma.FeedPostWhereInput {
+  return {
+    OR: [
+      {
+        authorUserId: profileUserId,
+        targetProfileUserId: null
+      },
+      {
+        targetProfileUserId: profileUserId
+      }
+    ]
+  };
+}
 
 function visibleActorWhere(viewerUserId: string): Prisma.UserWhereInput {
   return {
@@ -72,7 +93,7 @@ function visiblePostPrincipalsWhere(actorWhere: Prisma.UserWhereInput): Prisma.F
   };
 }
 
-function symmetricFriendAuthorWhere(viewerUserId: string): Prisma.FeedPostWhereInput {
+export function friendAuthoredPostWhere(viewerUserId: string): Prisma.FeedPostWhereInput {
   return {
     author: {
       is: {
@@ -149,14 +170,14 @@ export async function resolveFeedViewerPolicy(viewerUserId?: string | null): Pro
             AND: [
               visiblePrincipals,
               {
-                visibility: FeedVisibility.MEMBERS
+                visibility: publicStreamVisibilityFilter()
               }
             ]
           },
           {
             AND: [
               visiblePrincipals,
-              symmetricFriendAuthorWhere(viewerUserId),
+              friendAuthoredPostWhere(viewerUserId),
               {
                 visibility: FeedVisibility.FRIENDS
               }

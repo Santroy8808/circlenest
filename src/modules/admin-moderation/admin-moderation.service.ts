@@ -193,10 +193,10 @@ export async function isAdminUser(userId?: string) {
   if (!userId) return false;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true }
+    select: { role: true, deactivatedAt: true }
   });
 
-  return isAdminRole(user?.role);
+  return Boolean(user && !user.deactivatedAt && isAdminRole(user.role));
 }
 
 function toAuditLogView(log: {

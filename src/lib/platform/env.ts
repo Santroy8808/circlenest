@@ -40,6 +40,8 @@ export const envSchema = z.object({
   PRISMA_SLOW_QUERY_MS: z.coerce.number().int().min(1).default(250),
   DIAGNOSTIC_LOGS_ENABLED: z.enum(["true", "false"]).default("true"),
   AUDIT_LOGS_ENABLED: z.enum(["true", "false"]).default("true"),
+  DELETE_PASSWORD: z.string().min(5).optional(),
+  DELETE_CONFIRMATION_PASSWORD: z.string().min(5).optional(),
   APP_VERSION: z.string().optional(),
   NEXT_PUBLIC_BUILD_ID: z.string().optional(),
   RAILWAY_DEPLOYMENT_ID: z.string().optional(),
@@ -92,6 +94,14 @@ export const productionEnvSchema = envSchema.superRefine((env, context) => {
       code: z.ZodIssueCode.custom,
       message: "UPLOAD_PROXY_FALLBACK_ENABLED must remain disabled in production until uploads are streamed with a hard byte limit.",
       path: ["UPLOAD_PROXY_FALLBACK_ENABLED"]
+    });
+  }
+
+  if (!env.DELETE_PASSWORD && !env.DELETE_CONFIRMATION_PASSWORD) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "DELETE_PASSWORD must be explicitly configured in production; destructive actions never use a production fallback.",
+      path: ["DELETE_PASSWORD"]
     });
   }
 
