@@ -1,4 +1,4 @@
-import type { MembershipTier } from "@prisma/client";
+import { MembershipTier } from "@prisma/client";
 import type { EffectivePolicy } from "@/modules/membership-policy/membership-policy.service";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import { isOperationalTier, normalizeOperationalTier, type OperationalTier } from "@/modules/membership-policy/membership-access";
@@ -43,6 +43,15 @@ export type MembershipSubscriptionView = {
     subscribed: boolean;
   };
 };
+
+export function visibleContributorUpgradeOffer(input: {
+  currentTier: MembershipTier;
+  offer?: ContributorUpgradeOfferView | null;
+}) {
+  if (input.currentTier !== MembershipTier.FREE) return null;
+  if (input.offer?.status !== "OFFERED" || !input.offer.canAccept) return null;
+  return input.offer;
+}
 
 export function buildMembershipSubscriptionView(input: {
   policy: EffectivePolicy;

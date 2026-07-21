@@ -10,7 +10,10 @@ import { classifyContributorOfferApiError } from "@/modules/membership-policy/co
 import { CONTRIBUTOR_BETA_OFFER_MESSAGE } from "@/modules/membership-policy/contributor-upgrade";
 import type { EffectivePolicy } from "@/modules/membership-policy/membership-policy.service";
 import { getTierPolicy } from "@/modules/membership-policy/policy";
-import { buildMembershipSubscriptionView } from "@/modules/membership-policy/subscription-view";
+import {
+  buildMembershipSubscriptionView,
+  visibleContributorUpgradeOffer
+} from "@/modules/membership-policy/subscription-view";
 import type {
   SubscriptionBillingSummary,
   SubscriptionUpgradePlanView
@@ -95,4 +98,45 @@ test("Contributor API failures provide stable status codes and recovery actions"
     }
   );
   assert.equal(classifyContributorOfferApiError("This Contributor offer has expired.").status, 409);
+});
+
+test("only a Free member with an active targeted offer sees the Contributor upgrade", () => {
+  assert.equal(
+    visibleContributorUpgradeOffer({
+      currentTier: MembershipTier.FREE,
+      offer: contributorOffer
+    }),
+    contributorOffer
+  );
+  assert.equal(
+    visibleContributorUpgradeOffer({
+      currentTier: MembershipTier.FREE,
+      offer: null
+    }),
+    null
+  );
+  assert.equal(
+    visibleContributorUpgradeOffer({
+      currentTier: MembershipTier.CONTRIBUTOR,
+      offer: { ...contributorOffer, status: "ACCEPTED", canAccept: false }
+    }),
+    null
+  );
+});
+
+test("non-accepting and non-operational Contributor offers stay hidden", () => {
+  assert.equal(
+    visibleContributorUpgradeOffer({
+      currentTier: MembershipTier.FREE,
+      offer: { ...contributorOffer, canAccept: false }
+    }),
+    null
+  );
+  assert.equal(
+    visibleContributorUpgradeOffer({
+      currentTier: MembershipTier.PROFESSIONAL,
+      offer: contributorOffer
+    }),
+    null
+  );
 });

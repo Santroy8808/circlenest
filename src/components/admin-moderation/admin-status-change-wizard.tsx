@@ -2,6 +2,7 @@
 
 import { MembershipTier } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { AdminContributorOfferControls } from "@/components/admin-moderation/admin-contributor-offer-controls";
 
 type StatusChangeAccount = {
   id: string;
@@ -234,8 +235,10 @@ export function AdminStatusChangeWizard() {
         ) : null}
       </section>
 
+      {account ? <AdminContributorOfferControls account={account} /> : null}
+
       <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">2. Choose status</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">3. Choose status</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
           Free and Contributor are the only enabled membership tiers.
         </p>
@@ -261,7 +264,7 @@ export function AdminStatusChangeWizard() {
       </section>
 
       <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">3. Invite permission</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">4. Invite permission</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
           Grant or revoke this individual member&apos;s ability to create membership invites without changing their tier.
         </p>
@@ -287,7 +290,7 @@ export function AdminStatusChangeWizard() {
       </section>
 
       <section className="surface rounded-md p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">4. Confirm reason</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">5. Confirm reason</h2>
         <label className="mt-4 grid gap-2">
           <span className="form-label">Audit reason</span>
           <textarea className="form-field min-h-24" onChange={(event) => setReason(event.target.value)} value={reason} />
@@ -301,7 +304,7 @@ export function AdminStatusChangeWizard() {
       </section>
 
       <section className="rounded-md border border-red-400/50 bg-red-950/20 p-5">
-        <h2 className="text-2xl font-semibold text-red-200">5. Account controls</h2>
+        <h2 className="text-2xl font-semibold text-red-200">6. Account controls</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-red-100/80">
           These controls affect account access. Suspension can be reversed. Deletion disables and scrubs the account, but protected finance records, ledgers, audit logs, admin communications, and business messages are retained.
         </p>

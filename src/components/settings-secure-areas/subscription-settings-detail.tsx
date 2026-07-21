@@ -1,6 +1,8 @@
 import { BillingPortalButton } from "@/components/settings-secure-areas/billing-portal-button";
+import { ContributorBetaUpgradeCard } from "@/components/settings-secure-areas/contributor-beta-upgrade-card";
 import type { EffectivePolicy } from "@/modules/membership-policy/membership-policy.service";
 import type { SubscriptionBillingSummary } from "@/modules/membership-policy/subscriptions.service";
+import { visibleContributorUpgradeOffer } from "@/modules/membership-policy/subscription-view";
 
 function bytes(value: number) {
   if (value >= 1024 * 1024 * 1024) return `${Math.round(value / 1024 / 1024 / 1024)} GB`;
@@ -32,6 +34,11 @@ export function SubscriptionSettingsDetail({
   policy: EffectivePolicy;
   portalStatus?: string;
 }) {
+  const contributorOffer = visibleContributorUpgradeOffer({
+    currentTier: policy.tier,
+    offer: policy.contributorOffer
+  });
+
   return (
     <div className="grid gap-5">
       {checkoutStatus === "success" ? (
@@ -49,6 +56,7 @@ export function SubscriptionSettingsDetail({
           Billing management closed. Stripe updates may take a moment to appear.
         </p>
       ) : null}
+      {contributorOffer ? <ContributorBetaUpgradeCard offer={contributorOffer} /> : null}
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Current membership</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
