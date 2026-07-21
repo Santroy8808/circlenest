@@ -3127,6 +3127,7 @@ model ConductIncident {
   evidenceContentIds      String[]
   policyCodes             String[]
   status                  ConductIncidentStatus    @default(OPEN)
+  version                 Int                      @default(1)
   createdByUserId         String?
   assignedModeratorUserId String?
   modelMetadata           Json?

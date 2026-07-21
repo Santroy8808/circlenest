@@ -2,39 +2,38 @@ import {
   ConductIncidentStatus,
   ConductReportStatus,
   Prisma,
-  UserRole
+  UserRole,
+  type AuditLog
 } from "@prisma/client";
 import { z } from "zod";
 import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
+import {
+  AdminTargetAuthorizationError,
+  authorizeLockedAdminActor,
+  lockAndAuthorizeAdminActor
+} from "@/modules/admin-moderation/account-target-authorization";
 import { isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
 import type { AdminCommandError, AdminCommandReceipt } from "@/modules/admin-moderation/admin-command.contract";
+import { recomputeLockedConductIncidentStatus } from "@/modules/conduct-reporting/incident-status.service";
 
 const MODULE_KEY = "conduct-reporting";
 const TERMINAL_STATUSES = new Set<ConductReportStatus>([
   ConductReportStatus.RESOLVED,
-  ConductReportStatus.DISMISSED,
-  ConductReportStatus.RESTRICTED
+  ConductReportStatus.DISMISSED
 ]);
 
 const LEGAL_CONDUCT_TRANSITIONS: Readonly<Record<ConductReportStatus, readonly ConductReportStatus[]>> = {
   ACTIVE: [ConductReportStatus.UNDER_REVIEW, ConductReportStatus.DISMISSED],
   UNDER_REVIEW: [
     ConductReportStatus.ACTIVE,
-    ConductReportStatus.DISPUTED,
     ConductReportStatus.RESOLVED,
-    ConductReportStatus.DISMISSED,
-    ConductReportStatus.RESTRICTED
+    ConductReportStatus.DISMISSED
   ],
-  DISPUTED: [
-    ConductReportStatus.UNDER_REVIEW,
-    ConductReportStatus.RESOLVED,
-    ConductReportStatus.DISMISSED,
-    ConductReportStatus.RESTRICTED
-  ],
+  DISPUTED: [],
   RESOLVED: [ConductReportStatus.UNDER_REVIEW],
   DISMISSED: [ConductReportStatus.UNDER_REVIEW],
-  RESTRICTED: [ConductReportStatus.UNDER_REVIEW, ConductReportStatus.RESOLVED]
+  RESTRICTED: []
 };
 
 const commandBase = {
@@ -48,10 +47,9 @@ const transitionSchema = z.object({
   ...commandBase,
   action: z.literal("conduct-report.transition"),
   payload: z.object({
-    fromStatus: z.nativeEnum(ConductReportStatus),
-    toStatus: z.nativeEnum(ConductReportStatus),
-    note: z.string().trim().min(2).max(4000),
-    assigneeUserId: z.string().trim().min(1).max(200).nullable().optional()
+      fromStatus: z.nativeEnum(ConductReportStatus),
+      toStatus: z.nativeEnum(ConductReportStatus),
+    note: z.string().trim().min(2).max(4000)
   })
 });
 
@@ -60,6 +58,7 @@ const assignmentSchema = z.object({
   action: z.literal("conduct-report.assign"),
   payload: z.object({
     assigneeUserId: z.string().trim().min(1).max(200).nullable(),
+    expectedIncidentVersion: z.number().int().positive(),
     note: z.string().trim().min(2).max(4000)
   })
 });
@@ -73,6 +72,7 @@ type ConductReportSnapshot = {
   incidentId: string;
   status: ConductReportStatus;
   incidentStatus: ConductIncidentStatus;
+  incidentVersion: number;
   assignedModeratorUserId: string | null;
   resolvedByUserId: string | null;
   resolutionReason: string | null;
@@ -80,6 +80,26 @@ type ConductReportSnapshot = {
   version: number;
   updatedAt: string;
 };
+
+const snapshotIdSchema = z.string().min(1).max(200).refine(
+  (value) => value.trim() === value,
+  "Snapshot identifiers cannot contain surrounding whitespace."
+);
+
+const conductReportSnapshotSchema = z.object({
+  id: snapshotIdSchema,
+  reference: z.string().min(1).max(200),
+  incidentId: snapshotIdSchema,
+  status: z.nativeEnum(ConductReportStatus),
+  incidentStatus: z.nativeEnum(ConductIncidentStatus),
+  incidentVersion: z.number().int().positive(),
+  assignedModeratorUserId: snapshotIdSchema.nullable(),
+  resolvedByUserId: snapshotIdSchema.nullable(),
+  resolutionReason: z.string().max(4000).nullable(),
+  resolvedAt: z.string().datetime({ offset: true }).nullable(),
+  version: z.number().int().positive(),
+  updatedAt: z.string().datetime({ offset: true })
+}).strict();
 
 class ConductCommandFailure extends Error {
   constructor(
@@ -96,13 +116,16 @@ export function canTransitionConductReport(from: ConductReportStatus, to: Conduc
   return LEGAL_CONDUCT_TRANSITIONS[from].includes(to);
 }
 
-export function deriveConductIncidentStatus(statuses: readonly ConductReportStatus[]): ConductIncidentStatus {
-  if (statuses.includes(ConductReportStatus.RESTRICTED)) return ConductIncidentStatus.RESTRICTED;
-  if (statuses.includes(ConductReportStatus.DISPUTED)) return ConductIncidentStatus.DISPUTED;
-  if (statuses.includes(ConductReportStatus.UNDER_REVIEW)) return ConductIncidentStatus.UNDER_REVIEW;
-  if (statuses.includes(ConductReportStatus.ACTIVE)) return ConductIncidentStatus.OPEN;
-  if (statuses.includes(ConductReportStatus.RESOLVED)) return ConductIncidentStatus.RESOLVED;
-  return ConductIncidentStatus.DISMISSED;
+export function canReopenConductReportWithGenericWorkflow(input: {
+  from: ConductReportStatus;
+  to: ConductReportStatus;
+  hasLinkedDispute: boolean;
+}) {
+  return !(
+    input.hasLinkedDispute &&
+    input.to === ConductReportStatus.UNDER_REVIEW &&
+    (input.from === ConductReportStatus.RESOLVED || input.from === ConductReportStatus.DISMISSED)
+  );
 }
 
 function reportSnapshot(report: {
@@ -115,7 +138,7 @@ function reportSnapshot(report: {
   resolvedAt: Date | null;
   version: number;
   updatedAt: Date;
-  incident: { status: ConductIncidentStatus; assignedModeratorUserId: string | null };
+  incident: { status: ConductIncidentStatus; assignedModeratorUserId: string | null; version: number };
 }): ConductReportSnapshot {
   return {
     id: report.id,
@@ -123,6 +146,7 @@ function reportSnapshot(report: {
     incidentId: report.incidentId,
     status: report.status,
     incidentStatus: report.incident.status,
+    incidentVersion: report.incident.version,
     assignedModeratorUserId: report.incident.assignedModeratorUserId,
     resolvedByUserId: report.resolvedByUserId,
     resolutionReason: report.resolutionReason,
@@ -152,25 +176,76 @@ function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-async function requireActiveAdminAssignee(transaction: Prisma.TransactionClient, assigneeUserId: string | null | undefined) {
-  if (assigneeUserId === undefined || assigneeUserId === null) return;
-  const assignee = await transaction.user.findUnique({
-    where: { id: assigneeUserId },
-    select: { role: true, deactivatedAt: true }
-  });
+export function isConductSerializableConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+}
+
+export async function retryConductSerializable<T>(operation: () => Promise<T>, maxAttempts = 3) {
+  const attempts = Math.min(5, Math.max(1, Math.trunc(maxAttempts)));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isConductSerializableConflict(error)) throw error;
+      if (attempt === attempts - 1) {
+        throw new ConductCommandFailure(
+          "VERSION_CONFLICT",
+          "The conduct report changed repeatedly while this command was being applied. Refresh the report and try again.",
+          true
+        );
+      }
+    }
+  }
+  throw new ConductCommandFailure("VERSION_CONFLICT", "The conduct report could not be updated safely.", true);
+}
+
+export function incidentAssignmentVersionMatchesExpected(currentVersion: number, expectedVersion: number) {
+  return currentVersion === expectedVersion;
+}
+
+export function orderedConductAdminUserIds(actorUserId: string, assigneeUserId: string | null) {
+  return [...new Set([actorUserId, assigneeUserId].filter((value): value is string => Boolean(value?.trim())))]
+    .sort();
+}
+
+type LockedConductAdminUser = { id: string; role: UserRole; deactivatedAt: Date | null };
+
+async function lockConductCommandUsers(
+  transaction: Prisma.TransactionClient,
+  actorUserId: string,
+  assigneeUserId?: string | null
+) {
+  if (assigneeUserId === undefined) {
+    return [await lockAndAuthorizeAdminActor(transaction, actorUserId)] satisfies LockedConductAdminUser[];
+  }
+  const userIds = orderedConductAdminUserIds(actorUserId, assigneeUserId);
+  const users = await transaction.$queryRaw<LockedConductAdminUser[]>(Prisma.sql`
+    SELECT "id", "role", "deactivatedAt"
+    FROM "User"
+    WHERE "id" IN (${Prisma.join(userIds)})
+    ORDER BY "id"
+    FOR UPDATE
+  `);
+  authorizeLockedAdminActor({ actorUserId, users });
+  return users;
+}
+
+function requireLockedActiveAdminAssignee(users: readonly LockedConductAdminUser[], assigneeUserId?: string | null) {
+  if (!assigneeUserId) return;
+  const assignee = users.find((user) => user.id === assigneeUserId);
   if (!assignee || assignee.deactivatedAt || (assignee.role !== UserRole.ADMIN && assignee.role !== UserRole.GOD)) {
     throw new ConductCommandFailure("VALIDATION_FAILED", "Assign conduct review only to an active administrator.", false, "assigneeUserId");
   }
 }
 
-async function findReplay(
+function replayFromAudit(
+  audit: AuditLog | null,
   commandId: string,
   actorUserId: string,
   action: string,
   targetId: string,
   commandFingerprint: string
 ) {
-  const audit = await prisma.auditLog.findUnique({ where: { operationId: commandId } });
   if (!audit) return null;
   if (
     audit.module !== MODULE_KEY ||
@@ -183,7 +258,8 @@ async function findReplay(
   ) {
     throw new ConductCommandFailure("VALIDATION_FAILED", "That command id has already been used for another administrator operation.");
   }
-  if (!audit.after || typeof audit.after !== "object" || Array.isArray(audit.after)) {
+  const storedSnapshot = conductReportSnapshotSchema.safeParse(audit.after);
+  if (!storedSnapshot.success || storedSnapshot.data.id !== targetId) {
     throw new ConductCommandFailure("COMMAND_FAILED", "The stored command receipt is incomplete. An administrator must review the audit log.");
   }
   return {
@@ -191,20 +267,105 @@ async function findReplay(
     auditLogId: audit.id,
     status: "completed" as const,
     replayed: true,
-    result: audit.after as ConductReportSnapshot
+    result: storedSnapshot.data
   } satisfies AdminCommandReceipt<ConductReportSnapshot>;
 }
 
-async function recomputeIncidentStatus(transaction: Prisma.TransactionClient, incidentId: string) {
-  const reports = await transaction.conductReport.findMany({ where: { incidentId }, select: { status: true } });
-  const status = deriveConductIncidentStatus(reports.map((report) => report.status));
-  return transaction.conductIncident.update({ where: { id: incidentId }, data: { status } });
+async function findReplay(
+  commandId: string,
+  actorUserId: string,
+  action: string,
+  targetId: string,
+  commandFingerprint: string
+) {
+  return replayFromAudit(
+    await prisma.auditLog.findUnique({ where: { operationId: commandId } }),
+    commandId,
+    actorUserId,
+    action,
+    targetId,
+    commandFingerprint
+  );
+}
+
+async function findReplayInTransaction(
+  transaction: Prisma.TransactionClient,
+  commandId: string,
+  actorUserId: string,
+  action: string,
+  targetId: string,
+  commandFingerprint: string
+) {
+  return replayFromAudit(
+    await transaction.auditLog.findUnique({ where: { operationId: commandId } }),
+    commandId,
+    actorUserId,
+    action,
+    targetId,
+    commandFingerprint
+  );
 }
 
 async function lockConductIncident(transaction: Prisma.TransactionClient, incidentId: string) {
   await transaction.$queryRaw<Array<{ id: string }>>(
     Prisma.sql`SELECT "id" FROM "ConductIncident" WHERE "id" = ${incidentId} FOR UPDATE`
   );
+}
+
+async function lockConductReport(transaction: Prisma.TransactionClient, reportId: string) {
+  await transaction.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT "id" FROM "ConductReport" WHERE "id" = ${reportId} FOR UPDATE`
+  );
+}
+
+async function lockConductTargetScope(
+  transaction: Prisma.TransactionClient,
+  reportId: string
+) {
+  const target = await transaction.conductReport.findUnique({ where: { id: reportId }, select: { incidentId: true } });
+  if (!target) throw new ConductCommandFailure("TARGET_NOT_FOUND", "Conduct report not found.");
+  await lockConductReport(transaction, reportId);
+  await lockConductIncident(transaction, target.incidentId);
+  return target.incidentId;
+}
+
+export async function lockConductCommandScope(
+  transaction: Prisma.TransactionClient,
+  actorUserId: string,
+  reportId: string,
+  assigneeUserId?: string | null
+) {
+  const users = await lockConductCommandUsers(transaction, actorUserId, assigneeUserId);
+  requireLockedActiveAdminAssignee(users, assigneeUserId);
+  return lockConductTargetScope(transaction, reportId);
+}
+
+export async function prepareConductCommand(
+  transaction: Prisma.TransactionClient,
+  input: {
+    actorUserId: string;
+    reportId: string;
+    assigneeUserId?: string | null;
+    commandId: string;
+    action: string;
+    commandFingerprint: string;
+  }
+) {
+  const users = await lockConductCommandUsers(transaction, input.actorUserId, input.assigneeUserId);
+  const replay = await findReplayInTransaction(
+    transaction,
+    input.commandId,
+    input.actorUserId,
+    input.action,
+    input.reportId,
+    input.commandFingerprint
+  );
+  if (replay) return { replay, incidentId: null };
+  requireLockedActiveAdminAssignee(users, input.assigneeUserId);
+  return {
+    replay: null,
+    incidentId: await lockConductTargetScope(transaction, input.reportId)
+  };
 }
 
 export async function transitionConductReport(actorUserId: string, input: ConductReportTransitionCommand | unknown) {
@@ -221,18 +382,26 @@ export async function transitionConductReport(actorUserId: string, input: Conduc
       expectedVersion: command.expectedVersion,
       fromStatus: command.payload.fromStatus,
       toStatus: command.payload.toStatus,
-      note: command.payload.note,
-      assigneeUserId: command.payload.assigneeUserId
+      note: command.payload.note
     }
   });
 
   try {
-    const replay = await findReplay(command.commandId, actorUserId, command.action, command.target.id, commandFingerprint);
-    if (replay) return { ok: true as const, receipt: replay };
-    const completed = await prisma.$transaction(async (transaction) => {
-      const target = await transaction.conductReport.findUnique({ where: { id: command.target.id }, select: { incidentId: true } });
-      if (!target) throw new ConductCommandFailure("TARGET_NOT_FOUND", "Conduct report not found.");
-      await lockConductIncident(transaction, target.incidentId);
+    const completed = await retryConductSerializable(() => prisma.$transaction(async (transaction) => {
+      const prepared = await prepareConductCommand(transaction, {
+        actorUserId,
+        reportId: command.target.id,
+        commandId: command.commandId,
+        action: command.action,
+        commandFingerprint
+      });
+      if (prepared.replay) {
+        return {
+          auditLogId: prepared.replay.auditLogId,
+          result: prepared.replay.result,
+          replayed: true
+        };
+      }
       const current = await transaction.conductReport.findUnique({ where: { id: command.target.id }, include: { incident: true } });
       if (!current) throw new ConductCommandFailure("TARGET_NOT_FOUND", "Conduct report not found.");
       if (current.version !== command.expectedVersion) {
@@ -244,7 +413,27 @@ export async function transitionConductReport(actorUserId: string, input: Conduc
       if (!canTransitionConductReport(current.status, command.payload.toStatus)) {
         throw new ConductCommandFailure("VALIDATION_FAILED", `A conduct report cannot move from ${current.status} to ${command.payload.toStatus}.`, false, "toStatus");
       }
-      await requireActiveAdminAssignee(transaction, command.payload.assigneeUserId);
+      if (
+        command.payload.toStatus === ConductReportStatus.UNDER_REVIEW &&
+        (current.status === ConductReportStatus.RESOLVED || current.status === ConductReportStatus.DISMISSED)
+      ) {
+        const linkedDispute = await transaction.conductDispute.findUnique({
+          where: { reportId: current.id },
+          select: { id: true }
+        });
+        if (!canReopenConductReportWithGenericWorkflow({
+          from: current.status,
+          to: command.payload.toStatus,
+          hasLinkedDispute: Boolean(linkedDispute)
+        })) {
+          throw new ConductCommandFailure(
+            "VALIDATION_FAILED",
+            "A report with a linked dispute can only be reopened through the dedicated dispute workflow.",
+            false,
+            "toStatus"
+          );
+        }
+      }
       const terminal = TERMINAL_STATUSES.has(command.payload.toStatus);
       const changed = await transaction.conductReport.updateMany({
         where: { id: current.id, version: command.expectedVersion, status: command.payload.fromStatus },
@@ -257,13 +446,7 @@ export async function transitionConductReport(actorUserId: string, input: Conduc
         }
       });
       if (changed.count !== 1) throw new ConductCommandFailure("VERSION_CONFLICT", "Conduct report changed while this command was being applied.", true);
-      if (command.payload.assigneeUserId !== undefined) {
-        await transaction.conductIncident.update({
-          where: { id: current.incidentId },
-          data: { assignedModeratorUserId: command.payload.assigneeUserId }
-        });
-      }
-      await recomputeIncidentStatus(transaction, current.incidentId);
+      await recomputeLockedConductIncidentStatus(transaction, current.incidentId);
       const updated = await transaction.conductReport.findUniqueOrThrow({ where: { id: current.id }, include: { incident: true } });
       const before = reportSnapshot(current);
       const after = reportSnapshot(updated);
@@ -304,15 +487,15 @@ export async function transitionConductReport(actorUserId: string, input: Conduc
           metadata
         }
       });
-      return { auditLogId: audit.id, result: after };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return { auditLogId: audit.id, result: after, replayed: false };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     return {
       ok: true as const,
       receipt: {
         commandId: command.commandId,
         auditLogId: completed.auditLogId,
         status: "completed" as const,
-        replayed: false,
+        replayed: completed.replayed,
         result: completed.result
       } satisfies AdminCommandReceipt<ConductReportSnapshot>
     };
@@ -325,6 +508,9 @@ export async function transitionConductReport(actorUserId: string, input: Conduc
         if (replayError instanceof ConductCommandFailure) return failed(replayError);
         throw replayError;
       }
+    }
+    if (error instanceof AdminTargetAuthorizationError) {
+      return failed(new ConductCommandFailure("FORBIDDEN", error.message));
     }
     if (error instanceof ConductCommandFailure) return failed(error);
     throw error;
@@ -344,38 +530,59 @@ export async function assignConductReport(actorUserId: string, input: ConductRep
       reason: command.reason,
       expectedVersion: command.expectedVersion,
       assigneeUserId: command.payload.assigneeUserId,
+      expectedIncidentVersion: command.payload.expectedIncidentVersion,
       note: command.payload.note
     }
   });
 
   try {
-    const replay = await findReplay(command.commandId, actorUserId, command.action, command.target.id, commandFingerprint);
-    if (replay) return { ok: true as const, receipt: replay };
-    const completed = await prisma.$transaction(async (transaction) => {
-      const target = await transaction.conductReport.findUnique({ where: { id: command.target.id }, select: { incidentId: true } });
-      if (!target) throw new ConductCommandFailure("TARGET_NOT_FOUND", "Conduct report not found.");
-      await lockConductIncident(transaction, target.incidentId);
+    const completed = await retryConductSerializable(() => prisma.$transaction(async (transaction) => {
+      const prepared = await prepareConductCommand(transaction, {
+        actorUserId,
+        reportId: command.target.id,
+        assigneeUserId: command.payload.assigneeUserId,
+        commandId: command.commandId,
+        action: command.action,
+        commandFingerprint
+      });
+      if (prepared.replay) {
+        return {
+          auditLogId: prepared.replay.auditLogId,
+          result: prepared.replay.result,
+          replayed: true
+        };
+      }
       const current = await transaction.conductReport.findUnique({ where: { id: command.target.id }, include: { incident: true } });
       if (!current) throw new ConductCommandFailure("TARGET_NOT_FOUND", "Conduct report not found.");
       if (current.version !== command.expectedVersion) {
         throw new ConductCommandFailure("VERSION_CONFLICT", `Conduct report changed from version ${command.expectedVersion} to ${current.version}.`, true);
       }
-      await requireActiveAdminAssignee(transaction, command.payload.assigneeUserId);
+      if (!incidentAssignmentVersionMatchesExpected(current.incident.version, command.payload.expectedIncidentVersion)) {
+        throw new ConductCommandFailure(
+          "VERSION_CONFLICT",
+          "The incident assignment changed after this report was loaded. Refresh the report before assigning it.",
+          true
+        );
+      }
       const changed = await transaction.conductReport.updateMany({
         where: { id: current.id, version: command.expectedVersion },
         data: { version: { increment: 1 } }
       });
       if (changed.count !== 1) throw new ConductCommandFailure("VERSION_CONFLICT", "Conduct report changed while this command was being applied.", true);
-      await transaction.conductIncident.update({
-        where: { id: current.incidentId },
-        data: { assignedModeratorUserId: command.payload.assigneeUserId }
+      const incidentChanged = await transaction.conductIncident.updateMany({
+        where: { id: current.incidentId, version: command.payload.expectedIncidentVersion },
+        data: { assignedModeratorUserId: command.payload.assigneeUserId, version: { increment: 1 } }
       });
+      if (incidentChanged.count !== 1) {
+        throw new ConductCommandFailure("VERSION_CONFLICT", "The incident assignment changed while this command was being applied.", true);
+      }
       const updated = await transaction.conductReport.findUniqueOrThrow({ where: { id: current.id }, include: { incident: true } });
       const before = reportSnapshot(current);
       const after = reportSnapshot(updated);
       const metadata = {
         commandId: command.commandId,
         commandFingerprint,
+        expectedIncidentVersion: command.payload.expectedIncidentVersion,
         previousAssigneeUserId: current.incident.assignedModeratorUserId,
         assignedModeratorUserId: updated.incident.assignedModeratorUserId,
         note: command.payload.note,
@@ -400,15 +607,15 @@ export async function assignConductReport(actorUserId: string, input: ConductRep
           metadata
         }
       });
-      return { auditLogId: audit.id, result: after };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return { auditLogId: audit.id, result: after, replayed: false };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     return {
       ok: true as const,
       receipt: {
         commandId: command.commandId,
         auditLogId: completed.auditLogId,
         status: "completed" as const,
-        replayed: false,
+        replayed: completed.replayed,
         result: completed.result
       } satisfies AdminCommandReceipt<ConductReportSnapshot>
     };
@@ -421,6 +628,9 @@ export async function assignConductReport(actorUserId: string, input: ConductRep
         if (replayError instanceof ConductCommandFailure) return failed(replayError);
         throw replayError;
       }
+    }
+    if (error instanceof AdminTargetAuthorizationError) {
+      return failed(new ConductCommandFailure("FORBIDDEN", error.message));
     }
     if (error instanceof ConductCommandFailure) return failed(error);
     throw error;

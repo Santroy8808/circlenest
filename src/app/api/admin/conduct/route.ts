@@ -13,6 +13,7 @@ import {
   transitionConductReport
 } from "@/modules/admin-moderation/conduct-transitions.service";
 import { getConductAdminView } from "@/modules/conduct-reporting/admin.service";
+import { readConductAdminQuery } from "./conduct-admin-query";
 
 async function requireAdmin() {
   const session = await auth();
@@ -25,7 +26,7 @@ async function requireAdmin() {
   return { ok: true as const, user: session.user };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const authorization = await requireAdmin();
   if (!authorization.ok) {
     return NextResponse.json(
@@ -33,7 +34,14 @@ export async function GET() {
       { status: authorization.status, headers: ADMIN_NO_STORE_HEADERS }
     );
   }
-  return NextResponse.json(await getConductAdminView(), { headers: ADMIN_NO_STORE_HEADERS });
+  const parsedQuery = readConductAdminQuery(request.nextUrl.searchParams);
+  if (!parsedQuery.ok) {
+    return NextResponse.json(
+      { error: parsedQuery.error, code: "INVALID_QUERY", field: parsedQuery.field },
+      { status: 422, headers: ADMIN_NO_STORE_HEADERS }
+    );
+  }
+  return NextResponse.json(await getConductAdminView(parsedQuery.query), { headers: ADMIN_NO_STORE_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
