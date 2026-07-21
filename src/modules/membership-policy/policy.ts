@@ -1,5 +1,13 @@
 import { MembershipTier, UserRole } from "@prisma/client";
 import { isAdminRole } from "@/lib/platform/roles";
+import {
+  getOperationalTierContract,
+  hasOperationalTierCapability,
+  isOperationalTier,
+  normalizeOperationalTier,
+  type Capability,
+  type OperationalTier
+} from "@/modules/membership-policy/membership-access";
 
 export const membershipFeatureKeys = [
   "feed.changeType",
@@ -29,6 +37,33 @@ export const membershipFeatureKeys = [
 ] as const;
 
 export type MembershipFeatureKey = (typeof membershipFeatureKeys)[number];
+
+export const membershipFeatureCapabilityMap: Record<MembershipFeatureKey, Capability> = {
+  "feed.changeType": "stream.filters",
+  "groups.create": "groups.create",
+  "groups.assignModerators": "groups.manageModerators",
+  "groups.unlimitedSize": "groups.unlimitedSize",
+  "events.create": "events.create",
+  "market.createListing": "market.createListing",
+  "market.createAd": "market.promoteListing",
+  "market.storefront": "business.storefront.manage",
+  "jobs.browse": "jobs.browse",
+  "jobs.createListing": "jobs.createListing",
+  "auditors.browse": "auditors.browse",
+  "auditors.createProfile": "auditors.createProfile",
+  "ads.createGeneral": "ads.createGeneral",
+  "ads.createFundraiser": "ads.createFundraiser",
+  "writers.access": "writers.use",
+  "fundraisers.create": "fundraisers.create",
+  "invites.send": "invites.send",
+  "invites.bulkSend": "invites.bulkSend",
+  "support.createRequest": "support.create",
+  "mail.massSend": "mail.massSend",
+  "mail.orgMassSend": "mail.orgMassSend",
+  "org.profile": "org.profile",
+  "moderation.siteEligible": "moderation.siteEligible",
+  "admin.portal": "admin.portal"
+};
 
 export type TierLimits = {
   groupMemberCap: number | null;
@@ -80,56 +115,43 @@ function withFeatures(features: Partial<Record<MembershipFeatureKey, boolean>>) 
   return { ...baseFeatures, ...features };
 }
 
+function featuresForOperationalTier(tier: OperationalTier): Record<MembershipFeatureKey, boolean> {
+  return Object.fromEntries(
+    membershipFeatureKeys.map((featureKey) => [
+      featureKey,
+      hasOperationalTierCapability(tier, membershipFeatureCapabilityMap[featureKey])
+    ])
+  ) as Record<MembershipFeatureKey, boolean>;
+}
+
+function limitsForOperationalTier(tier: OperationalTier): TierLimits {
+  const quotas = getOperationalTierContract(tier).quotas;
+  return {
+    groupMemberCap: quotas.groupMemberCap,
+    marketListingsPer14Days: quotas.marketListingsPer14Days,
+    marketListingPhotoCap: quotas.marketListingPhotoCap,
+    fundraiserPerMonth: quotas.fundraiserPerMonth,
+    marketActiveListingCap: quotas.marketActiveListingCap,
+    storageLimitBytes: quotas.personalStorageBytes
+  };
+}
+
 export const tierPolicies: Record<MembershipTier, TierPolicy> = {
   [MembershipTier.FREE]: {
     tier: MembershipTier.FREE,
     displayName: "Free",
     summary: "Core Theta-Space access: stream posting, groups, messages, personal Market and job listings, and gallery.",
     operational: true,
-    features: withFeatures({
-      "groups.create": true,
-      "groups.assignModerators": true,
-      "market.createListing": true,
-      "jobs.createListing": true,
-      "moderation.siteEligible": true
-    }),
-    limits: {
-      groupMemberCap: null,
-      marketListingsPer14Days: null,
-      marketListingPhotoCap: 3,
-      fundraiserPerMonth: 0,
-      marketActiveListingCap: 1,
-      storageLimitBytes: 200 * 1024 * 1024
-    }
+    features: featuresForOperationalTier(MembershipTier.FREE),
+    limits: limitsForOperationalTier(MembershipTier.FREE)
   },
   [MembershipTier.CONTRIBUTOR]: {
     tier: MembershipTier.CONTRIBUTOR,
     displayName: "Contributor",
     summary: "Community contributor access with expanded storage, capped marketplace tools, and Writers Corner.",
     operational: true,
-    features: withFeatures({
-      "feed.changeType": true,
-      "groups.create": true,
-      "groups.assignModerators": true,
-      "groups.unlimitedSize": true,
-      "market.createListing": true,
-      "market.createAd": true,
-      "market.storefront": false,
-      "jobs.browse": false,
-      "jobs.createListing": false,
-      "auditors.createProfile": false,
-      "writers.access": true,
-      "support.createRequest": true,
-      "moderation.siteEligible": true
-    }),
-    limits: {
-      groupMemberCap: null,
-      marketListingsPer14Days: 6,
-      marketListingPhotoCap: 3,
-      fundraiserPerMonth: 0,
-      marketActiveListingCap: null,
-      storageLimitBytes: 2 * 1024 * 1024 * 1024
-    }
+    features: featuresForOperationalTier(MembershipTier.CONTRIBUTOR),
+    limits: limitsForOperationalTier(MembershipTier.CONTRIBUTOR)
   },
   [MembershipTier.PROFESSIONAL]: {
     tier: MembershipTier.PROFESSIONAL,
@@ -222,12 +244,12 @@ export function getTierPolicy(tier: MembershipTier) {
   return tierPolicies[tier];
 }
 
-export function isOperationalMembershipTier(tier: MembershipTier) {
-  return tierPolicies[tier].operational;
+export function isOperationalMembershipTier(tier: MembershipTier): boolean {
+  return isOperationalTier(tier);
 }
 
 export function normalizeOperationalMembershipTier(tier?: MembershipTier | null) {
-  return tier && isOperationalMembershipTier(tier) ? tier : MembershipTier.FREE;
+  return normalizeOperationalTier(tier);
 }
 
 export function isMembershipFeatureKey(value: string): value is MembershipFeatureKey {

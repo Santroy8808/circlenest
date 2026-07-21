@@ -25,6 +25,19 @@ enum MembershipSubscriptionStatus {
   UNPAID
 }
 
+enum MembershipUpgradeMode {
+  NONE
+  BETA_FREE
+  STRIPE
+}
+
+enum MembershipUpgradeOfferStatus {
+  OFFERED
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 enum StripeIntegrationMode {
   TEST
   LIVE
@@ -81,6 +94,17 @@ enum AuditSeverity {
   critical
 }
 
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+enum RecordRetentionClass {
+  STANDARD
+  VITAL
+}
+
 enum ModuleHealthStatus {
   healthy
   degraded
@@ -92,6 +116,41 @@ enum PlatformJobStatus {
   PENDING
   RUNNING
   SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum DestructiveActionKind {
+  DELETE_ACCOUNT
+  PURGE_ACCOUNT_DATA
+  DELETE_CONTENT
+  DELETE_MEDIA
+  DELETE_ANNOUNCEMENT
+}
+
+enum DestructiveActionStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum DeliveryChannel {
+  CHAT
+  MAIL
+  POPUP
+  GLOBAL_POST
+  PERSONAL_EMAIL
+  NOTIFICATION
+}
+
+enum DeliveryOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
   FAILED
   CANCELLED
 }
@@ -573,9 +632,32 @@ enum FundLedgerEntryType {
   WITHDRAWAL_BATCH_CAPTURE
 }
 
+enum PlatformCreditEntryType {
+  OPENING_BALANCE
+  MONTHLY_ALLOCATION
+  PURCHASE
+  SPEND
+  REFUND
+  ADJUSTMENT
+  REVERSAL
+}
+
 enum ManuscriptVisibility {
   PRIVATE
   MEMBERS
+}
+
+enum NotificationKind {
+  GENERAL
+  WRITER_CHAPTER_PUBLISHED
+  FRIEND_REQUEST
+  FAMILY_REQUEST
+  CHAT_MESSAGE
+  GROUP_ACTIVITY
+  ACCOUNT
+  ADMIN_ANNOUNCEMENT
+  SUPPORT
+  SYSTEM
 }
 
 enum AuthSecurityEventType {
@@ -588,6 +670,8 @@ enum AuthSecurityEventType {
   PASSWORD_RESET_COMPLETED
   SESSION_REVOKED
   TWO_FACTOR_READY
+  DESTRUCTIVE_ACTION_CONFIRMED
+  DESTRUCTIVE_ACTION_DENIED
 }
 
 enum TermsEmailDeliveryStatus {
@@ -735,6 +819,7 @@ model User {
   deletedStorefrontForumPosts     StorefrontForumPost[]              @relation("StorefrontForumPostDeleter")
   adCampaigns                     AdCampaign[]                       @relation("AdCampaignOwner")
   adCreditLedgerEntries           AdCreditLedgerEntry[]
+  actedAdCreditLedgerEntries      AdCreditLedgerEntry[]              @relation("CreditLedgerActor")
   adDeliveryLogs                  AdDeliveryLog[]                    @relation("AdDeliveryViewer")
   fundraiserCampaigns             FundraiserCampaign[]               @relation("FundraiserCreator")
   fundContributionIntents         FundContributionIntent[]           @relation("FundContributionContributor")
@@ -745,7 +830,14 @@ model User {
   diagnostics                     DiagnosticLog[]
   auditLogs                       AuditLog[]                         @relation("AuditActor")
   adminActions                    AdminAction[]                      @relation("AdminActionActor")
+  requestedDestructiveActions     DestructiveActionRequest[]         @relation("DestructiveActionRequester")
+  confirmedDestructiveActions     DestructiveActionRequest[]         @relation("DestructiveActionConfirmer")
+  deliveryOutboxRecipients        DeliveryOutbox[]                   @relation("DeliveryOutboxRecipient")
+  createdPublicAnnouncements      PublicAnnouncement[]               @relation("PublicAnnouncementCreator")
+  dismissedPublicAnnouncements    PublicAnnouncement[]               @relation("PublicAnnouncementDismisser")
   updatedPlatformCostRules        PlatformCostRule[]                 @relation("PlatformCostRuleUpdater")
+  updatedFeatureFlags             FeatureFlag[]                      @relation("FeatureFlagUpdater")
+  updatedStripeIntegrationConfigs StripeIntegrationConfig[]          @relation("StripeIntegrationConfigUpdater")
   platformActivityEvents          PlatformActivityEvent[]            @relation("PlatformActivityUser")
   applicationUsageMetric          UserApplicationUsageMetric?
   interests                       UserInterest[]
@@ -754,13 +846,23 @@ model User {
   passwordResetTokens             PasswordResetToken[]
   twoFactorConfig                 TwoFactorConfig?
   feedbackTickets                 FeedbackTicket[]                   @relation("FeedbackReporter")
+  assignedFeedbackTickets         FeedbackTicket[]                   @relation("FeedbackAssignee")
+  resolvedFeedbackTickets         FeedbackTicket[]                   @relation("FeedbackResolver")
+  feedbackTicketEvents            FeedbackTicketEvent[]              @relation("FeedbackTicketEventActor")
+  resolvedConductReports          ConductReport[]                    @relation("ConductReportResolver")
+  conductEvents                   ConductEvent[]                     @relation("ConductEventActor")
   membershipOverrides             MembershipPolicyOverride[]         @relation("MembershipOverrideSubject")
   createdMembershipOverrides      MembershipPolicyOverride[]         @relation("MembershipOverrideCreator")
   createdTierFeatureOverrides     MembershipTierFeatureOverride[]    @relation("TierFeatureOverrideCreator")
   promotionGrants                 MembershipPromotionGrant[]         @relation("PromotionGrantUser")
   createdPromotionGrants          MembershipPromotionGrant[]         @relation("PromotionGrantCreator")
+  revokedPromotionGrants          MembershipPromotionGrant[]         @relation("PromotionGrantRevoker")
   tierUpgradeEligibilities        MembershipTierUpgradeEligibility[] @relation("TierUpgradeEligibilityUser")
   createdTierUpgradeEligibilities MembershipTierUpgradeEligibility[] @relation("TierUpgradeEligibilityCreator")
+  revokedTierUpgradeEligibilities MembershipTierUpgradeEligibility[] @relation("TierUpgradeEligibilityRevoker")
+  membershipUpgradeOffers         MembershipUpgradeOffer[]           @relation("MembershipUpgradeOfferUser")
+  createdMembershipUpgradeOffers  MembershipUpgradeOffer[]           @relation("MembershipUpgradeOfferCreator")
+  revokedMembershipUpgradeOffers  MembershipUpgradeOffer[]           @relation("MembershipUpgradeOfferRevoker")
   generatedFreeInvites            FreeAccountInviteCode[]            @relation("FreeInviteGeneratedBy")
   assignedFreeInvites             FreeAccountInviteCode[]            @relation("FreeInviteAssignedUser")
   usedFreeInvites                 FreeAccountInviteCode[]            @relation("FreeInviteUsedBy")
@@ -785,9 +887,10 @@ model TermsAcceptance {
   emailMessageId      String?
   emailError          String?
   metadata            Json?
+  retentionClass      RecordRetentionClass     @default(VITAL)
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
-  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId, acceptedAt])
   @@index([termsVersion, acceptedAt])
@@ -914,42 +1017,85 @@ model Membership {
 }
 
 model MembershipTierUpgradeEligibility {
-  id              String         @id @default(cuid())
-  userId          String
-  tier            MembershipTier
-  reason          String?
-  active          Boolean        @default(true)
-  expiresAt       DateTime?
-  createdByUserId String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  user            User           @relation("TierUpgradeEligibilityUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy       User?          @relation("TierUpgradeEligibilityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  id               String                   @id @default(cuid())
+  userId           String
+  tier             MembershipTier
+  reason           String?
+  active           Boolean                  @default(true)
+  expiresAt        DateTime?
+  createdByUserId  String?
+  revokedAt        DateTime?
+  revokedByUserId  String?
+  revocationReason String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  user             User                     @relation("TierUpgradeEligibilityUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy        User?                    @relation("TierUpgradeEligibilityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  revokedBy        User?                    @relation("TierUpgradeEligibilityRevoker", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  offers           MembershipUpgradeOffer[]
 
   @@unique([userId, tier])
+  @@unique([id, userId, tier])
   @@index([tier, active, expiresAt])
   @@index([createdByUserId, createdAt])
+  @@index([revokedByUserId, revokedAt])
 }
 
 model MembershipPromotionGrant {
-  id              String               @id @default(cuid())
-  scope           PromotionAccessScope @default(USER)
-  userId          String?
-  sourceTier      MembershipTier       @default(FREE)
-  targetTier      MembershipTier
-  label           String
-  reason          String?
-  active          Boolean              @default(true)
-  startsAt        DateTime             @default(now())
-  expiresAt       DateTime
-  createdByUserId String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  user            User?                @relation("PromotionGrantUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy       User?                @relation("PromotionGrantCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  id               String               @id @default(cuid())
+  scope            PromotionAccessScope @default(USER)
+  userId           String?
+  sourceTier       MembershipTier       @default(FREE)
+  targetTier       MembershipTier
+  label            String
+  reason           String?
+  active           Boolean              @default(true)
+  startsAt         DateTime             @default(now())
+  expiresAt        DateTime
+  createdByUserId  String?
+  revokedAt        DateTime?
+  revokedByUserId  String?
+  revocationReason String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  user             User?                @relation("PromotionGrantUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy        User?                @relation("PromotionGrantCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  revokedBy        User?                @relation("PromotionGrantRevoker", fields: [revokedByUserId], references: [id], onDelete: SetNull)
 
   @@index([scope, sourceTier, targetTier, active, startsAt, expiresAt])
   @@index([userId, active, startsAt, expiresAt])
+  @@index([revokedByUserId, revokedAt])
+}
+
+model MembershipUpgradeOffer {
+  id                String                           @id @default(cuid())
+  userId            String
+  eligibilityId     String
+  targetTier        MembershipTier
+  status            MembershipUpgradeOfferStatus     @default(OFFERED)
+  upgradeMode       MembershipUpgradeMode            @default(BETA_FREE)
+  currentPriceCents Int                              @default(0)
+  futurePriceCents  Int?
+  validFrom         DateTime                         @default(now())
+  expiresAt         DateTime?
+  acceptedAt        DateTime?
+  revokedAt         DateTime?
+  createdByUserId   String?
+  revokedByUserId   String?
+  revocationReason  String?
+  idempotencyKey    String                           @unique @default(cuid())
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+  user              User                             @relation("MembershipUpgradeOfferUser", fields: [userId], references: [id], onDelete: Cascade)
+  eligibility       MembershipTierUpgradeEligibility @relation(fields: [eligibilityId, userId, targetTier], references: [id, userId, tier], onDelete: Restrict)
+  createdBy         User?                            @relation("MembershipUpgradeOfferCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  revokedBy         User?                            @relation("MembershipUpgradeOfferRevoker", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, validFrom, expiresAt])
+  @@index([eligibilityId, createdAt])
+  @@index([targetTier, status, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([revokedByUserId, revokedAt])
 }
 
 model FreeAccountInviteCode {
@@ -999,19 +1145,23 @@ model BulkInviteBatch {
 }
 
 model SubscriptionPlanRule {
-  id                    String         @id @default(cuid())
-  tier                  MembershipTier @unique
+  id                    String                @id @default(cuid())
+  tier                  MembershipTier        @unique
   displayName           String
   standardPriceCents    Int
   stripePriceId         String?
   founderPriceCents     Int?
   founderMemberCap      Int?
   founderWindowDays     Int?
-  monthlyCreditBudget   Int            @default(0)
+  monthlyCreditBudget   Int                   @default(0)
   populationCreditTiers Json?
-  active                Boolean        @default(true)
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  active                Boolean               @default(true)
+  memberVisible         Boolean               @default(false)
+  selfServiceEnabled    Boolean               @default(false)
+  upgradeMode           MembershipUpgradeMode @default(NONE)
+  futurePriceCents      Int?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 }
 
 model StripeIntegrationConfig {
@@ -1020,12 +1170,15 @@ model StripeIntegrationConfig {
   publishableKey              String?
   secretKey                   String?
   webhookSecret               String?
+  secretKeyEnvVar             String?
+  webhookSecretEnvVar         String?
   currency                    String                @default("usd")
   subscriptionCheckoutEnabled Boolean               @default(true)
   creditCheckoutEnabled       Boolean               @default(false)
   updatedByUserId             String?
   createdAt                   DateTime              @default(now())
   updatedAt                   DateTime              @updatedAt
+  updatedBy                   User?                 @relation("StripeIntegrationConfigUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([updatedByUserId, updatedAt])
 }
@@ -1047,13 +1200,14 @@ model StripeCreditPackage {
 }
 
 model StripeCheckoutFulfillment {
-  id                      String             @id @default(cuid())
-  stripeCheckoutSessionId String             @unique
+  id                      String               @id @default(cuid())
+  stripeCheckoutSessionId String               @unique
   userId                  String
   kind                    StripeCheckoutKind
   creditPackageKey        String?
   creditsGranted          Int?
-  createdAt               DateTime           @default(now())
+  retentionClass          RecordRetentionClass @default(VITAL)
+  createdAt               DateTime             @default(now())
 
   @@index([userId, createdAt])
 }
@@ -1076,6 +1230,7 @@ model StripeWebhookEvent {
   processedAt     DateTime?
   errorAt         DateTime?
   errorMessage    String?
+  retentionClass  RecordRetentionClass     @default(VITAL)
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
@@ -1105,6 +1260,7 @@ model BillingCheckoutIntent {
   canceledAt              DateTime?
   failedAt                DateTime?
   errorMessage            String?
+  retentionClass          RecordRetentionClass        @default(VITAL)
   createdAt               DateTime                    @default(now())
   updatedAt               DateTime                    @updatedAt
   user                    User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -1141,19 +1297,27 @@ model DiagnosticLog {
 }
 
 model AuditLog {
-  id          String        @id @default(cuid())
-  actorUserId String?
-  module      String
-  action      String
-  targetType  String?
-  targetId    String?
-  severity    AuditSeverity @default(info)
-  metadata    Json?
-  createdAt   DateTime      @default(now())
-  actor       User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  id             String               @id @default(cuid())
+  operationId    String               @unique @default(cuid())
+  requestId      String?
+  actorUserId    String?
+  module         String
+  action         String
+  targetType     String?
+  targetId       String?
+  severity       AuditSeverity        @default(info)
+  outcome        AuditOutcome         @default(SUCCESS)
+  retentionClass RecordRetentionClass @default(VITAL)
+  before         Json?
+  after          Json?
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+  actor          User?                @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([module, action, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([requestId, createdAt])
+  @@index([outcome, createdAt])
 }
 
 model PlatformActivityEvent {
@@ -1179,25 +1343,58 @@ model PlatformActivityEvent {
 }
 
 model PlatformJob {
-  id          String            @id @default(cuid())
-  kind        String
-  status      PlatformJobStatus @default(PENDING)
-  payload     Json?
-  result      Json?
-  error       String?
-  attempts    Int               @default(0)
-  maxAttempts Int               @default(5)
-  runAfter    DateTime          @default(now())
-  lockedAt    DateTime?
-  lockedBy    String?
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id                       String                    @id @default(cuid())
+  kind                     String
+  status                   PlatformJobStatus         @default(PENDING)
+  payload                  Json?
+  result                   Json?
+  error                    String?
+  attempts                 Int                       @default(0)
+  maxAttempts              Int                       @default(5)
+  runAfter                 DateTime                  @default(now())
+  lockedAt                 DateTime?
+  lockedBy                 String?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  destructiveActionRequest DestructiveActionRequest?
 
   @@index([status, runAfter, createdAt])
   @@index([kind, status, runAfter])
   @@index([lockedAt])
+}
+
+model DestructiveActionRequest {
+  id                          String                  @id @default(cuid())
+  idempotencyKey              String                  @unique @default(cuid())
+  kind                        DestructiveActionKind
+  status                      DestructiveActionStatus @default(PENDING_CONFIRMATION)
+  targetType                  String
+  targetId                    String
+  reason                      String
+  requestedByUserId           String?
+  confirmedByUserId           String?
+  confirmationSecurityEventId String?                 @unique
+  platformJobId               String?                 @unique
+  confirmedAt                 DateTime?
+  startedAt                   DateTime?
+  completedAt                 DateTime?
+  failedAt                    DateTime?
+  error                       String?
+  result                      Json?
+  retentionClass              RecordRetentionClass    @default(VITAL)
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  requestedBy                 User?                   @relation("DestructiveActionRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  confirmedBy                 User?                   @relation("DestructiveActionConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmationSecurityEvent   AuthSecurityEvent?      @relation(fields: [confirmationSecurityEventId], references: [id], onDelete: SetNull)
+  platformJob                 PlatformJob?            @relation(fields: [platformJobId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([kind, targetType, targetId, createdAt])
+  @@index([requestedByUserId, createdAt])
+  @@index([confirmedByUserId, confirmedAt])
 }
 
 model UserApplicationUsageMetric {
@@ -1235,13 +1432,22 @@ model UserInterest {
 }
 
 model FeatureFlag {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  enabled     Boolean  @default(false)
-  description String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  key             String   @unique
+  displayName     String?
+  category        String   @default("General")
+  sortOrder       Int      @default(0)
+  enabled         Boolean  @default(false)
+  description     String?
+  metadata        Json?
+  updatedByUserId String?
+  version         Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedBy       User?    @relation("FeatureFlagUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([category, sortOrder, key])
+  @@index([updatedByUserId, updatedAt])
 }
 
 model ModuleHealthCheck {
@@ -1254,42 +1460,77 @@ model ModuleHealthCheck {
 }
 
 model AdminAction {
-  id          String   @id @default(cuid())
-  actorUserId String?
-  actionKey   String
-  module      String
-  status      String
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  actor       User?    @relation("AdminActionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  id             String               @id @default(cuid())
+  actorUserId    String?
+  actionKey      String
+  module         String
+  status         String
+  metadata       Json?
+  retentionClass RecordRetentionClass @default(VITAL)
+  createdAt      DateTime             @default(now())
+  actor          User?                @relation("AdminActionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([actionKey, createdAt])
   @@index([actorUserId, createdAt])
 }
 
 model PublicAnnouncement {
-  id                       String    @id @default(cuid())
-  createdByUserId          String
+  id                       String               @id @default(cuid())
+  createdByUserId          String?
   title                    String
   body                     String
   audienceKind             String
   audienceValue            String?
-  channels                 String[]  @default([])
-  recipientCount           Int       @default(0)
-  chatDeliveryCount        Int       @default(0)
-  mailDeliveryCount        Int       @default(0)
-  popupDeliveryCount       Int       @default(0)
-  globalPostDeliveryCount  Int       @default(0)
-  personalEmailQueuedCount Int       @default(0)
+  channels                 String[]             @default([])
+  recipientCount           Int                  @default(0)
+  chatDeliveryCount        Int                  @default(0)
+  mailDeliveryCount        Int                  @default(0)
+  popupDeliveryCount       Int                  @default(0)
+  globalPostDeliveryCount  Int                  @default(0)
+  personalEmailQueuedCount Int                  @default(0)
   feedPostId               String?
   metadata                 Json?
+  retentionClass           RecordRetentionClass @default(VITAL)
   dismissedAt              DateTime?
   dismissedByUserId        String?
-  createdAt                DateTime  @default(now())
+  createdAt                DateTime             @default(now())
+  createdBy                User?                @relation("PublicAnnouncementCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  dismissedBy              User?                @relation("PublicAnnouncementDismisser", fields: [dismissedByUserId], references: [id], onDelete: SetNull)
+  deliveryOutboxItems      DeliveryOutbox[]
 
   @@index([dismissedAt, createdAt])
   @@index([createdByUserId, createdAt])
   @@index([audienceKind, createdAt])
+}
+
+model DeliveryOutbox {
+  id                String               @id @default(cuid())
+  announcementId    String
+  recipientUserId   String?
+  recipientAddress  String?
+  channel           DeliveryChannel
+  status            DeliveryOutboxStatus @default(PENDING)
+  idempotencyKey    String               @unique @default(cuid())
+  payload           Json
+  availableAt       DateTime             @default(now())
+  attempts          Int                  @default(0)
+  maxAttempts       Int                  @default(5)
+  lockedAt          DateTime?
+  lockedBy          String?
+  providerMessageId String?
+  error             String?
+  sentAt            DateTime?
+  failedAt          DateTime?
+  retentionClass    RecordRetentionClass @default(VITAL)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  announcement      PublicAnnouncement   @relation(fields: [announcementId], references: [id], onDelete: Restrict)
+  recipient         User?                @relation("DeliveryOutboxRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt, createdAt])
+  @@index([announcementId, channel, status])
+  @@index([recipientUserId, createdAt])
+  @@index([lockedAt])
 }
 
 model MediaAsset {
@@ -1816,14 +2057,15 @@ model EncryptedChatEnvelope {
 }
 
 model MailThread {
-  id              String           @id @default(cuid())
+  id              String               @id @default(cuid())
   subject         String
-  deliveryKind    MailDeliveryKind @default(DIRECT)
+  deliveryKind    MailDeliveryKind     @default(DIRECT)
   createdByUserId String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   lastMessageAt   DateTime?
-  createdBy       User?            @relation("MailThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  retentionClass  RecordRetentionClass @default(VITAL)
+  createdBy       User?                @relation("MailThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   messages        MailMessage[]
 
   @@index([deliveryKind, lastMessageAt])
@@ -1831,35 +2073,38 @@ model MailThread {
 }
 
 model MailMessage {
-  id           String           @id @default(cuid())
-  threadId     String
-  senderUserId String
-  subject      String
-  bodyText     String
-  bodyHtml     String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  deletedAt    DateTime?
-  thread       MailThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender       User             @relation("MailMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
-  recipients   MailRecipient[]
-  attachments  MailAttachment[]
+  id                     String               @id @default(cuid())
+  threadId               String
+  senderUserId           String
+  senderIdentitySnapshot String               @default("Unknown sender")
+  subject                String
+  bodyText               String
+  bodyHtml               String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  deletedAt              DateTime?
+  retentionClass         RecordRetentionClass @default(VITAL)
+  thread                 MailThread           @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  sender                 User                 @relation("MailMessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+  recipients             MailRecipient[]
+  attachments            MailAttachment[]
 
   @@index([threadId, createdAt])
   @@index([senderUserId, createdAt])
 }
 
 model MailRecipient {
-  id         String            @id @default(cuid())
-  messageId  String
-  userId     String
-  type       MailRecipientType @default(TO)
-  readAt     DateTime?
-  archivedAt DateTime?
-  deletedAt  DateTime?
-  createdAt  DateTime          @default(now())
-  message    MailMessage       @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                        String            @id @default(cuid())
+  messageId                 String
+  userId                    String
+  recipientIdentitySnapshot String            @default("Unknown recipient")
+  type                      MailRecipientType @default(TO)
+  readAt                    DateTime?
+  archivedAt                DateTime?
+  deletedAt                 DateTime?
+  createdAt                 DateTime          @default(now())
+  message                   MailMessage       @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  user                      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([messageId, userId, type])
   @@index([userId, readAt, createdAt])
@@ -1877,7 +2122,7 @@ model MailAttachment {
   storageKey   String?
   publicUrl    String?
   createdAt    DateTime           @default(now())
-  message      MailMessage        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  message      MailMessage        @relation(fields: [messageId], references: [id], onDelete: Restrict)
   mediaAsset   MediaAsset?        @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
 
   @@index([messageId, createdAt])
@@ -2352,7 +2597,7 @@ model BusinessProfile {
   emailLinkingEnabled      Boolean                @default(false)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
-  owner                    User                   @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner                    User                   @relation("BusinessProfileOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   inquiries                BusinessInquiry[]
   adCampaigns              AdCampaign[]
   articles                 BusinessArticle[]
@@ -2374,7 +2619,7 @@ model StorefrontForumTopic {
   deletedByUserId   String?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
-  businessProfile   BusinessProfile       @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  businessProfile   BusinessProfile       @relation(fields: [businessProfileId], references: [id], onDelete: Restrict)
   author            User?                 @relation("StorefrontForumTopicAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
   deletedBy         User?                 @relation("StorefrontForumTopicDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   posts             StorefrontForumPost[]
@@ -2430,6 +2675,7 @@ model BusinessInquiry {
   senderEmail       String?
   message           String
   status            BusinessInquiryStatus @default(NEW)
+  retentionClass    RecordRetentionClass  @default(VITAL)
   createdAt         DateTime              @default(now())
   businessProfile   BusinessProfile       @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
 
@@ -2590,17 +2836,30 @@ model AdDisplayScheduleSlot {
 }
 
 model AdCreditLedgerEntry {
-  id         String   @id @default(cuid())
-  userId     String
-  amount     Int
-  reason     String
-  sourceType String?
-  sourceId   String?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String                  @id @default(cuid())
+  idempotencyKey   String                  @unique @default(cuid())
+  userId           String
+  accountReference String?
+  entryType        PlatformCreditEntryType @default(ADJUSTMENT)
+  amount           Int
+  balanceAfter     Int?
+  reason           String
+  sourceType       String?
+  sourceId         String?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  actorUserId      String?
+  metadata         Json?
+  retentionClass   RecordRetentionClass    @default(VITAL)
+  createdAt        DateTime                @default(now())
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  actor            User?                   @relation("CreditLedgerActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([accountReference, createdAt])
+  @@index([entryType, createdAt])
   @@index([sourceType, sourceId])
+  @@index([actorUserId, createdAt])
 }
 
 model AdDeliveryLog {
@@ -2633,7 +2892,7 @@ model FundraiserCampaign {
   endsAt          DateTime?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
-  creator         User                     @relation("FundraiserCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  creator         User                     @relation("FundraiserCreator", fields: [creatorUserId], references: [id], onDelete: Restrict)
   contributions   FundContributionIntent[]
   ledgerEntries   FundLedgerEntry[]
 
@@ -2654,7 +2913,7 @@ model FundContributionIntent {
   note               String?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
-  campaign           FundraiserCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign           FundraiserCampaign     @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   contributor        User?                  @relation("FundContributionContributor", fields: [contributorUserId], references: [id], onDelete: SetNull)
 
   @@index([campaignId, status, createdAt])
@@ -2662,16 +2921,17 @@ model FundContributionIntent {
 }
 
 model FundLedgerEntry {
-  id          String              @id @default(cuid())
-  campaignId  String
-  entryType   FundLedgerEntryType
-  amountCents Int
-  currency    String              @default("USD")
-  sourceType  String?
-  sourceId    String?
-  note        String?
-  createdAt   DateTime            @default(now())
-  campaign    FundraiserCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id             String               @id @default(cuid())
+  campaignId     String
+  entryType      FundLedgerEntryType
+  amountCents    Int
+  currency       String               @default("USD")
+  sourceType     String?
+  sourceId       String?
+  note           String?
+  retentionClass RecordRetentionClass @default(VITAL)
+  createdAt      DateTime             @default(now())
+  campaign       FundraiserCampaign   @relation(fields: [campaignId], references: [id], onDelete: Restrict)
 
   @@index([campaignId, createdAt])
   @@index([sourceType, sourceId])
@@ -2732,16 +2992,23 @@ model WriterChapter {
 }
 
 model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  title     String
-  body      String?
-  href      String?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String           @id @default(cuid())
+  idempotencyKey String           @unique @default(cuid())
+  userId         String
+  kind           NotificationKind @default(GENERAL)
+  sourceType     String?
+  sourceId       String?
+  actionable     Boolean          @default(false)
+  title          String
+  body           String?
+  href           String?
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt, createdAt])
+  @@index([kind, createdAt])
+  @@index([sourceType, sourceId])
 }
 
 model Alert {
@@ -2822,22 +3089,27 @@ model ConductIncident {
 }
 
 model ConductReport {
-  id                 String              @id @default(cuid())
-  reference          String              @unique
+  id                 String               @id @default(cuid())
+  reference          String               @unique
   incidentId         String
   reportedUserId     String
   reporterUserId     String?
   type               ConductReportType
-  status             ConductReportStatus @default(ACTIVE)
+  status             ConductReportStatus  @default(ACTIVE)
   reasonCode         String
   context            String?
   policyCodes        String[]
   evidenceContentIds String[]
-  algorithmicWeight  Float               @default(1)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  algorithmicWeight  Float                @default(1)
+  resolvedByUserId   String?
+  resolutionReason   String?
+  version            Int                  @default(1)
+  retentionClass     RecordRetentionClass @default(VITAL)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   resolvedAt         DateTime?
-  incident           ConductIncident     @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  incident           ConductIncident      @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  resolvedBy         User?                @relation("ConductReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
   dispute            ConductDispute?
   events             ConductEvent[]
 
@@ -2845,6 +3117,7 @@ model ConductReport {
   @@index([reportedUserId, status, createdAt])
   @@index([reporterUserId, createdAt])
   @@index([incidentId, status])
+  @@index([resolvedByUserId, resolvedAt])
 }
 
 model ConductCommendation {
@@ -3013,19 +3286,21 @@ model ConductScanState {
 }
 
 model ConductEvent {
-  id            String              @id @default(cuid())
-  incidentId    String?
-  reportId      String?
-  disputeId     String?
-  restrictionId String?
-  actorUserId   String?
-  type          String
-  metadata      Json?
-  createdAt     DateTime            @default(now())
-  incident      ConductIncident?    @relation(fields: [incidentId], references: [id], onDelete: Restrict)
-  report        ConductReport?      @relation(fields: [reportId], references: [id], onDelete: Restrict)
-  dispute       ConductDispute?     @relation(fields: [disputeId], references: [id], onDelete: Restrict)
-  restriction   ConductRestriction? @relation(fields: [restrictionId], references: [id], onDelete: Restrict)
+  id             String               @id @default(cuid())
+  incidentId     String?
+  reportId       String?
+  disputeId      String?
+  restrictionId  String?
+  actorUserId    String?
+  type           String
+  metadata       Json?
+  retentionClass RecordRetentionClass @default(VITAL)
+  createdAt      DateTime             @default(now())
+  incident       ConductIncident?     @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  report         ConductReport?       @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  dispute        ConductDispute?      @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  restriction    ConductRestriction?  @relation(fields: [restrictionId], references: [id], onDelete: Restrict)
+  actor          User?                @relation("ConductEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([incidentId, createdAt])
   @@index([reportId, createdAt])
@@ -3036,15 +3311,16 @@ model ConductEvent {
 }
 
 model AuthSecurityEvent {
-  id         String                @id @default(cuid())
-  userId     String?
-  type       AuthSecurityEventType
-  identifier String?
-  ipAddress  String?
-  userAgent  String?
-  metadata   Json?
-  createdAt  DateTime              @default(now())
-  user       User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id                            String                    @id @default(cuid())
+  userId                        String?
+  type                          AuthSecurityEventType
+  identifier                    String?
+  ipAddress                     String?
+  userAgent                     String?
+  metadata                      Json?
+  createdAt                     DateTime                  @default(now())
+  user                          User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  destructiveActionConfirmation DestructiveActionRequest?
 
   @@index([type, createdAt])
   @@index([userId, createdAt])
@@ -3091,38 +3367,51 @@ model TwoFactorConfig {
 }
 
 model FeedbackTicket {
-  id             String                 @id @default(cuid())
-  publicId       String                 @unique
-  reporterUserId String?
-  reporterEmail  String?
-  pageUrl        String?
-  title          String
-  description    String
-  kind           FeedbackTicketKind     @default(ISSUE_REPORT)
-  severity       FeedbackTicketSeverity @default(normal)
-  status         FeedbackTicketStatus   @default(OPEN)
-  userAgent      String?
-  diagnostics    Json?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  reporter       User?                  @relation("FeedbackReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
-  events         FeedbackTicketEvent[]
+  id               String                 @id @default(cuid())
+  publicId         String                 @unique
+  reporterUserId   String?
+  reporterEmail    String?
+  pageUrl          String?
+  title            String
+  description      String
+  kind             FeedbackTicketKind     @default(ISSUE_REPORT)
+  severity         FeedbackTicketSeverity @default(normal)
+  status           FeedbackTicketStatus   @default(OPEN)
+  userAgent        String?
+  diagnostics      Json?
+  assignedToUserId String?
+  resolvedByUserId String?
+  resolution       String?
+  resolvedAt       DateTime?
+  version          Int                    @default(1)
+  retentionClass   RecordRetentionClass   @default(VITAL)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  reporter         User?                  @relation("FeedbackReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  assignedTo       User?                  @relation("FeedbackAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  resolvedBy       User?                  @relation("FeedbackResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  events           FeedbackTicketEvent[]
 
   @@index([status, createdAt])
   @@index([kind, createdAt])
   @@index([reporterUserId, createdAt])
+  @@index([assignedToUserId, status, createdAt])
+  @@index([resolvedByUserId, resolvedAt])
 }
 
 model FeedbackTicketEvent {
-  id        String         @id @default(cuid())
-  ticketId  String
-  actorId   String?
-  action    String
-  metadata  Json?
-  createdAt DateTime       @default(now())
-  ticket    FeedbackTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id             String               @id @default(cuid())
+  ticketId       String
+  actorId        String?
+  action         String
+  metadata       Json?
+  retentionClass RecordRetentionClass @default(VITAL)
+  createdAt      DateTime             @default(now())
+  ticket         FeedbackTicket       @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor          User?                @relation("FeedbackTicketEventActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([ticketId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model MembershipPolicyOverride {

@@ -1,3 +1,6 @@
+import type { FeedbackTicketStatus } from "@prisma/client";
+import type { AdminCommand, AdminCommandTarget } from "@/modules/admin-moderation/admin-command.contract";
+
 export type AdminActionCard = {
   key: string;
   title: string;
@@ -30,6 +33,8 @@ export type AdminFeedbackTicketView = {
   reporterEmail: string | null;
   reporterName: string;
   severity: string;
+  // The current read model can contain legacy values; state-changing commands
+  // below are constrained to Prisma's FeedbackTicketStatus enum.
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -71,3 +76,33 @@ export type AdminAnnouncementResult = {
   dismissedByUserId: string | null;
   createdAt: string;
 };
+
+export type AdminFeedbackTicketTransitionPayload = {
+  fromStatus: FeedbackTicketStatus;
+  toStatus: FeedbackTicketStatus;
+  note: string;
+  assigneeUserId?: string | null;
+};
+
+export type AdminFeedbackTicketTransitionCommand = AdminCommand<
+  "feedback-ticket.transition",
+  AdminFeedbackTicketTransitionPayload,
+  AdminCommandTarget<"FeedbackTicket">
+>;
+
+export type AdminFeedbackTicketAssignmentPayload = {
+  assigneeUserId: string | null;
+  note: string;
+};
+
+export type AdminFeedbackTicketAssignmentCommand = AdminCommand<
+  "feedback-ticket.assign",
+  AdminFeedbackTicketAssignmentPayload,
+  AdminCommandTarget<"FeedbackTicket">
+>;
+
+export type AdminFeedbackTicketNoteCommand = AdminCommand<
+  "feedback-ticket.note",
+  { note: string },
+  AdminCommandTarget<"FeedbackTicket">
+>;
