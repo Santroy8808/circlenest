@@ -272,6 +272,7 @@ enum MediaAssetStatus {
   CREATED
   UPLOADING
   READY
+  DELETING
   FAILED
 }
 
