@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { getMediaAssetReferenceErrorMessage } from "@/lib/platform/media-asset-reference-fence";
 import { isAdminRole } from "@/lib/platform/roles";
 import { verifyPassword } from "@/modules/auth-security/password";
 import { deleteR2Object } from "@/lib/platform/r2";
@@ -546,6 +547,10 @@ export async function completeGroupAssetUpload(viewerUserId: string, groupIdOrSl
   } catch (error) {
     if (error instanceof GroupUploadCompletionError) {
       return { ok: false as const, error: error.message };
+    }
+    const mediaReferenceError = getMediaAssetReferenceErrorMessage(error);
+    if (mediaReferenceError) {
+      return { ok: false as const, error: mediaReferenceError };
     }
     throw error;
   }

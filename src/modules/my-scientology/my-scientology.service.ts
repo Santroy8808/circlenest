@@ -1,6 +1,7 @@
 import { MediaAssetStatus, MediaVisibility, ScientologyVisibility, UploadIntentPurpose } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { withMediaAssetReferenceValidation } from "@/lib/platform/media-asset-reference-fence";
 import {
   completeUploadIntent,
   consumeVerifiedUploadIntent,
@@ -159,11 +160,12 @@ export async function completeScientologyCommendationUpload(userId: string, inpu
     return { ok: false as const, error: "Upload intent does not match this commendation." };
   }
 
-  const consumed = await consumeVerifiedUploadIntent({
-    ownerUserId: userId,
-    intentId: parsed.data.intentId,
-    purpose: UploadIntentPurpose.PROFILE_MEDIA,
-    consume: async (transaction, intent) => {
+  const completion = await withMediaAssetReferenceValidation(() =>
+    consumeVerifiedUploadIntent({
+      ownerUserId: userId,
+      intentId: parsed.data.intentId,
+      purpose: UploadIntentPurpose.PROFILE_MEDIA,
+      consume: async (transaction, intent) => {
       const profile = await transaction.scientologyProfile.upsert({
         where: { userId },
         update: {},
@@ -201,8 +203,11 @@ export async function completeScientologyCommendationUpload(userId: string, inpu
       });
 
       return commendation;
-    }
-  });
+      }
+    })
+  );
+  if (!completion.ok) return completion;
+  const consumed = completion.value;
   if (!consumed.ok) return consumed;
   const result = consumed.value;
 

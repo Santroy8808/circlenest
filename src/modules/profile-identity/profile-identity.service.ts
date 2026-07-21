@@ -1,6 +1,7 @@
 import { FamilyRelationshipRequestStatus, FriendRelationshipRequestStatus, MediaAssetStatus, Prisma, ProfileVisibility, ScientologyVisibility, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
 import { setProfileMediaSchema, updateProfileSchema, type ProfileCardView } from "@/modules/profile-identity/types";
 import { listApprovedFamilyMembers } from "@/modules/social-graph/social-graph.service";
 
@@ -18,6 +19,70 @@ export function profileMediaAssetSelectionWhere(userId: string, mediaAssetId: st
     status: MediaAssetStatus.READY,
     mimeType: { startsWith: "image/", mode: "insensitive" as const }
   } satisfies Prisma.MediaAssetWhereInput;
+}
+
+export async function selectProfileMediaWithinTransaction(
+  transaction: Prisma.TransactionClient,
+  userId: string,
+  input: { mediaAssetId: string; target: "avatar" | "banner" }
+) {
+  const lockedUsers = await transaction.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "User"
+    WHERE "id" = ${userId}
+    FOR UPDATE
+  `);
+
+  if (lockedUsers.length === 0) return { kind: "USER_NOT_FOUND" as const };
+
+  const lockedAssets = await transaction.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "MediaAsset"
+    WHERE "id" = ${input.mediaAssetId}
+      AND "ownerUserId" = ${userId}
+    FOR UPDATE
+  `);
+
+  if (lockedAssets.length === 0) return { kind: "ASSET_NOT_FOUND" as const };
+
+  const user = await transaction.user.findUnique({
+    where: { id: userId },
+    include: { profile: true }
+  });
+
+  if (!user) return { kind: "USER_NOT_FOUND" as const };
+
+  const asset = await transaction.mediaAsset.findFirst({
+    where: profileMediaAssetSelectionWhere(userId, input.mediaAssetId),
+    select: {
+      id: true,
+      mimeType: true
+    }
+  });
+
+  if (!asset || !isProfileMediaMimeType(asset.mimeType)) {
+    return { kind: "ASSET_NOT_FOUND" as const };
+  }
+
+  const mediaUrl = mediaAssetDeliveryPath(asset.id);
+  const profile = await transaction.profile.upsert({
+    where: { userId },
+    update: input.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },
+    create: {
+      userId,
+      displayName: user.profile?.displayName ?? user.username,
+      avatarUrl: input.target === "avatar" ? mediaUrl : null,
+      bannerUrl: input.target === "banner" ? mediaUrl : null
+    },
+    select: {
+      userId: true,
+      avatarUrl: true,
+      bannerUrl: true,
+      updatedAt: true
+    }
+  });
+
+  return { kind: "SELECTED" as const, assetId: asset.id, mediaUrl, profile };
 }
 
 function withProfileDbTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
@@ -264,46 +329,9 @@ export async function setProfileMediaFromGallery(userId: string, input: unknown)
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid profile image." };
   }
 
-  const selection = await prisma.$transaction(async (transaction) => {
-    const user = await transaction.user.findUnique({
-      where: { id: userId },
-      include: { profile: true }
-    });
-
-    if (!user) return { kind: "USER_NOT_FOUND" as const };
-
-    const asset = await transaction.mediaAsset.findFirst({
-      where: profileMediaAssetSelectionWhere(userId, parsed.data.mediaAssetId),
-      select: {
-        id: true,
-        mimeType: true
-      }
-    });
-
-    if (!asset || !isProfileMediaMimeType(asset.mimeType)) {
-      return { kind: "ASSET_NOT_FOUND" as const };
-    }
-
-    const mediaUrl = `/api/media/assets/${asset.id}`;
-    const profile = await transaction.profile.upsert({
-      where: { userId },
-      update: parsed.data.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },
-      create: {
-        userId,
-        displayName: user.profile?.displayName ?? user.username,
-        avatarUrl: parsed.data.target === "avatar" ? mediaUrl : null,
-        bannerUrl: parsed.data.target === "banner" ? mediaUrl : null
-      },
-      select: {
-        userId: true,
-        avatarUrl: true,
-        bannerUrl: true,
-        updatedAt: true
-      }
-    });
-
-    return { kind: "SELECTED" as const, assetId: asset.id, mediaUrl, profile };
-  });
+  const selection = await prisma.$transaction((transaction) =>
+    selectProfileMediaWithinTransaction(transaction, userId, parsed.data)
+  );
 
   if (selection.kind === "USER_NOT_FOUND") {
     return { ok: false as const, error: "User was not found." };

@@ -7,6 +7,10 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  lockReadyMediaAssetsForReference,
+  withMediaAssetReferenceValidation
+} from "@/lib/platform/media-asset-reference-fence";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
   assertConductTargetsAllowed,
@@ -555,7 +559,7 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
   const mentionedUserIds = await resolveMentionedUserIds(parsed.data.body ?? "");
 
   try {
-    const post = await prisma.$transaction(async (tx) => {
+    const creation = await withMediaAssetReferenceValidation(() => prisma.$transaction(async (tx) => {
       await requireActiveMembership(tx, viewerUserId, context.group.id);
       const thread = await tx.groupForumThread.findFirst({
         where: {
@@ -628,6 +632,8 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
         throw new GroupForumInteractionError("That photo could not be used.");
       }
 
+      await lockReadyMediaAssetsForReference(tx, asset ? [asset.id] : []);
+
       const created = await tx.groupForumPost.create({
         data: {
           threadId: thread.id,
@@ -657,7 +663,9 @@ export async function createGroupForumPost(viewerUserId: string, groupIdOrSlug: 
       }
 
       return created;
-    });
+    }));
+    if (!creation.ok) return creation;
+    const post = creation.value;
 
     return { ok: true as const, post };
   } catch (error) {

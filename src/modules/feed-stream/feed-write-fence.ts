@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { assertAccountDeletionFenceOpen } from "@/lib/platform/account-deletion-fence";
+import { lockReadyMediaAssetsForReference } from "@/lib/platform/media-asset-reference-fence";
 
 type LockedFeedPost = {
   id: string;
@@ -7,23 +8,6 @@ type LockedFeedPost = {
   targetProfileUserId: string | null;
   mediaOwnerUserId: string | null;
 };
-
-async function loadFeedMediaOwners(
-  tx: Prisma.TransactionClient,
-  mediaAssetIds: readonly string[]
-) {
-  const normalizedIds = [...new Set(mediaAssetIds.filter(Boolean))].sort();
-  const mediaAssets = normalizedIds.length
-    ? await tx.mediaAsset.findMany({
-        where: { id: { in: normalizedIds } },
-        select: { id: true, ownerUserId: true }
-      })
-    : [];
-  if (mediaAssets.length !== normalizedIds.length) {
-    throw new Error("A feed media owner changed while the feed write was being authorized.");
-  }
-  return mediaAssets;
-}
 
 export async function assertNewFeedPostWriteAllowed(
   tx: Prisma.TransactionClient,
@@ -33,12 +17,16 @@ export async function assertNewFeedPostWriteAllowed(
     additionalUserIds?: readonly string[];
   }
 ) {
-  const mediaAssets = await loadFeedMediaOwners(tx, input.mediaAssetIds ?? []);
+  const baseUserIds = [input.actorUserId, ...(input.additionalUserIds ?? [])];
+  const mediaAssets = await lockReadyMediaAssetsForReference(
+    tx,
+    input.mediaAssetIds ?? [],
+    { additionalUserIds: baseUserIds }
+  );
   await assertAccountDeletionFenceOpen(
     tx,
     [
-      input.actorUserId,
-      ...(input.additionalUserIds ?? []),
+      ...baseUserIds,
       ...mediaAssets.map((mediaAsset) => mediaAsset.ownerUserId)
     ],
     "Feed content cannot be created after its actor or owner is deactivated or queued for deletion."
@@ -106,18 +94,25 @@ export async function assertFeedChildWriteAllowed(
     : null;
   if (input.commentId && !comment) return null;
 
-  const mediaAssets = await loadFeedMediaOwners(tx, input.mediaAssetIds ?? []);
+  const baseUserIds = [
+    input.actorUserId,
+    post.authorUserId,
+    post.targetProfileUserId,
+    post.mediaOwnerUserId,
+    comment?.authorUserId,
+    comment?.mediaAsset?.ownerUserId,
+    ...(input.additionalUserIds ?? [])
+  ].filter((userId): userId is string => Boolean(userId));
+  const mediaAssets = await lockReadyMediaAssetsForReference(
+    tx,
+    input.mediaAssetIds ?? [],
+    { additionalUserIds: baseUserIds }
+  );
 
   await assertAccountDeletionFenceOpen(
     tx,
     [
-      input.actorUserId,
-      post.authorUserId,
-      post.targetProfileUserId,
-      post.mediaOwnerUserId,
-      comment?.authorUserId,
-      comment?.mediaAsset?.ownerUserId,
-      ...(input.additionalUserIds ?? []),
+      ...baseUserIds,
       ...mediaAssets.map((mediaAsset) => mediaAsset.ownerUserId)
     ].filter((userId): userId is string => Boolean(userId)),
     "Feed content cannot be changed after its actor or owner is deactivated or queued for deletion."

@@ -1,6 +1,7 @@
 import { FeedReactionType, FeedVisibility, MediaAssetStatus, MembershipTier, Prisma, SocialRelationshipType } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import { withMediaAssetReferenceValidation } from "@/lib/platform/media-asset-reference-fence";
 import { normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import {
   attachFeedCommentHashtags,
@@ -942,7 +943,7 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     throw error;
   }
 
-  const post = await prisma.$transaction(async (tx) => {
+  const creation = await withMediaAssetReferenceValidation(() => prisma.$transaction(async (tx) => {
     await assertNewFeedPostWriteAllowed(tx, {
       actorUserId: authorUserId,
       additionalUserIds: parsed.data.targetProfileUserId ? [parsed.data.targetProfileUserId] : [],
@@ -972,7 +973,9 @@ export async function createFeedPost(authorUserId: string, input: unknown) {
     });
 
     return createdPost;
-  });
+  }));
+  if (!creation.ok) return creation;
+  const post = creation.value;
 
   const postView = await fetchFeedPostPreview(post.id, policy);
 
@@ -1049,7 +1052,7 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
     throw error;
   }
 
-  const comment = await prisma.$transaction(async (tx) => {
+  const creation = await withMediaAssetReferenceValidation(() => prisma.$transaction(async (tx) => {
     const allowed = await assertFeedChildWriteAllowed(tx, {
       postId: parsed.data.postId,
       actorUserId: authorUserId,
@@ -1080,7 +1083,9 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
     if (!notificationResult.ok) throw new Error(notificationResult.error);
 
     return createdComment;
-  });
+  }));
+  if (!creation.ok) return creation;
+  const comment = creation.value;
   if (!comment) {
     return { ok: false as const, error: "Post or parent comment is no longer available." };
   }

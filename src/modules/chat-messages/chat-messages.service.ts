@@ -14,6 +14,10 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import {
+  lockReadyMediaAssetsForReference,
+  withMediaAssetReferenceValidation
+} from "@/lib/platform/media-asset-reference-fence";
+import {
   assertConductInteractionAllowed,
   assertConductTargetsAllowed,
   ConductInteractionRestrictedError
@@ -1135,7 +1139,7 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     return { ok: false as const, error: "Chat attachments may total up to 40 MB per message." };
   }
 
-  const message = await prisma.$transaction(async (tx) => {
+  const messageCreation = await withMediaAssetReferenceValidation(() => prisma.$transaction(async (tx) => {
     const authorizedThread = await tx.chatThread.findFirst({
       where: scopeChatThreadWhere(context, "interact", { id: parsed.data.threadId }),
       select: { id: true }
@@ -1150,6 +1154,8 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
       attachmentMediaAssetIds: mediaAssetIds
     });
     if (!allowed) return null;
+
+    await lockReadyMediaAssetsForReference(tx, mediaAssetIds);
 
     const created = await tx.chatMessage.create({
       data: {
@@ -1197,7 +1203,9 @@ export async function sendChatMessage(senderUserId: string, input: unknown) {
     await deleteHandledChatNotifications(tx, senderUserId, parsed.data.threadId);
 
     return created;
-  });
+  }));
+  if (!messageCreation.ok) return messageCreation;
+  const message = messageCreation.value;
 
   if (!message) {
     return { ok: false as const, error: "Chat not found or messaging is blocked." };

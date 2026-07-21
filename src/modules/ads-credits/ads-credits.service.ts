@@ -17,6 +17,10 @@ import {
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  lockReadyMediaAssetsForReference,
+  withMediaAssetReferenceValidation
+} from "@/lib/platform/media-asset-reference-fence";
 import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
@@ -1695,9 +1699,12 @@ export async function createAdCampaign(userId: string, input: unknown) {
   let campaign: AdCampaignPayload;
 
   try {
-    campaign = await prisma.$transaction(async (tx) => {
-      if (!access.isAdmin) {
-        const debit = await tx.membership.updateMany({
+    const creation = await withMediaAssetReferenceValidation(() =>
+      prisma.$transaction(async (tx) => {
+        await lockReadyMediaAssetsForReference(tx, image.imageMediaAssetIds);
+
+        if (!access.isAdmin) {
+          const debit = await tx.membership.updateMany({
           where: {
             userId,
             platformCredits: {
@@ -1711,11 +1718,11 @@ export async function createAdCampaign(userId: string, input: unknown) {
           }
         });
 
-        if (debit.count !== 1) {
-          throw new Error(INSUFFICIENT_AD_CREDITS);
-        }
+          if (debit.count !== 1) {
+            throw new Error(INSUFFICIENT_AD_CREDITS);
+          }
 
-        await tx.adCreditLedgerEntry.create({
+          await tx.adCreditLedgerEntry.create({
           data: {
             userId,
             amount: -campaignCostCredits,
@@ -1723,10 +1730,10 @@ export async function createAdCampaign(userId: string, input: unknown) {
             sourceType: "PlatformCostRule",
             sourceId: pricingRule.id
           }
-        });
-      }
+          });
+        }
 
-      return tx.adCampaign.create({
+        return tx.adCampaign.create({
         data: {
           ownerUserId: userId,
           title: parsed.data.title,
@@ -1771,8 +1778,11 @@ export async function createAdCampaign(userId: string, input: unknown) {
             }
           }
         }
-      });
-    });
+        });
+      })
+    );
+    if (!creation.ok) return creation;
+    campaign = creation.value;
   } catch (error) {
     if (error instanceof Error && error.message === INSUFFICIENT_AD_CREDITS) {
       return { ok: false as const, error: "Not enough platform credits for this ad budget." };

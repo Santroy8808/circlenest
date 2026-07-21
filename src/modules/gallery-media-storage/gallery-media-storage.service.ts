@@ -7,10 +7,18 @@ import {
   UploadIntentPurpose,
   UploadIntentStatus
 } from "@prisma/client";
-import { deleteR2Object, getR2PublicUrl, type R2ObjectAccess } from "@/lib/platform/r2";
+import { getR2PublicUrl, type R2ObjectAccess } from "@/lib/platform/r2";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  extractDeletePasswordFromBody,
+  requireDeletePasswordValue
+} from "@/lib/platform/delete-protection";
 import { canAccessMedia, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
+import {
+  queueGalleryMediaDeletionWithinTransaction,
+  SYSTEM_GALLERY_TAGS
+} from "@/modules/gallery-media-storage/gallery-media-deletion.service";
 import {
   moveGalleryVisibilityStorageObjects,
   type GalleryVisibilityStorageObject
@@ -81,16 +89,6 @@ function dateSlug(date = new Date()) {
 }
 
 type UploadSource = "GALLERY" | "STREAM_POST" | "STREAM_REPLY" | "AD_CREATIVE" | "PROFILE_MEDIA" | "BUSINESS_MEDIA";
-const SYSTEM_GALLERY_TAGS = new Set([
-  "stream images",
-  "stream post images",
-  "stream reply images",
-  "ad",
-  "ad images",
-  "ad creative",
-  "profile media",
-  "business media"
-]);
 
 function sourceTags(source: UploadSource) {
   if (source === "STREAM_POST") return ["Stream Images", "Stream Post Images"];
@@ -570,6 +568,7 @@ export async function listMyPics(userId: string, take = 24, options: { includeSy
     prisma.mediaAsset.findMany({
       where: {
         ownerUserId: userId,
+        status: MediaAssetStatus.READY,
         mimeType: {
           startsWith: "image/"
         }
@@ -602,6 +601,7 @@ export async function getMyPic(userId: string, mediaAssetId: string): Promise<Ga
     where: {
       id: mediaAssetId,
       ownerUserId: userId,
+      status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"
       }
@@ -616,6 +616,7 @@ export async function getGalleryAssetViewer(viewerUserId: string, mediaAssetId: 
   const asset = await prisma.mediaAsset.findFirst({
     where: {
       id: mediaAssetId,
+      status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"
       }
@@ -641,6 +642,7 @@ export async function getGalleryAssetViewer(viewerUserId: string, mediaAssetId: 
     prisma.mediaAsset.findFirst({
       where: {
         ownerUserId: asset.ownerUserId,
+        status: MediaAssetStatus.READY,
         visibility: ownerVisibility,
         mimeType: {
           startsWith: "image/"
@@ -660,6 +662,7 @@ export async function getGalleryAssetViewer(viewerUserId: string, mediaAssetId: 
     prisma.mediaAsset.findFirst({
       where: {
         ownerUserId: asset.ownerUserId,
+        status: MediaAssetStatus.READY,
         visibility: ownerVisibility,
         mimeType: {
           startsWith: "image/"
@@ -746,91 +749,72 @@ export async function updateGalleryAssetSettings(userId: string, input: unknown)
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid photo settings." };
   }
 
-  const asset = await prisma.mediaAsset.findFirst({
-    where: {
-      id: parsed.data.mediaAssetId,
-      ownerUserId: userId,
-      mimeType: {
-        startsWith: "image/"
-      }
-    }
-  });
-
-  if (!asset) {
-    return { ok: false as const, error: "Photo not found." };
-  }
-
-  const metadata = (asset.metadata as GalleryAssetMetadata | null) ?? {};
-  const commentsEnabled = parsed.data.visibility !== MediaVisibility.PRIVATE && parsed.data.commentsEnabled;
-  const fromAccess = storageAccessForVisibility(asset.visibility);
-  const toAccess = storageAccessForVisibility(parsed.data.visibility);
-  const storageObjects: GalleryVisibilityStorageObject[] = [
-    {
-      storageKey: asset.storageKey,
-      label: "photo",
-      expectedSizeBytes: Number(asset.sizeBytes),
-      expectedMimeType: asset.mimeType
-    },
-    ...(metadata.thumbnailStorageKey
-      ? [{ storageKey: metadata.thumbnailStorageKey, label: "photo thumbnail", expectedMimeType: "image/jpeg" }]
-      : [])
-  ];
-
-  if (fromAccess !== toAccess) {
-    const storageMove = await moveGalleryVisibilityStorageObjects({
-      objects: storageObjects,
-      sourceAccess: fromAccess,
-      destinationAccess: toAccess
-    });
-
-    if (!storageMove.ok) {
-      await diagnostics.error(MODULE_KEY, "Gallery visibility storage move failed.", {
-        userId,
-        mediaAssetId: asset.id,
-        fromVisibility: asset.visibility,
-        toVisibility: parsed.data.visibility,
-        storageKeys: storageObjects.map((object) => object.storageKey),
-        storageMoveCode: storageMove.code,
-        storageMoveProgress: storageMove.progress,
-        error: storageMove.error
-      });
-
-      return {
-        ok: false as const,
-        code: storageMove.code,
-        retryable: storageMove.retryable,
-        state: "STORAGE_MOVE_INCOMPLETE" as const,
-        error: "The photo storage move is incomplete. Its visibility was not changed. Try again to finish."
-      };
-    }
-  }
-
-  const nextMetadata: GalleryAssetMetadata = {
-    ...metadata,
-    commentsEnabled,
-    thumbnailUrl: metadata.thumbnailStorageKey ? publicUrlForVisibility(metadata.thumbnailStorageKey, parsed.data.visibility) : null
-  };
-
+  let update;
   try {
-    await prisma.mediaAsset.update({
-      where: { id: asset.id },
-      data: {
-        visibility: parsed.data.visibility,
-        publicUrl: publicUrlForVisibility(asset.storageKey, parsed.data.visibility),
-        metadata: nextMetadata
+    update = await prisma.$transaction(
+      (transaction) => updateGalleryAssetSettingsWithinTransaction(transaction, userId, parsed.data),
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5_000,
+        timeout: 60_000
       }
-    });
+    );
   } catch (error) {
-    await diagnostics.error(MODULE_KEY, "Gallery visibility database update failed.", {
+    await diagnostics.error(MODULE_KEY, "Gallery visibility transaction failed.", {
       userId,
-      mediaAssetId: asset.id,
-      fromVisibility: asset.visibility,
+      mediaAssetId: parsed.data.mediaAssetId,
       toVisibility: parsed.data.visibility,
-      storageTransitionComplete: fromAccess !== toAccess,
       error: error instanceof Error ? error.message : "unknown"
     });
+    return {
+      ok: false as const,
+      code: "GALLERY_VISIBILITY_SAVE_FAILED" as const,
+      retryable: true as const,
+      state: "DATABASE_UPDATE_FAILED" as const,
+      error: "Could not save that photo visibility. Try again."
+    };
+  }
 
-    return fromAccess !== toAccess
+  if (update.kind === "NOT_FOUND") {
+    return { ok: false as const, error: "Photo not found." };
+  }
+  if (update.kind === "STORAGE_MOVE_INCOMPLETE") {
+    await diagnostics.error(MODULE_KEY, "Gallery visibility storage move failed.", {
+      userId,
+      mediaAssetId: parsed.data.mediaAssetId,
+      fromVisibility: update.fromVisibility,
+      toVisibility: parsed.data.visibility,
+      storageKeys: update.storageKeys,
+      storageMoveCode: update.storageMove.code,
+      storageMoveProgress: update.storageMove.progress,
+      error: update.storageMove.error
+    });
+    return {
+      ok: false as const,
+      code: update.storageMove.code,
+      retryable: update.storageMove.retryable,
+      state: "STORAGE_MOVE_INCOMPLETE" as const,
+      error: "The photo storage move is incomplete. Its visibility was not changed. Try again to finish."
+    };
+  }
+  if (update.kind === "NO_LONGER_READY") {
+    return {
+      ok: false as const,
+      code: "GALLERY_ASSET_NO_LONGER_READY" as const,
+      retryable: false as const,
+      error: "That photo is no longer available for changes."
+    };
+  }
+  if (update.kind === "SAVE_FAILED") {
+    await diagnostics.error(MODULE_KEY, "Gallery visibility database update failed.", {
+      userId,
+      mediaAssetId: parsed.data.mediaAssetId,
+      fromVisibility: update.fromVisibility,
+      toVisibility: parsed.data.visibility,
+      storageTransitionComplete: update.movedStorage,
+      error: update.error
+    });
+    return update.movedStorage
       ? {
           ok: false as const,
           code: "GALLERY_VISIBILITY_SAVE_PENDING" as const,
@@ -849,13 +833,122 @@ export async function updateGalleryAssetSettings(userId: string, input: unknown)
 
   await diagnostics.info(MODULE_KEY, "Gallery asset visibility updated.", {
     userId,
-    mediaAssetId: asset.id,
-    fromVisibility: asset.visibility,
+    mediaAssetId: update.mediaAssetId,
+    fromVisibility: update.fromVisibility,
     toVisibility: parsed.data.visibility,
-    movedStorage: fromAccess !== toAccess
+    movedStorage: update.movedStorage
   });
 
   return { ok: true as const };
+}
+
+export async function updateGalleryAssetSettingsWithinTransaction(
+  transaction: Prisma.TransactionClient,
+  userId: string,
+  input: { mediaAssetId: string; visibility: MediaVisibility; commentsEnabled: boolean },
+  storageMover: typeof moveGalleryVisibilityStorageObjects = moveGalleryVisibilityStorageObjects
+) {
+  const lockedUsers = await transaction.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "User"
+    WHERE "id" = ${userId}
+    FOR UPDATE
+  `);
+  if (lockedUsers.length === 0) return { kind: "NOT_FOUND" as const };
+
+  const lockedAssets = await transaction.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "MediaAsset"
+    WHERE "id" = ${input.mediaAssetId}
+      AND "ownerUserId" = ${userId}
+    FOR UPDATE
+  `);
+  if (lockedAssets.length === 0) return { kind: "NOT_FOUND" as const };
+
+  const asset = await transaction.mediaAsset.findFirst({
+    where: {
+      id: input.mediaAssetId,
+      ownerUserId: userId,
+      status: MediaAssetStatus.READY,
+      mimeType: {
+        startsWith: "image/",
+        mode: "insensitive"
+      }
+    }
+  });
+
+  if (!asset) return { kind: "NOT_FOUND" as const };
+
+  const metadata = (asset.metadata as GalleryAssetMetadata | null) ?? {};
+  const commentsEnabled = input.visibility !== MediaVisibility.PRIVATE && input.commentsEnabled;
+  const fromAccess = storageAccessForVisibility(asset.visibility);
+  const toAccess = storageAccessForVisibility(input.visibility);
+  const storageObjects: GalleryVisibilityStorageObject[] = [
+    {
+      storageKey: asset.storageKey,
+      label: "photo",
+      expectedSizeBytes: Number(asset.sizeBytes),
+      expectedMimeType: asset.mimeType
+    },
+    ...(metadata.thumbnailStorageKey
+      ? [{ storageKey: metadata.thumbnailStorageKey, label: "photo thumbnail", expectedMimeType: "image/jpeg" }]
+      : [])
+  ];
+
+  if (fromAccess !== toAccess) {
+    const storageMove = await storageMover({
+      objects: storageObjects,
+      sourceAccess: fromAccess,
+      destinationAccess: toAccess
+    });
+
+    if (!storageMove.ok) {
+      return {
+        kind: "STORAGE_MOVE_INCOMPLETE" as const,
+        fromVisibility: asset.visibility,
+        storageKeys: storageObjects.map((object) => object.storageKey),
+        storageMove
+      };
+    }
+  }
+
+  const nextMetadata: GalleryAssetMetadata = {
+    ...metadata,
+    commentsEnabled,
+    thumbnailUrl: metadata.thumbnailStorageKey ? publicUrlForVisibility(metadata.thumbnailStorageKey, input.visibility) : null
+  };
+
+  try {
+    const saved = await transaction.mediaAsset.updateMany({
+      where: {
+        id: asset.id,
+        ownerUserId: userId,
+        status: MediaAssetStatus.READY
+      },
+      data: {
+        visibility: input.visibility,
+        publicUrl: publicUrlForVisibility(asset.storageKey, input.visibility),
+        metadata: nextMetadata
+      }
+    });
+    if (saved.count !== 1) {
+      return { kind: "NO_LONGER_READY" as const };
+    }
+  } catch (error) {
+    return {
+      kind: "SAVE_FAILED" as const,
+      fromVisibility: asset.visibility,
+      movedStorage: fromAccess !== toAccess,
+      error: error instanceof Error ? error.message : "unknown"
+    };
+  }
+
+  return {
+    kind: "UPDATED" as const,
+    mediaAssetId: asset.id,
+    fromVisibility: asset.visibility,
+    movedStorage: fromAccess !== toAccess
+  };
 }
 
 export async function updateGalleryAssetTags(userId: string, input: unknown) {
@@ -878,6 +971,7 @@ export async function updateGalleryAssetTags(userId: string, input: unknown) {
         in: mediaAssetIds
       },
       ownerUserId: userId,
+      status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"
       }
@@ -943,7 +1037,8 @@ export async function updateGalleryAssetTags(userId: string, input: unknown) {
     where: {
       id: {
         in: assetIds
-      }
+      },
+      status: MediaAssetStatus.READY
     },
     include: galleryAssetInclude(),
     orderBy: {
@@ -965,76 +1060,69 @@ export async function updateGalleryAssetTags(userId: string, input: unknown) {
 }
 
 export async function deleteGalleryAssets(userId: string, input: unknown) {
+  const deletePasswordError = requireDeletePasswordValue(extractDeletePasswordFromBody(input));
+  if (deletePasswordError) {
+    return {
+      ok: false as const,
+      error: deletePasswordError.message,
+      code: deletePasswordError.code,
+      field: deletePasswordError.field
+    };
+  }
+
   const parsed = deleteGalleryAssetsSchema.safeParse(input);
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid gallery delete request." };
   }
 
-  const mediaAssetIds = [...new Set(parsed.data.mediaAssetIds)];
-  const assets = await prisma.mediaAsset.findMany({
-    where: {
-      id: {
-        in: mediaAssetIds
-      },
-      ownerUserId: userId,
-      mimeType: {
-        startsWith: "image/"
-      }
-    },
-    select: {
-      id: true,
-      storageKey: true,
-      metadata: true,
-      visibility: true
-    }
-  });
-
-  if (assets.length !== mediaAssetIds.length) {
-    return { ok: false as const, error: "One or more selected photos were not found." };
-  }
-
-  const deleted = await prisma.mediaAsset.deleteMany({
-    where: {
-      id: {
-        in: assets.map((asset) => asset.id)
-      },
-      ownerUserId: userId
-    }
-  });
-
-  await Promise.all(
-    assets.map(async (asset) => {
-      const metadata = asset.metadata as GalleryAssetMetadata | null;
-      const storageKeys = [asset.storageKey, metadata?.thumbnailStorageKey].filter((key): key is string => Boolean(key));
-
-      try {
-        await Promise.all(
-          storageKeys.map((storageKey) =>
-            deleteR2Object(storageKey, asset.visibility === MediaVisibility.PUBLIC ? "public" : "private")
-          )
-        );
-      } catch (error) {
-        await diagnostics.error(MODULE_KEY, "Gallery object deletion failed after database delete.", {
-          userId,
-          mediaAssetId: asset.id,
-          storageKeys,
-          error: error instanceof Error ? error.message : "unknown"
-        });
-      }
-    })
+  const deletion = await prisma.$transaction(
+    (transaction) => queueGalleryMediaDeletionWithinTransaction(transaction, userId, parsed.data.mediaAssetIds),
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );
 
-  await diagnostics.info(MODULE_KEY, "Gallery assets deleted.", {
+  if (deletion.kind === "ASSETS_NOT_FOUND") {
+    return { ok: false as const, error: "One or more selected photos were not found." };
+  }
+  if (deletion.kind === "PROTECTED") {
+    return { ok: false as const, error: "System-managed pictures cannot be deleted from My Pics." };
+  }
+  if (deletion.kind === "IN_USE") {
+    return {
+      ok: false as const,
+      error: `One or more selected photos are still in use by: ${deletion.inUseCategories.join(", ")}.`,
+      inUseCategories: deletion.inUseCategories
+    };
+  }
+  if (deletion.kind === "RECOVERY_INVALID") {
+    return { ok: false as const, error: deletion.error };
+  }
+  if (
+    deletion.kind === "ALREADY_REQUESTED" &&
+    (deletion.status === "FAILED" || deletion.status === "CANCELLED")
+  ) {
+    return { ok: false as const, error: `The existing media deletion request is ${deletion.status.toLowerCase()}.` };
+  }
+  const completed = deletion.kind === "ALREADY_REQUESTED" && deletion.status === "SUCCEEDED";
+
+  await diagnostics.info(MODULE_KEY, "Gallery asset deletion queued.", {
     userId,
-    mediaAssetIds: assets.map((asset) => asset.id),
-    count: deleted.count
+    mediaAssetIds: deletion.mediaAssetIds,
+    destructiveActionRequestId: deletion.requestId,
+    platformJobId: deletion.jobId,
+    replayed: deletion.kind === "ALREADY_REQUESTED"
   });
 
   return {
     ok: true as const,
-    deletedCount: deleted.count,
-    deletedMediaAssetIds: assets.map((asset) => asset.id)
+    queued: !completed,
+    completed,
+    replayed: deletion.kind === "ALREADY_REQUESTED",
+    destructiveActionRequestId: deletion.requestId,
+    platformJobId: deletion.jobId,
+    queuedMediaAssetIds: deletion.mediaAssetIds,
+    deletedCount: 0,
+    deletedMediaAssetIds: [] as string[]
   };
 }
 
@@ -1048,6 +1136,7 @@ export async function createGalleryAssetComment(userId: string, input: unknown) 
   const asset = await prisma.mediaAsset.findFirst({
     where: {
       id: parsed.data.mediaAssetId,
+      status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"
       }
@@ -1137,6 +1226,7 @@ export async function reactToGalleryAsset(userId: string, input: unknown) {
   const asset = await prisma.mediaAsset.findFirst({
     where: {
       id: parsed.data.mediaAssetId,
+      status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"
       }
@@ -1198,13 +1288,18 @@ export async function reactToGalleryAssetComment(userId: string, input: unknown)
         select: {
           id: true,
           ownerUserId: true,
-          visibility: true
+          visibility: true,
+          status: true
         }
       }
     }
   });
 
-  if (!comment || !canViewAsset(userId, comment.mediaAsset)) {
+  if (
+    !comment ||
+    comment.mediaAsset.status !== MediaAssetStatus.READY ||
+    !canViewAsset(userId, comment.mediaAsset)
+  ) {
     return { ok: false as const, error: "Comment not found." };
   }
 

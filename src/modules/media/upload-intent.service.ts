@@ -23,7 +23,7 @@ import {
 } from "@/lib/platform/r2";
 
 const MODULE_KEY = "upload-intent";
-const UPLOAD_INTENT_TTL_MS = 5 * 60 * 1000;
+export const UPLOAD_INTENT_TTL_MS = 5 * 60 * 1000;
 const VERIFIED_CONSUMPTION_TTL_MS = 10 * 60 * 1000;
 const VERIFYING_EXPIRY_GRACE_MS = 60 * 1000;
 const MAX_CLEANUP_BATCH_SIZE = 500;

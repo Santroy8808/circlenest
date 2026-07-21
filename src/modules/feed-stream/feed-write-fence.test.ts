@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import type { Prisma } from "@prisma/client";
+import { MediaAssetStatus, type Prisma } from "@prisma/client";
 import { AccountDeletionFenceConflictError } from "@/lib/platform/account-deletion-fence";
 import { assertFeedChildWriteAllowed } from "@/modules/feed-stream/feed-write-fence";
 
@@ -20,6 +20,18 @@ function fakeFeedWriteTransaction(input: { omitUserIds?: string[] } = {}) {
           authorUserId: "author-1",
           targetProfileUserId: "target-1",
           mediaOwnerUserId: "post-media-owner-1"
+        }];
+      }
+      if (rawCall === 2) {
+        events.push("media-owners-locked");
+        return users.map((id) => ({ id }));
+      }
+      if (rawCall === 3) {
+        events.push("media-assets-locked");
+        return [{
+          id: "asset-1",
+          ownerUserId: "child-media-owner-1",
+          status: MediaAssetStatus.READY
         }];
       }
       events.push("users-locked");
@@ -43,7 +55,12 @@ test("feed child writes lock the post before sorted deletion-fence users", async
     actorUserId: "actor-1",
     mediaAssetIds: ["asset-1"]
   });
-  assert.deepEqual(events, ["post-locked", "users-locked"]);
+  assert.deepEqual(events, [
+    "post-locked",
+    "media-owners-locked",
+    "media-assets-locked",
+    "users-locked"
+  ]);
 });
 
 test("feed child writes fence linked media owners", async () => {

@@ -13,6 +13,10 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { isEnabled } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  lockReadyMediaAssetsForReference,
+  withMediaAssetReferenceValidation
+} from "@/lib/platform/media-asset-reference-fence";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
   completeMailUploadSchema,
@@ -846,7 +850,7 @@ export async function sendMail(senderUserId: string, input: unknown) {
   let message: MailMessageForView;
 
   try {
-    message = await prisma.$transaction(async (tx) => {
+    const creation = await withMediaAssetReferenceValidation(() => prisma.$transaction(async (tx) => {
       const thread = existingThread
         ? await tx.mailThread.findFirst({
             where: {
@@ -867,6 +871,8 @@ export async function sendMail(senderUserId: string, input: unknown) {
       if (!thread) {
         throw new MailAccessError();
       }
+
+      await lockReadyMediaAssetsForReference(tx, uniqueMediaAssetIds);
 
       const created = await tx.mailMessage.create({
         data: {
@@ -933,7 +939,9 @@ export async function sendMail(senderUserId: string, input: unknown) {
       });
 
       return created;
-    });
+    }));
+    if (!creation.ok) return creation;
+    message = creation.value;
   } catch (error) {
     if (error instanceof MailAccessError) {
       return { ok: false as const, error: "Mail thread not found." };

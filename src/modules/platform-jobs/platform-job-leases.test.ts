@@ -4,6 +4,7 @@ import { PlatformJobStatus } from "@prisma/client";
 import {
   DEFAULT_PLATFORM_JOB_LEASE_MS,
   normalizePlatformJobLeaseMs,
+  platformJobFailureShouldRetry,
   platformJobHeartbeatIntervalMs,
   platformJobLeaseWhere,
   stalePlatformJobClaimWhere
@@ -16,6 +17,14 @@ test("lease settings always leave multiple heartbeat opportunities before expiry
   assert.equal(normalizePlatformJobLeaseMs(99 * 60 * 60 * 1000), 60 * 60 * 1000);
   assert.equal(platformJobHeartbeatIntervalMs(5 * 60_000), 60_000);
   assert.equal(platformJobHeartbeatIntervalMs(30_000, 25_000), 10_000);
+});
+
+test("a handler can classify a failure as terminal before attempts are exhausted", () => {
+  const job = { attempts: 1, maxAttempts: 8 };
+
+  assert.equal(platformJobFailureShouldRetry(job, true), true);
+  assert.equal(platformJobFailureShouldRetry(job, false), false);
+  assert.equal(platformJobFailureShouldRetry({ attempts: 7, maxAttempts: 8 }, true), false);
 });
 
 test("every finalization predicate is bound to the exact live claim", () => {

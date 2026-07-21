@@ -12,6 +12,10 @@ import {
 import { writeAuditLog } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  lockReadyMediaAssetsForReference,
+  withMediaAssetReferenceValidation
+} from "@/lib/platform/media-asset-reference-fence";
 import { sendSmtpMail } from "@/lib/platform/smtp";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
@@ -709,21 +713,32 @@ export async function createBusinessArticle(userId: string, input: unknown) {
     return cover;
   }
 
-  const article = await prisma.businessArticle.create({
-    data: {
-      ownerUserId: businessUserId,
-      businessProfileId: profile.id,
-      coverMediaAssetId: cover.mediaAssetId,
-      slug: await uniqueArticleSlug(parsed.data.title),
-      title: parsed.data.title,
-      summary: parsed.data.summary || null,
-      body: parsed.data.body,
-      published: parsed.data.published
-    },
-    include: {
-      coverMediaAsset: true
-    }
-  });
+  const articleSlug = await uniqueArticleSlug(parsed.data.title);
+  const creation = await withMediaAssetReferenceValidation(() =>
+    prisma.$transaction(async (transaction) => {
+      await lockReadyMediaAssetsForReference(
+        transaction,
+        cover.mediaAssetId ? [cover.mediaAssetId] : []
+      );
+      return transaction.businessArticle.create({
+        data: {
+          ownerUserId: businessUserId,
+          businessProfileId: profile.id,
+          coverMediaAssetId: cover.mediaAssetId,
+          slug: articleSlug,
+          title: parsed.data.title,
+          summary: parsed.data.summary || null,
+          body: parsed.data.body,
+          published: parsed.data.published
+        },
+        include: {
+          coverMediaAsset: true
+        }
+      });
+    })
+  );
+  if (!creation.ok) return creation;
+  const article = creation.value;
 
   await diagnostics.info(MODULE_KEY, "Business article created.", {
     userId,

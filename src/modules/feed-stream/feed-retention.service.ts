@@ -9,6 +9,7 @@ import {
 import { findAuditLogByOperationId, writeAuditLog } from "@/lib/platform/audit";
 import { createCommandFingerprint, isMatchingCommandFingerprint } from "@/lib/platform/command-fingerprint";
 import { prisma } from "@/lib/platform/db";
+import { withMediaAssetReferenceValidation } from "@/lib/platform/media-asset-reference-fence";
 import { getR2Object, getR2PublicUrl, putR2Object, type R2ObjectAccess } from "@/lib/platform/r2";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
@@ -776,36 +777,39 @@ export async function importFeedThread(actorUserId: string, input: unknown) {
     ...parsed.data.comments.map((comment) => comment.mediaAssetId)
   ].filter((mediaAssetId): mediaAssetId is string => typeof mediaAssetId === "string" && Boolean(mediaAssetId));
 
-  await prisma.$transaction(async (tx) => {
-    await assertNewFeedPostWriteAllowed(tx, {
-      actorUserId,
-      additionalUserIds: referencedUserIds,
-      mediaAssetIds: referencedMediaAssetIds
-    });
-    await tx.feedPost.create({ data: post });
-    const allowed = await assertFeedChildWriteAllowed(tx, {
-      postId: importedPostId,
-      actorUserId,
-      additionalUserIds: referencedUserIds,
-      mediaAssetIds: referencedMediaAssetIds
-    });
-    if (!allowed) throw new Error("The imported feed post changed before its child records were restored.");
-    for (const comment of parsed.data.comments) {
-      await tx.feedComment.create({ data: comment as Prisma.FeedCommentUncheckedCreateInput });
-    }
-    for (const reaction of parsed.data.postReactions) {
-      await tx.feedPostReaction.create({ data: reaction as Prisma.FeedPostReactionUncheckedCreateInput });
-    }
-    for (const reaction of parsed.data.commentReactions) {
-      await tx.feedCommentReaction.create({ data: reaction as Prisma.FeedCommentReactionUncheckedCreateInput });
-    }
-    for (const hashtag of parsed.data.postHashtags) {
-      await tx.feedPostHashtag.create({ data: hashtag as Prisma.FeedPostHashtagUncheckedCreateInput });
-    }
-    for (const hashtag of parsed.data.commentHashtags) {
-      await tx.feedCommentHashtag.create({ data: hashtag as Prisma.FeedCommentHashtagUncheckedCreateInput });
-    }
-  });
+  const restoration = await withMediaAssetReferenceValidation(() =>
+    prisma.$transaction(async (tx) => {
+      await assertNewFeedPostWriteAllowed(tx, {
+        actorUserId,
+        additionalUserIds: referencedUserIds,
+        mediaAssetIds: referencedMediaAssetIds
+      });
+      await tx.feedPost.create({ data: post });
+      const allowed = await assertFeedChildWriteAllowed(tx, {
+        postId: importedPostId,
+        actorUserId,
+        additionalUserIds: referencedUserIds,
+        mediaAssetIds: referencedMediaAssetIds
+      });
+      if (!allowed) throw new Error("The imported feed post changed before its child records were restored.");
+      for (const comment of parsed.data.comments) {
+        await tx.feedComment.create({ data: comment as Prisma.FeedCommentUncheckedCreateInput });
+      }
+      for (const reaction of parsed.data.postReactions) {
+        await tx.feedPostReaction.create({ data: reaction as Prisma.FeedPostReactionUncheckedCreateInput });
+      }
+      for (const reaction of parsed.data.commentReactions) {
+        await tx.feedCommentReaction.create({ data: reaction as Prisma.FeedCommentReactionUncheckedCreateInput });
+      }
+      for (const hashtag of parsed.data.postHashtags) {
+        await tx.feedPostHashtag.create({ data: hashtag as Prisma.FeedPostHashtagUncheckedCreateInput });
+      }
+      for (const hashtag of parsed.data.commentHashtags) {
+        await tx.feedCommentHashtag.create({ data: hashtag as Prisma.FeedCommentHashtagUncheckedCreateInput });
+      }
+    })
+  );
+  if (!restoration.ok) return restoration;
 
   await writeAuditLog({
     actorUserId,

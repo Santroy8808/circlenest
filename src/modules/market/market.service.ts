@@ -9,6 +9,10 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  lockReadyMediaAssetsForReference,
+  withMediaAssetReferenceValidation
+} from "@/lib/platform/media-asset-reference-fence";
 import { isAdminRole } from "@/lib/platform/roles";
 import { getR2PublicUrl } from "@/lib/platform/r2";
 import { canUserAccessFeature, getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
@@ -574,18 +578,21 @@ export async function createMarketListing(userId: string, input: unknown) {
     marketListingsPer14Days: null
   };
   const now = new Date();
-  const creation = await withSerializableMarketTransaction(async (transaction) => {
-    const limit = await assertMarketCreateLimit(transaction, {
-      userId,
-      isAdmin: isAdminRole(role),
-      activeListingCap: limits.marketActiveListingCap,
-      listingLimit: limits.marketListingsPer14Days,
-      now
-    });
-    if (!limit.ok) return limit;
+  const referenceValidation = await withMediaAssetReferenceValidation(() =>
+    withSerializableMarketTransaction(async (transaction) => {
+      const limit = await assertMarketCreateLimit(transaction, {
+        userId,
+        isAdmin: isAdminRole(role),
+        activeListingCap: limits.marketActiveListingCap,
+        listingLimit: limits.marketListingsPer14Days,
+        now
+      });
+      if (!limit.ok) return limit;
 
-    const photos = parsed.data.photoMediaAssetIds.length
-      ? await transaction.mediaAsset.findMany({
+      await lockReadyMediaAssetsForReference(transaction, parsed.data.photoMediaAssetIds);
+
+      const photos = parsed.data.photoMediaAssetIds.length
+        ? await transaction.mediaAsset.findMany({
           where: {
             id: { in: parsed.data.photoMediaAssetIds },
             ownerUserId: userId,
@@ -594,14 +601,14 @@ export async function createMarketListing(userId: string, input: unknown) {
             mimeType: { startsWith: "image/", mode: "insensitive" }
           },
           select: { id: true }
-        })
-      : [];
+          })
+        : [];
 
-    if (photos.length !== parsed.data.photoMediaAssetIds.length) {
-      return { ok: false as const, error: "One or more listing photos could not be found." };
-    }
+      if (photos.length !== parsed.data.photoMediaAssetIds.length) {
+        return { ok: false as const, error: "One or more listing photos could not be found." };
+      }
 
-    const listing = await transaction.marketListing.create({
+      const listing = await transaction.marketListing.create({
       data: {
         slug: await uniqueMarketSlug(parsed.data.title, transaction),
         sellerUserId: userId,
@@ -623,10 +630,13 @@ export async function createMarketListing(userId: string, input: unknown) {
           }))
         }
       }
-    });
+      });
 
-    return { ok: true as const, listing };
-  });
+      return { ok: true as const, listing };
+    })
+  );
+  if (!referenceValidation.ok) return referenceValidation;
+  const creation = referenceValidation.value;
 
   if (!creation.ok) return creation;
   const listing = creation.listing;
@@ -693,7 +703,8 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
 
   const photoAccess = await getMarketPhotoAccessState(listingOwner.sellerUserId);
   const requestedPhotoIds = parsed.data.photoMediaAssetIds ?? [];
-  const update = await withSerializableMarketTransaction(async (transaction) => {
+  const referenceValidation = await withMediaAssetReferenceValidation(() =>
+    withSerializableMarketTransaction(async (transaction) => {
     const listing = await transaction.marketListing.findFirst({
       where: {
         id: listingOwner.id,
@@ -727,6 +738,7 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
       };
     }
 
+    await lockReadyMediaAssetsForReference(transaction, newPhotoIds);
     const photoOwnership = await assertMarketPhotoOwnership(transaction, listing.sellerUserId, newPhotoIds);
     if (!photoOwnership.ok) return photoOwnership;
 
@@ -757,7 +769,10 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
     });
 
     return { ok: true as const, listing: updated };
-  });
+    })
+  );
+  if (!referenceValidation.ok) return referenceValidation;
+  const update = referenceValidation.value;
 
   if (!update.ok) return update;
   const updated = update.listing;

@@ -13,6 +13,7 @@ export type PlatformJobHandlerResult = {
   ok: boolean;
   result?: Prisma.InputJsonValue;
   error?: string;
+  retryable?: boolean;
 };
 
 export type PlatformJobLease = Readonly<{
@@ -251,14 +252,15 @@ export async function failPlatformJob(
   lease: PlatformJobLease,
   error: string,
   retryDelayMs = 30_000,
-  now = new Date()
+  now = new Date(),
+  options: { retryable?: boolean } = {}
 ) {
   return prisma.$transaction(async (tx) => {
     const job = await tx.platformJob.findFirst({ where: platformJobLeaseWhere(lease, now) });
     if (!job) return { updated: false as const, retried: false as const };
 
     const nextAttempts = job.attempts + 1;
-    const shouldRetry = nextAttempts < job.maxAttempts;
+    const shouldRetry = platformJobFailureShouldRetry(job, options.retryable);
     const failedAt = shouldRetry ? null : now;
 
     const updated = await tx.platformJob.updateMany({
@@ -288,6 +290,13 @@ export async function failPlatformJob(
     });
     return { updated: true as const, retried: shouldRetry };
   });
+}
+
+export function platformJobFailureShouldRetry(
+  job: Pick<PlatformJob, "attempts" | "maxAttempts">,
+  retryable = true
+) {
+  return retryable && job.attempts + 1 < job.maxAttempts;
 }
 
 export async function cancelPlatformJob(lease: PlatformJobLease, reason: string, now = new Date()) {
@@ -376,6 +385,12 @@ export const platformJobHandlers: Record<string, PlatformJobHandler> = {
   "account.data-cleanup.v1": async (job, context) => {
     const { runAccountDataCleanupPlatformJob } = await import("@/modules/admin-moderation/account-cleanup.service");
     return runAccountDataCleanupPlatformJob(job, context);
+  },
+  "gallery.media-delete.v1": async (job, context) => {
+    const { runGalleryMediaDeletionPlatformJob } = await import(
+      "@/modules/gallery-media-storage/gallery-media-deletion.service"
+    );
+    return runGalleryMediaDeletionPlatformJob(job, context);
   }
 };
 
@@ -425,7 +440,13 @@ export async function runOnePlatformJob(
     }
 
     const retryDelayMs = platformJobRetryDelayMs(job.attempts);
-    const failed = await failPlatformJob(lease, result.error ?? "Worker job failed.", retryDelayMs);
+    const failed = await failPlatformJob(
+      lease,
+      result.error ?? "Worker job failed.",
+      retryDelayMs,
+      new Date(),
+      { retryable: result.retryable }
+    );
     return {
       ran: true as const,
       jobId: job.id,
