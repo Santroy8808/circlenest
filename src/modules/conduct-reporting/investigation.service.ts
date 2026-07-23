@@ -20,6 +20,19 @@ const MAX_WORKSPACE_POSTS = 150;
 const MAX_REPORT_SOURCES = 500;
 const MAX_PROVIDER_SOURCES = 100;
 
+export function evaluateFlagTransition(input: {
+  alreadyActive: boolean;
+  activeBefore: number;
+  activeAfter: number;
+  now: Date;
+}) {
+  return {
+    extendExistingFlags: !input.alreadyActive,
+    expiresAt: new Date(input.now.getTime() + FLAG_LIFETIME_MS),
+    queueInvestigation: !input.alreadyActive && input.activeBefore < FLAG_THRESHOLD && input.activeAfter >= FLAG_THRESHOLD
+  };
+}
+
 const investigationFilterSchema = z.object({
   query: z.string().trim().max(200).optional(),
   dateFrom: z.coerce.date().optional(),
@@ -157,7 +170,8 @@ export async function flagFeedPostForInvestigation(actorUserId: string, input: u
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid post flag." };
 
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + FLAG_LIFETIME_MS);
+  const initialTransition = evaluateFlagTransition({ alreadyActive: false, activeBefore: 0, activeAfter: 1, now });
+  const expiresAt = initialTransition.expiresAt;
   const result = await prisma.$transaction(async (transaction) => {
     await expireStaleFlags(transaction, now);
     const post = await transaction.feedPost.findUnique({
@@ -172,7 +186,8 @@ export async function flagFeedPostForInvestigation(actorUserId: string, input: u
       where: { subjectUserId: post.authorUserId, status: ConductPostFlagStatus.ACTIVE, expiresAt: { gt: now } }
     });
 
-    if (!alreadyActive) {
+    const beforeTransition = evaluateFlagTransition({ alreadyActive, activeBefore, activeAfter: activeBefore + (alreadyActive ? 0 : 1), now });
+    if (beforeTransition.extendExistingFlags) {
       await transaction.conductPostFlag.updateMany({
         where: { subjectUserId: post.authorUserId, status: ConductPostFlagStatus.ACTIVE, expiresAt: { gt: now } },
         data: { expiresAt }
@@ -205,7 +220,7 @@ export async function flagFeedPostForInvestigation(actorUserId: string, input: u
       orderBy: { flaggedAt: "desc" },
       select: { id: true, postId: true }
     });
-    const crossedThreshold = !alreadyActive && activeBefore < FLAG_THRESHOLD && activeAfter.length >= FLAG_THRESHOLD;
+    const crossedThreshold = evaluateFlagTransition({ alreadyActive, activeBefore, activeAfter: activeAfter.length, now }).queueInvestigation;
     let investigation = null;
     if (crossedThreshold) {
       investigation = await createInvestigationRecord({

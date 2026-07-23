@@ -151,7 +151,7 @@ function serializeStatusChangeAccount(user: StatusChangeAccountRecord) {
   };
 }
 
-function accountSearchRank(account: ReturnType<typeof serializeStatusChangeAccount>, query: string) {
+export function accountSearchRank(account: { username: string; email: string; displayName: string }, query: string) {
   const username = account.username.toLowerCase();
   const email = account.email.toLowerCase();
   const displayName = account.displayName.toLowerCase();

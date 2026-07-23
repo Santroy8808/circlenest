@@ -172,6 +172,12 @@ const functionDetailsByTitle: Record<
     cautions: ["Assign only an active administrator who should own the review.", "Every assignment or status decision requires a specific administrative reason and note.", "The page offers only legal transitions; do not use ordinary report controls to bypass a linked dispute.", "If the page reports a stale-version conflict, refresh and review the newer state before trying again."],
     expectedResult: "The assignment or legal status decision is saved once, returns a durable receipt, and creates conduct, admin-action, and audit history."
   },
+  "Investigation": {
+    whenToUse: "Use this to review one member's Stream posts and any active administrator flags as a source-linked timeline.",
+    beforeYouStart: ["Search and select the exact account from the live results.", "Choose text, date, or tag filters that match the documented concern.", "Read the source posts before relying on an automated pattern summary."],
+    cautions: ["Private messages are never included.", "A flag is a time-limited lead, not proof or a disciplinary finding.", "Three active flags on distinct posts queue an automated investigation; every cited pattern must link back to supplied post sources.", "Human review remains required before account action."],
+    expectedResult: "The administrator can review matching posts, active flags, earlier reports, and cited source links or queue a manual investigation."
+  },
   "Reports Queue": {
     whenToUse: "Use this for inbound bug, abuse, content, feedback, and support work.",
     beforeYouStart: ["Open the ticket and source URL if available.", "Check severity and current status."],
@@ -276,6 +282,14 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
     definition: "The shared case record that groups reports about the same source content and preserves evidence, status, assignment, dispute context, and append-only history."
   },
   {
+    term: "Investigation Flag",
+    definition: "An administrator's priority marker on one Stream post. It expires after 14 days. A new flag on another post extends that member's active flag window; repeated flagging of the same post does not increase the threshold."
+  },
+  {
+    term: "Behavior Investigation",
+    definition: "A source package and independent pattern review built from one member's eligible Stream posts. Three active distinct-post flags queue it automatically; administrators can also start it manually. Private messages are excluded."
+  },
+  {
     term: "Stale Review",
     definition: "A safety conflict showing that another authorized action changed the report or incident after the page was loaded. Refresh and review the new state; never assume the older decision still applies."
   },
@@ -307,7 +321,8 @@ export const adminHatOperatingRules = [
   "Keep payment configuration, platform-credit adjustments, and membership status changes conceptually separate.",
   "If a function says review, treat it as read-oriented unless the UI explicitly offers a mutation button.",
   "For destructive actions, stop and confirm identity, impact, and reason before pressing the final button.",
-  "Use Stream Retention holds when public post/thread evidence must be preserved or hidden from normal view. Export before import or restoration work. Content older than 3 months that is not held can be permanently deleted by the retention policy."
+  "Use Stream Retention holds when public post/thread evidence must be preserved or hidden from normal view. Export before import or restoration work. Content older than 3 months that is not held can be permanently deleted by the retention policy.",
+  "Treat investigation flags and automated summaries as leads. Open the cited source posts, verify context, and make disciplinary decisions through the authorized human-review workflow."
 ];
 
 function figureFor(entry: AdminFunctionEntry): AdminHatFigure {

@@ -141,7 +141,7 @@ export async function analyzeConductCandidateWithProvider(input: ProviderInput):
   }
 }
 
-function validateInvestigationAnalysis(value: unknown, allowedPostIds: ReadonlySet<string>) {
+export function validateInvestigationAnalysis(value: unknown, allowedPostIds: ReadonlySet<string>) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   const riskLevels = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
