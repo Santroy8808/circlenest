@@ -97,8 +97,19 @@ SMTP remains the account-recovery transport until that flow is explicitly migrat
 - `MICROSOFT_GRAPH_SENDER=noreply@theta-space.net`
 - `INVITE_MAIL_FROM=invite@theta-space.net`
 - `INVITE_MAIL_REPLY_TO=support@theta-space.net`
+- `MEMBER_MAIL_BASE_ADDRESS=theta@theta-space.net`
 
 The certificate and private-key files must be readable only by the Theta-Space service account. The Microsoft Graph application must be restricted in Exchange to the approved application-sending mailboxes. Invitations are sent from `invite@theta-space.net`; replies are directed to `support@theta-space.net`.
+
+#### Member shared-mailbox routing rules
+
+- Exchange Online plus addressing routes member mail through the single licensed `theta@theta-space.net` mailbox. No per-member mailbox or Exchange inbox rule is created.
+- A member address is always `theta+<immutable-user-id>@theta-space.net`. The tag is the database `User.id` assigned at signup; usernames, display names, and login email addresses are never used.
+- Inbound routing must resolve the tag by an exact `User.id` lookup and reject unknown, malformed, or deactivated member IDs. It must never fall back to username or email lookup.
+- Members must not receive Outlook, IMAP, shared-mailbox, or delegated access to `theta@theta-space.net`. The application performs authorization and exposes only records owned by the authenticated `User.id`.
+- Outbound member mail uses `From: theta@theta-space.net` because Microsoft plus addresses are receive-only. `Reply-To` is the member's immutable plus address so replies return to the correct application user.
+- Mailbox intake and sending use separate least-privilege Graph applications. The intake application is read-only and restricted to `theta@theta-space.net`; the sender application can send only through approved Theta-Space mailboxes.
+- The user-visible mailbox remains disabled until the intake application's `Mail.Read` permission, Exchange application-access boundary, webhook validation, storage mapping, and cross-account isolation tests are complete.
 
 ### Cloudflare R2
 
