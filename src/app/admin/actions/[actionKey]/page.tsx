@@ -10,6 +10,7 @@ import { AdminObjectLookup } from "@/components/admin-moderation/admin-object-lo
 import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
 import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wizard";
 import { AdminLaunchAccessWizard } from "@/components/admin-moderation/admin-launch-access-wizard";
+import { AdminInvestigationWorkspace } from "@/components/admin-moderation/admin-investigation-workspace";
 import { AdminPlatformCreditsWizard } from "@/components/admin-moderation/admin-platform-credits-wizard";
 import { AdminPricingWizard } from "@/components/admin-moderation/admin-pricing-wizard";
 import { AdminStatusChangeWizard } from "@/components/admin-moderation/admin-status-change-wizard";
@@ -65,6 +66,14 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminConductReview initialView={await getConductAdminView()} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "investigation") {
+    return (
+      <AppShell>
+        <AdminInvestigationWorkspace />
       </AppShell>
     );
   }

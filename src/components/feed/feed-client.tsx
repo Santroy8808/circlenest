@@ -1518,6 +1518,33 @@ export function FeedClient({
     });
   }
 
+  function flagPostForInvestigation(post: FeedPostView) {
+    const reason = window.prompt(
+      `Flag @${post.author.username}'s post for administrator investigation.\n\nEnter the specific behavior or concern this flag should identify:`
+    )?.trim();
+    if (!reason) return;
+    if (reason.length < 5) {
+      setTrustMessage("A flag reason must be at least five characters.");
+      return;
+    }
+
+    startTransition(async () => {
+      const response = await fetch("/api/admin/investigations/flags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: post.id, reason })
+      });
+      const payload = (await response.json().catch(() => null)) as { activeFlagCount?: number; investigation?: { reference?: string } | null; error?: string } | null;
+      if (!response.ok) {
+        setTrustMessage(payload?.error ?? "That post could not be flagged.");
+        return;
+      }
+      setTrustMessage(payload?.investigation?.reference
+        ? `Post flagged. Investigation ${payload.investigation.reference} was queued from ${payload.activeFlagCount ?? 3} active flags.`
+        : `Post flagged. This account now has ${payload?.activeFlagCount ?? 1} active flag${payload?.activeFlagCount === 1 ? "" : "s"}.`);
+    });
+  }
+
   function streamShareUrl(postId: string, commentId?: string) {
     const url = new URL(`/posts/${postId}`, window.location.origin);
     if (commentId) {
@@ -1800,6 +1827,11 @@ export function FeedClient({
                       <button onClick={() => hidePost(post.id)} type="button">
                         Hide this post
                       </button>
+                      {isAdmin ? (
+                        <button className="text-red-200" disabled={isPending} onClick={() => flagPostForInvestigation(post)} type="button">
+                          Flag for investigation
+                        </button>
+                      ) : null}
                       {composerIdentity.id === post.author.id ? (
                         <button className="text-red-300" onClick={() => deletePost(post.id)} type="button">
                           Delete post

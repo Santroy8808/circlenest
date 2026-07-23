@@ -1,7 +1,7 @@
 "use client";
 
 import { MembershipTier } from "@prisma/client";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { AdminContributorOfferControls } from "@/components/admin-moderation/admin-contributor-offer-controls";
 
 type StatusChangeAccount = {
@@ -35,34 +35,51 @@ function bytesLabel(value: string) {
 export function AdminStatusChangeWizard() {
   const [identifier, setIdentifier] = useState("");
   const [account, setAccount] = useState<StatusChangeAccount | null>(null);
+  const [results, setResults] = useState<StatusChangeAccount[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [targetTier, setTargetTier] = useState<MembershipTier>(MembershipTier.CONTRIBUTOR);
   const [reason, setReason] = useState("Admin membership status correction.");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function findAccount() {
-    setMessage("");
-    setAccount(null);
-
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/status-change?identifier=${encodeURIComponent(identifier)}`, {
+  useEffect(() => {
+    const query = identifier.trim();
+    if (account && [account.username, account.email, account.displayName].some((candidate) => candidate.toLowerCase() === query.toLowerCase())) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+    if (query.length < 2) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      const response = await fetch(`/api/admin/status-change?query=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
         cache: "no-store"
       });
-      const payload = (await response.json().catch(() => null)) as { account?: StatusChangeAccount | null; error?: string } | null;
-
-      if (!response.ok) {
-        setMessage(payload?.error ?? "Could not search account.");
-        return;
+      const payload = (await response.json().catch(() => null)) as { accounts?: StatusChangeAccount[]; error?: string } | null;
+      if (!controller.signal.aborted) {
+        setResults(response.ok ? payload?.accounts ?? [] : []);
+        setMessage(response.ok ? "" : payload?.error ?? "Could not search accounts.");
+        setIsSearching(false);
       }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [account, identifier]);
 
-      if (!payload?.account) {
-        setMessage("No account found.");
-        return;
-      }
-
-      setAccount(payload.account);
-      setTargetTier(payload.account.tier);
-    });
+  function selectAccount(selected: StatusChangeAccount) {
+    setAccount(selected);
+    setIdentifier(selected.username);
+    setTargetTier(selected.tier);
+    setResults([]);
+    setMessage(`Selected @${selected.username}.`);
   }
 
   function applyStatusChange() {
@@ -73,7 +90,7 @@ export function AdminStatusChangeWizard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userIdentifier: identifier,
+          userIdentifier: account?.username,
           targetTier,
           reason
         })
@@ -209,11 +226,49 @@ export function AdminStatusChangeWizard() {
 
       <section className="surface rounded-md p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">1. Find account</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-          <input className="form-field" onChange={(event) => setIdentifier(event.target.value)} placeholder="email or username" value={identifier} />
-          <button className="btn-secondary" disabled={isPending || identifier.trim().length === 0} onClick={findAccount} type="button">
-            Search
-          </button>
+        <div className="relative mt-4">
+          <label className="grid gap-2">
+            <span className="form-label">Name, username, or email</span>
+            <input
+              aria-autocomplete="list"
+              aria-controls="status-account-results"
+              autoComplete="off"
+              className="form-field"
+              onChange={(event) => {
+                const value = event.target.value;
+                setIdentifier(value);
+                if (account && ![account.username, account.email, account.displayName].some((candidate) => candidate.toLowerCase() === value.trim().toLowerCase())) {
+                  setAccount(null);
+                }
+              }}
+              placeholder="Start typing, for example 621"
+              value={identifier}
+            />
+          </label>
+          {identifier.trim().length >= 2 ? (
+            <div className="mt-2 rounded-md border border-[var(--line)] bg-[var(--panel)] p-2" id="status-account-results" role="listbox">
+              <p aria-live="polite" className="px-2 py-1 text-sm text-[var(--muted)]">
+                {isSearching ? "Searching..." : `${results.length} ${results.length === 1 ? "account" : "accounts"} found`}
+              </p>
+              {!isSearching && results.length === 0 ? <p className="px-2 py-3 text-sm">No matching accounts.</p> : null}
+              {results.map((result) => (
+                <button
+                  className="mt-1 flex w-full items-center justify-between gap-3 rounded-md border border-transparent px-3 py-3 text-left hover:border-[var(--gold)] hover:bg-black/10 focus-visible:border-[var(--gold)]"
+                  aria-selected={account?.id === result.id}
+                  key={result.id}
+                  onClick={() => selectAccount(result)}
+                  role="option"
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{result.displayName}</span>
+                    <span className="block truncate text-sm text-[var(--muted)]">@{result.username} · {result.email}</span>
+                  </span>
+                  <span className="pill shrink-0 rounded-full px-3 py-1 text-xs">{result.tierName}</span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="mt-2 text-sm text-[var(--muted)]">Type at least two characters. Results appear automatically.</p>}
         </div>
         {account ? (
           <article className="mt-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
