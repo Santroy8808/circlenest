@@ -71,6 +71,14 @@ export const envSchema = z.object({
   SMTP_FROM: z.string().email().optional(),
   SMTP_SECURE: z.enum(["true", "false"]).optional(),
   SMTP_IGNORE_TLS: z.enum(["true", "false"]).optional(),
+  MAIL_TRANSPORT: z.enum(["smtp", "microsoft-graph"]).default("smtp"),
+  MICROSOFT_GRAPH_TENANT_ID: z.string().uuid().optional(),
+  MICROSOFT_GRAPH_CLIENT_ID: z.string().uuid().optional(),
+  MICROSOFT_GRAPH_CERTIFICATE_PATH: z.string().min(1).optional(),
+  MICROSOFT_GRAPH_PRIVATE_KEY_PATH: z.string().min(1).optional(),
+  MICROSOFT_GRAPH_SENDER: z.string().email().optional(),
+  INVITE_MAIL_FROM: z.string().email().optional(),
+  INVITE_MAIL_REPLY_TO: z.string().email().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
@@ -168,6 +176,24 @@ export const productionEnvSchema = envSchema.superRefine((env, context) => {
       message: "SMTP_IGNORE_TLS must not be enabled in production.",
       path: ["SMTP_IGNORE_TLS"]
     });
+  }
+
+  if (env.MAIL_TRANSPORT === "microsoft-graph") {
+    for (const [name, value] of [
+      ["MICROSOFT_GRAPH_TENANT_ID", env.MICROSOFT_GRAPH_TENANT_ID],
+      ["MICROSOFT_GRAPH_CLIENT_ID", env.MICROSOFT_GRAPH_CLIENT_ID],
+      ["MICROSOFT_GRAPH_CERTIFICATE_PATH", env.MICROSOFT_GRAPH_CERTIFICATE_PATH],
+      ["MICROSOFT_GRAPH_PRIVATE_KEY_PATH", env.MICROSOFT_GRAPH_PRIVATE_KEY_PATH],
+      ["MICROSOFT_GRAPH_SENDER", env.MICROSOFT_GRAPH_SENDER]
+    ] as const) {
+      if (!value) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${name} is required when MAIL_TRANSPORT is microsoft-graph.`,
+          path: [name]
+        });
+      }
+    }
   }
 
   const publicBucket = env.CLOUDFLARE_R2_BUCKET || env.R2_BUCKET;
