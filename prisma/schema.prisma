@@ -248,6 +248,20 @@ enum ConductScanStatus {
   CANCELLED
 }
 
+enum ConductPostFlagStatus {
+  ACTIVE
+  EXPIRED
+  DISMISSED
+}
+
+enum ConductInvestigationStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  NEEDS_REVIEW
+  FAILED
+}
+
 enum BulkInviteBatchStatus {
   QUEUED
   RUNNING
@@ -870,6 +884,10 @@ model User {
   feedbackTicketEvents            FeedbackTicketEvent[]              @relation("FeedbackTicketEventActor")
   resolvedConductReports          ConductReport[]                    @relation("ConductReportResolver")
   conductEvents                   ConductEvent[]                     @relation("ConductEventActor")
+  conductPostFlags                ConductPostFlag[]                  @relation("ConductPostFlagSubject")
+  createdConductPostFlags         ConductPostFlag[]                  @relation("ConductPostFlagActor")
+  conductInvestigations           ConductInvestigation[]             @relation("ConductInvestigationSubject")
+  requestedConductInvestigations  ConductInvestigation[]             @relation("ConductInvestigationRequester")
   membershipOverrides             MembershipPolicyOverride[]         @relation("MembershipOverrideSubject")
   createdMembershipOverrides      MembershipPolicyOverride[]         @relation("MembershipOverrideCreator")
   createdTierFeatureOverrides     MembershipTierFeatureOverride[]    @relation("TierFeatureOverrideCreator")
@@ -1827,6 +1845,7 @@ model FeedPost {
   comments            FeedComment[]
   reactions           FeedPostReaction[]
   dismissals          FeedPostDismissal[]
+  conductFlags        ConductPostFlag[]
 
   @@index([visibility, createdAt])
   @@index([visibility, streamArchivedAt, streamDeletedAt, createdAt], map: "FeedPost_visibility_streamArchivedAt_streamDeletedAt_createdAt_")
@@ -3111,6 +3130,58 @@ model ConductConfig {
   updatedByUserId            String?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+}
+
+model ConductPostFlag {
+  id              String                @id @default(cuid())
+  postId          String                @unique
+  subjectUserId   String
+  flaggedByUserId String
+  investigationId String?
+  status          ConductPostFlagStatus @default(ACTIVE)
+  reason          String?
+  flaggedAt       DateTime              @default(now())
+  expiresAt       DateTime
+  dismissedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  post            FeedPost              @relation(fields: [postId], references: [id], onDelete: Restrict)
+  subject         User                  @relation("ConductPostFlagSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  flaggedBy       User                  @relation("ConductPostFlagActor", fields: [flaggedByUserId], references: [id], onDelete: Restrict)
+  investigation   ConductInvestigation? @relation(fields: [investigationId], references: [id], onDelete: SetNull)
+
+  @@index([subjectUserId, status, expiresAt])
+  @@index([flaggedByUserId, flaggedAt])
+  @@index([investigationId, flaggedAt])
+}
+
+model ConductInvestigation {
+  id                 String                     @id @default(cuid())
+  reference          String                     @unique
+  subjectUserId      String
+  requestedByUserId  String?
+  status             ConductInvestigationStatus @default(QUEUED)
+  triggerReason      String
+  windowStart        DateTime
+  windowEnd          DateTime
+  sourcePostIds      String[]
+  sourceSnapshot     Json
+  report             Json?
+  summary            String?
+  providerModel      String?
+  providerTokenCount Int                        @default(0)
+  error              String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  subject            User                       @relation("ConductInvestigationSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  requestedBy        User?                      @relation("ConductInvestigationRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  flags              ConductPostFlag[]
+
+  @@index([subjectUserId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([requestedByUserId, createdAt])
 }
 
 model ConductIncident {
