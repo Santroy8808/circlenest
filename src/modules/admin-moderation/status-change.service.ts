@@ -91,46 +91,45 @@ export async function findStatusChangeAccount(identifier: string) {
     where: {
       OR: [{ email: normalized }, { username: normalized }]
     },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      role: true,
-      deactivatedAt: true,
-      profile: {
-        select: {
-          displayName: true
-        }
-      },
-      membership: {
-        select: {
-          tier: true,
-          storageLimitBytes: true,
-          platformCredits: true
-        }
-      },
-      membershipOverrides: {
-        where: {
-          featureKey: { in: ["invites.send", "invites.bulkSend"] },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
-        },
-        select: { featureKey: true, allowed: true }
-      },
-      tierUpgradeEligibilities: {
-        where: {
-          tier: MembershipTier.ORG,
-          active: true,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
-        },
-        select: {
-          id: true
-        },
-        take: 1
-      }
-    }
+    select: statusChangeAccountSelect()
   });
 
   if (!user) return null;
+
+  return serializeStatusChangeAccount(user);
+}
+
+function statusChangeAccountSelect() {
+  return {
+    id: true,
+    email: true,
+    username: true,
+    role: true,
+    deactivatedAt: true,
+    profile: { select: { displayName: true } },
+    membership: { select: { tier: true, storageLimitBytes: true, platformCredits: true } },
+    membershipOverrides: {
+      where: {
+        featureKey: { in: ["invites.send", "invites.bulkSend"] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+      },
+      select: { featureKey: true, allowed: true }
+    },
+    tierUpgradeEligibilities: {
+      where: {
+        tier: MembershipTier.ORG,
+        active: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+      },
+      select: { id: true },
+      take: 1
+    }
+  } satisfies Prisma.UserSelect;
+}
+
+type StatusChangeAccountRecord = Prisma.UserGetPayload<{ select: ReturnType<typeof statusChangeAccountSelect> }>;
+
+function serializeStatusChangeAccount(user: StatusChangeAccountRecord) {
 
   const currentTier = user.membership?.tier ?? MembershipTier.FREE;
   const policy = getTierPolicy(currentTier);
@@ -150,6 +149,41 @@ export async function findStatusChangeAccount(identifier: string) {
     storageLimitBytes: (user.membership?.storageLimitBytes ?? BigInt(policy.limits.storageLimitBytes)).toString(),
     platformCredits: user.membership?.platformCredits ?? 0
   };
+}
+
+function accountSearchRank(account: ReturnType<typeof serializeStatusChangeAccount>, query: string) {
+  const username = account.username.toLowerCase();
+  const email = account.email.toLowerCase();
+  const displayName = account.displayName.toLowerCase();
+  if (username === query || email === query) return 0;
+  if (username.startsWith(query)) return 1;
+  if (displayName.startsWith(query)) return 2;
+  if (username.includes(query)) return 3;
+  if (displayName.includes(query)) return 4;
+  return 5;
+}
+
+export async function searchStatusChangeAccounts(query: string, limit = 8) {
+  const normalized = normalizeIdentifier(query);
+  if (normalized.length < 2) return [];
+
+  const users = await prisma.user.findMany({
+    where: {
+      OR: [
+        { username: { contains: normalized, mode: "insensitive" } },
+        { email: { contains: normalized, mode: "insensitive" } },
+        { profile: { is: { displayName: { contains: normalized, mode: "insensitive" } } } }
+      ]
+    },
+    select: statusChangeAccountSelect(),
+    take: Math.min(Math.max(limit * 3, limit), 30)
+  });
+
+  return users
+    .map(serializeStatusChangeAccount)
+    .sort((left, right) => accountSearchRank(left, normalized) - accountSearchRank(right, normalized)
+      || left.username.localeCompare(right.username))
+    .slice(0, Math.min(Math.max(limit, 1), 12));
 }
 
 export async function changeInvitePermission(actorUserId: string, input: unknown) {

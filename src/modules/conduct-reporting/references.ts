@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
-const REFERENCE_PREFIXES = ["INC", "RPT", "COM", "DSP", "RST", "RUN", "REV"] as const;
+const REFERENCE_PREFIXES = ["INC", "RPT", "COM", "DSP", "RST", "RUN", "REV", "INV"] as const;
 
 export type ConductReferencePrefix = (typeof REFERENCE_PREFIXES)[number];
 

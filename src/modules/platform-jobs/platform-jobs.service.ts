@@ -382,6 +382,10 @@ export const platformJobHandlers: Record<string, PlatformJobHandler> = {
     const { runConductScanPlatformJob } = await import("@/modules/conduct-reporting/scanner.service");
     return runConductScanPlatformJob(job);
   },
+  "conduct.investigation": async (job) => {
+    const { runConductInvestigationPlatformJob } = await import("@/modules/conduct-reporting/investigation.service");
+    return runConductInvestigationPlatformJob(job);
+  },
   "account.data-cleanup.v1": async (job, context) => {
     const { runAccountDataCleanupPlatformJob } = await import("@/modules/admin-moderation/account-cleanup.service");
     return runAccountDataCleanupPlatformJob(job, context);
