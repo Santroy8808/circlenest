@@ -1,11 +1,13 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { readPlatformEnv } from "@/lib/platform/env";
 
-type SendSmtpMailInput = {
+export type SendSmtpMailInput = {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  from?: string;
+  replyTo?: string;
   messageId?: string;
   attachments?: Array<{
     filename: string;
@@ -52,7 +54,8 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
   smtpTransporter = transporter;
 
   return transporter.sendMail({
-    from: env.SMTP_FROM,
+    from: input.from ?? env.SMTP_FROM,
+    replyTo: input.replyTo,
     to: input.to,
     subject: input.subject,
     text: input.text,

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
-import { sendSmtpMail } from "@/lib/platform/smtp";
+import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 
@@ -268,8 +268,11 @@ export function buildFreeAccountInviteEmail(code: string, expiresAt: Date) {
 
 async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date) {
   const message = buildFreeAccountInviteEmail(code, expiresAt);
-  await sendSmtpMail({
+  const env = readPlatformEnv();
+  await sendPlatformMail({
     to: recipientEmail,
+    from: env.INVITE_MAIL_FROM ?? "invite@theta-space.net",
+    replyTo: env.INVITE_MAIL_REPLY_TO ?? "support@theta-space.net",
     ...message
   });
 }
