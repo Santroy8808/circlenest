@@ -10499,7 +10499,8 @@ html.theta-theme-light .admin-hat-figure {
 }
 
 @media (max-width: 860px) {
-  .app-shell {
+  .app-shell,
+  .app-shell.no-ad-rail {
     grid-template-areas:
       "nav"
       "main";
