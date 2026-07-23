@@ -1,6 +1,6 @@
 # Theta-Space External Services Readiness
 
-Generated: 2026-07-16T19:50:59.258Z
+Generated: 2026-07-22T00:22:25.787Z
 
 ## Purpose and safety
 
@@ -17,10 +17,10 @@ The script only reads the loaded environment and local Git/tool availability, th
 
 ## Inspection context
 
-- Repository: **circlenest**
-- Commit: **64ae010**
+- Repository: **NewRepo**
+- Commit: **32213c1**
 - Inspection mode: local advisory
-- Worktree: clean
+- Worktree: dirty; changed file names redacted
 
 **This local advisory report is not production sign-off. Run `npm run services:readiness -- --production` against the protected production environment for fail-closed validation.**
 
@@ -33,33 +33,33 @@ The script only reads the loaded environment and local Git/tool availability, th
 
 ## Summary
 
-- Passed: 16
-- Local warnings: 1
+- Passed: 8
+- Local warnings: 9
 - Production blockers: 0
 - Manual gates: 3
 
 | Service | Result | Check | Detail |
 | --- | --- | --- | --- |
 | Windows / Caddy | PASS | Inspection platform | The local inspection is running on Windows. Production Windows Server version and patch state still require manual confirmation. |
-| Windows / Caddy | PASS | Caddy CLI availability | Caddy is available on the local PATH. No configuration or running service was contacted. |
+| Windows / Caddy | LOCAL WARN | Caddy CLI availability | Caddy is not on the local PATH. Confirm it and its service state directly on production. |
 | GitHub | PASS | Origin provider | The local origin is a GitHub remote; its URL is intentionally redacted. |
 | PostgreSQL | PASS | DATABASE_URL presence | DATABASE_URL is present; its value and host are intentionally redacted. |
 | PostgreSQL | PASS | Connection scheme | DATABASE_URL uses a PostgreSQL scheme. No database connection was attempted. |
-| Auth / Proxy | PASS | HTTPS application origins | APP_ORIGIN and NEXTAUTH_URL are valid HTTPS origins without embedded credentials; values are redacted. |
-| Auth / Proxy | PASS | Origin agreement | APP_ORIGIN and NEXTAUTH_URL resolve to the same origin. |
-| Auth / Proxy | PASS | Independent application secrets | NEXTAUTH_SECRET, MOBILE_AUTH_SECRET, and IP_HASH_SECRET satisfy the production quality policy and are distinct; values and lengths are redacted. |
+| Auth / Proxy | LOCAL WARN | HTTPS application origins | APP_ORIGIN and NEXTAUTH_URL must both be HTTPS origins without embedded credentials in production. |
+| Auth / Proxy | LOCAL WARN | Origin agreement | APP_ORIGIN and NEXTAUTH_URL must resolve to the same production origin. |
+| Auth / Proxy | LOCAL WARN | Independent application secrets | NEXTAUTH_SECRET, MOBILE_AUTH_SECRET, and IP_HASH_SECRET must each be non-placeholder, high-entropy, at least 32 characters, and mutually distinct. |
 | Auth / Proxy | PASS | Production safety flags | Signup preverification and buffered upload fallback are not enabled. |
 | Auth / Proxy | PASS | Caddy proxy hop policy | TRUSTED_PROXY_HOPS is absent (safe default) or configured for the single Caddy proxy hop; the value is redacted. |
 | SMTP | PASS | Account recovery configuration | All required SMTP variable names are present and basic port/from-address validation passed; values are redacted. |
-| SMTP | PASS | TLS policy | SMTP_IGNORE_TLS is not enabled. |
-| Cloudflare R2 | PASS | Public and private storage configuration | R2 provider/endpoint, credentials, and both bucket roles are configured; all values are redacted. |
-| Cloudflare R2 | PASS | Bucket separation | The configured public and private bucket names are distinct; names are redacted. |
+| SMTP | LOCAL WARN | TLS policy | SMTP_IGNORE_TLS must not be true in production. |
+| Cloudflare R2 | LOCAL WARN | Public and private storage configuration | R2 provider/endpoint, credentials, public bucket, and private bucket are all required in production. |
+| Cloudflare R2 | LOCAL WARN | Bucket separation | The public and private R2 bucket names must both exist and must not be equal. |
 | Cloudflare R2 | PASS | Public media base URL | The public media base is a credential-free HTTPS URL; the value is redacted. |
 | Stripe | LOCAL WARN | Environment fallback configuration | Stripe environment fallbacks are incomplete or malformed. Production mode fails closed because this report cannot verify secured admin-managed configuration. |
 | Windows / Caddy | MANUAL GATE | Production service and TLS | Confirm the Windows service, Caddy configuration, firewall, loopback binding, HTTPS certificate, health routes, and restart-after-reboot behavior on the server. |
 | Cloudflare R2 | MANUAL GATE | Media privacy enforcement | Run the public-versus-private media smoke below; configuration presence cannot prove object privacy. |
 | Stripe | MANUAL GATE | Live checkout and webhook | Confirm live-mode alignment, webhook delivery, checkout completion, idempotency, and downgrade behavior without exposing credentials. |
-| Repository | PASS | Worktree | The worktree was clean when this report was generated. |
+| Repository | LOCAL WARN | Worktree | The worktree has uncommitted changes; file names are intentionally omitted. |
 
 ## Required production variable names
 
@@ -84,6 +84,21 @@ The three secrets must each satisfy the production quality policy and must be mu
 - `SMTP_FROM`
 - `SMTP_SECURE`
 - `SMTP_IGNORE_TLS=false`
+
+SMTP remains the account-recovery transport until that flow is explicitly migrated.
+
+### Microsoft Graph application mail
+
+- `MAIL_TRANSPORT=microsoft-graph`
+- `MICROSOFT_GRAPH_TENANT_ID`
+- `MICROSOFT_GRAPH_CLIENT_ID`
+- `MICROSOFT_GRAPH_CERTIFICATE_PATH`
+- `MICROSOFT_GRAPH_PRIVATE_KEY_PATH`
+- `MICROSOFT_GRAPH_SENDER=noreply@theta-space.net`
+- `INVITE_MAIL_FROM=invite@theta-space.net`
+- `INVITE_MAIL_REPLY_TO=support@theta-space.net`
+
+The certificate and private-key files must be readable only by the Theta-Space service account. The Microsoft Graph application must be restricted in Exchange to the approved application-sending mailboxes. Invitations are sent from `invite@theta-space.net`; replies are directed to `support@theta-space.net`.
 
 ### Cloudflare R2
 
@@ -171,7 +186,15 @@ Stripe secrets may instead be supplied through the secured admin-managed configu
 
 ## Local warnings
 
+- Windows / Caddy / Caddy CLI availability: Caddy is not on the local PATH. Confirm it and its service state directly on production.
+- Auth / Proxy / HTTPS application origins: APP_ORIGIN and NEXTAUTH_URL must both be HTTPS origins without embedded credentials in production.
+- Auth / Proxy / Origin agreement: APP_ORIGIN and NEXTAUTH_URL must resolve to the same production origin.
+- Auth / Proxy / Independent application secrets: NEXTAUTH_SECRET, MOBILE_AUTH_SECRET, and IP_HASH_SECRET must each be non-placeholder, high-entropy, at least 32 characters, and mutually distinct.
+- SMTP / TLS policy: SMTP_IGNORE_TLS must not be true in production.
+- Cloudflare R2 / Public and private storage configuration: R2 provider/endpoint, credentials, public bucket, and private bucket are all required in production.
+- Cloudflare R2 / Bucket separation: The public and private R2 bucket names must both exist and must not be equal.
 - Stripe / Environment fallback configuration: Stripe environment fallbacks are incomplete or malformed. Production mode fails closed because this report cannot verify secured admin-managed configuration.
+- Repository / Worktree: The worktree has uncommitted changes; file names are intentionally omitted.
 
 ## Production blockers
 
