@@ -245,7 +245,7 @@ export function AdminStatusChangeWizard() {
               value={identifier}
             />
           </label>
-          {identifier.trim().length >= 2 ? (
+          {identifier.trim().length >= 2 && !account ? (
             <div className="mt-2 rounded-md border border-[var(--line)] bg-[var(--panel)] p-2" id="status-account-results" role="listbox">
               <p aria-live="polite" className="px-2 py-1 text-sm text-[var(--muted)]">
                 {isSearching ? "Searching..." : `${results.length} ${results.length === 1 ? "account" : "accounts"} found`}
@@ -254,7 +254,7 @@ export function AdminStatusChangeWizard() {
               {results.map((result) => (
                 <button
                   className="mt-1 flex w-full items-center justify-between gap-3 rounded-md border border-transparent px-3 py-3 text-left hover:border-[var(--gold)] hover:bg-black/10 focus-visible:border-[var(--gold)]"
-                  aria-selected={account?.id === result.id}
+                  aria-selected={false}
                   key={result.id}
                   onClick={() => selectAccount(result)}
                   role="option"
@@ -268,7 +268,7 @@ export function AdminStatusChangeWizard() {
                 </button>
               ))}
             </div>
-          ) : <p className="mt-2 text-sm text-[var(--muted)]">Type at least two characters. Results appear automatically.</p>}
+          ) : !account ? <p className="mt-2 text-sm text-[var(--muted)]">Type at least two characters. Results appear automatically.</p> : null}
         </div>
         {account ? (
           <article className="mt-4 rounded-md border border-[var(--line)] bg-black/10 p-4">
