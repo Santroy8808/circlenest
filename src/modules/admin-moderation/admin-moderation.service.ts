@@ -11,6 +11,19 @@ const MODULE_KEY = "admin-moderation";
 
 export const adminActionCards: AdminActionCard[] = [
   {
+    key: "investigation",
+    title: "Investigation",
+    description: "Search an account's posts, flags, tags, dates, and source-linked behavior reports without exposing private messages.",
+    risk: "high",
+    keywords: ["investigation", "account posts", "post flags", "behavior patterns", "sources", "tags", "date search"],
+    steps: [
+      "Find and select an account from the live results.",
+      "Search that account's posts by text, date, or tag.",
+      "Review active post flags and previous source-linked reports.",
+      "Run a manual investigation when documented review is required."
+    ]
+  },
+  {
     key: "conduct-review",
     title: "Communication Review",
     description: "Run or schedule contextual review of eligible stream and group discussions, then manage the human review queue.",

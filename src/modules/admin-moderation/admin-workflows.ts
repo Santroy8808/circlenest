@@ -288,8 +288,8 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Communications And Safety",
       eyebrow: "Trust",
       description: "Admin announcements, support queues, bug reports, abuse reports, and content reports.",
-      badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "4 tools",
-      keywords: ["announcements", "reports", "support", "safety", "abuse", "content", "tickets", "object id"],
+      badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "5 tools",
+      keywords: ["announcements", "reports", "support", "safety", "abuse", "content", "tickets", "investigation", "object id"],
       groups: [
         {
           key: "broadcasts-queues",
@@ -311,6 +311,14 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               description: "Review bug reports, abuse reports, content reports, and support tickets.",
               badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "queue",
               keywords: ["report issue", "tickets", "support", "bug", "abuse", "feedback", "content report"]
+            },
+            {
+              href: "/admin/actions/investigation",
+              title: "Investigation",
+              category: "Communications And Safety",
+              description: "Review one account's posts, active flags, and source-linked behavior reports. Private messages are excluded.",
+              badge: "review",
+              keywords: ["investigation", "user posts", "post flags", "behavior", "sources", "tags", "date"]
             },
             {
               href: "/admin/actions/feed-retention",

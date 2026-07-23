@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
-import { changeBulkInvitePermission, changeInvitePermission, changeMembershipStatus, findStatusChangeAccount } from "@/modules/admin-moderation/status-change.service";
+import {
+  changeBulkInvitePermission,
+  changeInvitePermission,
+  changeMembershipStatus,
+  findStatusChangeAccount,
+  searchStatusChangeAccounts
+} from "@/modules/admin-moderation/status-change.service";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -11,9 +17,14 @@ export async function GET(request: NextRequest) {
   }
 
   const identifier = request.nextUrl.searchParams.get("identifier");
+  const query = request.nextUrl.searchParams.get("query")?.trim();
+
+  if (query) {
+    return NextResponse.json({ accounts: await searchStatusChangeAccounts(query) });
+  }
 
   if (!identifier) {
-    return NextResponse.json({ account: null });
+    return NextResponse.json({ account: null, accounts: [] });
   }
 
   return NextResponse.json({ account: await findStatusChangeAccount(identifier) });
