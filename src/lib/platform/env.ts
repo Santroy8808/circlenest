@@ -79,6 +79,7 @@ export const envSchema = z.object({
   MICROSOFT_GRAPH_SENDER: z.string().email().optional(),
   INVITE_MAIL_FROM: z.string().email().optional(),
   INVITE_MAIL_REPLY_TO: z.string().email().optional(),
+  MEMBER_MAIL_BASE_ADDRESS: z.string().email().default("theta@theta-space.net"),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
