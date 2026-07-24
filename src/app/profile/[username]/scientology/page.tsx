@@ -2,6 +2,7 @@ import { ScientologyVisibility } from "@prisma/client";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { prisma } from "@/lib/platform/db";
 import { parseScientologySelections } from "@/modules/my-scientology/types";
@@ -103,6 +104,9 @@ export default async function PublicScientologyPage({ params }: { params: { user
             Back to profile
           </Link>
         </section>
+        <section className="mt-5">
+          <ScientologyReferenceNotice />
+        </section>
       </AppShell>
     );
   }
@@ -124,6 +128,10 @@ export default async function PublicScientologyPage({ params }: { params: { user
           <SummaryItem label="Last service" value={profile.lastServiceName} />
           <SummaryItem label="Last service date" value={lastServiceDate} />
         </dl>
+      </section>
+
+      <section className="mt-5">
+        <ScientologyReferenceNotice />
       </section>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">

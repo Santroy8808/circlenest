@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { PrintButton } from "@/components/profile/print-button";
 import { getPublicResumeByUsername } from "@/modules/profile-resume/profile-resume.service";
@@ -123,6 +124,7 @@ export default async function PublicResumePage({ params }: { params: { username:
           <section className="resume-page resume-scientology-page">
             <p className="resume-kicker">Theta-Space Member Summary</p>
             <h2>My Scientology</h2>
+            <ScientologyReferenceNotice compact />
             <div className="resume-scientology-grid">
               <span>Classification</span>
               <strong>{scientology.classification}</strong>

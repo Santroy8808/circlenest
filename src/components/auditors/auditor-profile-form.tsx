@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import type { MyAuditorProfileView } from "@/modules/auditors/types";
 
 export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
@@ -72,6 +73,8 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
           <p>Processing: {data.scientology.processingStatus || "Not set"}</p>
         </div>
       </section>
+
+      <ScientologyReferenceNotice />
 
       <form className="surface grid gap-5 rounded-md p-6" onSubmit={submitProfile}>
         <div>

@@ -37,6 +37,10 @@ Store Scientology-specific member context for identity, qualification, and audit
 
 Member controls visibility except fields required for platform qualification/admin review.
 
+## Independent Reference and Trademark Notice
+
+Theta-Space is an independent community platform and is not affiliated with, sponsored, endorsed, operated, or controlled by the Church of Scientology International, Religious Technology Center, or any affiliated Scientology church or organization. Scientology, Dianetics, The Bridge, and certain Grade Chart terms are referenced in plain text only to describe member-reported training, processing, services, and affiliations. Referenced marks belong to Religious Technology Center or their respective owners. Theta-Space does not use Church or Scientology symbols and is not an official source of Scientology doctrine or terminology. Typographical, transcription, and terminology errors are unintended and should be reported through Feedback for review and correction.
+
 ## Integrations
 
 Invitations, auditors, profile, admin verification.

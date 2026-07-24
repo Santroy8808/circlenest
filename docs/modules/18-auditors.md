@@ -36,6 +36,10 @@ Provide auditor discovery and auditor profile creation for approved Auditor acco
 - Only Auditor accounts create auditor profiles.
 - Admin can create for platform operations/testing.
 
+## Independent Reference and Trademark Notice
+
+Theta-Space is independent and is not affiliated with, sponsored, endorsed, operated, or controlled by the Church of Scientology International, Religious Technology Center, or any affiliated Scientology church or organization. Scientology-related terms appear only as plain-text references to member-reported education and services. Referenced marks remain the property of Religious Technology Center or their respective owners. Errors are unintended and may be reported through Feedback for correction.
+
 ## Integrations
 
 - My Scientology.

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import { AppShell } from "@/components/platform/app-shell";
 import { ScientologyProfileForm } from "@/components/profile/scientology-profile-form";
 import { getScientologyProfileForOwner } from "@/modules/my-scientology/my-scientology.service";
@@ -21,6 +22,9 @@ export default async function MyScientologyPage() {
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
           This data supports qualification and auditor education pull-through. Visibility is explicit and defaults to private.
         </p>
+      </section>
+      <section className="mt-5">
+        <ScientologyReferenceNotice />
       </section>
       <section className="mt-5">
         <ScientologyProfileForm profile={profile} />

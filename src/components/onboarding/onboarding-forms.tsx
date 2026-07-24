@@ -4,6 +4,7 @@ import { ScientologyClassification } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { ScientologyOrgSearchField } from "@/components/profile/scientology-org-search-field";
 import { scientologyProcessingStatuses, scientologyTrainingLevels } from "@/modules/my-scientology/types";
@@ -207,6 +208,7 @@ export function OnboardingScientologyForm({ defaults }: { defaults: ScientologyD
       eyebrow="Step 2 of 4 · Optional"
       title="Add Scientology details (optional)"
     >
+      <ScientologyReferenceNotice compact />
       <form className="surface grid gap-4 rounded-md p-5" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">
@@ -309,6 +311,7 @@ export function OnboardingGoodStandingForm() {
       eyebrow="Step 3 of 4 · Required"
       title="Confirm good standing"
     >
+      <ScientologyReferenceNotice compact />
       <form className="surface grid gap-5 rounded-md p-5" onSubmit={submitGoodStanding}>
         <fieldset aria-describedby="good-standing-help" className="grid gap-3">
           <legend className="font-semibold leading-7">

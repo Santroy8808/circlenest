@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import type { AuditorProfileView } from "@/modules/auditors/types";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
@@ -54,6 +55,8 @@ export function AuditorDetail({ auditor }: { auditor: AuditorProfileView }) {
           <p className="mt-4 whitespace-pre-wrap leading-7 text-[var(--muted)]">{auditor.scientology.educationNotes}</p>
         ) : null}
       </section>
+
+      <ScientologyReferenceNotice />
 
       <section className="surface rounded-md p-5">
         <h2 className="text-xl font-semibold text-[var(--gold)]">Contact</h2>
