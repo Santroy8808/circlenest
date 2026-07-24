@@ -69,7 +69,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body, request);
+  const deletePasswordError = await requireDeletePasswordFromBodyOrRequest(body, request);
   if (deletePasswordError) return deletePasswordError;
 
   const result = await revokeOwnFreeAccountInviteCode(session.user.id, body);

@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { groupI
 
   const body = await readJsonRequest(request);
   if (!body.ok) return body.response;
-  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body.value, request);
+  const deletePasswordError = await requireDeletePasswordFromBodyOrRequest(body.value, request);
   if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);

@@ -167,6 +167,19 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
+    key: "delete-password",
+    title: "Delete Password",
+    description: "Change the shared DELETE password used across destructive actions.",
+    risk: "high",
+    keywords: ["delete password", "delete confirmation", "destructive", "security", "admin settings", "password"],
+    steps: [
+      "Confirm your admin account password.",
+      "Enter the new shared DELETE password and a change reason.",
+      "Save the new password so destructive actions use it everywhere.",
+      "Review the audit log entry for the change."
+    ]
+  },
+  {
     key: "reports-queue",
     title: "Reports Queue",
     description: "Review shared feedback, bug reports, abuse reports, content reports, and support tickets.",

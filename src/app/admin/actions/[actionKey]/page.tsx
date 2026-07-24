@@ -5,6 +5,7 @@ import { AdminConductReview } from "@/components/admin-moderation/admin-conduct-
 import { AdminAdScheduleWizard } from "@/components/admin-moderation/admin-ad-schedule-wizard";
 import { AdminAnnouncementWizard } from "@/components/admin-moderation/admin-announcement-wizard";
 import { AdminFeedRetentionWizard } from "@/components/admin-moderation/admin-feed-retention-wizard";
+import { AdminDeletePasswordWizard } from "@/components/admin-moderation/admin-delete-password-wizard";
 import { AdminFeatureFlagsManager } from "@/components/admin-moderation/admin-feature-flags-manager";
 import { AdminObjectLookup } from "@/components/admin-moderation/admin-object-lookup";
 import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
@@ -20,6 +21,7 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getAdScheduleAdminView } from "@/modules/ads-credits/ads-credits.service";
 import { listRecentPublicAnnouncements } from "@/modules/admin-moderation/announcements.service";
 import { getAdminActionCard, getAdminFeedbackTicketQueue, isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
+import { getDeleteProtectionAdminView } from "@/modules/admin-moderation/delete-protection.service";
 import { getPlatformCreditsAdminView } from "@/modules/admin-moderation/platform-credits.service";
 import { getStripeSetupAdminView } from "@/modules/billing/stripe-admin.service";
 import { listLaunchAccessAdminView } from "@/modules/membership-policy/launch-access.service";
@@ -178,6 +180,16 @@ export default async function AdminActionPage({
     return (
       <AppShell>
         <AdminAccountSupportWizard inviteCode={searchParams?.inviteCode} mode={searchParams?.tool} />
+      </AppShell>
+    );
+  }
+
+  if (action.key === "delete-password") {
+    const view = await getDeleteProtectionAdminView(session.user.id);
+
+    return (
+      <AppShell>
+        <AdminDeletePasswordWizard initialView={view} />
       </AppShell>
     );
   }

@@ -31,7 +31,7 @@ export async function DELETE(request: NextRequest) {
 
   const body = await readJsonRequest(request, 8 * 1024);
   if (!body.ok) return body.response;
-  const deletePasswordError = requireDeletePasswordFromBodyOrRequest(body.value, request);
+  const deletePasswordError = await requireDeletePasswordFromBodyOrRequest(body.value, request);
   if (deletePasswordError) return deletePasswordError;
 
   const result = await removeSocialRelationship(session.user.id, body.value);

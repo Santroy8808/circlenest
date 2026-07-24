@@ -10,13 +10,12 @@ export async function DELETE(request: Request, { params }: { params: { slug: str
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
-
   const routeAccess = await resolveMembershipRouteAccess(session.user.id, "businessManage", "api");
   if (!routeAccess.allowed) {
     return NextResponse.json({ error: routeAccess.error }, { status: routeAccess.status });
   }
 
-  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  const deletePasswordError = await requireDeletePasswordFromRequest(request);
   if (deletePasswordError) return deletePasswordError;
 
   const result = await deleteStorefrontForumTopic(params.slug, params.topicId, session.user.id);

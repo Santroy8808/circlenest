@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/platform/db";
+import { verifyPassword } from "@/modules/auth-security/password";
 
 export const DELETE_PASSWORD_FIELD = "deletePassword";
 export const DELETE_PASSWORD_HEADER = "x-delete-password";
 export const DEFAULT_DELETE_PASSWORD = "DELETE";
+const DELETE_PROTECTION_CONFIG_ID = "default";
+const DELETE_PASSWORD_CACHE_TTL_MS = 60_000;
+
+let cachedDeletePasswordHash: string | null | undefined;
+let cachedDeletePasswordLoadedAt = 0;
 
 export const protectedRetentionTags = {
   finance: "RETENTION_FINANCE",
@@ -216,17 +223,39 @@ export const protectedRetentionTables = protectedRetentionRecords.reduce<
   return tables;
 }, {});
 
-export function getDeletePassword() {
-  const configured = process.env.DELETE_PASSWORD ?? process.env.DELETE_CONFIRMATION_PASSWORD;
-  if (configured) return configured;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("DELETE_PASSWORD is not configured for production destructive actions.");
-  }
-  return DEFAULT_DELETE_PASSWORD;
+function getFallbackDeletePassword() {
+  return process.env.DELETE_PASSWORD ?? process.env.DELETE_CONFIRMATION_PASSWORD ?? DEFAULT_DELETE_PASSWORD;
 }
 
-export function validateDeletePassword(value: unknown) {
-  return typeof value === "string" && value === getDeletePassword();
+async function getStoredDeletePasswordHash() {
+  const now = Date.now();
+  if (cachedDeletePasswordLoadedAt && now - cachedDeletePasswordLoadedAt < DELETE_PASSWORD_CACHE_TTL_MS) {
+    return cachedDeletePasswordHash ?? null;
+  }
+
+  const config = await prisma.deleteProtectionConfig.findUnique({
+    where: { id: DELETE_PROTECTION_CONFIG_ID },
+    select: { deletePasswordHash: true }
+  });
+
+  cachedDeletePasswordHash = config?.deletePasswordHash ?? null;
+  cachedDeletePasswordLoadedAt = now;
+  return cachedDeletePasswordHash;
+}
+
+export async function getDeletePassword() {
+  return (await getStoredDeletePasswordHash()) ? "[configured]" : getFallbackDeletePassword();
+}
+
+export async function validateDeletePassword(value: unknown) {
+  if (typeof value !== "string") return false;
+
+  const storedDeletePasswordHash = await getStoredDeletePasswordHash();
+  if (storedDeletePasswordHash) {
+    return verifyPassword(value, storedDeletePasswordHash);
+  }
+
+  return value === getFallbackDeletePassword();
 }
 
 export function extractDeletePasswordFromBody(body: unknown) {
@@ -268,13 +297,13 @@ export function deletePasswordRequiredResponse() {
   );
 }
 
-export function requireDeletePasswordFromRequest(request: Request) {
-  return validateDeletePassword(extractDeletePasswordFromRequest(request))
+export async function requireDeletePasswordFromRequest(request: Request) {
+  return (await validateDeletePassword(extractDeletePasswordFromRequest(request)))
     ? null
     : deletePasswordRequiredResponse();
 }
 
-export function requireDeletePasswordFromBodyOrRequest(
+export async function requireDeletePasswordFromBodyOrRequest(
   body: unknown,
   request?: Request,
 ) {
@@ -283,13 +312,13 @@ export function requireDeletePasswordFromBodyOrRequest(
     ? extractDeletePasswordFromRequest(request)
     : undefined;
 
-  return validateDeletePassword(bodyPassword ?? requestPassword)
+  return (await validateDeletePassword(bodyPassword ?? requestPassword))
     ? null
     : deletePasswordRequiredResponse();
 }
 
-export function requireDeletePasswordValue(value: unknown) {
-  return validateDeletePassword(value)
+export async function requireDeletePasswordValue(value: unknown) {
+  return (await validateDeletePassword(value))
     ? null
     : {
         field: DELETE_PASSWORD_FIELD,
@@ -297,4 +326,9 @@ export function requireDeletePasswordValue(value: unknown) {
           "DELETE password is required for destructive delete operations.",
         code: "DELETE_PASSWORD_REQUIRED",
       };
+}
+
+export function resetDeletePasswordCache() {
+  cachedDeletePasswordHash = undefined;
+  cachedDeletePasswordLoadedAt = 0;
 }

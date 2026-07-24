@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { threa
   }
   if (!isInternalMailEnabled()) return NextResponse.json({ error: INTERNAL_MAIL_UNAVAILABLE_ERROR }, { status: 404 });
 
-  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  const deletePasswordError = await requireDeletePasswordFromRequest(request);
   if (deletePasswordError) return deletePasswordError;
 
   const result = await deleteMailThread(session.user.id, params.threadId);

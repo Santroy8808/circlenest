@@ -1060,7 +1060,7 @@ export async function updateGalleryAssetTags(userId: string, input: unknown) {
 }
 
 export async function deleteGalleryAssets(userId: string, input: unknown) {
-  const deletePasswordError = requireDeletePasswordValue(extractDeletePasswordFromBody(input));
+  const deletePasswordError = await requireDeletePasswordValue(extractDeletePasswordFromBody(input));
   if (deletePasswordError) {
     return {
       ok: false as const,

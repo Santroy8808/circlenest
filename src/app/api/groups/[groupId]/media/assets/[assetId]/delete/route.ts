@@ -10,7 +10,7 @@ export async function POST(request: Request, { params }: { params: { groupId: st
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
-  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  const deletePasswordError = await requireDeletePasswordFromRequest(request);
   if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);

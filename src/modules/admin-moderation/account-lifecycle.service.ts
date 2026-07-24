@@ -272,7 +272,7 @@ export async function changeAccountLifecycle(actorUserId: string, input: unknown
       });
       return { ok: false as const, error: "Type the confirmation phrase exactly to confirm permanent deletion." };
     }
-    const deletePasswordError = requireDeletePasswordValue(parsed.data.deletePassword);
+    const deletePasswordError = await requireDeletePasswordValue(parsed.data.deletePassword);
     if (deletePasswordError) {
       await recordDeleteConfirmationDenied({
         actorUserId,

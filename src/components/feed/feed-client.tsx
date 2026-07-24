@@ -1167,6 +1167,23 @@ export function FeedClient({
     }
   }
 
+  function syncCachedFeedPosts(updater: (posts: FeedPostView[]) => FeedPostView[]) {
+    try {
+      const cached = readFeedCache(feedCacheKey);
+      if (!cached?.posts?.length) return;
+
+      window.sessionStorage.setItem(
+        feedCacheKey,
+        JSON.stringify({
+          ...cached,
+          posts: updater(cached.posts)
+        })
+      );
+    } catch {
+      // Cache writes are best-effort.
+    }
+  }
+
   async function loadMorePosts() {
     if (!nextCursor || isLoadingMore) return;
 
@@ -1489,14 +1506,22 @@ export function FeedClient({
         method: "DELETE",
         headers: deletePasswordHeaders(deletePassword)
       });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
       if (!response.ok) {
-        setTrustMessage("That post could not be deleted.");
+        setTrustMessage(payload.error ?? "That post could not be deleted.");
         return;
       }
 
       setPosts((current) => current.filter((post) => post.id !== postId));
+      syncCachedFeedPosts((current) => current.filter((post) => post.id !== postId));
       setTrustMessage("Post deleted.");
-      if (!showThreadLinks) window.location.assign("/home");
+      if (!showThreadLinks) {
+        window.location.assign("/home");
+        return;
+      }
+
+      await refreshFeed().catch(() => undefined);
     });
   }
 

@@ -871,6 +871,7 @@ model User {
   updatedPlatformCostRules        PlatformCostRule[]                 @relation("PlatformCostRuleUpdater")
   updatedFeatureFlags             FeatureFlag[]                      @relation("FeatureFlagUpdater")
   updatedStripeIntegrationConfigs StripeIntegrationConfig[]          @relation("StripeIntegrationConfigUpdater")
+  deleteProtectionConfigUpdated   DeleteProtectionConfig[]           @relation("DeleteProtectionConfigUpdater")
   platformActivityEvents          PlatformActivityEvent[]            @relation("PlatformActivityUser")
   applicationUsageMetric          UserApplicationUsageMetric?
   interests                       UserInterest[]
@@ -3182,6 +3183,15 @@ model ConductInvestigation {
   @@index([subjectUserId, status, createdAt])
   @@index([status, createdAt])
   @@index([requestedByUserId, createdAt])
+}
+
+model DeleteProtectionConfig {
+  id                 String   @id @default("default")
+  deletePasswordHash String?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  updatedBy          User?    @relation("DeleteProtectionConfigUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 }
 
 model ConductIncident {

@@ -371,12 +371,12 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               keywords: ["toggle feature", "enable module", "disable module", "configuration", "flags"]
             },
             {
-              href: "/admin/actions/launch-access",
-              title: "Launch Access Hub",
+              href: "/admin/actions/delete-password",
+              title: "Delete Password",
               category: "Platform Controls",
-              description: "Open the launch access hub for founder pricing, invites, grants, guardrails, and reviews.",
-              badge: "hub",
-              keywords: ["launch access", "hub", "founder pricing", "invite", "promo", "guardrails"]
+              description: "Change the shared DELETE password used by all destructive actions.",
+              badge: "security",
+              keywords: ["delete password", "delete confirmation", "security", "admin settings", "destructive"]
             }
           ]
         }

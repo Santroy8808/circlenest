@@ -35,7 +35,6 @@ export async function DELETE(request: Request, { params }: { params: { manuscrip
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
-
   const featureAccess = await resolvePlatformApiFeatureAccess("publishing.writers_corner");
   if (!featureAccess.allowed) {
     return NextResponse.json(
@@ -44,7 +43,7 @@ export async function DELETE(request: Request, { params }: { params: { manuscrip
     );
   }
 
-  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  const deletePasswordError = await requireDeletePasswordFromRequest(request);
   if (deletePasswordError) return deletePasswordError;
 
   const result = await unsubscribeFromManuscript(session.user.id, params.manuscriptId);

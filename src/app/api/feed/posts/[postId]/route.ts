@@ -46,12 +46,15 @@ export async function DELETE(request: NextRequest, { params }: { params: { postI
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const deletePasswordError = requireDeletePasswordFromRequest(request);
+  const deletePasswordError = await requireDeletePasswordFromRequest(request);
   if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);
   const result = await deleteFeedPost(actor.actorUserId, params.postId);
-  return result.ok
-    ? NextResponse.json({ ok: true })
-    : NextResponse.json({ error: result.error }, { status: 404 });
+  if (result.ok) {
+    return NextResponse.json({ ok: true, postId: params.postId });
+  }
+
+  const status = result.error?.toLowerCase().includes("not authorized") ? 403 : 404;
+  return NextResponse.json({ error: result.error, postId: params.postId }, { status });
 }

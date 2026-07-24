@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AdminCategoryCard, AdminFunctionCard } from "@/components/admin-moderation/admin-workflow-cards";
 import { buildWorkflowCategories, flattenWorkflowEntries, matchesWorkflowSearch } from "@/modules/admin-moderation/admin-workflows";
 import type { AdminPortalView } from "@/modules/admin-moderation/types";
@@ -137,8 +138,28 @@ export function AdminPortal({ portal }: { portal: AdminPortalView }) {
           <LogList logs={portal.recentAuditLogs} />
         </div>
         <div className="surface rounded-md p-5 lg:col-span-2">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">Recent Diagnostics</h2>
-          <LogList logs={portal.recentDiagnostics} />
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-[var(--gold)]">Diagnostics</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                Audit logs, diagnostics, and route movement now live on their own page so this portal can stay focused on search and workflow selection.
+              </p>
+            </div>
+            <Link className="btn-secondary" href="/admin/diagnostics">
+              Open diagnostics
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-3">
+            {portal.recentDiagnostics.slice(0, 3).map((log) => (
+              <article className="rounded-md border border-[var(--line)] bg-black/10 p-3" key={log.id}>
+                <p className="font-semibold">{log.label}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">{log.detail}</p>
+              </article>
+            ))}
+            {portal.recentDiagnostics.length === 0 ? (
+              <p className="rounded-md border border-dashed border-[var(--line)] p-4 text-[var(--muted)] md:col-span-3">No recent diagnostics entries.</p>
+            ) : null}
+          </div>
         </div>
       </section>
     </div>
