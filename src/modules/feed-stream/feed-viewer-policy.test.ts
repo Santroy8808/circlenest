@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { friendAuthoredPostWhere, profileFeedPrincipalWhere, streamModeWhere } from "./feed-viewer-policy";
+import { feedPostWhereForAction, friendAuthoredPostWhere, profileFeedPrincipalWhere, streamModeWhere } from "./feed-viewer-policy";
 
 test("profile Stream identity includes authored public posts and direct profile posts", () => {
   assert.deepEqual(profileFeedPrincipalWhere("member-1"), {
@@ -29,5 +29,29 @@ test("friends Stream is based on a symmetric accepted relationship, not post vis
 test("public Stream mode excludes friends-only and private records", () => {
   assert.deepEqual(streamModeWhere("viewer-1", "public"), {
     visibility: { in: ["PUBLIC", "MEMBERS"] }
+  });
+});
+
+test("moderator Stream views still exclude deleted and archived posts", () => {
+  const moderatorPolicy = {
+    viewerUserId: "admin-1",
+    isModerator: true,
+    actorWhere: {},
+    viewWhere: {
+      streamArchivedAt: null,
+      streamDeletedAt: null
+    },
+    interactionWhere: {
+      streamArchivedAt: null,
+      streamDeletedAt: null
+    }
+  };
+
+  assert.deepEqual(feedPostWhereForAction(moderatorPolicy, "view"), {
+    streamArchivedAt: null,
+    streamDeletedAt: null
+  });
+  assert.deepEqual(feedPostWhereForAction(moderatorPolicy, "delete"), {
+    streamDeletedAt: null
   });
 });

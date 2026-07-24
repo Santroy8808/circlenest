@@ -4,7 +4,8 @@ const DELETE_PASSWORD_HEADER = "x-delete-password";
 
 export function promptForDeletePassword() {
   const password = window.prompt("Enter the DELETE password to authorize this destructive action.");
-  return password?.trim() ? password : null;
+  const cleanPassword = password?.trim();
+  return cleanPassword ? cleanPassword : null;
 }
 
 export function deletePasswordHeaders(password: string) {

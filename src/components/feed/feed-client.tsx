@@ -1501,6 +1501,7 @@ export function FeedClient({
       return;
     }
 
+    setTrustMessage("Deleting post...");
     startTransition(async () => {
       const response = await fetch(`/api/feed/posts/${postId}`, {
         method: "DELETE",
@@ -1509,7 +1510,9 @@ export function FeedClient({
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
-        setTrustMessage(payload.error ?? "That post could not be deleted.");
+        const message = payload.error ?? "That post could not be deleted.";
+        setTrustMessage(message);
+        window.alert(message);
         return;
       }
 
@@ -1858,7 +1861,14 @@ export function FeedClient({
                         </button>
                       ) : null}
                       {composerIdentity.id === post.author.id ? (
-                        <button className="text-red-300" onClick={() => deletePost(post.id)} type="button">
+                        <button
+                          className="text-red-300"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deletePost(post.id);
+                          }}
+                          type="button"
+                        >
                           Delete post
                         </button>
                       ) : null}

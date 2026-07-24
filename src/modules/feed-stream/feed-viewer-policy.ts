@@ -19,6 +19,10 @@ const ACTIVE_STREAM_POSTS: Prisma.FeedPostWhereInput = {
   streamArchivedAt: null,
   streamDeletedAt: null
 };
+const MODERATOR_ACTIVE_STREAM_POSTS: Prisma.FeedPostWhereInput = {
+  streamArchivedAt: null,
+  streamDeletedAt: null
+};
 
 /**
  * A profile Stream is keyed by the owning user, never by a display identity.
@@ -161,8 +165,8 @@ export async function resolveFeedViewerPolicy(viewerUserId?: string | null): Pro
       viewerUserId,
       isModerator: true,
       actorWhere: {},
-      viewWhere: {},
-      interactionWhere: {}
+      viewWhere: MODERATOR_ACTIVE_STREAM_POSTS,
+      interactionWhere: MODERATOR_ACTIVE_STREAM_POSTS
     };
   }
 
@@ -216,7 +220,7 @@ export function feedPostWhereForAction(
   if (action === "interact") return policy.interactionWhere;
 
   if (action === "update") {
-    if (policy.isModerator) return {};
+    if (policy.isModerator) return policy.viewWhere;
     if (!policy.viewerUserId) return DENY_ALL_POSTS;
 
     return {
@@ -225,7 +229,7 @@ export function feedPostWhereForAction(
   }
 
   if (action === "delete") {
-    if (policy.isModerator) return {};
+    if (policy.isModerator) return { streamDeletedAt: null };
     if (!policy.viewerUserId) return DENY_ALL_POSTS;
 
     return {
