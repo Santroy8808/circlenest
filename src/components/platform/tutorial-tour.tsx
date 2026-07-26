@@ -168,7 +168,6 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
   }, [pathname, router]);
 
   const startTour = useCallback((stepId = tutorialSteps[0].id) => {
-    void markComplete();
     goToStep(getTutorialStep(stepId));
   }, [goToStep]);
 

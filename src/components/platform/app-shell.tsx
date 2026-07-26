@@ -206,7 +206,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
       ) : null}
       {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} mailEnabled={mailEnabled} platformFeatures={platformFeatures} sections={navSections} /> : null}
-      {isSignedIn ? <TutorialTour shouldPromptOnFirstLogin={tutorialState.shouldPrompt} /> : null}
+      {isSignedIn ? <TutorialTour shouldPromptOnFirstLogin={!isOnboardingPath && tutorialState.shouldPrompt} /> : null}
       </ShellCountsProvider>
     </div>
   );

@@ -4,13 +4,16 @@ export async function getWelcomeTutorialState(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
+      onboardingCompletedAt: true,
       welcomeTutorialCompletedAt: true
     }
   });
 
+  const isActivated = Boolean(user?.onboardingCompletedAt);
+
   return {
     completedAt: user?.welcomeTutorialCompletedAt?.toISOString() ?? null,
-    shouldPrompt: Boolean(user && !user.welcomeTutorialCompletedAt)
+    shouldPrompt: Boolean(user && isActivated && !user.welcomeTutorialCompletedAt)
   };
 }
 
