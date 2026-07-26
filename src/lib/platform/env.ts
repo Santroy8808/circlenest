@@ -69,6 +69,7 @@ export const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().email().optional(),
+  SMTP_AUTH_MODE: z.enum(["login", "relay"]).default("login"),
   SMTP_SECURE: z.enum(["true", "false"]).optional(),
   SMTP_IGNORE_TLS: z.enum(["true", "false"]).optional(),
   MAIL_TRANSPORT: z.enum(["smtp", "microsoft-graph"]).default("smtp"),
@@ -77,6 +78,14 @@ export const envSchema = z.object({
   MICROSOFT_GRAPH_CERTIFICATE_PATH: z.string().min(1).optional(),
   MICROSOFT_GRAPH_PRIVATE_KEY_PATH: z.string().min(1).optional(),
   MICROSOFT_GRAPH_SENDER: z.string().email().optional(),
+  SYSTEM_MAIL_FROM: z.string().email().optional(),
+  ADMIN_MAIL_FROM: z.string().email().optional(),
+  SUPPORT_MAIL_FROM: z.string().email().optional(),
+  LEGAL_MAIL_FROM: z.string().email().optional(),
+  PRIVACY_MAIL_FROM: z.string().email().optional(),
+  SECURITY_MAIL_FROM: z.string().email().optional(),
+  EVENT_MAIL_FROM: z.string().email().optional(),
+  STOREFRONT_MAIL_FROM: z.string().email().optional(),
   INVITE_MAIL_FROM: z.string().email().optional(),
   INVITE_MAIL_REPLY_TO: z.string().email().optional(),
   MEMBER_MAIL_BASE_ADDRESS: z.string().email().default("theta@theta-space.net"),
@@ -162,12 +171,20 @@ export const productionEnvSchema = envSchema.superRefine((env, context) => {
     });
   }
 
-  const smtpFields = [env.SMTP_HOST, env.SMTP_PORT, env.SMTP_USER, env.SMTP_PASS, env.SMTP_FROM];
+  const smtpFields = [env.SMTP_HOST, env.SMTP_PORT, env.SMTP_FROM];
   if (smtpFields.some((value) => !value)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM are required for production account recovery.",
+      message: "SMTP_HOST, SMTP_PORT, and SMTP_FROM are required for production account recovery.",
       path: ["SMTP_HOST"]
+    });
+  }
+
+  if (env.SMTP_AUTH_MODE === "login" && (!env.SMTP_USER || !env.SMTP_PASS)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "SMTP_USER and SMTP_PASS are required when SMTP_AUTH_MODE is login.",
+      path: ["SMTP_USER"]
     });
   }
 

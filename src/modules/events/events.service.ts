@@ -9,7 +9,8 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
-import { sendSmtpMail } from "@/lib/platform/smtp";
+import { sendPlatformMail } from "@/lib/platform/mail";
+import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import {
   createEventSchema,
@@ -556,8 +557,11 @@ export async function submitExternalEventRsvp(viewerUserId: string, eventIdOrSlu
   });
 
   try {
-    await sendSmtpMail({
+    const mailboxes = readPlatformMailboxes();
+    await sendPlatformMail({
       to: normalizedEmail,
+      from: mailboxes.event,
+      replyTo: mailboxes.support,
       subject: `Theta-Space RSVP confirmation: ${event.title}`,
       text: [
         `Your RSVP for ${event.title} has been recorded as ${parsed.data.status}.`,

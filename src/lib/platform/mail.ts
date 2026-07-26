@@ -10,6 +10,7 @@ export type SendPlatformMailInput = {
   html?: string;
   from?: string;
   replyTo?: string;
+  messageId?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer;

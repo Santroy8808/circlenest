@@ -16,7 +16,8 @@ import {
   lockReadyMediaAssetsForReference,
   withMediaAssetReferenceValidation
 } from "@/lib/platform/media-asset-reference-fence";
-import { sendSmtpMail } from "@/lib/platform/smtp";
+import { sendPlatformMail } from "@/lib/platform/mail";
+import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
@@ -1008,8 +1009,11 @@ export async function createBusinessInquiry(slug: string, input: unknown) {
 
   if (profile.publicEmail) {
     try {
-      await sendSmtpMail({
+      const mailboxes = readPlatformMailboxes();
+      await sendPlatformMail({
         to: profile.publicEmail,
+        from: mailboxes.storefront,
+        replyTo: mailboxes.support,
         subject: `Theta-Space inquiry: ${profile.businessName}`,
         text: [
           `Theta-Space inquiry for ${profile.businessName}`,

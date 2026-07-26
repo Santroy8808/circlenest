@@ -11,7 +11,8 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
-import { sendSmtpMail } from "@/lib/platform/smtp";
+import { sendPlatformMail } from "@/lib/platform/mail";
+import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { assertChatMessageWriteAllowed } from "@/modules/chat-messages/chat-retention";
 import { assertNewFeedPostWriteAllowed } from "@/modules/feed-stream/feed-write-fence";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
@@ -310,8 +311,11 @@ async function markPersonalEmailSent(
     });
     if (stillOwned.count !== 1) throw new Error("Announcement delivery claim was lost.");
 
-    const info = await sendSmtpMail({
+    const mailboxes = readPlatformMailboxes();
+    const info = await sendPlatformMail({
       to: outbox.recipientAddress!,
+      from: mailboxes.admin,
+      replyTo: mailboxes.support,
       subject: payload.title,
       text: payload.body,
       messageId: deterministicMessageId,

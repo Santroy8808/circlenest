@@ -2,7 +2,7 @@
 Effective Date: July 10, 2026
 Platform: theta-space.net
 Operator: Theta-Space
-Contact: Mike@santroy.com
+Contact: legal@theta-space.net
 Address: 101 Rainbow Dr, PMB 6731, Livingston, TX 77399, United States
 These Terms of Service govern your access to and use of theta-space.net, together with all websites, applications, private member spaces, communities, messaging features, content features, account systems, software, services, and related products operated by Theta-Space and its subsidiaries.
 By creating an account, accepting an invitation, accessing the Platform, posting Content, sending messages, making a payment, or otherwise using the Platform, you agree to these Terms and our Privacy Policy. If you do not agree, you may not access or use the Platform.
@@ -195,7 +195,7 @@ We respect intellectual property rights and may remove or restrict Content alleg
 If you believe Content on the Platform infringes your copyright, you may send a notice to our designated copyright agent:
 DMCA Agent: Theta-Space
 Address: 101 Rainbow Dr, PMB 6731, Livingston, TX 77399, United States
-Email: Mike@santroy.com
+Email: legal@theta-space.net
 Your notice should include:
 Your physical or electronic signature.
 Identification of the copyrighted work claimed to be infringed.
@@ -266,7 +266,7 @@ A general release does not extend to claims that the creditor or releasing party
 
 You waive any similar law, rule, or principle that may apply in any other jurisdiction.
 34. Dispute Resolution; Informal Resolution
-Before filing a claim, you agree to first contact us at Mike@santroy.com and attempt to resolve the dispute informally.
+Before filing a claim, you agree to first contact us at legal@theta-space.net and attempt to resolve the dispute informally.
 Your notice must include your name, account information, contact information, a description of the dispute, the relief requested, and enough information for us to evaluate the claim.
 We will attempt to resolve the dispute informally. Either party may proceed with formal dispute resolution if the dispute is not resolved within 30 days after notice is received.
 35. Arbitration Agreement
@@ -283,7 +283,7 @@ If this class action waiver is found unenforceable as to a claim, that claim mus
 Either party may bring an individual claim in small claims court if the claim qualifies.
 Nothing in these Terms prevents either party from seeking temporary, preliminary, or permanent injunctive or equitable relief in court to protect intellectual property, confidential information, security, privacy, Platform integrity, access controls, or against unauthorized use, scraping, abuse, harassment, circumvention, or illegal conduct.
 38. Arbitration Opt-Out
-You may opt out of the arbitration agreement by sending written notice to Mike@santroy.com within 30 days after you first accept these Terms.
+You may opt out of the arbitration agreement by sending written notice to legal@theta-space.net within 30 days after you first accept these Terms.
 Your opt-out notice must include your full name, account email, username if applicable, and a clear statement that you opt out of arbitration.
 Opting out of arbitration does not opt you out of any other part of these Terms, including the class action waiver to the extent enforceable.
 39. Governing Law
@@ -312,7 +312,7 @@ Theta-Space
 PMB 6731
 Livingston, TX 77399
 United States
-Email: Mike@santroy.com
+Email: legal@theta-space.net
 We may provide notices to you using the email address associated with your account, Platform notifications, postings on the Platform, or other reasonable methods.
 Notices are deemed given when sent, posted, or otherwise made available, unless applicable law requires otherwise.
 45. Assignment
@@ -344,5 +344,5 @@ Theta-Space
 PMB 6731
 Livingston, TX 77399
 United States
-Email: Mike@santroy.com
+Email: legal@theta-space.net
 Use of the Platform remains subject to these Terms regardless of whether we respond to any question, complaint, report, request, or communication.

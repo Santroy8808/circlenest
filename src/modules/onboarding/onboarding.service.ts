@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/platform/db";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
-import { sendSmtpMail } from "@/lib/platform/smtp";
+import { sendPlatformMail } from "@/lib/platform/mail";
+import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import {
   currentTermsSummary,
   getCurrentTermsPdfSha256,
@@ -380,8 +381,11 @@ export async function acceptOnboardingTerms(userId: string, input: unknown) {
       timeStyle: "short",
       timeZone: "UTC"
     }).format(acceptedAt);
-    const sent = await sendSmtpMail({
+    const mailboxes = readPlatformMailboxes();
+    const sent = await sendPlatformMail({
       to: signerEmail,
+      from: mailboxes.legal,
+      replyTo: mailboxes.legal,
       subject: "Your Theta-Space Terms of Service",
       text: [
         `Hello ${signerName},`,

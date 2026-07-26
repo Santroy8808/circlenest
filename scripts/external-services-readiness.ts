@@ -148,11 +148,21 @@ const requiredSecrets = ["NEXTAUTH_SECRET", "MOBILE_AUTH_SECRET", "IP_HASH_SECRE
 const secretsMeetPolicy = requiredSecrets.every((name) => acceptableSecret(name));
 const secretsAreDistinct = distinctValues(requiredSecrets);
 
-const smtpRequired = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
-const missingSmtp = missingNames(smtpRequired);
+const smtpRequired = ["SMTP_HOST", "SMTP_PORT", "SMTP_FROM"] as const;
+const smtpLoginRequired = ["SMTP_USER", "SMTP_PASS"] as const;
+const smtpAuthMode = envValue("SMTP_AUTH_MODE") || "login";
+const missingSmtp = [
+  ...missingNames(smtpRequired),
+  ...(smtpAuthMode === "login" ? missingNames(smtpLoginRequired) : [])
+];
 const smtpPort = Number(envValue("SMTP_PORT"));
 const smtpShapeValid =
-  missingSmtp.length === 0 && Number.isInteger(smtpPort) && smtpPort >= 1 && smtpPort <= 65535 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(envValue("SMTP_FROM"));
+  missingSmtp.length === 0 &&
+  ["login", "relay"].includes(smtpAuthMode) &&
+  Number.isInteger(smtpPort) &&
+  smtpPort >= 1 &&
+  smtpPort <= 65535 &&
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(envValue("SMTP_FROM"));
 
 const r2ProviderAliases = ["CLOUDFLARE_R2_ACCOUNT_ID", "R2_ACCOUNT_ID", "CLOUDFLARE_R2_ENDPOINT", "R2_ENDPOINT"] as const;
 const r2AccessKeyAliases = ["CLOUDFLARE_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"] as const;
@@ -453,7 +463,9 @@ The three secrets must each satisfy the production quality policy and must be mu
 
 ### SMTP recovery
 
-${bulletList([...smtpRequired, "SMTP_SECURE", "SMTP_IGNORE_TLS=false"].map((name) => `\`${name}\``))}
+${bulletList([...smtpRequired, "SMTP_AUTH_MODE=relay", "SMTP_SECURE", "SMTP_IGNORE_TLS=false"].map((name) => `\`${name}\``))}
+
+Theta-Space production SMTP uses the Exchange Online connector **Theta-Space Web Server SMTP Relay**, restricted to web server IP \`207.188.9.139\`. \`SMTP_USER\` and \`SMTP_PASS\` are required only when \`SMTP_AUTH_MODE=login\`.
 
 ### Cloudflare R2
 

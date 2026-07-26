@@ -7,6 +7,7 @@ import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 import { sendPlatformMail } from "@/lib/platform/mail";
+import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 
@@ -268,11 +269,11 @@ export function buildFreeAccountInviteEmail(code: string, expiresAt: Date) {
 
 async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date) {
   const message = buildFreeAccountInviteEmail(code, expiresAt);
-  const env = readPlatformEnv();
+  const mailboxes = readPlatformMailboxes();
   await sendPlatformMail({
     to: recipientEmail,
-    from: env.INVITE_MAIL_FROM ?? "invite@theta-space.net",
-    replyTo: env.INVITE_MAIL_REPLY_TO ?? "support@theta-space.net",
+    from: mailboxes.invite,
+    replyTo: mailboxes.inviteReplyTo,
     ...message
   });
 }

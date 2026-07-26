@@ -4,8 +4,9 @@ import { writeAuditLog, type AuditInput } from "@/lib/platform/audit";
 import { prisma } from "@/lib/platform/db";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { diagnostics } from "@/lib/platform/logging";
+import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { hashPrivateSignal } from "@/lib/platform/private-signals";
-import { sendSmtpMail } from "@/lib/platform/smtp";
+import { sendPlatformMail } from "@/lib/platform/mail";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/modules/auth-security/password";
 import {
   type AuthenticatedUser,
@@ -75,8 +76,11 @@ function verificationEmailText(token: string) {
 async function sendEmailVerificationMessage(email: string, token: string) {
   const verificationUrl = `${publicBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
 
-  await sendSmtpMail({
+  const mailboxes = readPlatformMailboxes();
+  await sendPlatformMail({
     to: email,
+    from: mailboxes.security,
+    replyTo: mailboxes.support,
     subject: "Verify your Theta-Space email",
     text: verificationEmailText(token),
     html: [
@@ -103,8 +107,11 @@ function passwordResetEmailText(token: string) {
 async function sendPasswordResetMessage(email: string, token: string) {
   const resetUrl = `${publicBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
 
-  await sendSmtpMail({
+  const mailboxes = readPlatformMailboxes();
+  await sendPlatformMail({
     to: email,
+    from: mailboxes.security,
+    replyTo: mailboxes.support,
     subject: "Reset your Theta-Space password",
     text: passwordResetEmailText(token),
     html: [

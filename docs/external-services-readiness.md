@@ -77,15 +77,14 @@ The three secrets must each satisfy the production quality policy and must be mu
 
 ### SMTP recovery
 
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
-- `SMTP_SECURE`
+- `SMTP_HOST=thetaspace-net01c.mail.protection.outlook.com`
+- `SMTP_PORT=25`
+- `SMTP_AUTH_MODE=relay`
+- `SMTP_FROM=noreply@theta-space.net`
+- `SMTP_SECURE=false`
 - `SMTP_IGNORE_TLS=false`
 
-SMTP remains the account-recovery transport until that flow is explicitly migrated.
+SMTP uses the Exchange Online connector **Theta-Space Web Server SMTP Relay**, which only allows relay from the Theta-Space web server external IP `207.188.9.139`.
 
 ### Microsoft Graph application mail
 
@@ -95,11 +94,19 @@ SMTP remains the account-recovery transport until that flow is explicitly migrat
 - `MICROSOFT_GRAPH_CERTIFICATE_PATH`
 - `MICROSOFT_GRAPH_PRIVATE_KEY_PATH`
 - `MICROSOFT_GRAPH_SENDER=noreply@theta-space.net`
+- `SYSTEM_MAIL_FROM=noreply@theta-space.net`
+- `ADMIN_MAIL_FROM=admin@theta-space.net`
+- `SUPPORT_MAIL_FROM=support@theta-space.net`
+- `LEGAL_MAIL_FROM=legal@theta-space.net`
+- `PRIVACY_MAIL_FROM=privacy@theta-space.net`
+- `SECURITY_MAIL_FROM=security@theta-space.net`
+- `EVENT_MAIL_FROM=invite@theta-space.net`
+- `STOREFRONT_MAIL_FROM=support@theta-space.net`
 - `INVITE_MAIL_FROM=invite@theta-space.net`
 - `INVITE_MAIL_REPLY_TO=support@theta-space.net`
 - `MEMBER_MAIL_BASE_ADDRESS=theta@theta-space.net`
 
-The certificate and private-key files must be readable only by the Theta-Space service account. The Microsoft Graph application must be restricted in Exchange to the approved application-sending mailboxes. Invitations are sent from `invite@theta-space.net`; replies are directed to `support@theta-space.net`.
+The certificate and private-key files must be readable only by the Theta-Space service account. The Microsoft Graph application must be restricted in Exchange to the approved application-sending mailboxes. Application mail sends through the approved Theta-Space shared mailboxes: `admin@theta-space.net`, `noreply@theta-space.net`, `invite@theta-space.net`, `legal@theta-space.net`, `privacy@theta-space.net`, `security@theta-space.net`, and `support@theta-space.net`.
 
 #### Member shared-mailbox routing rules
 

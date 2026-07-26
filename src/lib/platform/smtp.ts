@@ -21,7 +21,11 @@ let smtpTransporter: Transporter | null = null;
 function requireSmtpEnv() {
   const env = readPlatformEnv();
 
-  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.SMTP_FROM) {
+  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_FROM) {
+    throw new Error("SMTP is not configured.");
+  }
+
+  if (env.SMTP_AUTH_MODE === "login" && (!env.SMTP_USER || !env.SMTP_PASS)) {
     throw new Error("SMTP is not configured.");
   }
 
@@ -30,6 +34,12 @@ function requireSmtpEnv() {
 
 export async function sendSmtpMail(input: SendSmtpMailInput) {
   const env = requireSmtpEnv();
+  const auth = env.SMTP_AUTH_MODE === "login" && env.SMTP_USER && env.SMTP_PASS
+    ? {
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASS
+      }
+    : undefined;
   const transporter = smtpTransporter ?? nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -46,10 +56,7 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
       servername: env.SMTP_HOST,
       minVersion: "TLSv1.2"
     },
-    auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS
-    }
+    auth
   });
   smtpTransporter = transporter;
 
