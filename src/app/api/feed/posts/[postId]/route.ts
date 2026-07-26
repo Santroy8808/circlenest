@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
+import { isAdminRole } from "@/lib/platform/roles";
 import { deleteFeedPost, getFeedPostThreadPage } from "@/modules/feed-stream/feed-stream.service";
 
 export async function GET(request: NextRequest, { params }: { params: { postId: string } }) {
@@ -50,7 +51,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { postI
   if (deletePasswordError) return deletePasswordError;
 
   const actor = await getActiveAccountActor(session.user.id);
-  const result = await deleteFeedPost(actor.actorUserId, params.postId);
+  const deleteActorUserId = isAdminRole(session.user.role) ? session.user.id : actor.actorUserId;
+  const result = await deleteFeedPost(deleteActorUserId, params.postId);
   if (result.ok) {
     return NextResponse.json({ ok: true, postId: params.postId });
   }

@@ -1493,7 +1493,7 @@ export function FeedClient({
     setTrustMessage("Post hidden from this view.");
   }
 
-  function deletePost(postId: string) {
+  async function deletePost(postId: string) {
     if (!window.confirm("Delete this post permanently? This also removes its comments and reactions.")) return;
     const deletePassword = promptForDeletePassword();
     if (!deletePassword) {
@@ -1502,7 +1502,7 @@ export function FeedClient({
     }
 
     setTrustMessage("Deleting post...");
-    startTransition(async () => {
+    try {
       const response = await fetch(`/api/feed/posts/${postId}`, {
         method: "DELETE",
         headers: deletePasswordHeaders(deletePassword)
@@ -1519,13 +1519,18 @@ export function FeedClient({
       setPosts((current) => current.filter((post) => post.id !== postId));
       syncCachedFeedPosts((current) => current.filter((post) => post.id !== postId));
       setTrustMessage("Post deleted.");
+      window.alert("Post deleted.");
       if (!showThreadLinks) {
         window.location.assign("/home");
         return;
       }
 
       await refreshFeed().catch(() => undefined);
-    });
+    } catch {
+      const message = "That post could not be deleted because the request failed. Check the connection and try again.";
+      setTrustMessage(message);
+      window.alert(message);
+    }
   }
 
   function dismissPinnedAnnouncement(postId: string) {
@@ -1865,7 +1870,7 @@ export function FeedClient({
                           className="text-red-300"
                           onClick={(event) => {
                             event.stopPropagation();
-                            deletePost(post.id);
+                            void deletePost(post.id);
                           }}
                           type="button"
                         >
