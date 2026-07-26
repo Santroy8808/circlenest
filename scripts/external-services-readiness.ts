@@ -383,7 +383,7 @@ const canonicalR2Variables = [
 const productionSafetyVariables = [
   "AUTH_SIGNUP_PREVERIFIED=false",
   "UPLOAD_PROXY_FALLBACK_ENABLED=false",
-  "SMTP_IGNORE_TLS=false",
+  "SMTP_IGNORE_TLS=false unless SMTP_AUTH_MODE=relay",
   "PLATFORM_LOG_LEVEL",
   "DIAGNOSTIC_LOGS_ENABLED",
   "AUDIT_LOGS_ENABLED"
@@ -463,9 +463,9 @@ The three secrets must each satisfy the production quality policy and must be mu
 
 ### SMTP recovery
 
-${bulletList([...smtpRequired, "SMTP_AUTH_MODE=relay", "SMTP_SECURE", "SMTP_IGNORE_TLS=false"].map((name) => `\`${name}\``))}
+${bulletList([...smtpRequired, "SMTP_AUTH_MODE=relay", "SMTP_SECURE", "SMTP_IGNORE_TLS=true"].map((name) => `\`${name}\``))}
 
-Theta-Space production SMTP uses the Exchange Online connector **Theta-Space Web Server SMTP Relay**, restricted to web server IP \`207.188.9.139\`. \`SMTP_USER\` and \`SMTP_PASS\` are required only when \`SMTP_AUTH_MODE=login\`.
+Theta-Space production SMTP uses the Exchange Online connector **Theta-Space Web Server SMTP Relay**, restricted to web server IP \`207.188.9.139\`. \`SMTP_USER\` and \`SMTP_PASS\` are required only when \`SMTP_AUTH_MODE=login\`. \`SMTP_IGNORE_TLS=true\` is allowed only for this IP-restricted relay mode.
 
 ### Cloudflare R2
 

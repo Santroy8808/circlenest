@@ -50,8 +50,8 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 30000,
-    ignoreTLS: false,
-    requireTLS: env.SMTP_SECURE !== "true",
+    ignoreTLS: env.SMTP_IGNORE_TLS === "true",
+    requireTLS: env.SMTP_IGNORE_TLS === "true" ? false : env.SMTP_SECURE !== "true",
     tls: {
       servername: env.SMTP_HOST,
       minVersion: "TLSv1.2"

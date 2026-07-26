@@ -188,10 +188,10 @@ export const productionEnvSchema = envSchema.superRefine((env, context) => {
     });
   }
 
-  if (env.SMTP_IGNORE_TLS === "true") {
+  if (env.SMTP_IGNORE_TLS === "true" && env.SMTP_AUTH_MODE !== "relay") {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "SMTP_IGNORE_TLS must not be enabled in production.",
+      message: "SMTP_IGNORE_TLS may only be enabled for IP-restricted SMTP relay.",
       path: ["SMTP_IGNORE_TLS"]
     });
   }

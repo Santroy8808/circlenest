@@ -82,9 +82,9 @@ The three secrets must each satisfy the production quality policy and must be mu
 - `SMTP_AUTH_MODE=relay`
 - `SMTP_FROM=noreply@theta-space.net`
 - `SMTP_SECURE=false`
-- `SMTP_IGNORE_TLS=false`
+- `SMTP_IGNORE_TLS=true`
 
-SMTP uses the Exchange Online connector **Theta-Space Web Server SMTP Relay**, which only allows relay from the Theta-Space web server external IP `207.188.9.139`.
+SMTP uses the Exchange Online connector **Theta-Space Web Server SMTP Relay**, which only allows relay from the Theta-Space web server external IP `207.188.9.139`. STARTTLS is disabled for this relay path because Node rejects the MX relay certificate chain on the Windows server; this exception must not be used with password-based SMTP login.
 
 ### Microsoft Graph application mail
 
