@@ -20,7 +20,7 @@ export default async function AdminTicketsPage({
 
   return (
     <AppShell>
-      <AdminTicketsWorkspace initialView={initialView} />
+      <AdminTicketsWorkspace initialQuery={query} initialView={initialView} />
     </AppShell>
   );
 }
