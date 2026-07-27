@@ -22,6 +22,7 @@ const INVITE_ORIENTATION_JOB_KIND = "membership.invite-orientation-email";
 const BULK_INVITE_DAILY_CAP = 300;
 const BULK_INVITE_MAX_ADDRESSES = 250;
 const BULK_INVITE_INTERVAL_MS = 2 * 60 * 1000;
+const INVITE_ORIENTATION_DELAY_MS = 30 * 60 * 1000;
 
 export class FreeInviteError extends Error {}
 
@@ -309,12 +310,12 @@ async function sendTrackedInviteOrientation(inviteId: string, recipientEmail: st
   await markInviteOrientationDelivered(inviteId);
 }
 
-async function queueInviteOrientationRetry(inviteId: string) {
+async function queueInviteOrientation(inviteId: string, delayMs: number) {
   await prisma.platformJob.create({
     data: {
       kind: INVITE_ORIENTATION_JOB_KIND,
       payload: { inviteId },
-      runAfter: new Date(Date.now() + 60_000),
+      runAfter: new Date(Date.now() + delayMs),
       maxAttempts: 3
     }
   });
@@ -322,26 +323,19 @@ async function queueInviteOrientationRetry(inviteId: string) {
 
 async function sendInviteOrientationOrQueue(inviteId: string, recipientEmail: string) {
   try {
-    await sendTrackedInviteOrientation(inviteId, recipientEmail);
+    await queueInviteOrientation(inviteId, INVITE_ORIENTATION_DELAY_MS);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not send invite orientation email.";
-    let retryQueued = false;
+    const message = error instanceof Error ? error.message : "Could not queue invite orientation email.";
     try {
-      await queueInviteOrientationRetry(inviteId);
-      retryQueued = true;
-    } catch (queueError) {
-      await diagnostics.error(MODULE_KEY, "Invite orientation retry could not be queued.", {
+      await sendTrackedInviteOrientation(inviteId, recipientEmail);
+    } catch (sendError) {
+      await diagnostics.error(MODULE_KEY, "Invite orientation email could not be queued or sent.", {
         inviteId,
         recipientEmail,
-        error: queueError instanceof Error ? queueError.message : "unknown"
+        queueError: message,
+        sendError: sendError instanceof Error ? sendError.message : "unknown"
       });
     }
-    await diagnostics.warn(MODULE_KEY, "Invite orientation SMTP send failed.", {
-      inviteId,
-      recipientEmail,
-      error: message,
-      retryQueued
-    });
   }
 }
 
@@ -964,7 +958,7 @@ export async function deliverQueuedBulkInvite(job: PlatformJob) {
       });
     }
     if (!invite.orientationEmailedAt) {
-      await sendTrackedInviteOrientation(invite.id, recipientEmail);
+      await sendInviteOrientationOrQueue(invite.id, recipientEmail);
     }
     await prisma.freeAccountInviteCode.update({
       where: { id: invite.id },
