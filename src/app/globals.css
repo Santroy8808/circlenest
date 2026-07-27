@@ -13286,6 +13286,11 @@ html.theta-theme-light .tutorial-panel {
   z-index: 175;
 }
 
+body:has(.ticket-drawer-layer) .feedback-fab {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .ticket-drawer {
   background: var(--panel);
   border-left: 1px solid var(--line-strong);

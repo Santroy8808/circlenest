@@ -198,35 +198,55 @@ export function AdminTicketsWorkspace({
     }
   }, [filters]);
 
-  const openTicket = useCallback(async (publicId: string, updateUrl = true) => {
+  const openTicket = useCallback(async (
+    publicId: string,
+    options: {
+      updateUrl?: boolean;
+      preserveDrafts?: boolean;
+      quiet?: boolean;
+    } = {}
+  ) => {
+    const {
+      updateUrl = true,
+      preserveDrafts = false,
+      quiet = false
+    } = options;
     if (!hasOpenDetail) lastFocusedRef.current = document.activeElement as HTMLElement | null;
-    setDetailLoading(true);
-    setDetailError("");
-    setMessageType("INTERNAL");
-    setMessageBody("");
-    setMessageState("idle");
-    setMessageError("");
-    messageRequestId.current = "";
+    if (!quiet) {
+      setDetailLoading(true);
+      setDetailError("");
+    }
+    if (!preserveDrafts) {
+      setMessageType("INTERNAL");
+      setMessageBody("");
+      setMessageState("idle");
+      setMessageError("");
+      messageRequestId.current = "";
+    }
     try {
       const payload = await readResponse<{ audience: "admin"; ticket: AdminTicketDetail }>(
         await fetch(`/api/admin/tickets/${encodeURIComponent(publicId)}`, { cache: "no-store" })
       );
       setDetail(payload.ticket);
-      setDetailKind(
-        payload.ticket.kind === "ISSUE_REPORT"
-          ? "BUG"
-          : payload.ticket.kind === "SUPPORT_REQUEST"
-            ? "OTHER"
-            : payload.ticket.kind
-      );
-      setDetailAssigneeId(payload.ticket.assignedTo?.id ?? "");
-      setResolution(payload.ticket.resolution ?? "");
-      setFinalReply("");
+      if (!preserveDrafts) {
+        setDetailKind(
+          payload.ticket.kind === "ISSUE_REPORT"
+            ? "BUG"
+            : payload.ticket.kind === "SUPPORT_REQUEST"
+              ? "OTHER"
+              : payload.ticket.kind
+        );
+        setDetailAssigneeId(payload.ticket.assignedTo?.id ?? "");
+        setResolution(payload.ticket.resolution ?? "");
+        setFinalReply("");
+      }
       if (updateUrl) syncUrl(filters, publicId);
     } catch (error) {
-      setDetailError(error instanceof Error ? error.message : "Could not open the ticket.");
+      if (!quiet) {
+        setDetailError(error instanceof Error ? error.message : "Could not open the ticket.");
+      }
     } finally {
-      setDetailLoading(false);
+      if (!quiet) setDetailLoading(false);
     }
   }, [filters, hasOpenDetail, syncUrl]);
 
@@ -248,13 +268,19 @@ export function AdminTicketsWorkspace({
     const initialTicket = initialTicketRef.current;
     if (!initialTicket) return;
     initialTicketRef.current = undefined;
-    void openTicket(initialTicket, false);
+    void openTicket(initialTicket, { updateUrl: false });
   }, [openTicket]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       void refreshTickets(filters, true);
-      if (detail) void openTicket(detail.publicId, false);
+      if (detail) {
+        void openTicket(detail.publicId, {
+          updateUrl: false,
+          preserveDrafts: true,
+          quiet: true
+        });
+      }
     }, 20_000);
     return () => window.clearInterval(timer);
   }, [filters, detail, openTicket, refreshTickets]);
@@ -366,7 +392,7 @@ export function AdminTicketsWorkspace({
       setSelected(new Set());
       await refreshTickets();
       if (detail && selectedRows.some((ticket) => ticket.publicId === detail.publicId)) {
-        await openTicket(detail.publicId, false);
+        await openTicket(detail.publicId, { updateUrl: false });
       }
     } catch (error) {
       setListError(error instanceof Error ? error.message : "Could not update the selected tickets.");
@@ -389,7 +415,7 @@ export function AdminTicketsWorkspace({
       );
       await Promise.all([
         refreshTickets(),
-        openTicket(detail.publicId, false)
+        openTicket(detail.publicId, { updateUrl: false })
       ]);
     } catch (error) {
       setDetailError(error instanceof Error ? error.message : "Could not update the ticket.");
@@ -414,7 +440,7 @@ export function AdminTicketsWorkspace({
           })
         })
       );
-      await Promise.all([refreshTickets(), openTicket(detail.publicId, false)]);
+      await Promise.all([refreshTickets(), openTicket(detail.publicId, { updateUrl: false })]);
     } catch (error) {
       setDetailError(error instanceof Error ? error.message : "Could not assign the ticket.");
     } finally {
@@ -453,7 +479,7 @@ export function AdminTicketsWorkspace({
       );
       setMessageBody("");
       messageRequestId.current = "";
-      await Promise.all([refreshTickets(), openTicket(detail.publicId, false)]);
+      await Promise.all([refreshTickets(), openTicket(detail.publicId, { updateUrl: false })]);
       setMessageState("sent");
     } catch (error) {
       setMessageState("failed");
