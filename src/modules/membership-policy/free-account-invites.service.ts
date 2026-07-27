@@ -10,9 +10,11 @@ import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
+import { sendInviteOrientationEmail } from "@/modules/membership-policy/invite-orientation-email";
 
 const MODULE_KEY = "free-account-invites";
 const BULK_INVITE_JOB_KIND = "membership.bulk-invite-email";
+const INVITE_ORIENTATION_JOB_KIND = "membership.invite-orientation-email";
 const BULK_INVITE_DAILY_CAP = 300;
 const BULK_INVITE_MAX_ADDRESSES = 250;
 const BULK_INVITE_INTERVAL_MS = 2 * 60 * 1000;
@@ -289,6 +291,54 @@ async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: 
     replyTo: mailboxes.inviteReplyTo,
     ...message
   });
+}
+
+async function markInviteOrientationDelivered(inviteId: string) {
+  await prisma.freeAccountInviteCode.update({
+    where: { id: inviteId },
+    data: { orientationEmailedAt: new Date() }
+  });
+}
+
+async function sendTrackedInviteOrientation(inviteId: string, recipientEmail: string) {
+  await sendInviteOrientationEmail(recipientEmail);
+  await markInviteOrientationDelivered(inviteId);
+}
+
+async function queueInviteOrientationRetry(inviteId: string) {
+  await prisma.platformJob.create({
+    data: {
+      kind: INVITE_ORIENTATION_JOB_KIND,
+      payload: { inviteId },
+      runAfter: new Date(Date.now() + 60_000),
+      maxAttempts: 3
+    }
+  });
+}
+
+async function sendInviteOrientationOrQueue(inviteId: string, recipientEmail: string) {
+  try {
+    await sendTrackedInviteOrientation(inviteId, recipientEmail);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not send invite orientation email.";
+    let retryQueued = false;
+    try {
+      await queueInviteOrientationRetry(inviteId);
+      retryQueued = true;
+    } catch (queueError) {
+      await diagnostics.error(MODULE_KEY, "Invite orientation retry could not be queued.", {
+        inviteId,
+        recipientEmail,
+        error: queueError instanceof Error ? queueError.message : "unknown"
+      });
+    }
+    await diagnostics.warn(MODULE_KEY, "Invite orientation SMTP send failed.", {
+      inviteId,
+      recipientEmail,
+      error: message,
+      retryQueued
+    });
+  }
 }
 
 function inviteDeliveryKey() {
@@ -641,6 +691,7 @@ export async function createMemberFreeAccountInviteCode(actorUserId: string, inp
         data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt }
       });
       emailed = true;
+      await sendInviteOrientationOrQueue(invite.id, recipientEmail);
     } catch (error) {
       emailError = error instanceof Error ? error.message : "Could not send SMTP email.";
       await diagnostics.warn(MODULE_KEY, "Member invite SMTP send failed.", {
@@ -740,6 +791,7 @@ export async function createFreeAccountInviteCode(actorUserId: string, input: un
         data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt }
       });
       emailed = true;
+      await sendInviteOrientationOrQueue(invite.id, recipientEmail);
     } catch (error) {
       emailError = error instanceof Error ? error.message : "Could not send SMTP email.";
       await diagnostics.warn(MODULE_KEY, "Free account invite SMTP send failed.", {
@@ -819,14 +871,19 @@ export async function emailFreeAccountInviteCode(actorUserId: string, input: unk
   }
 
   const deliveredAt = new Date();
+  const recipientChanged = invite.recipientEmail?.toLowerCase() !== recipientEmail;
   await prisma.freeAccountInviteCode.update({
     where: { id: invite.id },
     data: {
       recipientEmail,
       emailedAt: deliveredAt,
-      betaNoticeEmailedAt: deliveredAt
+      betaNoticeEmailedAt: deliveredAt,
+      ...(recipientChanged ? { orientationEmailedAt: null } : {})
     }
   });
+  if (recipientChanged || !invite.orientationEmailedAt) {
+    await sendInviteOrientationOrQueue(invite.id, recipientEmail!);
+  }
 
   await writeAuditLog({
     actorUserId,
@@ -876,13 +933,14 @@ export async function deliverQueuedBulkInvite(job: PlatformJob) {
       usedAt: true,
       revokedAt: true,
       emailedAt: true,
+      orientationEmailedAt: true,
       deliveryCodeCiphertext: true,
       bulkBatchId: true
     }
   });
   if (!invite || !invite.bulkBatchId) return { ok: true as const, result: { skipped: true, reason: "Invite not found." } };
 
-  if (!invite.recipientEmail || invite.usedAt || invite.revokedAt || invite.expiresAt <= new Date() || invite.emailedAt || !invite.deliveryCodeCiphertext) {
+  if (!invite.recipientEmail || invite.usedAt || invite.revokedAt || invite.expiresAt <= new Date() || (!invite.emailedAt && !invite.deliveryCodeCiphertext)) {
     if (invite.deliveryCodeCiphertext && !invite.emailedAt) {
       await prisma.freeAccountInviteCode.update({ where: { id: invite.id }, data: { deliveryCodeCiphertext: null } });
       await recordBulkDeliveryOutcome(invite.bulkBatchId, "failed");
@@ -891,15 +949,22 @@ export async function deliverQueuedBulkInvite(job: PlatformJob) {
   }
 
   const recipientEmail = invite.recipientEmail;
-  const deliveryCodeCiphertext = invite.deliveryCodeCiphertext;
-
   try {
-    const code = unsealInviteCode(deliveryCodeCiphertext);
-    await sendInviteEmail(recipientEmail, code, invite.expiresAt);
-    const deliveredAt = new Date();
+    if (!invite.emailedAt) {
+      const code = unsealInviteCode(invite.deliveryCodeCiphertext!);
+      await sendInviteEmail(recipientEmail, code, invite.expiresAt);
+      const deliveredAt = new Date();
+      await prisma.freeAccountInviteCode.update({
+        where: { id: invite.id },
+        data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt }
+      });
+    }
+    if (!invite.orientationEmailedAt) {
+      await sendTrackedInviteOrientation(invite.id, recipientEmail);
+    }
     await prisma.freeAccountInviteCode.update({
       where: { id: invite.id },
-      data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt, deliveryCodeCiphertext: null }
+      data: { deliveryCodeCiphertext: null }
     });
     await recordBulkDeliveryOutcome(invite.bulkBatchId, "sent");
     return { ok: true as const, result: { sent: true, inviteId: invite.id } };
@@ -1061,5 +1126,38 @@ export async function consumeFreeInviteForSignup(
       where: { id: input.userId },
       data: { isBetaTester: true }
     });
+  }
+}
+
+export async function deliverQueuedInviteOrientation(job: PlatformJob) {
+  const inviteId = typeof job.payload === "object" && job.payload && "inviteId" in job.payload && typeof job.payload.inviteId === "string"
+    ? job.payload.inviteId
+    : null;
+  if (!inviteId) return { ok: false as const, error: "Invite orientation job is missing an invite id." };
+
+  const invite = await prisma.freeAccountInviteCode.findUnique({
+    where: { id: inviteId },
+    select: {
+      id: true,
+      recipientEmail: true,
+      emailedAt: true,
+      orientationEmailedAt: true
+    }
+  });
+
+  if (!invite?.recipientEmail || !invite.emailedAt || invite.orientationEmailedAt) {
+    return { ok: true as const, result: { skipped: true, reason: "Orientation is not pending." } };
+  }
+
+  try {
+    await sendTrackedInviteOrientation(invite.id, invite.recipientEmail);
+    return { ok: true as const, result: { sent: true, inviteId: invite.id } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not send queued invite orientation email.";
+    await diagnostics.warn(MODULE_KEY, "Queued invite orientation SMTP send failed.", {
+      inviteId: invite.id,
+      error: message
+    });
+    return { ok: false as const, error: message };
   }
 }

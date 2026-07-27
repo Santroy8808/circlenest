@@ -378,6 +378,10 @@ export const platformJobHandlers: Record<string, PlatformJobHandler> = {
     const { deliverQueuedBulkInvite } = await import("@/modules/membership-policy/free-account-invites.service");
     return deliverQueuedBulkInvite(job);
   },
+  "membership.invite-orientation-email": async (job) => {
+    const { deliverQueuedInviteOrientation } = await import("@/modules/membership-policy/free-account-invites.service");
+    return deliverQueuedInviteOrientation(job);
+  },
   "conduct.scan": async (job) => {
     const { runConductScanPlatformJob } = await import("@/modules/conduct-reporting/scanner.service");
     return runConductScanPlatformJob(job);
