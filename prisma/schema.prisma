@@ -302,6 +302,7 @@ enum UploadIntentPurpose {
   GROUP_ASSET
   MARKET_LISTING
   RESUME
+  FEEDBACK_SCREENSHOT
 }
 
 enum UploadIntentStatus {
@@ -731,6 +732,18 @@ enum FeedbackTicketKind {
   SUPPORT_REQUEST
   ISSUE_REPORT
   FEATURE_REQUEST
+  BUG
+  USABILITY
+  CONTENT
+  ACCOUNT_ACCESS
+  SAFETY_MODERATION
+  BILLING
+  OTHER
+}
+
+enum FeedbackTicketMessageType {
+  NORMAL
+  INTERNAL
 }
 
 enum ProfileVisibility {
@@ -883,6 +896,8 @@ model User {
   assignedFeedbackTickets         FeedbackTicket[]                   @relation("FeedbackAssignee")
   resolvedFeedbackTickets         FeedbackTicket[]                   @relation("FeedbackResolver")
   feedbackTicketEvents            FeedbackTicketEvent[]              @relation("FeedbackTicketEventActor")
+  feedbackTicketMessages          FeedbackTicketMessage[]            @relation("FeedbackTicketMessageSender")
+  feedbackTicketReadStates        FeedbackTicketReadState[]
   resolvedConductReports          ConductReport[]                    @relation("ConductReportResolver")
   conductEvents                   ConductEvent[]                     @relation("ConductEventActor")
   conductPostFlags                ConductPostFlag[]                  @relation("ConductPostFlagSubject")
@@ -1599,34 +1614,35 @@ model DeliveryOutbox {
 }
 
 model MediaAsset {
-  id                      String                   @id @default(cuid())
-  ownerUserId             String
-  storageKey              String                   @unique
-  publicUrl               String?
-  mimeType                String
-  sizeBytes               BigInt
-  originalName            String?
-  status                  MediaAssetStatus         @default(READY)
-  visibility              MediaVisibility          @default(PRIVATE)
-  metadata                Json?
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  owner                   User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  hashtags                MediaAssetHashtag[]
-  collections             MediaCollectionAsset[]
-  feedPosts               FeedPost[]
-  feedComments            FeedComment[]
-  galleryComments         GalleryAssetComment[]
-  galleryReactions        GalleryAssetReaction[]
-  adCampaignImages        AdCampaign[]             @relation("AdCampaignImage")
-  adCarouselItems         AdCampaignCreative[]     @relation("AdCampaignCreativeImage")
-  businessArticleCovers   BusinessArticle[]        @relation("BusinessArticleCover")
-  chatAttachments         ChatAttachment[]
-  mailAttachments         MailAttachment[]
-  groupForumPosts         GroupForumPost[]
-  groupAssets             GroupAsset[]
-  marketListingPhotos     MarketListingPhoto[]
-  scientologyCommendation ScientologyCommendation?
+  id                       String                   @id @default(cuid())
+  ownerUserId              String
+  storageKey               String                   @unique
+  publicUrl                String?
+  mimeType                 String
+  sizeBytes                BigInt
+  originalName             String?
+  status                   MediaAssetStatus         @default(READY)
+  visibility               MediaVisibility          @default(PRIVATE)
+  metadata                 Json?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  owner                    User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  hashtags                 MediaAssetHashtag[]
+  collections              MediaCollectionAsset[]
+  feedPosts                FeedPost[]
+  feedComments             FeedComment[]
+  galleryComments          GalleryAssetComment[]
+  galleryReactions         GalleryAssetReaction[]
+  adCampaignImages         AdCampaign[]             @relation("AdCampaignImage")
+  adCarouselItems          AdCampaignCreative[]     @relation("AdCampaignCreativeImage")
+  businessArticleCovers    BusinessArticle[]        @relation("BusinessArticleCover")
+  chatAttachments          ChatAttachment[]
+  mailAttachments          MailAttachment[]
+  groupForumPosts          GroupForumPost[]
+  groupAssets              GroupAsset[]
+  marketListingPhotos      MarketListingPhoto[]
+  scientologyCommendation  ScientologyCommendation?
+  feedbackTicketScreenshot FeedbackTicket?          @relation("FeedbackTicketScreenshot")
 
   @@index([ownerUserId, createdAt])
   @@index([status, updatedAt])
@@ -3504,32 +3520,44 @@ model TwoFactorConfig {
 }
 
 model FeedbackTicket {
-  id               String                 @id @default(cuid())
-  publicId         String                 @unique
-  reporterUserId   String?
-  reporterEmail    String?
-  pageUrl          String?
-  title            String
-  description      String
-  kind             FeedbackTicketKind     @default(ISSUE_REPORT)
-  severity         FeedbackTicketSeverity @default(normal)
-  status           FeedbackTicketStatus   @default(OPEN)
-  userAgent        String?
-  diagnostics      Json?
-  assignedToUserId String?
-  resolvedByUserId String?
-  resolution       String?
-  resolvedAt       DateTime?
-  version          Int                    @default(1)
-  retentionClass   RecordRetentionClass   @default(VITAL)
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  reporter         User?                  @relation("FeedbackReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
-  assignedTo       User?                  @relation("FeedbackAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
-  resolvedBy       User?                  @relation("FeedbackResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
-  events           FeedbackTicketEvent[]
+  id                     String                    @id @default(cuid())
+  publicId               String                    @unique
+  submissionKey          String?                   @unique
+  reporterUserId         String?
+  reporterEmail          String?
+  pageUrl                String?
+  sourceRoute            String?
+  sourceEntityType       String?
+  sourceEntityId         String?
+  pageContext            Json?
+  clientContext          Json?
+  screenshotMediaAssetId String?                   @unique
+  title                  String
+  description            String
+  kind                   FeedbackTicketKind        @default(ISSUE_REPORT)
+  severity               FeedbackTicketSeverity    @default(normal)
+  status                 FeedbackTicketStatus      @default(OPEN)
+  userAgent              String?
+  diagnostics            Json?
+  assignedToUserId       String?
+  resolvedByUserId       String?
+  resolution             String?
+  resolvedAt             DateTime?
+  lastActivityAt         DateTime                  @default(now())
+  version                Int                       @default(1)
+  retentionClass         RecordRetentionClass      @default(VITAL)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  reporter               User?                     @relation("FeedbackReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  assignedTo             User?                     @relation("FeedbackAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  resolvedBy             User?                     @relation("FeedbackResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  screenshot             MediaAsset?               @relation("FeedbackTicketScreenshot", fields: [screenshotMediaAssetId], references: [id], onDelete: SetNull)
+  events                 FeedbackTicketEvent[]
+  messages               FeedbackTicketMessage[]
+  readStates             FeedbackTicketReadState[]
 
   @@index([status, createdAt])
+  @@index([status, lastActivityAt])
   @@index([kind, createdAt])
   @@index([reporterUserId, createdAt])
   @@index([assignedToUserId, status, createdAt])
@@ -3541,6 +3569,8 @@ model FeedbackTicketEvent {
   ticketId       String
   actorId        String?
   action         String
+  oldValue       Json?
+  newValue       Json?
   metadata       Json?
   retentionClass RecordRetentionClass @default(VITAL)
   createdAt      DateTime             @default(now())
@@ -3548,7 +3578,41 @@ model FeedbackTicketEvent {
   actor          User?                @relation("FeedbackTicketEventActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([ticketId, createdAt])
+  @@index([ticketId, action, createdAt])
   @@index([actorId, createdAt])
+}
+
+model FeedbackTicketMessage {
+  id             String                    @id @default(cuid())
+  ticketId       String
+  senderUserId   String?
+  type           FeedbackTicketMessageType @default(NORMAL)
+  body           String
+  idempotencyKey String?                   @unique
+  retentionClass RecordRetentionClass      @default(VITAL)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  ticket         FeedbackTicket            @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  sender         User?                     @relation("FeedbackTicketMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([ticketId, type, createdAt])
+  @@index([senderUserId, createdAt])
+}
+
+model FeedbackTicketReadState {
+  id             String         @id @default(cuid())
+  ticketId       String
+  userId         String
+  normalReadAt   DateTime?
+  internalReadAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  ticket         FeedbackTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, userId])
+  @@index([userId, updatedAt])
 }
 
 model MembershipPolicyOverride {

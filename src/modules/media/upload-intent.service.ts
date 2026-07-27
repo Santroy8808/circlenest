@@ -116,6 +116,12 @@ const UPLOAD_INTENT_POLICIES: Record<UploadIntentPurpose, UploadIntentPolicy> = 
     allowedVisibilities: [MediaVisibility.PRIVATE],
     defaultVisibility: MediaVisibility.PRIVATE,
     maxSizeBytes: 8 * 1024 * 1024
+  },
+  [UploadIntentPurpose.FEEDBACK_SCREENSHOT]: {
+    allowedMimeTypes: STATIC_IMAGE_MIME_TYPES,
+    allowedVisibilities: [MediaVisibility.PRIVATE],
+    defaultVisibility: MediaVisibility.PRIVATE,
+    maxSizeBytes: 2 * 1024 * 1024
   }
 };
 
