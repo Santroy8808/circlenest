@@ -1164,6 +1164,7 @@ model FreeAccountInviteCode {
   deliveryCodeCiphertext String?
   emailedAt              DateTime?
   betaNoticeEmailedAt    DateTime?
+  orientationEmailedAt   DateTime?
   isBetaTester           Boolean          @default(true)
   usedAt                 DateTime?
   expiresAt              DateTime
