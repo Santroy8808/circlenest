@@ -60,7 +60,7 @@ export const feedbackTicketBulkActionSchema = z
     assigneeUserId: z.string().trim().min(1).max(120).nullable().optional(),
     kind: z.nativeEnum(FeedbackTicketKind).optional(),
     resolution: z.string().trim().max(2000).optional(),
-    expectedVersions: z.record(z.number().int().positive()).optional()
+    expectedVersions: z.record(z.number().int().positive())
   })
   .superRefine((value, context) => {
     if (value.action === "ASSIGN" && !value.assigneeUserId) {

@@ -15,6 +15,7 @@ import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platf
 import { getR2Client, readR2Config } from "@/lib/platform/r2";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { canViewerAccessPrivateFeedMediaAsset } from "@/modules/feed-stream/feed-media-authorization";
+import { canUserAccessFeedbackScreenshot } from "@/modules/feedback-support/feedback-screenshot-authorization";
 import { authorizeMediaAccess, mediaAssetDeliveryPath } from "@/modules/media/media-authorization";
 
 function toWebStream(body: unknown) {
@@ -135,7 +136,7 @@ async function hasAuthorizedPrivateContext(
   });
   if (blocked) return false;
 
-  const [groupAccess, chatParticipation, mailAccess, feedAccess, identityAccess] = await Promise.all([
+  const [groupAccess, chatParticipation, mailAccess, feedAccess, identityAccess, feedbackScreenshotAccess] = await Promise.all([
     prisma.group.findFirst({
       where: {
         archivedAt: null,
@@ -202,10 +203,18 @@ async function hasAuthorizedPrivateContext(
       select: { id: true }
     }),
     canViewerAccessPrivateFeedMediaAsset(mediaAssetId, viewerUserId),
-    identityMediaAccess(mediaAssetId, ownerUserId, viewerUserId)
+    identityMediaAccess(mediaAssetId, ownerUserId, viewerUserId),
+    canUserAccessFeedbackScreenshot(mediaAssetId, viewerUserId)
   ]);
 
-  return Boolean(groupAccess || chatParticipation || mailAccess || feedAccess || identityAccess);
+  return Boolean(
+    groupAccess ||
+    chatParticipation ||
+    mailAccess ||
+    feedAccess ||
+    identityAccess ||
+    feedbackScreenshotAccess
+  );
 }
 
 function mediaFallbackSvg(label?: string | null) {
