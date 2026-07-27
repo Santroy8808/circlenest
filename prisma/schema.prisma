@@ -784,6 +784,7 @@ model User {
   welcomeTutorialCompletedAt      DateTime?
   termsAcceptedAt                 DateTime?
   goodStandingDeniedAt            DateTime?
+  isBetaTester                    Boolean                            @default(false)
   createdAt                       DateTime                           @default(now())
   updatedAt                       DateTime                           @updatedAt
   profile                         Profile?
@@ -1162,6 +1163,8 @@ model FreeAccountInviteCode {
   bulkBatchId            String?
   deliveryCodeCiphertext String?
   emailedAt              DateTime?
+  betaNoticeEmailedAt    DateTime?
+  isBetaTester           Boolean          @default(true)
   usedAt                 DateTime?
   expiresAt              DateTime
   revokedAt              DateTime?
