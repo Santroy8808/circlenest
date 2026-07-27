@@ -11,6 +11,10 @@ import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 import { sendInviteOrientationEmail } from "@/modules/membership-policy/invite-orientation-email";
+import {
+  BETA_REMINDER_DURATION_MS,
+  BETA_REMINDER_EXCLUDED_EMAIL
+} from "@/modules/membership-policy/beta-activity-reminders.service";
 
 const MODULE_KEY = "free-account-invites";
 const BULK_INVITE_JOB_KIND = "membership.bulk-invite-email";
@@ -1122,9 +1126,18 @@ export async function consumeFreeInviteForSignup(
   }
 
   if (input.isBetaTester) {
+    const reminderStartedAt = new Date();
     await tx.user.update({
       where: { id: input.userId },
-      data: { isBetaTester: true }
+      data: {
+        isBetaTester: true,
+        ...(input.email.toLowerCase() === BETA_REMINDER_EXCLUDED_EMAIL
+          ? {}
+          : {
+              betaReminderStartedAt: reminderStartedAt,
+              betaReminderEndsAt: new Date(reminderStartedAt.getTime() + BETA_REMINDER_DURATION_MS)
+            })
+      }
     });
   }
 }

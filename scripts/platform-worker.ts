@@ -13,6 +13,7 @@ import {
 import { enqueueDueConductScans } from "@/modules/conduct-reporting/scanner.service";
 import { runOneAnnouncementDelivery } from "@/modules/admin-moderation/delivery-outbox.service";
 import { allocateContributorMonthlyCredits } from "@/modules/membership-policy/monthly-credits.service";
+import { runBetaActivityReminderSweep } from "@/modules/membership-policy/beta-activity-reminders.service";
 
 const workerId = process.env.PLATFORM_WORKER_ID ?? `worker-${randomUUID()}`;
 const once = process.argv.includes("--once");
@@ -33,6 +34,7 @@ let shuttingDown = false;
 let lastUploadMaintenanceAt = 0;
 let lastConductScheduleCheckAt = 0;
 let lastMonthlyCreditCheckAt = 0;
+let lastBetaReminderCheckAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,6 +80,18 @@ async function runMonthlyCreditCheck(force = false) {
   }
 }
 
+async function runBetaReminderCheck(force = false) {
+  const now = Date.now();
+  if (!force && now - lastBetaReminderCheckAt < 60 * 60_000) return;
+  lastBetaReminderCheckAt = now;
+  const result = await runBetaActivityReminderSweep(new Date(now));
+  if (result.checked > 0) {
+    console.log(
+      `[platform-worker] beta reminders checked=${result.checked} sent=${result.sent} failed=${result.failed}`
+    );
+  }
+}
+
 async function main() {
   console.log(`[platform-worker] started ${workerId}`);
 
@@ -85,6 +99,7 @@ async function main() {
     await runUploadIntentMaintenance(lastUploadMaintenanceAt === 0);
     await runConductScheduleCheck(lastConductScheduleCheckAt === 0);
     await runMonthlyCreditCheck(lastMonthlyCreditCheckAt === 0);
+    await runBetaReminderCheck(lastBetaReminderCheckAt === 0);
     const announcement = await runOneAnnouncementDelivery(workerId);
     const result = await runOnePlatformJob(workerId, undefined, {
       leaseDurationMs: platformJobLeaseMs,
