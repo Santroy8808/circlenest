@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   if (!result.ok) {
     return withRateLimitHeaders(
-      NextResponse.json({ error: result.error }, { status: 400 }),
+      NextResponse.json({ error: result.error, errorField: result.errorField }, { status: 400 }),
       rateLimit
     );
   }

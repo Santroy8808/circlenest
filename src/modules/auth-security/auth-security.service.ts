@@ -276,7 +276,12 @@ export async function createMemberAccount(
   const parsed = signupSchema.safeParse(input);
 
   if (!parsed.success) {
-    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid signup." };
+    const issue = parsed.error.issues[0];
+    return {
+      ok: false as const,
+      error: issue?.message ?? "Invalid signup.",
+      errorField: typeof issue?.path[0] === "string" ? issue.path[0] : undefined
+    };
   }
 
   if (options.atomicAudit && !options.privilegedTransactionGuard) {
@@ -289,7 +294,7 @@ export async function createMemberAccount(
   const passwordPolicy = validatePasswordStrength(parsed.data.password);
 
   if (!passwordPolicy.valid) {
-    return { ok: false as const, error: passwordPolicy.issues.join(" ") };
+    return { ok: false as const, error: passwordPolicy.issues.join(" "), errorField: "password" };
   }
 
   const email = normalizeIdentifier(parsed.data.email);

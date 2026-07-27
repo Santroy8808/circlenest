@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 
 type SignupResult = {
   error?: string;
+  errorField?: "inviteCode" | "displayName" | "username" | "email" | "password";
   user?: {
     email: string;
   };
@@ -15,6 +16,7 @@ type SignupResult = {
 export function SignupForm() {
   const [createdAccount, setCreatedAccount] = useState<SignupResult | null>(null);
   const [error, setError] = useState("");
+  const [errorField, setErrorField] = useState<SignupResult["errorField"]>();
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -22,6 +24,7 @@ export function SignupForm() {
     const form = event.currentTarget;
     setCreatedAccount(null);
     setError("");
+    setErrorField(undefined);
     const formData = new FormData(form);
     const inviteCode = formData.get("inviteCode");
     const email = formData.get("email");
@@ -46,6 +49,7 @@ export function SignupForm() {
 
         if (!response.ok) {
           setError(payload.error ?? "Could not create account.");
+          setErrorField(payload.errorField);
           return;
         }
 
@@ -96,18 +100,36 @@ export function SignupForm() {
           placeholder="Enter your one-time invite code"
           required
         />
+        {errorField === "inviteCode" ? <FieldError message={error} /> : null}
       </label>
       <label className="grid gap-2">
         <span className="form-label">Display name</span>
         <input autoComplete="name" className="form-field" maxLength={100} name="displayName" required />
+        {errorField === "displayName" ? <FieldError message={error} /> : null}
       </label>
       <label className="grid gap-2">
         <span className="form-label">Username</span>
-        <input autoCapitalize="none" autoComplete="username" className="form-field" name="username" required />
+        <input
+          aria-describedby="signup-username-help"
+          autoCapitalize="none"
+          autoComplete="username"
+          className="form-field"
+          maxLength={32}
+          minLength={3}
+          name="username"
+          pattern="[A-Za-z0-9_]+"
+          required
+          title="Use 3 to 32 letters, numbers, or underscores."
+        />
+        <span className="text-xs text-[var(--muted)]" id="signup-username-help">
+          Use 3 to 32 letters, numbers, or underscores. Do not use spaces.
+        </span>
+        {errorField === "username" ? <FieldError message={error} /> : null}
       </label>
       <label className="grid gap-2">
         <span className="form-label">Email</span>
         <input autoCapitalize="none" autoComplete="email" className="form-field" name="email" type="email" required />
+        {errorField === "email" ? <FieldError message={error} /> : null}
       </label>
       <label className="grid gap-2">
         <span className="form-label">Password</span>
@@ -123,8 +145,9 @@ export function SignupForm() {
         <span className="text-xs text-[var(--muted)]" id="signup-password-help">
           Use 12 or more characters. A long, memorable passphrase works well.
         </span>
+        {errorField === "password" ? <FieldError message={error} /> : null}
       </label>
-      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
+      {error && !errorField ? <FieldError message={error} /> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
         {isPending ? "Creating..." : "Create invited account"}
       </button>
@@ -132,5 +155,13 @@ export function SignupForm() {
         Back to login
       </Link>
     </form>
+  );
+}
+
+function FieldError({ message }: { message: string }) {
+  return (
+    <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">
+      {message}
+    </p>
   );
 }
