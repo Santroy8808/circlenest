@@ -16,6 +16,7 @@ import { hashPrivateSignal } from "@/lib/platform/private-signals";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
   canAddFeedbackMessage,
+  canCreateFeedbackTicket,
   canViewFeedbackTicket,
   visibleFeedbackMessageTypes
 } from "@/modules/feedback-support/authorization";
@@ -29,8 +30,6 @@ import {
   updateFeedbackTicketSchema,
   type FeedbackTicketListQuery
 } from "@/modules/feedback-support/types";
-import { getMembershipAccessForUser } from "@/modules/membership-policy/contributor-upgrade.service";
-import { hasMembershipCapability } from "@/modules/membership-policy/membership-access";
 import {
   completeUploadIntent,
   consumeVerifiedUploadIntent,
@@ -383,13 +382,8 @@ async function findSubmissionReplay(userId: string, submissionKey?: string) {
 }
 
 export async function createFeedbackTicket(input: unknown, context: { userId?: string; userAgent?: string } = {}) {
-  if (!context.userId) {
-    return failure("UNAUTHENTICATED", "Contributor access is required to create feedback.");
-  }
-
-  const access = await getMembershipAccessForUser(context.userId);
-  if (!hasMembershipCapability(access, "support.create")) {
-    return failure("FORBIDDEN", "Contributor access is required to create feedback.");
+  if (!canCreateFeedbackTicket(context.userId)) {
+    return failure("UNAUTHENTICATED", "Login is required to create feedback.");
   }
 
   const parsed = createFeedbackTicketSchema.safeParse(input);

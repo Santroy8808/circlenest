@@ -7,6 +7,7 @@ import {
 import {
   canAddFeedbackMessage,
   canAccessFeedbackScreenshot,
+  canCreateFeedbackTicket,
   canViewFeedbackTicket,
   visibleFeedbackMessageTypes
 } from "@/modules/feedback-support/authorization";
@@ -46,6 +47,12 @@ test("administrators can view shared tickets", () => {
     }),
     true
   );
+});
+
+test("every authenticated account can create feedback regardless of membership tier", () => {
+  assert.equal(canCreateFeedbackTicket("member"), true);
+  assert.equal(canCreateFeedbackTicket("administrator"), true);
+  assert.equal(canCreateFeedbackTicket(undefined), false);
 });
 
 test("internal notes are never permitted or selected for ordinary members", () => {
