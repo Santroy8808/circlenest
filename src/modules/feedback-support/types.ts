@@ -63,6 +63,13 @@ export const feedbackTicketBulkActionSchema = z
     expectedVersions: z.record(z.number().int().positive())
   })
   .superRefine((value, context) => {
+    if (value.ticketIds.some((ticketId) => !value.expectedVersions[ticketId])) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expectedVersions"],
+        message: "Include the current version for every selected ticket."
+      });
+    }
     if (value.action === "ASSIGN" && !value.assigneeUserId) {
       context.addIssue({
         code: z.ZodIssueCode.custom,

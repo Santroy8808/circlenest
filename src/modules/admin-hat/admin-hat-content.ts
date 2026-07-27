@@ -94,12 +94,6 @@ const functionDetailsByTitle: Record<
     cautions: ["Do not disclose whether an email exists to an unverified requester.", "Treat password reset as a security event."],
     expectedResult: "The password is reset or sessions are revoked, with audit history."
   },
-  "Account Reports": {
-    whenToUse: "Use this to review feedback, bug, abuse, content, and support tickets connected to accounts.",
-    beforeYouStart: ["Open the report source page if present.", "Read the latest event history before changing status."],
-    cautions: ["Do not close reports without enough notes for another admin to understand the decision.", "Reports may reference people who are not the reporter."],
-    expectedResult: "The report is triaged, moved into review, resolved, or left with admin notes."
-  },
   "Promotional Grant": {
     whenToUse: "Use this for temporary launch-era access to Contributor features.",
     beforeYouStart: ["Confirm the target account and duration.", "Confirm that temporary Contributor access is appropriate."],
@@ -178,11 +172,11 @@ const functionDetailsByTitle: Record<
     cautions: ["Private messages are never included.", "A flag is a time-limited lead, not proof or a disciplinary finding.", "Three active flags on distinct posts queue an automated investigation; every cited pattern must link back to supplied post sources.", "Human review remains required before account action."],
     expectedResult: "The administrator can review matching posts, active flags, earlier reports, and cited source links or queue a manual investigation."
   },
-  "Reports Queue": {
-    whenToUse: "Use this for inbound bug, abuse, content, feedback, and support work.",
-    beforeYouStart: ["Open the ticket and source URL if available.", "Check severity and current status."],
-    cautions: ["Abuse/content reports may require preserving evidence.", "Do not expose reporter identity unnecessarily."],
-    expectedResult: "The ticket receives review status, resolution, or admin notes."
+  "Tickets": {
+    whenToUse: "Use this for member Feedback, including bugs, usability, account access, content, safety, billing, and feature requests.",
+    beforeYouStart: ["Open the ticket and saved source URL.", "Check its Feedback Type, status, assignment, screenshot, and latest activity."],
+    cautions: ["Internal Notes are administrator-only; Reply to User is visible to the ticket creator.", "Treat submitted screenshots and diagnostic context as sensitive member content."],
+    expectedResult: "The ticket is assigned, discussed in the correct visibility mode, resolved, or reopened with a complete audit history."
   },
   "Stream Retention": {
     whenToUse: "Use this to review public Stream lifecycle state, place or release admin holds, and export/import full post threads.",
@@ -235,7 +229,7 @@ export const adminHatDefinitions: AdminHatDefinition[] = [
   },
   {
     term: "Function",
-    definition: "A specific admin tool or action page, such as Status Change, Stripe Setup, Reports Queue, or Object ID Lookup."
+    definition: "A specific admin tool or action page, such as Status Change, Stripe Setup, Tickets, or Object ID Lookup."
   },
   {
     term: "Audit Log",

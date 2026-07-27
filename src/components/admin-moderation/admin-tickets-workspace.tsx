@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FEEDBACK_TYPE_OPTIONS,
   type ConfiguredFeedbackKind
@@ -163,7 +163,9 @@ export function AdminTicketsWorkspace({
   const [detailKind, setDetailKind] = useState("");
   const [detailAssigneeId, setDetailAssigneeId] = useState("");
   const messageRequestId = useRef("");
-  const initialTicket = initialQuery.ticket;
+  const drawerRef = useRef<HTMLElement>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+  const initialTicketRef = useRef<string | undefined>(initialQuery.ticket);
 
   const selectedRows = useMemo(
     () => view.tickets.filter((ticket) => selected.has(ticket.publicId)),
@@ -171,15 +173,16 @@ export function AdminTicketsWorkspace({
   );
   const allVisibleSelected =
     view.tickets.length > 0 && view.tickets.every((ticket) => selected.has(ticket.publicId));
+  const hasOpenDetail = Boolean(detail?.publicId);
 
-  function syncUrl(nextFilters: Filters, ticketId?: string | null) {
+  const syncUrl = useCallback((nextFilters: Filters, ticketId?: string | null) => {
     const url = new URL(window.location.href);
     url.search = apiFilters(nextFilters).toString();
     if (ticketId) url.searchParams.set("ticket", ticketId);
     window.history.replaceState(window.history.state, "", url);
-  }
+  }, []);
 
-  async function refreshTickets(nextFilters = filters, quiet = false) {
+  const refreshTickets = useCallback(async (nextFilters = filters, quiet = false) => {
     if (!quiet) setListError("");
     try {
       const payload = await readResponse<AdminFeedbackTicketListView>(
@@ -193,9 +196,10 @@ export function AdminTicketsWorkspace({
     } catch (error) {
       if (!quiet) setListError(error instanceof Error ? error.message : "Could not refresh tickets.");
     }
-  }
+  }, [filters]);
 
-  async function openTicket(publicId: string, updateUrl = true) {
+  const openTicket = useCallback(async (publicId: string, updateUrl = true) => {
+    if (!hasOpenDetail) lastFocusedRef.current = document.activeElement as HTMLElement | null;
     setDetailLoading(true);
     setDetailError("");
     setMessageType("INTERNAL");
@@ -224,21 +228,28 @@ export function AdminTicketsWorkspace({
     } finally {
       setDetailLoading(false);
     }
-  }
+  }, [filters, hasOpenDetail, syncUrl]);
 
-  function closeTicket() {
+  const closeTicket = useCallback(() => {
     setDetail(null);
     setDetailError("");
     syncUrl(filters, null);
-  }
+    window.setTimeout(() => lastFocusedRef.current?.focus(), 0);
+  }, [filters, syncUrl]);
 
   useEffect(() => {
     void fetch("/api/admin/tickets/assignees", { cache: "no-store" })
       .then((response) => readResponse<{ assignees: Assignee[] }>(response))
       .then((payload) => setAssignees(payload.assignees))
       .catch(() => setAssignees([]));
-    if (initialTicket) void openTicket(initialTicket, false);
   }, []);
+
+  useEffect(() => {
+    const initialTicket = initialTicketRef.current;
+    if (!initialTicket) return;
+    initialTicketRef.current = undefined;
+    void openTicket(initialTicket, false);
+  }, [openTicket]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -246,7 +257,7 @@ export function AdminTicketsWorkspace({
       if (detail) void openTicket(detail.publicId, false);
     }, 20_000);
     return () => window.clearInterval(timer);
-  }, [filters, detail?.publicId]);
+  }, [filters, detail, openTicket, refreshTickets]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -257,7 +268,40 @@ export function AdminTicketsWorkspace({
       void refreshTickets(next);
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [searchDraft]);
+  }, [detail?.publicId, filters, refreshTickets, searchDraft, syncUrl]);
+
+  useEffect(() => {
+    if (!detail && !detailLoading && !detailError) return;
+    const drawer = drawerRef.current;
+    const focusable = () =>
+      Array.from(
+        drawer?.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], summary"
+        ) ?? []
+      );
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTicket();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    window.setTimeout(() => focusable()[0]?.focus(), 0);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closeTicket, detail, detailLoading, detailError]);
 
   function changeFilters(patch: Partial<Filters>) {
     const next = { ...filters, ...patch };
@@ -625,7 +669,19 @@ export function AdminTicketsWorkspace({
                     type="checkbox"
                   />
                 </td>
-                <td data-label="Ticket"><strong>{ticket.publicId}</strong></td>
+                <td data-label="Ticket">
+                  <button
+                    aria-label={`Open ${ticket.publicId}: ${ticket.subject}`}
+                    className="ticket-open-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void openTicket(ticket.publicId);
+                    }}
+                    type="button"
+                  >
+                    {ticket.publicId}
+                  </button>
+                </td>
                 <td data-label="Type">{ticket.kindLabel}</td>
                 <td className="admin-ticket-subject" data-label="Subject">{ticket.subject}</td>
                 <td data-label="Submitter">{ticket.reporter.name}</td>
@@ -654,7 +710,7 @@ export function AdminTicketsWorkspace({
         <div className="ticket-drawer-layer" onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeTicket();
         }}>
-          <aside aria-label="Ticket detail" aria-modal="true" className="ticket-drawer" role="dialog">
+          <aside aria-label="Ticket detail" aria-modal="true" className="ticket-drawer" ref={drawerRef} role="dialog">
             <header className="ticket-drawer-header">
               <div>
                 <p>{detail?.publicId ?? "Ticket"}</p>
@@ -747,6 +803,8 @@ export function AdminTicketsWorkspace({
                   <section className="ticket-screenshot">
                     <h3>Screenshot</h3>
                     <a href={detail.screenshot.href} rel="noreferrer" target="_blank">
+                      {/* Private ticket media must be fetched directly with the viewer's session. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img alt={`Screenshot submitted with ${detail.publicId}`} src={detail.screenshot.href} />
                     </a>
                   </section>

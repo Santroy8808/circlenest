@@ -52,7 +52,8 @@ export const GALLERY_MEDIA_EXTERNAL_USE_LABELS = {
   groupForumPosts: "group forum posts",
   groupAssets: "group assets",
   marketListings: "market listings",
-  scientologyCommendations: "Scientology commendations"
+  scientologyCommendations: "Scientology commendations",
+  feedbackTicketScreenshots: "Feedback ticket screenshots"
 } as const;
 
 type ExternalUseCounts = Record<keyof typeof GALLERY_MEDIA_EXTERNAL_USE_LABELS, number>;
@@ -339,7 +340,8 @@ export async function loadGalleryMediaExternalUseCategories(
     groupForumPosts,
     groupAssets,
     marketListings,
-    scientologyCommendations
+    scientologyCommendations,
+    feedbackTicketScreenshots
   ] = await Promise.all([
     transaction.feedPost.count({ where: { mediaAssetId: { in: ids }, streamDeletedAt: null } }),
     transaction.feedComment.count({ where: { mediaAssetId: { in: ids }, deletedAt: null } }),
@@ -351,7 +353,8 @@ export async function loadGalleryMediaExternalUseCategories(
     transaction.groupForumPost.count({ where: { mediaAssetId: { in: ids }, deletedAt: null } }),
     transaction.groupAsset.count({ where: { mediaAssetId: { in: ids }, deletedAt: null } }),
     transaction.marketListingPhoto.count({ where: { mediaAssetId: { in: ids } } }),
-    transaction.scientologyCommendation.count({ where: { mediaAssetId: { in: ids } } })
+    transaction.scientologyCommendation.count({ where: { mediaAssetId: { in: ids } } }),
+    transaction.feedbackTicket.count({ where: { screenshotMediaAssetId: { in: ids } } })
   ]);
 
   return externalUseCategories({
@@ -364,7 +367,8 @@ export async function loadGalleryMediaExternalUseCategories(
     groupForumPosts,
     groupAssets,
     marketListings,
-    scientologyCommendations
+    scientologyCommendations,
+    feedbackTicketScreenshots
   });
 }
 

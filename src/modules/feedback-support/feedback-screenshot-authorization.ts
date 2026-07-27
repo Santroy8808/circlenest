@@ -1,5 +1,5 @@
-import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { canAccessFeedbackScreenshot } from "@/modules/feedback-support/authorization";
 
 export async function canUserAccessFeedbackScreenshot(mediaAssetId: string, viewerUserId: string) {
   const [ticket, viewer] = await Promise.all([
@@ -16,8 +16,10 @@ export async function canUserAccessFeedbackScreenshot(mediaAssetId: string, view
   return Boolean(
     ticket &&
     viewer &&
-    (ticket.reporterUserId === viewerUserId ||
-      viewer.role === UserRole.ADMIN ||
-      viewer.role === UserRole.GOD)
+    canAccessFeedbackScreenshot({
+      viewerUserId,
+      viewerRole: viewer.role,
+      reporterUserId: ticket.reporterUserId
+    })
   );
 }

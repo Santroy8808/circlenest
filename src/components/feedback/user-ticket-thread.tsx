@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FeedbackTicketDetailView } from "@/modules/feedback-support/feedback-support.service";
 
 type CreatorTicketView = Extract<FeedbackTicketDetailView, { audience: "creator" }>;
@@ -20,7 +20,7 @@ export function UserTicketThread({ initialView }: { initialView: CreatorTicketVi
   const [error, setError] = useState("");
   const requestId = useRef("");
 
-  async function refresh(quiet = false) {
+  const refresh = useCallback(async (quiet = false) => {
     try {
       const response = await fetch(
         `/api/feedback/tickets/${encodeURIComponent(view.ticket.publicId)}`,
@@ -35,12 +35,12 @@ export function UserTicketThread({ initialView }: { initialView: CreatorTicketVi
     } catch (refreshError) {
       if (!quiet) setError(refreshError instanceof Error ? refreshError.message : "Could not refresh this ticket.");
     }
-  }
+  }, [view.ticket.publicId]);
 
   useEffect(() => {
     const interval = window.setInterval(() => void refresh(true), 30_000);
     return () => window.clearInterval(interval);
-  }, [view.ticket.publicId]);
+  }, [refresh]);
 
   async function sendReply() {
     if (!body.trim() || state === "sending") return;
@@ -96,6 +96,8 @@ export function UserTicketThread({ initialView }: { initialView: CreatorTicketVi
         <p>{ticket.description}</p>
         {ticket.screenshot ? (
           <a className="user-ticket-screenshot" href={ticket.screenshot.href} rel="noreferrer" target="_blank">
+            {/* Private ticket media must be fetched directly with the viewer's session. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img alt={`Screenshot submitted with ${ticket.publicId}`} src={ticket.screenshot.href} />
             <span>Open full screenshot</span>
           </a>

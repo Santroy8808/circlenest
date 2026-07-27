@@ -117,7 +117,8 @@ test("external-use labels cover every blocking domain and no gallery-local relat
     groupForumPosts: 1,
     groupAssets: 1,
     marketListings: 1,
-    scientologyCommendations: 1
+    scientologyCommendations: 1,
+    feedbackTicketScreenshots: 1
   }), [
     "stream posts",
     "stream comments",
@@ -128,7 +129,8 @@ test("external-use labels cover every blocking domain and no gallery-local relat
     "group forum posts",
     "group assets",
     "market listings",
-    "Scientology commendations"
+    "Scientology commendations",
+    "Feedback ticket screenshots"
   ]);
 });
 
@@ -149,13 +151,14 @@ test("external-use lookup queries every external live domain", async () => {
     groupForumPost: { count: count("groupForumPost") },
     groupAsset: { count: count("groupAsset") },
     marketListingPhoto: { count: count("marketListingPhoto") },
-    scientologyCommendation: { count: count("scientologyCommendation") }
+    scientologyCommendation: { count: count("scientologyCommendation") },
+    feedbackTicket: { count: count("feedbackTicket") }
   } as unknown as Prisma.TransactionClient;
 
   const categories = await loadGalleryMediaExternalUseCategories(transaction, ["asset-a"]);
 
   assert.deepEqual(categories, ["stream posts", "ads and ad creatives"]);
-  assert.equal(called.length, 11);
+  assert.equal(called.length, 12);
 });
 
 test("system-source and system-tag gallery assets are never deletable", () => {
@@ -273,6 +276,7 @@ function queueTransaction(input?: {
     groupAsset: { count: count("groupAsset") },
     marketListingPhoto: { count: count("marketListingPhoto") },
     scientologyCommendation: { count: count("scientologyCommendation") },
+    feedbackTicket: { count: count("feedbackTicket") },
     authSecurityEvent: {
       create: async (value: unknown) => {
         events.push("create-security-event");
@@ -643,6 +647,7 @@ function recoveryTransaction(input: {
     groupAsset: { count },
     marketListingPhoto: { count },
     scientologyCommendation: { count },
+    feedbackTicket: { count },
     destructiveActionStorageObject: {
       findMany: async () => manifest
     },

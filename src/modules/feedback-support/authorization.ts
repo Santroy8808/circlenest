@@ -27,3 +27,14 @@ export function visibleFeedbackMessageTypes(viewerRole: UserRole) {
     ? [FeedbackTicketMessageType.NORMAL, FeedbackTicketMessageType.INTERNAL]
     : [FeedbackTicketMessageType.NORMAL];
 }
+
+export function canAccessFeedbackScreenshot(input: {
+  viewerUserId: string;
+  viewerRole: UserRole;
+  reporterUserId: string | null;
+}) {
+  return (
+    input.reporterUserId === input.viewerUserId ||
+    isAdminRole(input.viewerRole)
+  );
+}

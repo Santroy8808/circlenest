@@ -391,6 +391,8 @@ export function FeedbackTicketForm({
             </div>
             {screenshot ? (
               <div className="feedback-screenshot-preview">
+                {/* Browser-local blob previews cannot use the Next image optimizer. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img alt="Screenshot preview for this Feedback ticket" src={screenshot.previewUrl} />
                 <button className="btn-secondary" onClick={removeScreenshot} type="button">
                   Remove screenshot

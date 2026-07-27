@@ -113,15 +113,17 @@ Access: Authenticated smoke user required.
 - Confirm job cards open detail/contact pages.
 - Confirm only Professional creation affordances are shown to eligible users.
 
-## Support - `/feedback/new`
+## Feedback - floating window
 
-Expected: Feedback ticket form opens from anywhere.
+Expected: Feedback opens in the current tab without navigation.
 
-Access: Public or guarded route.
+Access: Authenticated account with Feedback capability.
 
-- Confirm the issue report flow is reachable from the global Report issue button.
-- Confirm context fields explain what will be captured.
-- Confirm submit success produces a clear ticket reference.
+- Confirm the global Feedback button opens and closes without changing or refreshing the current page.
+- Confirm the source route is captured when the window opens and stays unchanged while the window is open.
+- Confirm tab screenshot permission, preview, removal, and submission without a screenshot.
+- Confirm submit success produces a ticket reference and repeated clicks do not create duplicates.
+- Confirm the golden shimmer is brief, approximately two minutes apart, and absent under reduced motion.
 
 ## Admin - `/admin`
 
