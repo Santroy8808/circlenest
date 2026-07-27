@@ -15,13 +15,10 @@ import { diagnostics } from "@/lib/platform/logging";
 import { hashPrivateSignal } from "@/lib/platform/private-signals";
 import { isAdminRole } from "@/lib/platform/roles";
 import {
-  canAddFeedbackMessage,
   canCreateFeedbackTicket,
-  canViewFeedbackTicket,
-  resolveFeedbackTicketAudience,
-  type FeedbackTicketAudience,
   visibleFeedbackMessageTypes
 } from "@/modules/feedback-support/authorization";
+import { deliverFeedbackReplyToCommCenter } from "@/modules/chat-messages/chat-messages.service";
 import { feedbackTypeLabel } from "@/modules/feedback-support/config";
 import {
   createFeedbackTicketMessageSchema,
@@ -278,18 +275,6 @@ function sortAdminTickets<T extends {
   });
 }
 
-async function adminNotificationRecipients(transaction: Prisma.TransactionClient, assignedToUserId?: string | null) {
-  if (assignedToUserId) return [assignedToUserId];
-  const administrators = await transaction.user.findMany({
-    where: {
-      deactivatedAt: null,
-      role: { in: [UserRole.ADMIN, UserRole.GOD] }
-    },
-    select: { id: true }
-  });
-  return administrators.map((administrator) => administrator.id);
-}
-
 async function notifyAdminsOfNewTicket(ticket: { id: string; publicId: string; title: string }) {
   try {
     const administrators = await prisma.user.findMany({
@@ -310,7 +295,7 @@ async function notifyAdminsOfNewTicket(ticket: { id: string; publicId: string; t
         actionable: true,
         title: `New feedback ${ticket.publicId}`,
         body: ticket.title,
-        href: `/admin/settings/tickets?ticket=${encodeURIComponent(ticket.publicId)}`
+        href: `/admin/tickets?ticket=${encodeURIComponent(ticket.publicId)}`
       })),
       skipDuplicates: true
     });
@@ -365,12 +350,6 @@ function ticketCreateData(
           source: "global-feedback",
           hasScreenshot: Boolean(input.screenshotMediaAssetId)
         }
-      }
-    },
-    readStates: {
-      create: {
-        userId: context.userId,
-        normalReadAt: now
       }
     }
   };
@@ -495,59 +474,6 @@ export async function completeFeedbackScreenshotUpload(userId: string, input: un
     return failure("INVALID", "That upload is not a feedback screenshot.");
   }
   return result;
-}
-
-export async function listUserFeedbackTickets(userId: string) {
-  const user = await getActiveUser(userId);
-  if (!user) return failure("UNAUTHENTICATED", "Login required.");
-  const tickets = await prisma.feedbackTicket.findMany({
-    where: { reporterUserId: userId },
-    orderBy: [{ lastActivityAt: "desc" }, { createdAt: "desc" }],
-    select: {
-      publicId: true,
-      title: true,
-      kind: true,
-      status: true,
-      createdAt: true,
-      lastActivityAt: true,
-      resolvedAt: true,
-      screenshotMediaAssetId: true,
-      messages: {
-        where: {
-          type: FeedbackTicketMessageType.NORMAL,
-          senderUserId: { not: userId }
-        },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { createdAt: true }
-      },
-      readStates: {
-        where: { userId },
-        take: 1,
-        select: { normalReadAt: true }
-      }
-    }
-  });
-
-  return {
-    ok: true as const,
-    tickets: tickets.map((ticket) => ({
-      publicId: ticket.publicId,
-      subject: ticket.title,
-      kind: ticket.kind,
-      kindLabel: feedbackTypeLabel(ticket.kind),
-      status: ticket.status,
-      createdAt: ticket.createdAt.toISOString(),
-      lastActivityAt: ticket.lastActivityAt.toISOString(),
-      resolvedAt: ticket.resolvedAt?.toISOString() ?? null,
-      hasScreenshot: Boolean(ticket.screenshotMediaAssetId),
-      unread: Boolean(
-        ticket.messages[0] &&
-        (!ticket.readStates[0]?.normalReadAt ||
-          ticket.messages[0].createdAt > ticket.readStates[0].normalReadAt)
-      )
-    }))
-  };
 }
 
 export async function listAdminFeedbackTickets(adminUserId: string, input: unknown) {
@@ -685,19 +611,12 @@ function serializeTicketMessage(message: {
 
 export async function getFeedbackTicket(
   viewerUserId: string,
-  publicId: string,
-  requestedAudience: FeedbackTicketAudience = "creator"
+  publicId: string
 ) {
-  const viewer = await getActiveUser(viewerUserId);
-  if (!viewer) return failure("UNAUTHENTICATED", "Login required.");
-  const audience = resolveFeedbackTicketAudience(viewer.role, requestedAudience);
-  if (!audience) return failure("FORBIDDEN", "Administrator access required.");
-  const isAdminAudience = audience === "admin";
+  const viewer = await requireActiveAdmin(viewerUserId);
+  if (!viewer) return failure("FORBIDDEN", "Administrator access required.");
   const ticket = await prisma.feedbackTicket.findFirst({
-    where: {
-      publicId,
-      ...(isAdminAudience ? {} : { reporterUserId: viewerUserId })
-    },
+    where: { publicId },
     include: {
       reporter: { select: ticketUserSelect },
       assignedTo: { select: ticketUserSelect },
@@ -712,11 +631,7 @@ export async function getFeedbackTicket(
       },
       messages: {
         where: {
-          type: {
-            in: isAdminAudience
-              ? visibleFeedbackMessageTypes(viewer.role)
-              : [FeedbackTicketMessageType.NORMAL]
-          }
+          type: { in: visibleFeedbackMessageTypes(viewer.role) }
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: {
@@ -727,12 +642,10 @@ export async function getFeedbackTicket(
           sender: { select: ticketUserSelect }
         }
       },
-      events: isAdminAudience
-        ? {
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-            include: { actor: { select: ticketUserSelect } }
-          }
-        : false
+      events: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        include: { actor: { select: ticketUserSelect } }
+      }
     }
   });
   if (!ticket) return failure("NOT_FOUND", "Ticket not found.");
@@ -749,11 +662,11 @@ export async function getFeedbackTicket(
       ticketId: ticket.id,
       userId: viewerUserId,
       normalReadAt: now,
-      ...(isAdminAudience ? { internalReadAt: now } : {})
+      internalReadAt: now
     },
     update: {
       normalReadAt: now,
-      ...(isAdminAudience ? { internalReadAt: now } : {})
+      internalReadAt: now
     }
   });
 
@@ -783,18 +696,6 @@ export async function getFeedbackTicket(
       : null,
     messages: ticket.messages.map(serializeTicketMessage)
   };
-
-  if (!isAdminAudience) {
-    return {
-      ok: true as const,
-      audience: "creator" as const,
-      ticket: common
-    };
-  }
-
-  const adminEvents = ticket.events as Array<
-    (typeof ticket.events)[number] & { actor: TicketUser | null }
-  >;
 
   return {
     ok: true as const,
@@ -829,89 +730,30 @@ export async function getFeedbackTicket(
       pageContext: ticket.pageContext,
       clientContext: ticket.clientContext,
       diagnostics: ticket.diagnostics,
-      history: Array.isArray(adminEvents)
-        ? adminEvents.map((event) => ({
-            id: event.id,
-            action: event.action,
-            oldValue: event.oldValue,
-            newValue: event.newValue,
-            metadata: event.metadata,
-            createdAt: event.createdAt.toISOString(),
-            actor: event.actor
-              ? {
-                  id: event.actor.id,
-                  name: userDisplayName(event.actor)
-                }
-              : null
-          }))
-        : []
+      history: ticket.events.map((event) => ({
+        id: event.id,
+        action: event.action,
+        oldValue: event.oldValue,
+        newValue: event.newValue,
+        metadata: event.metadata,
+        createdAt: event.createdAt.toISOString(),
+        actor: event.actor
+          ? {
+              id: event.actor.id,
+              name: userDisplayName(event.actor)
+            }
+          : null
+      }))
     }
   };
 }
 
-async function createTicketNotifications(
-  transaction: Prisma.TransactionClient,
-  input: {
-    ticket: {
-      id: string;
-      publicId: string;
-      title: string;
-      reporterUserId: string | null;
-      assignedToUserId: string | null;
-    };
-    senderUserId: string;
-    senderIsAdmin: boolean;
-    messageId: string;
-    messageBody: string;
-  }
-) {
-  if (input.senderIsAdmin) {
-    if (!input.ticket.reporterUserId || input.ticket.reporterUserId === input.senderUserId) return;
-    await transaction.notification.create({
-      data: {
-        idempotencyKey: `feedback-message:${input.messageId}:${input.ticket.reporterUserId}`,
-        userId: input.ticket.reporterUserId,
-        kind: NotificationKind.GENERAL,
-        sourceType: "FeedbackTicketMessage",
-        sourceId: input.messageId,
-        actionable: true,
-        title: `Reply on ${input.ticket.publicId}`,
-        body: input.messageBody.slice(0, 240),
-        href: `/feedback/tickets/${encodeURIComponent(input.ticket.publicId)}`
-      }
-    });
-    return;
-  }
-
-  const recipientIds = await adminNotificationRecipients(transaction, input.ticket.assignedToUserId);
-  if (recipientIds.length === 0) return;
-  await transaction.notification.createMany({
-    data: recipientIds
-      .filter((recipientId) => recipientId !== input.senderUserId)
-      .map((recipientId) => ({
-        idempotencyKey: `feedback-message:${input.messageId}:${recipientId}`,
-        userId: recipientId,
-        kind: NotificationKind.GENERAL,
-        sourceType: "FeedbackTicketMessage",
-        sourceId: input.messageId,
-        actionable: true,
-        title: `Reply on ${input.ticket.publicId}`,
-        body: input.messageBody.slice(0, 240),
-        href: `/admin/settings/tickets?ticket=${encodeURIComponent(input.ticket.publicId)}`
-      })),
-    skipDuplicates: true
-  });
-}
-
 export async function addFeedbackTicketMessage(actorUserId: string, publicId: string, input: unknown) {
-  const actor = await getActiveUser(actorUserId);
-  if (!actor) return failure("UNAUTHENTICATED", "Login required.");
+  if (!(await requireActiveAdmin(actorUserId))) {
+    return failure("FORBIDDEN", "Administrator access required.");
+  }
   const parsed = createFeedbackTicketMessageSchema.safeParse(input);
   if (!parsed.success) return failure("INVALID", parsed.error.issues[0]?.message ?? "Invalid message.");
-  const actorIsAdmin = isAdminRole(actor.role);
-  if (!actorIsAdmin && parsed.data.type === FeedbackTicketMessageType.INTERNAL) {
-    return failure("FORBIDDEN", "Internal notes are only available to administrators.");
-  }
 
   try {
     const result = await prisma.$transaction(async (transaction) => {
@@ -919,33 +761,11 @@ export async function addFeedbackTicketMessage(actorUserId: string, publicId: st
         where: { publicId },
         select: {
           id: true,
-          publicId: true,
-          title: true,
           reporterUserId: true,
-          assignedToUserId: true,
-          status: true,
-          resolvedAt: true,
-          resolvedByUserId: true,
-          resolution: true,
           version: true
         }
       });
       if (!ticket) throw new FeedbackTransactionFailure("NOT_FOUND", "Ticket not found.");
-      if (!canViewFeedbackTicket({
-        viewerUserId: actorUserId,
-        viewerRole: actor.role,
-        reporterUserId: ticket.reporterUserId
-      })) {
-        throw new FeedbackTransactionFailure("NOT_FOUND", "Ticket not found.");
-      }
-      if (!canAddFeedbackMessage({
-        viewerUserId: actorUserId,
-        viewerRole: actor.role,
-        reporterUserId: ticket.reporterUserId,
-        messageType: parsed.data.type
-      })) {
-        throw new FeedbackTransactionFailure("FORBIDDEN", "You cannot add that message to this ticket.");
-      }
 
       const existing = await transaction.feedbackTicketMessage.findUnique({
         where: { idempotencyKey: parsed.data.idempotencyKey }
@@ -957,24 +777,15 @@ export async function addFeedbackTicketMessage(actorUserId: string, publicId: st
           existing.type === parsed.data.type &&
           existing.body === parsed.data.body
         ) {
-          return { message: existing, replayed: true as const };
+          return { message: existing, replayed: true as const, commThreadId: null };
         }
         throw new FeedbackTransactionFailure("CONFLICT", "That message request was already used.");
       }
 
       const now = new Date();
-      const reopensTicket = !actorIsAdmin && RESOLVED_STATUSES.includes(ticket.status as (typeof RESOLVED_STATUSES)[number]);
       const updated = await transaction.feedbackTicket.updateMany({
         where: { id: ticket.id, version: ticket.version },
         data: {
-          ...(reopensTicket
-            ? {
-                status: FeedbackTicketStatus.OPEN,
-                resolvedAt: null,
-                resolvedByUserId: null,
-                resolution: null
-              }
-            : {}),
           lastActivityAt: now,
           version: { increment: 1 }
         }
@@ -992,25 +803,13 @@ export async function addFeedbackTicketMessage(actorUserId: string, publicId: st
           idempotencyKey: parsed.data.idempotencyKey
         }
       });
-      await transaction.feedbackTicketEvent.createMany({
-        data: [
-          {
-            ticketId: ticket.id,
-            actorId: actorUserId,
-            action: parsed.data.type === FeedbackTicketMessageType.INTERNAL ? "message.internal.created" : "message.normal.created",
-            metadata: { messageId: message.id }
-          },
-          ...(reopensTicket
-            ? [{
-                ticketId: ticket.id,
-                actorId: actorUserId,
-                action: "ticket.reopened",
-                oldValue: { status: ticket.status, resolvedAt: ticket.resolvedAt?.toISOString() ?? null },
-                newValue: { status: FeedbackTicketStatus.OPEN },
-                metadata: { reason: "creator-reply" }
-              }]
-            : [])
-        ]
+      await transaction.feedbackTicketEvent.create({
+        data: {
+          ticketId: ticket.id,
+          actorId: actorUserId,
+          action: parsed.data.type === FeedbackTicketMessageType.INTERNAL ? "message.internal.created" : "message.normal.created",
+          metadata: { messageId: message.id }
+        }
       });
       await transaction.feedbackTicketReadState.upsert({
         where: { ticketId_userId: { ticketId: ticket.id, userId: actorUserId } },
@@ -1018,7 +817,7 @@ export async function addFeedbackTicketMessage(actorUserId: string, publicId: st
           ticketId: ticket.id,
           userId: actorUserId,
           normalReadAt: now,
-          ...(actorIsAdmin ? { internalReadAt: now } : {})
+          internalReadAt: now
         },
         update: {
           ...(parsed.data.type === FeedbackTicketMessageType.INTERNAL
@@ -1026,16 +825,20 @@ export async function addFeedbackTicketMessage(actorUserId: string, publicId: st
             : { normalReadAt: now })
         }
       });
-      if (parsed.data.type === FeedbackTicketMessageType.NORMAL) {
-        await createTicketNotifications(transaction, {
-          ticket,
-          senderUserId: actorUserId,
-          senderIsAdmin: actorIsAdmin,
-          messageId: message.id,
-          messageBody: message.body
-        });
-      }
-      return { message, replayed: false as const };
+      const delivery =
+        parsed.data.type === FeedbackTicketMessageType.NORMAL && ticket.reporterUserId
+          ? await deliverFeedbackReplyToCommCenter(transaction, {
+              senderUserId: actorUserId,
+              recipientUserId: ticket.reporterUserId,
+              feedbackTicketMessageId: message.id,
+              body: message.body
+            })
+          : null;
+      return {
+        message,
+        replayed: false as const,
+        commThreadId: delivery?.threadId ?? null
+      };
     });
     return {
       ok: true as const,
@@ -1045,7 +848,8 @@ export async function addFeedbackTicketMessage(actorUserId: string, publicId: st
         body: result.message.body,
         createdAt: result.message.createdAt.toISOString()
       },
-      replayed: result.replayed
+      replayed: result.replayed,
+      commThreadId: result.commThreadId
     };
   } catch (error) {
     if (error instanceof FeedbackTransactionFailure) return failure(error.code, error.message);
@@ -1203,30 +1007,14 @@ export async function updateAdminFeedbackTicket(adminUserId: string, publicId: s
           }
         });
         finalMessageId = finalMessage.id;
-        await createTicketNotifications(transaction, {
-          ticket,
-          senderUserId: adminUserId,
-          senderIsAdmin: true,
-          messageId: finalMessage.id,
-          messageBody: finalMessage.body
-        });
-      } else if (
-        parsed.data.status === FeedbackTicketStatus.RESOLVED &&
-        ticket.reporterUserId
-      ) {
-        await transaction.notification.create({
-          data: {
-            idempotencyKey: `feedback-resolved:${ticket.id}:${parsed.data.expectedVersion + 1}`,
-            userId: ticket.reporterUserId,
-            kind: NotificationKind.GENERAL,
-            sourceType: "FeedbackTicket",
-            sourceId: ticket.id,
-            actionable: true,
-            title: `${ticket.publicId} was resolved`,
-            body: parsed.data.resolution?.slice(0, 240) || ticket.title,
-            href: `/feedback/tickets/${encodeURIComponent(ticket.publicId)}`
-          }
-        });
+        if (ticket.reporterUserId) {
+          await deliverFeedbackReplyToCommCenter(transaction, {
+            senderUserId: adminUserId,
+            recipientUserId: ticket.reporterUserId,
+            feedbackTicketMessageId: finalMessage.id,
+            body: finalMessage.body
+          });
+        }
       }
 
       if (
@@ -1244,7 +1032,7 @@ export async function updateAdminFeedbackTicket(adminUserId: string, publicId: s
             actionable: true,
             title: `${ticket.publicId} was assigned to you`,
             body: ticket.title,
-            href: `/admin/settings/tickets?ticket=${encodeURIComponent(ticket.publicId)}`
+            href: `/admin/tickets?ticket=${encodeURIComponent(ticket.publicId)}`
           }
         });
       }
@@ -1409,22 +1197,7 @@ export async function applyAdminFeedbackBulkAction(adminUserId: string, input: u
               actionable: true,
               title: `${ticket.publicId} was assigned to you`,
               body: ticket.title,
-              href: `/admin/settings/tickets?ticket=${encodeURIComponent(ticket.publicId)}`
-            }
-          });
-        }
-        if (parsed.data.action === "RESOLVE" && ticket.reporterUserId) {
-          await transaction.notification.create({
-            data: {
-              idempotencyKey: `feedback-resolved:${ticket.id}:${expectedVersion + 1}`,
-              userId: ticket.reporterUserId,
-              kind: NotificationKind.GENERAL,
-              sourceType: "FeedbackTicket",
-              sourceId: ticket.id,
-              actionable: true,
-              title: `${ticket.publicId} was resolved`,
-              body: parsed.data.resolution?.slice(0, 240) || ticket.title,
-              href: `/feedback/tickets/${encodeURIComponent(ticket.publicId)}`
+              href: `/admin/tickets?ticket=${encodeURIComponent(ticket.publicId)}`
             }
           });
         }
@@ -1465,10 +1238,6 @@ export async function listFeedbackTicketAssignees(adminUserId: string) {
 
 export type AdminFeedbackTicketListView = Extract<
   Awaited<ReturnType<typeof listAdminFeedbackTickets>>,
-  { ok: true }
->;
-export type UserFeedbackTicketListView = Extract<
-  Awaited<ReturnType<typeof listUserFeedbackTickets>>,
   { ok: true }
 >;
 export type FeedbackTicketDetailView = Extract<

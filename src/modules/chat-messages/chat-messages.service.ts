@@ -724,6 +724,136 @@ export async function mirrorThetaCommMessageToDesktopChat(input: {
   });
 }
 
+export async function deliverFeedbackReplyToCommCenter(
+  transaction: Prisma.TransactionClient,
+  input: {
+    senderUserId: string;
+    recipientUserId: string;
+    feedbackTicketMessageId: string;
+    body: string;
+  }
+) {
+  if (input.senderUserId === input.recipientUserId) return null;
+
+  const existingMessage = await transaction.chatMessage.findUnique({
+    where: { feedbackTicketMessageId: input.feedbackTicketMessageId },
+    select: { id: true, threadId: true }
+  });
+  if (existingMessage) {
+    return {
+      messageId: existingMessage.id,
+      threadId: existingMessage.threadId,
+      replayed: true as const
+    };
+  }
+
+  const [sender, recipient] = await Promise.all([
+    transaction.user.findFirst({
+      where: { id: input.senderUserId, deactivatedAt: null },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        profile: { select: { displayName: true } }
+      }
+    }),
+    transaction.user.findFirst({
+      where: { id: input.recipientUserId, deactivatedAt: null },
+      select: { id: true }
+    })
+  ]);
+  if (!sender || !recipient) {
+    throw new Error("The feedback reply recipient is no longer available.");
+  }
+
+  const participantUserIds = [sender.id, recipient.id].sort();
+  const candidates = await transaction.chatThread.findMany({
+    where: {
+      type: ChatThreadType.DIRECT,
+      participants: { some: { userId: sender.id } },
+      AND: [{ participants: { some: { userId: recipient.id } } }]
+    },
+    include: { participants: true },
+    orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+    take: 10
+  });
+  const existingThread = candidates.find((thread) => thread.participants.length === 2);
+  const now = new Date();
+  const thread =
+    existingThread ??
+    (await transaction.chatThread.create({
+      data: {
+        type: ChatThreadType.DIRECT,
+        createdByUserId: sender.id,
+        retentionClass: await resolveChatRetentionClassForWrite(transaction, participantUserIds),
+        participants: {
+          create: [
+            { userId: sender.id, lastReadAt: now },
+            { userId: recipient.id }
+          ]
+        }
+      },
+      include: { participants: true }
+    }));
+
+  const allowed = await assertChatMessageWriteAllowed(transaction, {
+    threadKind: "CHAT",
+    threadId: thread.id,
+    senderUserId: sender.id
+  });
+  if (!allowed) {
+    throw new Error("The feedback reply could not be delivered to Comm Center.");
+  }
+
+  await transaction.chatParticipant.updateMany({
+    where: {
+      threadId: thread.id,
+      userId: { in: participantUserIds }
+    },
+    data: { archivedAt: null }
+  });
+
+  const body = input.body.trim().slice(0, MAX_CHAT_MESSAGE_CHARACTERS);
+  const message = await transaction.chatMessage.create({
+    data: {
+      threadId: thread.id,
+      senderUserId: sender.id,
+      feedbackTicketMessageId: input.feedbackTicketMessageId,
+      body
+    }
+  });
+
+  await transaction.chatThread.update({
+    where: { id: thread.id },
+    data: { lastMessageAt: message.createdAt }
+  });
+  await transaction.chatParticipant.updateMany({
+    where: { threadId: thread.id, userId: sender.id },
+    data: { lastReadAt: message.createdAt }
+  });
+  await deleteHandledChatNotifications(transaction, sender.id, thread.id);
+
+  const senderName = sender.profile?.displayName?.trim() || sender.username || sender.email;
+  await transaction.notification.create({
+    data: {
+      idempotencyKey: `feedback-comm:${input.feedbackTicketMessageId}:${recipient.id}`,
+      userId: recipient.id,
+      sourceType: "ChatMessage",
+      sourceId: message.id,
+      actionable: true,
+      title: `New chat from ${senderName}`,
+      body: body.slice(0, 180),
+      href: chatThreadHref(thread.id)
+    }
+  });
+
+  return {
+    messageId: message.id,
+    threadId: thread.id,
+    replayed: false as const
+  };
+}
+
 export async function listChatThreads(userId: string): Promise<ChatThreadView[]> {
   const context = await resolveChatAccessContext(userId);
   if (!context.userId) return [];

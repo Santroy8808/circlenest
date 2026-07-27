@@ -5,7 +5,7 @@ export async function canUserAccessFeedbackScreenshot(mediaAssetId: string, view
   const [ticket, viewer] = await Promise.all([
     prisma.feedbackTicket.findUnique({
       where: { screenshotMediaAssetId: mediaAssetId },
-      select: { reporterUserId: true }
+      select: { id: true }
     }),
     prisma.user.findFirst({
       where: { id: viewerUserId, deactivatedAt: null },
@@ -16,10 +16,6 @@ export async function canUserAccessFeedbackScreenshot(mediaAssetId: string, view
   return Boolean(
     ticket &&
     viewer &&
-    canAccessFeedbackScreenshot({
-      viewerUserId,
-      viewerRole: viewer.role,
-      reporterUserId: ticket.reporterUserId
-    })
+    canAccessFeedbackScreenshot(viewer.role)
   );
 }

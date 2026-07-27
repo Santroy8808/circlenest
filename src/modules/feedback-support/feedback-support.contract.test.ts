@@ -5,11 +5,8 @@ import {
   UserRole
 } from "@prisma/client";
 import {
-  canAddFeedbackMessage,
   canAccessFeedbackScreenshot,
   canCreateFeedbackTicket,
-  canViewFeedbackTicket,
-  resolveFeedbackTicketAudience,
   visibleFeedbackMessageTypes
 } from "@/modules/feedback-support/authorization";
 import { normalizeFeedbackSourceUrl } from "@/modules/feedback-support/feedback-support.service";
@@ -20,61 +17,16 @@ import {
   feedbackTicketBulkActionSchema
 } from "@/modules/feedback-support/types";
 
-test("ticket creators can view their own ticket but not another user's ticket", () => {
-  assert.equal(
-    canViewFeedbackTicket({
-      viewerUserId: "creator",
-      viewerRole: UserRole.MEMBER,
-      reporterUserId: "creator"
-    }),
-    true
-  );
-  assert.equal(
-    canViewFeedbackTicket({
-      viewerUserId: "other-user",
-      viewerRole: UserRole.MEMBER,
-      reporterUserId: "creator"
-    }),
-    false
-  );
-});
-
-test("administrators can view shared tickets", () => {
-  assert.equal(
-    canViewFeedbackTicket({
-      viewerUserId: "administrator",
-      viewerRole: UserRole.ADMIN,
-      reporterUserId: "creator"
-    }),
-    true
-  );
-});
-
 test("every authenticated account can create feedback regardless of membership tier", () => {
   assert.equal(canCreateFeedbackTicket("member"), true);
   assert.equal(canCreateFeedbackTicket("administrator"), true);
   assert.equal(canCreateFeedbackTicket(undefined), false);
 });
 
-test("administrator creator links stay creator-scoped while admin routes expose admin details", () => {
-  assert.equal(resolveFeedbackTicketAudience(UserRole.ADMIN), "creator");
-  assert.equal(resolveFeedbackTicketAudience(UserRole.ADMIN, "admin"), "admin");
-  assert.equal(resolveFeedbackTicketAudience(UserRole.MEMBER, "admin"), null);
-});
-
-test("internal notes are never permitted or selected for ordinary members", () => {
-  assert.equal(
-    canAddFeedbackMessage({
-      viewerUserId: "creator",
-      viewerRole: UserRole.MEMBER,
-      reporterUserId: "creator",
-      messageType: FeedbackTicketMessageType.INTERNAL
-    }),
-    false
-  );
+test("ticket threads and their messages are visible only to administrators", () => {
   assert.deepEqual(
     visibleFeedbackMessageTypes(UserRole.MEMBER),
-    [FeedbackTicketMessageType.NORMAL]
+    []
   );
   assert.deepEqual(
     visibleFeedbackMessageTypes(UserRole.ADMIN),
@@ -125,23 +77,9 @@ test("screenshot contracts reject invalid and oversized files", () => {
   );
 });
 
-test("unrelated members cannot access a ticket screenshot while admins can", () => {
-  assert.equal(
-    canAccessFeedbackScreenshot({
-      viewerUserId: "other-user",
-      viewerRole: UserRole.MEMBER,
-      reporterUserId: "creator"
-    }),
-    false
-  );
-  assert.equal(
-    canAccessFeedbackScreenshot({
-      viewerUserId: "administrator",
-      viewerRole: UserRole.ADMIN,
-      reporterUserId: "creator"
-    }),
-    true
-  );
+test("ticket screenshots are administrator-only after submission", () => {
+  assert.equal(canAccessFeedbackScreenshot(UserRole.MEMBER), false);
+  assert.equal(canAccessFeedbackScreenshot(UserRole.ADMIN), true);
 });
 
 test("bulk ticket updates require a current version for every selected ticket", () => {
