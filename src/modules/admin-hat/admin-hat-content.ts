@@ -175,7 +175,7 @@ const functionDetailsByTitle: Record<
   "Tickets": {
     whenToUse: "Use this for member Feedback, including bugs, usability, account access, content, safety, billing, and feature requests.",
     beforeYouStart: ["Open the ticket and saved source URL.", "Check its Feedback Type, status, assignment, screenshot, and latest activity."],
-    cautions: ["Internal Notes are administrator-only; Reply to User is visible to the ticket creator.", "Treat submitted screenshots and diagnostic context as sensitive member content."],
+    cautions: ["Internal Notes are administrator-only; Message User sends a normal Comm Center message and records it in the ticket.", "Treat submitted screenshots and diagnostic context as sensitive member content."],
     expectedResult: "The ticket is assigned, discussed in the correct visibility mode, resolved, or reopened with a complete audit history."
   },
   "Stream Retention": {

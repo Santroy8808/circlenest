@@ -1,6 +1,6 @@
 # Feedback and Tickets
 
-Theta-Space members submit **Feedback** from the floating button. Administrators manage those submissions as shared **Tickets** under **Admin > Communications and Safety > Tickets**.
+Every authenticated Theta-Space account, including administrators, submits **Feedback** from the floating button. The compact form appears above the current page without changing that page's layout or URL. Only administrators see the resulting shared **Tickets** under **Admin > Settings > Tickets**.
 
 ## Ticket list
 
@@ -19,23 +19,24 @@ Theta-Space members submit **Feedback** from the floating button. Administrators
 - The Assigned column shows the current owner. Assignment controls notifications, but every authorized administrator can still see the ticket.
 - If another administrator changed the ticket first, refresh and review the newer state before trying again.
 
-## Messages
+## Ticket thread and messages
 
-- **Reply to User** is visible to the ticket creator and notifies them.
-- **Internal Note** is visible only to authorized administrators. It is never included in member APIs, notifications, email, search results shown to members, or the member ticket view.
-- The composer starts in **Internal Note** mode for each ticket. Its gold border, label, and offset thread position distinguish it from a user-visible reply.
-- Failed sends can be retried without creating a duplicate message.
+- Each ticket has an administrator-only thread.
+- **Message User** records the message in the ticket thread and delivers the same text as a normal Comm Center message from the administrator.
+- **Internal Note** is visible only to authorized administrators. It is never sent to the submitting user or exposed through member APIs.
+- The composer starts in **Internal Note** mode for each ticket. Its gold border and label distinguish it from a Comm Center message.
+- Failed sends can be retried without creating duplicate ticket or Comm Center messages.
 
 ## Resolution
 
-- Add an optional resolution summary and optional final user reply, then choose **Mark Resolved**.
+- Add an optional resolution summary and optional final Comm Center message, then choose **Mark Resolved**.
 - Resolution records the administrator and time while preserving the full conversation.
-- Use **Reopen Ticket** when additional work is needed. A member reply to a resolved ticket also reopens it.
+- Use **Reopen Ticket** when additional ticket work is needed.
 - Previously resolved tickets remain available through the **Resolved** or **All Statuses** filters.
 
 ## Screenshots and page context
 
-- Screenshots open through protected Theta-Space media access. Only the ticket creator and authorized administrators can retrieve them.
+- Screenshots open through protected Theta-Space media access and are available only to authorized administrators after submission.
 - The source URL opens the exact Theta-Space location captured when the member opened Feedback.
 - **Browser and recent activity** contains limited diagnostics: route changes, clicked control labels, viewport, device class, browser, operating system, and build version when available.
 - The activity log never records field values, passwords, cookies, authorization data, or message contents.

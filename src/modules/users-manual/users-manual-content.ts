@@ -849,7 +849,7 @@ export const usersManualSections: UsersManualSection[] = [
       },
       {
         title: "Help, Tutorial, and Users Manual",
-        href: "/settings/feedback",
+        href: "/settings/users-manual",
         purpose: "Find guidance or contact the support queue without leaving the site.",
         howToUse: ["Use Tutorial for guided arrows and walkthrough.", "Use Users Manual for detailed feature explanations and FAQ.", "Use Feedback to ask for help, report a problem, or suggest an improvement."],
         limits: ["The tutorial is a walkthrough; the manual is a reference.", "Manual links open live areas but do not grant extra permissions."],
@@ -864,7 +864,7 @@ export const usersManualSections: UsersManualSection[] = [
           },
           {
             question: "What can I send through Feedback?",
-            answer: "Choose the closest Feedback Type, add a clear subject and description, and optionally capture the current Theta-Space tab as a screenshot. The saved ticket keeps the source page and replies together."
+            answer: "Click the floating Feedback button, choose the closest Feedback Type, add a clear subject and description, and optionally capture the current Theta-Space tab. The form appears above the page without moving it. If an administrator responds, the response arrives as a normal Comm Center message."
           }
         ],
         visual: {
