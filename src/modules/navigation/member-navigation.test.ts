@@ -38,10 +38,10 @@ test("Free navigation hides Contributor and disabled business creation surfaces"
   assert.equal(hrefs.includes("/events"), false);
 });
 
-test("Contributor navigation exposes Writers and support but not business tools", () => {
+test("Contributor navigation exposes Writers but keeps Feedback submission in the global control", () => {
   const hrefs = links(MembershipTier.CONTRIBUTOR);
   assert.equal(hrefs.includes("/writers-corner"), true);
-  assert.equal(hrefs.includes("/settings/feedback"), true);
+  assert.equal(hrefs.includes("/settings/feedback"), false);
   assert.equal(hrefs.includes("/business-center"), false);
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);

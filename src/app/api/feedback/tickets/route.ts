@@ -3,34 +3,10 @@ import { auth } from "@/auth";
 import { readJsonRequest, rateLimitedResponse } from "@/lib/platform/api-request";
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/platform/rate-limit";
 import { getRequestContext } from "@/lib/platform/request-context";
-import {
-  createFeedbackTicket,
-  listUserFeedbackTickets
-} from "@/modules/feedback-support/feedback-support.service";
+import { createFeedbackTicket } from "@/modules/feedback-support/feedback-support.service";
 import { FEEDBACK_NO_STORE_HEADERS, feedbackErrorStatus } from "@/modules/feedback-support/http";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
-
-export async function GET() {
-  const session = await auth();
-  if (!session?.user || session.user.revoked) {
-    return NextResponse.json({ error: "Login required." }, { status: 401, headers: FEEDBACK_NO_STORE_HEADERS });
-  }
-  if (!(await isFeatureEnabled("support.feedback_center"))) {
-    return NextResponse.json(
-      { error: "Feedback is temporarily unavailable." },
-      { status: 503, headers: FEEDBACK_NO_STORE_HEADERS }
-    );
-  }
-  const result = await listUserFeedbackTickets(session.user.id);
-  if (!result.ok) {
-    return NextResponse.json(
-      { error: result.error, code: result.code },
-      { status: feedbackErrorStatus(result.code), headers: FEEDBACK_NO_STORE_HEADERS }
-    );
-  }
-  return NextResponse.json(result, { headers: FEEDBACK_NO_STORE_HEADERS });
-}
 
 export async function POST(request: NextRequest) {
   const session = await auth();

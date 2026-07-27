@@ -51,13 +51,6 @@ export const settingsCards: SettingsCard[] = [
     badge: "Roadmap"
   },
   {
-    title: "Feedback",
-    description: "Review your submitted Feedback, replies, and current ticket status.",
-    href: "/settings/feedback",
-    sensitive: false,
-    badge: "Help"
-  },
-  {
     title: "Subscription",
     description: "Your currently enabled membership, billing status, storage, and available credits.",
     href: "/secure-area?next=/settings/subscription",
@@ -74,12 +67,10 @@ export const settingsCards: SettingsCard[] = [
 ];
 
 export function getSettingsCards({
-  includeInvites = true,
-  includeFeedback = true
+  includeInvites = true
 }: { includeInvites?: boolean; includeFeedback?: boolean } = {}) {
   return settingsCards.filter((card) => {
     if (!includeInvites && card.badge === "Invites") return false;
-    if (!includeFeedback && card.title === "Feedback") return false;
     return true;
   });
 }

@@ -81,7 +81,6 @@ const settingsSection: NavSection = {
     { label: "Tutorial", href: "/settings/tutorial" },
     { label: "Users Manual", href: "/settings/users-manual" },
     { label: "Progression Path", href: "/settings/progression-path" },
-    { label: "Feedback", href: "/settings/feedback" },
     { label: "Settings", href: "/settings" }
   ]
 };
@@ -144,14 +143,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     if (item.href === "/fundraisers") return input.features["fundraisers.create"] === true;
     return false;
   });
-  const settings = {
-    ...settingsSection,
-    items: settingsSection.items.filter(
-      (item) =>
-        item.href !== "/settings/feedback" ||
-        (input.platformFeatures["support.feedback_center"] !== false && input.features["support.createRequest"] === true)
-    )
-  };
+  const settings = settingsSection;
 
   const memberSections: NavSection[] = [home, communications, peopleSection];
   if (input.platformFeatures["community.groups"] !== false) memberSections.push(groupsSection);

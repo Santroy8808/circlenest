@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: { publicI
     );
   }
   const rateLimit = await consumeRateLimit({
-    namespace: "feedback:message",
+    namespace: "admin:feedback-message",
     key: `${session.user.id}:${params.publicId}`,
     limit: 30,
     windowMs: 60 * 60 * 1000

@@ -71,14 +71,6 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["progression", "path", "roadmap", "features", "future", "planned", "free", "contributor"]
   },
   {
-    title: "Feedback",
-    description: "Review your Feedback tickets and replies from Theta-Space administrators.",
-    href: "/settings/feedback",
-    badge: "Help",
-    sensitive: false,
-    keywords: ["feedback", "tickets", "support", "help", "problem", "bug", "feature request", "suggestion"]
-  },
-  {
     title: "Blocked Users",
     description: "Manage blocked users and account protection rules.",
     href: "/secure-area?next=/settings/security",

@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: { publicId: s
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401, headers: FEEDBACK_NO_STORE_HEADERS });
   }
-  const result = await getFeedbackTicket(session.user.id, params.publicId, "admin");
+  const result = await getFeedbackTicket(session.user.id, params.publicId);
   if (!result.ok) {
     return NextResponse.json(
       { error: result.error, code: result.code },
