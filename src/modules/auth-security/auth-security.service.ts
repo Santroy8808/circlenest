@@ -307,16 +307,19 @@ export async function createMemberAccount(
         await options.privilegedTransactionGuard(tx);
       }
 
-      let inviteId: string | null = null;
+      let pendingInvite: { id: string; isBetaTester: boolean } | null = null;
 
       if (!options.skipInviteCode) {
-        const invite = await findUsableFreeInviteForSignup(tx, parsed.data.inviteCode, email);
+        const usableInvite = await findUsableFreeInviteForSignup(tx, parsed.data.inviteCode, email);
 
-        if (!invite.ok) {
-          throw new FreeInviteError(invite.error);
+        if (!usableInvite.ok) {
+          throw new FreeInviteError(usableInvite.error);
         }
 
-        inviteId = invite.invite.id;
+        pendingInvite = {
+          id: usableInvite.invite.id,
+          isBetaTester: usableInvite.invite.isBetaTester
+        };
       }
 
       const requestedTier = options.tier ?? MembershipTier.FREE;
@@ -346,11 +349,12 @@ export async function createMemberAccount(
         }
       });
 
-      if (inviteId) {
+      if (pendingInvite) {
         await consumeFreeInviteForSignup(tx, {
-          inviteId,
+          inviteId: pendingInvite.id,
           userId: createdUser.id,
-          email
+          email,
+          isBetaTester: pendingInvite.isBetaTester
         });
       }
 

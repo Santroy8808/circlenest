@@ -151,6 +151,10 @@ function inviteEmailText(code: string, expiresAt: Date) {
     "2. Enter the invite code shown above.",
     "3. Create your account and verify your email address.",
     "",
+    "BETA TESTING NOTE",
+    "Theta-Space is currently best tested on a desktop or laptop.",
+    "An Android app is being built now, and an iOS app will follow soon after.",
+    "",
     `This invitation expires on ${expirationLabel} (UTC) and can only be used once.`,
     "",
     "If you did not expect this invitation, you can safely ignore this email.",
@@ -238,6 +242,15 @@ function inviteEmailHtml(code: string, expiresAt: Date) {
                   <tr>
                     <td width="28" valign="top" style="color:#6d91ff;font-size:15px;font-weight:800;line-height:1.7;">3.</td>
                     <td style="color:#c5cfdd;font-size:14px;line-height:1.7;">Create your account and verify your email address.</td>
+                  </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 24px;background-color:#172133;border:1px solid #334159;border-radius:12px;">
+                  <tr>
+                    <td style="padding:18px 20px;color:#dbe2ee;font-size:15px;line-height:1.7;">
+                      <strong style="color:#ffd85f;">Beta testing works best on a PC.</strong><br>
+                      Please use a desktop or laptop for the most complete experience. An Android app is being built now, and an iOS app will follow soon after.
+                    </td>
                   </tr>
                 </table>
 
@@ -622,9 +635,10 @@ export async function createMemberFreeAccountInviteCode(actorUserId: string, inp
   if (parsed.data.sendEmail && recipientEmail) {
     try {
       await sendInviteEmail(recipientEmail, code, expiresAt);
+      const deliveredAt = new Date();
       await prisma.freeAccountInviteCode.update({
         where: { id: invite.id },
-        data: { emailedAt: new Date() }
+        data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt }
       });
       emailed = true;
     } catch (error) {
@@ -720,9 +734,10 @@ export async function createFreeAccountInviteCode(actorUserId: string, input: un
   if (parsed.data.sendEmail && recipientEmail) {
     try {
       await sendInviteEmail(recipientEmail, code, expiresAt);
+      const deliveredAt = new Date();
       await prisma.freeAccountInviteCode.update({
         where: { id: invite.id },
-        data: { emailedAt: new Date() }
+        data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt }
       });
       emailed = true;
     } catch (error) {
@@ -803,11 +818,13 @@ export async function emailFreeAccountInviteCode(actorUserId: string, input: unk
     return { ok: false as const, error: "Could not send invite email through SMTP." };
   }
 
+  const deliveredAt = new Date();
   await prisma.freeAccountInviteCode.update({
     where: { id: invite.id },
     data: {
       recipientEmail,
-      emailedAt: new Date()
+      emailedAt: deliveredAt,
+      betaNoticeEmailedAt: deliveredAt
     }
   });
 
@@ -879,9 +896,10 @@ export async function deliverQueuedBulkInvite(job: PlatformJob) {
   try {
     const code = unsealInviteCode(deliveryCodeCiphertext);
     await sendInviteEmail(recipientEmail, code, invite.expiresAt);
+    const deliveredAt = new Date();
     await prisma.freeAccountInviteCode.update({
       where: { id: invite.id },
-      data: { emailedAt: new Date(), deliveryCodeCiphertext: null }
+      data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt, deliveryCodeCiphertext: null }
     });
     await recordBulkDeliveryOutcome(invite.bulkBatchId, "sent");
     return { ok: true as const, result: { sent: true, inviteId: invite.id } };
@@ -999,7 +1017,8 @@ export async function findUsableFreeInviteForSignup(
       recipientEmail: true,
       usedAt: true,
       revokedAt: true,
-      expiresAt: true
+      expiresAt: true,
+      isBetaTester: true
     }
   });
 
@@ -1016,7 +1035,7 @@ export async function findUsableFreeInviteForSignup(
 
 export async function consumeFreeInviteForSignup(
   tx: Prisma.TransactionClient,
-  input: { inviteId: string; userId: string; email: string }
+  input: { inviteId: string; userId: string; email: string; isBetaTester: boolean }
 ) {
   const update = await tx.freeAccountInviteCode.updateMany({
     where: {
@@ -1035,5 +1054,12 @@ export async function consumeFreeInviteForSignup(
 
   if (update.count !== 1) {
     throw new FreeInviteError("Invite code was already used.");
+  }
+
+  if (input.isBetaTester) {
+    await tx.user.update({
+      where: { id: input.userId },
+      data: { isBetaTester: true }
+    });
   }
 }
