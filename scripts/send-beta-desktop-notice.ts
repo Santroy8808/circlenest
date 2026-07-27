@@ -1,19 +1,8 @@
 import "./load-next-env";
+import { prisma } from "@/lib/platform/db";
 import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { escapeHtml, platformEmailButton, platformWebsiteUrl, renderPlatformEmail } from "@/lib/platform/email-theme";
-
-const recipients = [
-  "joanna@codybuilderssupply.com",
-  "jeandprod@gmail.com",
-  "suziecz@protonmail.com",
-  "Sayhellotosallyk@gmail.com",
-  "julianne.dearmon@gmail.com",
-  "ls556996@gmail.com",
-  "gammaworld1@gmail.com",
-  "yamiray13@gmail.com",
-  "mike@santroy.com"
-];
 
 const websiteUrl = platformWebsiteUrl("/");
 const subject = "Theta-Space beta testing is best on desktop for now";
@@ -26,7 +15,7 @@ function buildText() {
     "",
     "For now, beta testing is really meant for desktop use. You can still open the site from a mobile browser, but the smoothest and most complete experience is currently on a desktop or laptop.",
     "",
-    "An Android app is being built now, with an iPhone app planned to follow soon after.",
+    "An Android app is being built now, with an iOS app planned to follow soon after.",
     "",
     `Website: ${websiteUrl}`,
     "",
@@ -50,7 +39,7 @@ function buildHtml() {
         <tr>
           <td style="padding:18px 20px;color:#dbe2ee;font-size:15px;line-height:1.7;">
             <strong style="color:#ffd85f;">Mobile apps are in progress.</strong><br>
-            An Android app is being built now, with an iPhone app planned to follow soon after.
+            An Android app is being built now, with an iOS app planned to follow soon after.
           </td>
         </tr>
       </table>
@@ -69,6 +58,29 @@ async function main() {
   const mailboxes = readPlatformMailboxes();
   const text = buildText();
   const html = buildHtml();
+  const pendingInvites = await prisma.freeAccountInviteCode.findMany({
+    where: {
+      isBetaTester: true,
+      betaNoticeEmailedAt: null,
+      emailedAt: { not: null },
+      recipientEmail: { not: null },
+      OR: [
+        { usedAt: { not: null } },
+        {
+          usedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: new Date() }
+        }
+      ]
+    },
+    select: { recipientEmail: true },
+    orderBy: { createdAt: "asc" }
+  });
+  const recipients = [...new Set(
+    pendingInvites
+      .map((invite) => invite.recipientEmail?.trim().toLowerCase())
+      .filter((email): email is string => Boolean(email))
+  )];
 
   for (const recipient of recipients) {
     await sendPlatformMail({
@@ -79,11 +91,24 @@ async function main() {
       text,
       html
     });
+    const deliveredAt = new Date();
+    await prisma.freeAccountInviteCode.updateMany({
+      where: {
+        recipientEmail: { equals: recipient, mode: "insensitive" },
+        isBetaTester: true,
+        betaNoticeEmailedAt: null
+      },
+      data: { betaNoticeEmailedAt: deliveredAt }
+    });
     console.log(`sent ${recipient}`);
   }
+
+  console.log(`completed ${recipients.length} pending beta notice deliveries`);
 }
 
 main().catch((error) => {
   console.error(error);
   process.exit(1);
+}).finally(async () => {
+  await prisma.$disconnect();
 });

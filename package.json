@@ -8,6 +8,7 @@
     "start": "next start",
     "worker": "tsx scripts/platform-worker.ts",
     "worker:once": "tsx scripts/platform-worker.ts --once",
+    "invites:send-pending-beta-notices": "tsx scripts/send-beta-desktop-notice.ts --confirm-send",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
