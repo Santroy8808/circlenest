@@ -209,7 +209,7 @@ export function AdminTicketsWorkspace({
     messageRequestId.current = "";
     try {
       const payload = await readResponse<{ audience: "admin"; ticket: AdminTicketDetail }>(
-        await fetch(`/api/feedback/tickets/${encodeURIComponent(publicId)}`, { cache: "no-store" })
+        await fetch(`/api/admin/tickets/${encodeURIComponent(publicId)}`, { cache: "no-store" })
       );
       setDetail(payload.ticket);
       setDetailKind(

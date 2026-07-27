@@ -18,6 +18,8 @@ import {
   canAddFeedbackMessage,
   canCreateFeedbackTicket,
   canViewFeedbackTicket,
+  resolveFeedbackTicketAudience,
+  type FeedbackTicketAudience,
   visibleFeedbackMessageTypes
 } from "@/modules/feedback-support/authorization";
 import { feedbackTypeLabel } from "@/modules/feedback-support/config";
@@ -681,14 +683,20 @@ function serializeTicketMessage(message: {
   };
 }
 
-export async function getFeedbackTicket(viewerUserId: string, publicId: string) {
+export async function getFeedbackTicket(
+  viewerUserId: string,
+  publicId: string,
+  requestedAudience: FeedbackTicketAudience = "creator"
+) {
   const viewer = await getActiveUser(viewerUserId);
   if (!viewer) return failure("UNAUTHENTICATED", "Login required.");
-  const isAdmin = isAdminRole(viewer.role);
+  const audience = resolveFeedbackTicketAudience(viewer.role, requestedAudience);
+  if (!audience) return failure("FORBIDDEN", "Administrator access required.");
+  const isAdminAudience = audience === "admin";
   const ticket = await prisma.feedbackTicket.findFirst({
     where: {
       publicId,
-      ...(isAdmin ? {} : { reporterUserId: viewerUserId })
+      ...(isAdminAudience ? {} : { reporterUserId: viewerUserId })
     },
     include: {
       reporter: { select: ticketUserSelect },
@@ -703,7 +711,13 @@ export async function getFeedbackTicket(viewerUserId: string, publicId: string) 
         }
       },
       messages: {
-        where: { type: { in: visibleFeedbackMessageTypes(viewer.role) } },
+        where: {
+          type: {
+            in: isAdminAudience
+              ? visibleFeedbackMessageTypes(viewer.role)
+              : [FeedbackTicketMessageType.NORMAL]
+          }
+        },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: {
           id: true,
@@ -713,7 +727,7 @@ export async function getFeedbackTicket(viewerUserId: string, publicId: string) 
           sender: { select: ticketUserSelect }
         }
       },
-      events: isAdmin
+      events: isAdminAudience
         ? {
             orderBy: [{ createdAt: "asc" }, { id: "asc" }],
             include: { actor: { select: ticketUserSelect } }
@@ -735,11 +749,11 @@ export async function getFeedbackTicket(viewerUserId: string, publicId: string) 
       ticketId: ticket.id,
       userId: viewerUserId,
       normalReadAt: now,
-      ...(isAdmin ? { internalReadAt: now } : {})
+      ...(isAdminAudience ? { internalReadAt: now } : {})
     },
     update: {
       normalReadAt: now,
-      ...(isAdmin ? { internalReadAt: now } : {})
+      ...(isAdminAudience ? { internalReadAt: now } : {})
     }
   });
 
@@ -770,7 +784,7 @@ export async function getFeedbackTicket(viewerUserId: string, publicId: string) 
     messages: ticket.messages.map(serializeTicketMessage)
   };
 
-  if (!isAdmin) {
+  if (!isAdminAudience) {
     return {
       ok: true as const,
       audience: "creator" as const,

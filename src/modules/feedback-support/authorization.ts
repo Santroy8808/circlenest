@@ -1,8 +1,20 @@
 import { FeedbackTicketMessageType, type UserRole } from "@prisma/client";
 import { isAdminRole } from "@/lib/platform/roles";
 
+export type FeedbackTicketAudience = "creator" | "admin";
+
 export function canCreateFeedbackTicket(viewerUserId?: string | null): viewerUserId is string {
   return Boolean(viewerUserId);
+}
+
+export function resolveFeedbackTicketAudience(
+  viewerRole: UserRole,
+  requestedAudience: FeedbackTicketAudience = "creator"
+): FeedbackTicketAudience | null {
+  if (requestedAudience === "admin") {
+    return isAdminRole(viewerRole) ? "admin" : null;
+  }
+  return "creator";
 }
 
 export function canViewFeedbackTicket(input: {

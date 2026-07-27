@@ -9,6 +9,7 @@ import {
   canAccessFeedbackScreenshot,
   canCreateFeedbackTicket,
   canViewFeedbackTicket,
+  resolveFeedbackTicketAudience,
   visibleFeedbackMessageTypes
 } from "@/modules/feedback-support/authorization";
 import { normalizeFeedbackSourceUrl } from "@/modules/feedback-support/feedback-support.service";
@@ -53,6 +54,12 @@ test("every authenticated account can create feedback regardless of membership t
   assert.equal(canCreateFeedbackTicket("member"), true);
   assert.equal(canCreateFeedbackTicket("administrator"), true);
   assert.equal(canCreateFeedbackTicket(undefined), false);
+});
+
+test("administrator creator links stay creator-scoped while admin routes expose admin details", () => {
+  assert.equal(resolveFeedbackTicketAudience(UserRole.ADMIN), "creator");
+  assert.equal(resolveFeedbackTicketAudience(UserRole.ADMIN, "admin"), "admin");
+  assert.equal(resolveFeedbackTicketAudience(UserRole.MEMBER, "admin"), null);
 });
 
 test("internal notes are never permitted or selected for ordinary members", () => {
