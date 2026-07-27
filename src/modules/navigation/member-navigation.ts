@@ -81,7 +81,7 @@ const settingsSection: NavSection = {
     { label: "Tutorial", href: "/settings/tutorial" },
     { label: "Users Manual", href: "/settings/users-manual" },
     { label: "Progression Path", href: "/settings/progression-path" },
-    { label: "Feedback Center", href: "/settings/feedback" },
+    { label: "Feedback", href: "/settings/feedback" },
     { label: "Settings", href: "/settings" }
   ]
 };

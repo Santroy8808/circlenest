@@ -133,7 +133,7 @@ export const FEATURE_FLAG_DEFINITIONS = [
   },
   {
     key: "support.feedback_center",
-    title: "Feedback Center",
+    title: "Feedback",
     categoryKey: "membership-support",
     area: "Support",
     description: "Allows members to submit support requests, problem reports, and feature suggestions.",

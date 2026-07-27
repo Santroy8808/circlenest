@@ -77,7 +77,7 @@ function hrefDescription(element: Element) {
   if (href.startsWith("/jobs")) return "Open job listings.";
   if (href.startsWith("/groups")) return "Open groups.";
   if (href.startsWith("/people") || href.startsWith("/friends")) return "Find and manage people.";
-  if (href.startsWith("/feedback/new")) return "Report an issue.";
+  if (href.startsWith("/feedback")) return "Open Feedback.";
   if (href.startsWith("/settings")) return "Open settings.";
   if (href.startsWith("/admin")) return "Open admin tools.";
   if (href.startsWith("/home") || href === "/") return "Open the home stream.";

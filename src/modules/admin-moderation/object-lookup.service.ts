@@ -206,7 +206,7 @@ export async function lookupAdminObjectById(actorUserId: string | undefined, que
       id: feedbackTicket.id,
       title: `${feedbackTicket.publicId}: ${feedbackTicket.title}`,
       detail: `Status: ${feedbackTicket.status}`,
-      href: "/admin/actions/reports-queue",
+      href: "/admin/tickets",
       createdAt: formatDate(feedbackTicket.createdAt)
     });
   }

@@ -180,14 +180,6 @@ export const adminActionCards: AdminActionCard[] = [
     ]
   },
   {
-    key: "reports-queue",
-    title: "Reports Queue",
-    description: "Review shared feedback, bug reports, abuse reports, content reports, and support tickets.",
-    risk: "medium",
-    keywords: ["tickets", "support", "feedback", "bugs", "abuse", "reports", "issue queue"],
-    steps: ["Open the shared admin queue.", "Review the exact issue and source page.", "Move the ticket into review or resolve it.", "Leave admin notes when deeper action is needed."]
-  },
-  {
     key: "object-lookup",
     title: "Object ID Lookup",
     description: "Search exact database IDs shown to admins across posts, listings, ads, chat, mail, media, group threads, and reports.",

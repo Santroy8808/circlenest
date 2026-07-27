@@ -1454,3 +1454,16 @@ export async function listFeedbackTicketAssignees(adminUserId: string) {
     }))
   };
 }
+
+export type AdminFeedbackTicketListView = Extract<
+  Awaited<ReturnType<typeof listAdminFeedbackTickets>>,
+  { ok: true }
+>;
+export type UserFeedbackTicketListView = Extract<
+  Awaited<ReturnType<typeof listUserFeedbackTickets>>,
+  { ok: true }
+>;
+export type FeedbackTicketDetailView = Extract<
+  Awaited<ReturnType<typeof getFeedbackTicket>>,
+  { ok: true }
+>;

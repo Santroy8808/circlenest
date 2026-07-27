@@ -121,14 +121,6 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               description: "Reset account passwords and revoke active sessions.",
               badge: "password",
               keywords: ["reset password", "password reset", "account support", "session revoke", "security"]
-            },
-            {
-              href: "/admin/actions/reports-queue",
-              title: "Account Reports",
-              category: "Account Management",
-              description: "Review reports connected to accounts, reporters, abuse, bugs, content, and support tickets.",
-              badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "queue",
-              keywords: ["report issue", "tickets", "support", "bug", "abuse", "feedback", "content report", "account reports"]
             }
           ]
         }
@@ -305,12 +297,12 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               keywords: ["announcement", "broadcast", "global message", "popup", "mail", "chat notice"]
             },
             {
-              href: "/admin/actions/reports-queue",
-              title: "Reports Queue",
+              href: "/admin/tickets",
+              title: "Tickets",
               category: "Communications And Safety",
-              description: "Review bug reports, abuse reports, content reports, and support tickets.",
+              description: "Review, assign, discuss, route, and resolve member Feedback.",
               badge: openFeedbackTicketCount > 0 ? `${openFeedbackTicketCount} open` : "queue",
-              keywords: ["report issue", "tickets", "support", "bug", "abuse", "feedback", "content report"]
+              keywords: ["tickets", "support", "bug", "feedback", "internal note", "assignment"]
             },
             {
               href: "/admin/actions/investigation",

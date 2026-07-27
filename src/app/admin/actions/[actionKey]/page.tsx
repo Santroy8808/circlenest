@@ -8,7 +8,6 @@ import { AdminFeedRetentionWizard } from "@/components/admin-moderation/admin-fe
 import { AdminDeletePasswordWizard } from "@/components/admin-moderation/admin-delete-password-wizard";
 import { AdminFeatureFlagsManager } from "@/components/admin-moderation/admin-feature-flags-manager";
 import { AdminObjectLookup } from "@/components/admin-moderation/admin-object-lookup";
-import { AdminReportsQueue } from "@/components/admin-moderation/admin-reports-queue";
 import { AdminActionWizard } from "@/components/admin-moderation/admin-action-wizard";
 import { AdminLaunchAccessWizard } from "@/components/admin-moderation/admin-launch-access-wizard";
 import { AdminInvestigationWorkspace } from "@/components/admin-moderation/admin-investigation-workspace";
@@ -20,7 +19,7 @@ import { AdminTierPolicyEditor } from "@/components/admin-moderation/admin-tier-
 import { AppShell } from "@/components/platform/app-shell";
 import { getAdScheduleAdminView } from "@/modules/ads-credits/ads-credits.service";
 import { listRecentPublicAnnouncements } from "@/modules/admin-moderation/announcements.service";
-import { getAdminActionCard, getAdminFeedbackTicketQueue, isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
+import { getAdminActionCard, isAdminUser } from "@/modules/admin-moderation/admin-moderation.service";
 import { getDeleteProtectionAdminView } from "@/modules/admin-moderation/delete-protection.service";
 import { getPlatformCreditsAdminView } from "@/modules/admin-moderation/platform-credits.service";
 import { getStripeSetupAdminView } from "@/modules/billing/stripe-admin.service";
@@ -48,20 +47,14 @@ export default async function AdminActionPage({
     redirect("/");
   }
 
+  if (params.actionKey === "reports-queue") {
+    redirect("/admin/tickets");
+  }
+
   const action = getAdminActionCard(params.actionKey);
 
   if (!action) {
     notFound();
-  }
-
-  if (action.key === "reports-queue") {
-    const queue = await getAdminFeedbackTicketQueue(session.user.id);
-
-    return (
-      <AppShell>
-        <AdminReportsQueue tickets={queue.tickets} />
-      </AppShell>
-    );
   }
 
   if (action.key === "conduct-review") {

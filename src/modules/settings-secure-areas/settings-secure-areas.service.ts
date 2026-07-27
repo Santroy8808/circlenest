@@ -51,8 +51,8 @@ export const settingsCards: SettingsCard[] = [
     badge: "Roadmap"
   },
   {
-    title: "Feedback Center",
-    description: "Ask for help, report a problem, or suggest an improvement to Theta-Space.",
+    title: "Feedback",
+    description: "Review your submitted Feedback, replies, and current ticket status.",
     href: "/settings/feedback",
     sensitive: false,
     badge: "Help"
@@ -79,7 +79,7 @@ export function getSettingsCards({
 }: { includeInvites?: boolean; includeFeedback?: boolean } = {}) {
   return settingsCards.filter((card) => {
     if (!includeInvites && card.badge === "Invites") return false;
-    if (!includeFeedback && card.title === "Feedback Center") return false;
+    if (!includeFeedback && card.title === "Feedback") return false;
     return true;
   });
 }
