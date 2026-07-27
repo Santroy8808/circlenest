@@ -2031,21 +2031,23 @@ model ChatParticipant {
 }
 
 model ChatMessage {
-  id               String                @id @default(cuid())
-  threadId         String
-  senderUserId     String
-  replyToMessageId String?
-  replyStyle       ChatReplyStyle?
-  body             String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  deletedAt        DateTime?
-  thread           ChatThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender           User                  @relation("ChatMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
-  replyTo          ChatMessage?          @relation("ChatMessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
-  replies          ChatMessage[]         @relation("ChatMessageReplies")
-  attachments      ChatAttachment[]
-  reactions        ChatMessageReaction[]
+  id                      String                 @id @default(cuid())
+  threadId                String
+  senderUserId            String
+  replyToMessageId        String?
+  feedbackTicketMessageId String?                @unique
+  replyStyle              ChatReplyStyle?
+  body                    String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  deletedAt               DateTime?
+  thread                  ChatThread             @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender                  User                   @relation("ChatMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  replyTo                 ChatMessage?           @relation("ChatMessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies                 ChatMessage[]          @relation("ChatMessageReplies")
+  feedbackTicketMessage   FeedbackTicketMessage? @relation(fields: [feedbackTicketMessageId], references: [id], onDelete: SetNull)
+  attachments             ChatAttachment[]
+  reactions               ChatMessageReaction[]
 
   @@index([threadId, createdAt])
   @@index([senderUserId, createdAt])
@@ -3583,17 +3585,18 @@ model FeedbackTicketEvent {
 }
 
 model FeedbackTicketMessage {
-  id             String                    @id @default(cuid())
-  ticketId       String
-  senderUserId   String?
-  type           FeedbackTicketMessageType @default(NORMAL)
-  body           String
-  idempotencyKey String?                   @unique
-  retentionClass RecordRetentionClass      @default(VITAL)
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-  ticket         FeedbackTicket            @relation(fields: [ticketId], references: [id], onDelete: Restrict)
-  sender         User?                     @relation("FeedbackTicketMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  id                   String                    @id @default(cuid())
+  ticketId             String
+  senderUserId         String?
+  type                 FeedbackTicketMessageType @default(NORMAL)
+  body                 String
+  idempotencyKey       String?                   @unique
+  retentionClass       RecordRetentionClass      @default(VITAL)
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  ticket               FeedbackTicket            @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  sender               User?                     @relation("FeedbackTicketMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  deliveredChatMessage ChatMessage?
 
   @@index([ticketId, createdAt])
   @@index([ticketId, type, createdAt])
