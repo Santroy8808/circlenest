@@ -453,7 +453,7 @@ export function AdminTicketsWorkspace({
       messageType === "INTERNAL" &&
       nextType === "NORMAL" &&
       messageBody.trim() &&
-      !window.confirm("This text will become visible to the ticket creator. Change to Reply to User?")
+      !window.confirm("This text will be sent to the user through Comm Center. Change to Message User?")
     ) return;
     setMessageType(nextType);
     setMessageState("idle");
@@ -467,7 +467,7 @@ export function AdminTicketsWorkspace({
     setMessageError("");
     try {
       await readResponse(
-        await fetch(`/api/feedback/tickets/${encodeURIComponent(detail.publicId)}/messages`, {
+        await fetch(`/api/admin/tickets/${encodeURIComponent(detail.publicId)}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -850,7 +850,7 @@ export function AdminTicketsWorkspace({
                       >
                         <header>
                           <strong>{message.sender?.name ?? "Former member"}</strong>
-                          {message.type === "INTERNAL" ? <span>Internal Note</span> : <span>{message.sender?.isAdmin ? "Administrator" : "Ticket Creator"}</span>}
+                          {message.type === "INTERNAL" ? <span>Internal Note</span> : <span>Sent to Comm Center</span>}
                           <time>{formatDate(message.createdAt)}</time>
                         </header>
                         <p>{message.body}</p>
@@ -866,7 +866,7 @@ export function AdminTicketsWorkspace({
                         onClick={() => changeMessageType("NORMAL")}
                         type="button"
                       >
-                        Reply to User
+                        Message User
                       </button>
                       <button
                         aria-pressed={messageType === "INTERNAL"}
@@ -879,8 +879,8 @@ export function AdminTicketsWorkspace({
                     </div>
                     <p className="ticket-composer-warning">
                       {messageType === "INTERNAL"
-                        ? "Internal Notes are visible only to administrators and are never sent to the ticket creator."
-                        : "This reply will be visible to the ticket creator and will notify them."}
+                        ? "Internal Notes are visible only to administrators and are never sent to the user."
+                        : "This sends the user a normal Comm Center message and records it in this admin ticket."}
                     </p>
                     <textarea
                       className="form-field"
@@ -888,7 +888,7 @@ export function AdminTicketsWorkspace({
                         setMessageBody(event.target.value);
                         setMessageState("idle");
                       }}
-                      placeholder={messageType === "INTERNAL" ? "Add technical findings or admin coordination..." : "Write a reply to the ticket creator..."}
+                      placeholder={messageType === "INTERNAL" ? "Add technical findings or admin coordination..." : "Write a Comm Center message to the user..."}
                       value={messageBody}
                     />
                     {messageError ? <p className="feedback-inline-error" role="alert">{messageError}</p> : null}
@@ -898,7 +898,7 @@ export function AdminTicketsWorkspace({
                       onClick={() => void sendMessage()}
                       type="button"
                     >
-                      {messageState === "sending" ? "Sending..." : messageState === "failed" ? "Retry" : messageType === "INTERNAL" ? "Add Internal Note" : "Send Reply"}
+                      {messageState === "sending" ? "Sending..." : messageState === "failed" ? "Retry" : messageType === "INTERNAL" ? "Add Internal Note" : "Send Message"}
                     </button>
                   </div>
                 </section>
@@ -919,7 +919,7 @@ export function AdminTicketsWorkspace({
                         <textarea className="form-field" onChange={(event) => setResolution(event.target.value)} value={resolution} />
                       </label>
                       <label>
-                        <span className="form-label">Final reply to user (optional)</span>
+                        <span className="form-label">Final Comm Center message (optional)</span>
                         <textarea className="form-field" onChange={(event) => setFinalReply(event.target.value)} value={finalReply} />
                       </label>
                       <button disabled={isActing} onClick={() => void resolveTicket()} type="button">

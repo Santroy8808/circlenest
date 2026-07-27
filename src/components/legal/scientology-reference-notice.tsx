@@ -1,4 +1,4 @@
-import Link from "next/link";
+"use client";
 
 export function ScientologyReferenceNotice({ compact = false }: { compact?: boolean }) {
   return (
@@ -25,9 +25,13 @@ export function ScientologyReferenceNotice({ compact = false }: { compact?: bool
           Theta-Space and participating members voluntarily seek to respect the applicable standards associated
           with these references. Theta-Space is not an official source of Scientology doctrine or terminology.
           Any typo, transcription error, or incorrect terminology is unintended. Please{" "}
-          <Link className="text-[var(--gold)] underline underline-offset-4" href="/settings/feedback">
+          <button
+            className="cursor-pointer border-0 bg-transparent p-0 text-[var(--gold)] underline underline-offset-4"
+            onClick={() => window.dispatchEvent(new Event("theta:open-feedback"))}
+            type="button"
+          >
             report it through Feedback
-          </Link>{" "}
+          </button>{" "}
           so it can be reviewed and corrected.
         </p>
       </div>

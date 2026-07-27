@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { FeedbackPageContext } from "@/lib/client/recent-activity";
@@ -299,11 +298,9 @@ export function FeedbackTicketForm({
       {ticketId ? (
         <div className="feedback-success" role="status">
           <strong>Feedback submitted</strong>
-          <span>Your ticket number is {ticketId}.</span>
+          <span>An administrator will review it. Any reply will arrive as a normal Comm Center message.</span>
+          <small>Reference {ticketId}</small>
           <div className="feedback-form-actions">
-            <Link className="btn-secondary" href={`/feedback/tickets/${encodeURIComponent(ticketId)}`}>
-              View ticket
-            </Link>
             {onRequestClose ? (
               <button className="btn-primary" onClick={onRequestClose} type="button">
                 Done

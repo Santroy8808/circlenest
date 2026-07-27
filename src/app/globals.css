@@ -2271,10 +2271,6 @@ html.theta-theme-light .progression-dot-in-progress {
   transform: translateY(-2px);
 }
 
-.feedback-fab--above-composer {
-  bottom: 86px;
-}
-
 .background-upload-status,
 .background-upload-toast {
   border: 1px solid rgba(214, 178, 74, 0.5);
@@ -12805,9 +12801,9 @@ html.theta-theme-light .tutorial-panel {
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  max-height: min(90dvh, 900px);
+  max-height: min(84dvh, 760px);
   overflow: hidden;
-  width: min(100%, 640px);
+  width: min(100%, 540px);
 }
 
 .feedback-modal-header {
@@ -13286,11 +13282,6 @@ html.theta-theme-light .tutorial-panel {
   z-index: 175;
 }
 
-body:has(.ticket-drawer-layer) .feedback-fab {
-  opacity: 0;
-  pointer-events: none;
-}
-
 .ticket-drawer {
   background: var(--panel);
   border-left: 1px solid var(--line-strong);
@@ -13765,26 +13756,19 @@ html.theta-theme-light .feedback-success {
 
 @media (max-width: 720px) {
   .feedback-fab {
-    bottom: calc(74px + env(safe-area-inset-bottom));
+    bottom: calc(12px + env(safe-area-inset-bottom));
     right: 12px;
   }
 
-  .feedback-fab--above-composer {
-    bottom: calc(112px + env(safe-area-inset-bottom));
-  }
-
   .feedback-modal-layer {
-    align-items: flex-end;
-    padding: 0;
+    align-items: center;
+    padding: 12px;
   }
 
   .feedback-modal {
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: 8px 8px 0 0;
-    border-right: 0;
-    max-height: 94dvh;
-    width: 100%;
+    border-radius: 8px;
+    max-height: calc(100dvh - 24px);
+    width: min(100%, 540px);
   }
 
   .feedback-modal-body {

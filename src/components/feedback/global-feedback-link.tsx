@@ -20,7 +20,6 @@ export function GlobalFeedbackLink() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const route = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-  const isComposerPath = pathname.startsWith("/messages") || pathname.startsWith("/mail");
 
   useEffect(() => {
     recordRecentActivity("route", route);
@@ -68,8 +67,6 @@ export function GlobalFeedbackLink() {
 
   useEffect(() => {
     if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const dialog = dialogRef.current;
     const focusable = () =>
       Array.from(
@@ -101,7 +98,6 @@ export function GlobalFeedbackLink() {
     document.addEventListener("keydown", handleKeyDown);
     window.setTimeout(() => focusable()[0]?.focus(), 0);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
@@ -124,7 +120,6 @@ export function GlobalFeedbackLink() {
         aria-haspopup="dialog"
         className={[
           "feedback-fab",
-          isComposerPath ? "feedback-fab--above-composer" : "",
           shimmering ? "feedback-fab--shimmer" : ""
         ].filter(Boolean).join(" ")}
         data-feedback-ui
