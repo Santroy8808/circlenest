@@ -1,4 +1,15 @@
-import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CopyObjectCommand,
+  CreateMultipartUploadCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  UploadPartCommand
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readPlatformEnv } from "@/lib/platform/env";
 
@@ -172,6 +183,102 @@ export async function createPresignedR2PutRequest(input: R2PutInput) {
 export async function createPresignedR2PutUrl(input: R2PutInput) {
   const request = await createPresignedR2PutRequest(input);
   return request.url;
+}
+
+export async function createR2MultipartUpload(input: {
+  storageKey: string;
+  mimeType: string;
+  metadata?: Record<string, string | undefined>;
+  access?: R2ObjectAccess;
+}) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "private");
+  const result = await getR2Client().send(
+    new CreateMultipartUploadCommand({
+      Bucket: bucket,
+      Key: input.storageKey,
+      ContentType: input.mimeType,
+      Metadata: normalizeR2Metadata(input.metadata)
+    })
+  );
+
+  if (!result.UploadId) throw new Error("Media storage did not create a multipart upload.");
+  return { uploadId: result.UploadId };
+}
+
+export async function createPresignedR2UploadPartUrl(input: {
+  storageKey: string;
+  uploadId: string;
+  partNumber: number;
+  sizeBytes: number;
+  expiresInSeconds?: number;
+  access?: R2ObjectAccess;
+}) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "private");
+  const command = new UploadPartCommand({
+    Bucket: bucket,
+    Key: input.storageKey,
+    UploadId: input.uploadId,
+    PartNumber: input.partNumber,
+    ContentLength: input.sizeBytes
+  });
+  return getSignedUrl(getR2Client(), command, { expiresIn: input.expiresInSeconds ?? 900 });
+}
+
+export async function completeR2MultipartUpload(input: {
+  storageKey: string;
+  uploadId: string;
+  parts: Array<{ partNumber: number; etag: string }>;
+  access?: R2ObjectAccess;
+}) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "private");
+  return getR2Client().send(
+    new CompleteMultipartUploadCommand({
+      Bucket: bucket,
+      Key: input.storageKey,
+      UploadId: input.uploadId,
+      MultipartUpload: {
+        Parts: [...input.parts]
+          .sort((left, right) => left.partNumber - right.partNumber)
+          .map((part) => ({ ETag: part.etag, PartNumber: part.partNumber }))
+      }
+    })
+  );
+}
+
+export async function abortR2MultipartUpload(input: {
+  storageKey: string;
+  uploadId: string;
+  access?: R2ObjectAccess;
+}) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "private");
+  return getR2Client().send(
+    new AbortMultipartUploadCommand({
+      Bucket: bucket,
+      Key: input.storageKey,
+      UploadId: input.uploadId
+    })
+  );
+}
+
+export async function createPresignedR2GetUrl(input: {
+  storageKey: string;
+  expiresInSeconds?: number;
+  access?: R2ObjectAccess;
+}) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "private");
+  return getSignedUrl(
+    getR2Client(),
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: input.storageKey
+    }),
+    { expiresIn: input.expiresInSeconds ?? 300 }
+  );
 }
 
 export async function putR2Object(input: R2DirectPutInput) {

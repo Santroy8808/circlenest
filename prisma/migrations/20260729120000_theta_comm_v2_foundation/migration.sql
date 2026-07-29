@@ -13,12 +13,19 @@ CREATE TYPE "EncryptedChatNotificationLevel" AS ENUM ('ALL', 'MENTIONS', 'NONE')
 -- CreateEnum
 CREATE TYPE "EncryptedChatUploadStatus" AS ENUM ('PENDING', 'UPLOADED', 'ATTACHED', 'CANCELED', 'EXPIRED');
 
+-- CreateEnum
+CREATE TYPE "EncryptedChatEnvelopeType" AS ENUM ('PREKEY', 'SESSION');
+
+-- CreateEnum
+CREATE TYPE "ThetaCommSyncEventKind" AS ENUM ('MESSAGE', 'RECEIPT', 'CONVERSATION', 'MEMBERSHIP', 'DEVICE_REVOKED');
+
 -- DropIndex
 DROP INDEX "EncryptedChatParticipant_userId_createdAt_idx";
 
 -- AlterTable
 ALTER TABLE "UserDevice" ADD COLUMN     "commIdentityKey" TEXT,
 ADD COLUMN     "commKeyUpdatedAt" TIMESTAMP(3),
+ADD COLUMN     "commKeyVersion" INTEGER NOT NULL DEFAULT 1,
 ADD COLUMN     "commRegistrationId" INTEGER,
 ADD COLUMN     "commSignedPreKey" TEXT,
 ADD COLUMN     "commSignedPreKeyId" INTEGER,
@@ -107,6 +114,17 @@ ALTER COLUMN "updatedAt" SET NOT NULL;
 
 ALTER SEQUENCE "EncryptedChatMessage_sequence_seq" OWNED BY "EncryptedChatMessage"."sequence";
 
+-- AlterTable
+ALTER TABLE "EncryptedChatEnvelope" ADD COLUMN     "envelopeType" "EncryptedChatEnvelopeType" NOT NULL DEFAULT 'SESSION',
+ADD COLUMN     "updatedAt" TIMESTAMP(3);
+
+UPDATE "EncryptedChatEnvelope"
+SET "updatedAt" = "createdAt"
+WHERE "updatedAt" IS NULL;
+
+ALTER TABLE "EncryptedChatEnvelope"
+ALTER COLUMN "updatedAt" SET NOT NULL;
+
 -- CreateTable
 CREATE TABLE "EncryptedChatUpload" (
     "id" TEXT NOT NULL,
@@ -115,16 +133,32 @@ CREATE TABLE "EncryptedChatUpload" (
     "threadId" TEXT,
     "storageKey" TEXT NOT NULL,
     "thumbnailStorageKey" TEXT,
+    "thumbnailExpectedSizeBytes" BIGINT,
+    "thumbnailCiphertextSha256" TEXT,
+    "ciphertextSha256" TEXT NOT NULL,
     "expectedSizeBytes" BIGINT NOT NULL,
     "uploadedSizeBytes" BIGINT NOT NULL DEFAULT 0,
     "chunkSizeBytes" INTEGER NOT NULL,
     "totalChunks" INTEGER NOT NULL,
+    "r2MultipartUploadId" TEXT,
     "status" "EncryptedChatUploadStatus" NOT NULL DEFAULT 'PENDING',
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "EncryptedChatUpload_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "EncryptedChatUploadPart" (
+    "id" TEXT NOT NULL,
+    "uploadId" TEXT NOT NULL,
+    "partNumber" INTEGER NOT NULL,
+    "etag" TEXT NOT NULL,
+    "sizeBytes" INTEGER NOT NULL,
+    "completedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "EncryptedChatUploadPart_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -168,6 +202,60 @@ CREATE TABLE "ThetaCommPushRegistration" (
     CONSTRAINT "ThetaCommPushRegistration_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ThetaCommPushOutbox" (
+    "id" TEXT NOT NULL,
+    "userDeviceId" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "availableAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lockedAt" TIMESTAMP(3),
+    "lockedBy" TEXT,
+    "sentAt" TIMESTAMP(3),
+    "failedAt" TIMESTAMP(3),
+    "lastError" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ThetaCommPushOutbox_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ThetaCommTypingState" (
+    "conversationId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "deviceId" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ThetaCommTypingState_pkey" PRIMARY KEY ("conversationId","userId","deviceId")
+);
+
+-- CreateTable
+CREATE TABLE "ThetaCommDeviceTrust" (
+    "id" TEXT NOT NULL,
+    "verifierDeviceId" TEXT NOT NULL,
+    "trustedDeviceId" TEXT NOT NULL,
+    "identityKeyHash" TEXT NOT NULL,
+    "verifiedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "revokedAt" TIMESTAMP(3),
+
+    CONSTRAINT "ThetaCommDeviceTrust_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ThetaCommSyncEvent" (
+    "id" BIGSERIAL NOT NULL,
+    "userId" TEXT NOT NULL,
+    "kind" "ThetaCommSyncEventKind" NOT NULL,
+    "conversationId" TEXT,
+    "messageId" TEXT,
+    "payload" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ThetaCommSyncEvent_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "EncryptedChatUpload_storageKey_key" ON "EncryptedChatUpload"("storageKey");
 
@@ -185,6 +273,12 @@ CREATE INDEX "EncryptedChatUpload_threadId_status_createdAt_idx" ON "EncryptedCh
 
 -- CreateIndex
 CREATE INDEX "EncryptedChatUpload_expiresAt_status_idx" ON "EncryptedChatUpload"("expiresAt", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EncryptedChatUploadPart_uploadId_partNumber_key" ON "EncryptedChatUploadPart"("uploadId", "partNumber");
+
+-- CreateIndex
+CREATE INDEX "EncryptedChatUploadPart_uploadId_completedAt_idx" ON "EncryptedChatUploadPart"("uploadId", "completedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "EncryptedChatAttachment_uploadId_key" ON "EncryptedChatAttachment"("uploadId");
@@ -206,6 +300,33 @@ CREATE UNIQUE INDEX "ThetaCommPushRegistration_token_key" ON "ThetaCommPushRegis
 
 -- CreateIndex
 CREATE INDEX "ThetaCommPushRegistration_userDeviceId_enabled_lastSeenAt_idx" ON "ThetaCommPushRegistration"("userDeviceId", "enabled", "lastSeenAt");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommPushOutbox_availableAt_sentAt_failedAt_idx" ON "ThetaCommPushOutbox"("availableAt", "sentAt", "failedAt");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommPushOutbox_userDeviceId_createdAt_idx" ON "ThetaCommPushOutbox"("userDeviceId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommTypingState_conversationId_expiresAt_idx" ON "ThetaCommTypingState"("conversationId", "expiresAt");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommTypingState_expiresAt_idx" ON "ThetaCommTypingState"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ThetaCommDeviceTrust_verifierDeviceId_trustedDeviceId_key" ON "ThetaCommDeviceTrust"("verifierDeviceId", "trustedDeviceId");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommDeviceTrust_trustedDeviceId_revokedAt_idx" ON "ThetaCommDeviceTrust"("trustedDeviceId", "revokedAt");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommSyncEvent_userId_id_idx" ON "ThetaCommSyncEvent"("userId", "id");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommSyncEvent_conversationId_id_idx" ON "ThetaCommSyncEvent"("conversationId", "id");
+
+-- CreateIndex
+CREATE INDEX "ThetaCommSyncEvent_createdAt_idx" ON "ThetaCommSyncEvent"("createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "EncryptedChatThread_directKey_key" ON "EncryptedChatThread"("directKey");
@@ -250,6 +371,9 @@ ALTER TABLE "EncryptedChatUpload" ADD CONSTRAINT "EncryptedChatUpload_ownerDevic
 ALTER TABLE "EncryptedChatUpload" ADD CONSTRAINT "EncryptedChatUpload_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "EncryptedChatThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "EncryptedChatUploadPart" ADD CONSTRAINT "EncryptedChatUploadPart_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "EncryptedChatUpload"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "EncryptedChatAttachment" ADD CONSTRAINT "EncryptedChatAttachment_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "EncryptedChatMessage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -260,4 +384,25 @@ ALTER TABLE "ThetaCommPreKey" ADD CONSTRAINT "ThetaCommPreKey_userDeviceId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "ThetaCommPushRegistration" ADD CONSTRAINT "ThetaCommPushRegistration_userDeviceId_fkey" FOREIGN KEY ("userDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommPushOutbox" ADD CONSTRAINT "ThetaCommPushOutbox_userDeviceId_fkey" FOREIGN KEY ("userDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommTypingState" ADD CONSTRAINT "ThetaCommTypingState_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "EncryptedChatThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommTypingState" ADD CONSTRAINT "ThetaCommTypingState_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommTypingState" ADD CONSTRAINT "ThetaCommTypingState_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommDeviceTrust" ADD CONSTRAINT "ThetaCommDeviceTrust_verifierDeviceId_fkey" FOREIGN KEY ("verifierDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommDeviceTrust" ADD CONSTRAINT "ThetaCommDeviceTrust_trustedDeviceId_fkey" FOREIGN KEY ("trustedDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ThetaCommSyncEvent" ADD CONSTRAINT "ThetaCommSyncEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

@@ -34,6 +34,10 @@ export const envSchema = z.object({
   INTERNAL_MAIL_ENABLED: z.enum(["true", "false"]).default("false"),
   UPLOAD_PROXY_FALLBACK_ENABLED: z.enum(["true", "false"]).default("false"),
   MOBILE_AUTH_SECRET: z.string().min(32).optional(),
+  THETA_COMM_PUSH_ENABLED: z.enum(["true", "false"]).default("false"),
+  FIREBASE_PROJECT_ID: z.string().trim().min(1).optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().min(32).optional(),
   IP_HASH_SECRET: z.string().min(32).optional(),
   PLATFORM_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   PRISMA_QUERY_LOGS_ENABLED: z.enum(["true", "false"]).default("false"),
@@ -234,6 +238,22 @@ export const productionEnvSchema = envSchema.superRefine((env, context) => {
       message: "A distinct CLOUDFLARE_R2_PRIVATE_BUCKET (or R2_PRIVATE_BUCKET) is required for restricted media.",
       path: ["CLOUDFLARE_R2_PRIVATE_BUCKET"]
     });
+  }
+
+  if (env.THETA_COMM_PUSH_ENABLED === "true") {
+    for (const [name, value] of [
+      ["FIREBASE_PROJECT_ID", env.FIREBASE_PROJECT_ID],
+      ["FIREBASE_CLIENT_EMAIL", env.FIREBASE_CLIENT_EMAIL],
+      ["FIREBASE_PRIVATE_KEY", env.FIREBASE_PRIVATE_KEY]
+    ] as const) {
+      if (!value) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${name} is required when Theta-Comm push delivery is enabled.`,
+          path: [name]
+        });
+      }
+    }
   }
 });
 

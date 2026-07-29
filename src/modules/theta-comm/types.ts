@@ -73,6 +73,9 @@ export const createThetaCommDirectConversationSchema = z.object({
 
 export const createThetaCommGroupConversationSchema = z.object({
   type: z.literal(EncryptedChatThreadType.GROUP),
+  clientMessageId: clientMessageIdSchema,
+  senderDeviceId: opaqueIdSchema,
+  clientCreatedAt: z.string().datetime({ offset: true }),
   participantUserIds: z
     .array(opaqueIdSchema)
     .min(2)
@@ -129,17 +132,31 @@ export const createThetaCommUploadSchema = z.object({
     .positive()
     .max(THETA_COMM_MAX_ENCRYPTED_ATTACHMENT_BYTES),
   ciphertextSha256: z.string().trim().regex(/^[a-f0-9]{64}$/i),
-  hasEncryptedThumbnail: z.boolean().default(false)
+  encryptedThumbnail: z
+    .object({
+      sizeBytes: z.number().int().positive().max(2 * 1024 * 1024),
+      ciphertextSha256: z.string().trim().regex(/^[a-f0-9]{64}$/i)
+    })
+    .optional()
 });
 
 export const completeThetaCommUploadSchema = z.object({
   uploadId: opaqueIdSchema,
-  uploadedSizeBytes: z
-    .number()
-    .int()
-    .positive()
-    .max(THETA_COMM_MAX_ENCRYPTED_ATTACHMENT_BYTES),
   ciphertextSha256: z.string().trim().regex(/^[a-f0-9]{64}$/i)
+});
+
+export const requestThetaCommUploadPartSchema = z.object({
+  uploadId: opaqueIdSchema,
+  partNumber: z.number().int().min(1).max(10_000)
+});
+
+export const recordThetaCommUploadPartSchema = requestThetaCommUploadPartSchema.extend({
+  etag: z.string().trim().min(1).max(256),
+  sizeBytes: z.number().int().positive().max(THETA_COMM_UPLOAD_CHUNK_BYTES)
+});
+
+export const cancelThetaCommUploadSchema = z.object({
+  uploadId: opaqueIdSchema
 });
 
 export const updateThetaCommConversationPreferenceSchema = z.object({
@@ -184,6 +201,16 @@ export const thetaCommTypingSchema = z.object({
   conversationId: opaqueIdSchema,
   senderDeviceId: opaqueIdSchema,
   typing: z.boolean()
+});
+
+export const thetaCommDeviceTrustSchema = z.object({
+  verifierDeviceId: opaqueIdSchema,
+  trustedDeviceId: opaqueIdSchema,
+  identityKeyHash: z.string().trim().regex(/^[a-f0-9]{64}$/i)
+});
+
+export const revokeThetaCommDeviceSchema = z.object({
+  deviceId: opaqueIdSchema
 });
 
 export const thetaCommSyncQuerySchema = z.object({

@@ -424,6 +424,19 @@ enum EncryptedChatUploadStatus {
   EXPIRED
 }
 
+enum EncryptedChatEnvelopeType {
+  PREKEY
+  SESSION
+}
+
+enum ThetaCommSyncEventKind {
+  MESSAGE
+  RECEIPT
+  CONVERSATION
+  MEMBERSHIP
+  DEVICE_REVOKED
+}
+
 enum MailDeliveryKind {
   DIRECT
   MASS_INTERNAL
@@ -863,6 +876,8 @@ model User {
   createdEncryptedChatThreads      EncryptedChatThread[]              @relation("EncryptedChatThreadCreator")
   removedEncryptedChatParticipants EncryptedChatParticipant[]         @relation("EncryptedChatParticipantRemovedBy")
   encryptedChatUploads             EncryptedChatUpload[]              @relation("EncryptedChatUploadOwner")
+  thetaCommSyncEvents              ThetaCommSyncEvent[]
+  thetaCommTypingStates            ThetaCommTypingState[]
   createdChatThreads               ChatThread[]                       @relation("ChatThreadCreator")
   chatParticipants                 ChatParticipant[]
   chatMessages                     ChatMessage[]                      @relation("ChatMessageSender")
@@ -1008,6 +1023,7 @@ model UserDevice {
   commSignedPreKey          String?
   commSignedPreKeySignature String?
   commKeyUpdatedAt          DateTime?
+  commKeyVersion            Int                         @default(1)
   platform                  String                      @default("android")
   appVersion                String?
   lastSeenAt                DateTime                    @default(now())
@@ -1019,6 +1035,10 @@ model UserDevice {
   receivedChatEnvelopes     EncryptedChatEnvelope[]
   commPreKeys               ThetaCommPreKey[]
   commPushRegistrations     ThetaCommPushRegistration[]
+  commPushOutbox            ThetaCommPushOutbox[]
+  commTypingStates          ThetaCommTypingState[]
+  commTrustsCreated         ThetaCommDeviceTrust[]      @relation("ThetaCommTrustVerifier")
+  commTrustsReceived        ThetaCommDeviceTrust[]      @relation("ThetaCommTrustSubject")
   encryptedChatUploads      EncryptedChatUpload[]
 
   @@unique([userId, deviceId])
@@ -2162,6 +2182,7 @@ model EncryptedChatThread {
   participants      EncryptedChatParticipant[]
   messages          EncryptedChatMessage[]
   uploads           EncryptedChatUpload[]
+  typingStates      ThetaCommTypingState[]
 
   @@index([lastMessageAt])
   @@index([type, lastMessageAt])
@@ -2226,17 +2247,19 @@ model EncryptedChatMessage {
 }
 
 model EncryptedChatEnvelope {
-  id                String               @id @default(cuid())
+  id                String                    @id @default(cuid())
   messageId         String
   recipientUserId   String
   recipientDeviceId String
+  envelopeType      EncryptedChatEnvelopeType @default(SESSION)
   ciphertext        String
-  createdAt         DateTime             @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
   deliveredAt       DateTime?
   readAt            DateTime?
-  message           EncryptedChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  recipient         User                 @relation("EncryptedChatEnvelopeRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
-  recipientDevice   UserDevice           @relation(fields: [recipientDeviceId], references: [id], onDelete: Cascade)
+  message           EncryptedChatMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient         User                      @relation("EncryptedChatEnvelopeRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  recipientDevice   UserDevice                @relation(fields: [recipientDeviceId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, recipientDeviceId])
   @@index([recipientDeviceId, createdAt])
@@ -2244,29 +2267,47 @@ model EncryptedChatEnvelope {
 }
 
 model EncryptedChatUpload {
-  id                  String                    @id @default(cuid())
-  ownerUserId         String
-  ownerDeviceId       String
-  threadId            String?
-  storageKey          String                    @unique
-  thumbnailStorageKey String?                   @unique
-  expectedSizeBytes   BigInt
-  uploadedSizeBytes   BigInt                    @default(0)
-  chunkSizeBytes      Int
-  totalChunks         Int
-  status              EncryptedChatUploadStatus @default(PENDING)
-  expiresAt           DateTime
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
-  owner               User                      @relation("EncryptedChatUploadOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  ownerDevice         UserDevice                @relation(fields: [ownerDeviceId], references: [id], onDelete: Cascade)
-  thread              EncryptedChatThread?      @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  attachment          EncryptedChatAttachment?
+  id                         String                    @id @default(cuid())
+  ownerUserId                String
+  ownerDeviceId              String
+  threadId                   String?
+  storageKey                 String                    @unique
+  thumbnailStorageKey        String?                   @unique
+  thumbnailExpectedSizeBytes BigInt?
+  thumbnailCiphertextSha256  String?
+  ciphertextSha256           String
+  expectedSizeBytes          BigInt
+  uploadedSizeBytes          BigInt                    @default(0)
+  chunkSizeBytes             Int
+  totalChunks                Int
+  r2MultipartUploadId        String?
+  status                     EncryptedChatUploadStatus @default(PENDING)
+  expiresAt                  DateTime
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  owner                      User                      @relation("EncryptedChatUploadOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  ownerDevice                UserDevice                @relation(fields: [ownerDeviceId], references: [id], onDelete: Cascade)
+  thread                     EncryptedChatThread?      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  attachment                 EncryptedChatAttachment?
+  parts                      EncryptedChatUploadPart[]
 
   @@index([ownerUserId, status, createdAt])
   @@index([ownerDeviceId, status, createdAt])
   @@index([threadId, status, createdAt])
   @@index([expiresAt, status])
+}
+
+model EncryptedChatUploadPart {
+  id          String              @id @default(cuid())
+  uploadId    String
+  partNumber  Int
+  etag        String
+  sizeBytes   Int
+  completedAt DateTime            @default(now())
+  upload      EncryptedChatUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@unique([uploadId, partNumber])
+  @@index([uploadId, completedAt])
 }
 
 model EncryptedChatAttachment {
@@ -2311,6 +2352,69 @@ model ThetaCommPushRegistration {
   userDevice    UserDevice @relation(fields: [userDeviceId], references: [id], onDelete: Cascade)
 
   @@index([userDeviceId, enabled, lastSeenAt])
+}
+
+model ThetaCommPushOutbox {
+  id           String     @id @default(cuid())
+  userDeviceId String
+  payload      Json
+  attempts     Int        @default(0)
+  availableAt  DateTime   @default(now())
+  lockedAt     DateTime?
+  lockedBy     String?
+  sentAt       DateTime?
+  failedAt     DateTime?
+  lastError    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  userDevice   UserDevice @relation(fields: [userDeviceId], references: [id], onDelete: Cascade)
+
+  @@index([availableAt, sentAt, failedAt])
+  @@index([userDeviceId, createdAt])
+}
+
+model ThetaCommTypingState {
+  conversationId String
+  userId         String
+  deviceId       String
+  expiresAt      DateTime
+  updatedAt      DateTime            @updatedAt
+  conversation   EncryptedChatThread @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device         UserDevice          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId, deviceId])
+  @@index([conversationId, expiresAt])
+  @@index([expiresAt])
+}
+
+model ThetaCommDeviceTrust {
+  id               String     @id @default(cuid())
+  verifierDeviceId String
+  trustedDeviceId  String
+  identityKeyHash  String
+  verifiedAt       DateTime   @default(now())
+  revokedAt        DateTime?
+  verifierDevice   UserDevice @relation("ThetaCommTrustVerifier", fields: [verifierDeviceId], references: [id], onDelete: Cascade)
+  trustedDevice    UserDevice @relation("ThetaCommTrustSubject", fields: [trustedDeviceId], references: [id], onDelete: Cascade)
+
+  @@unique([verifierDeviceId, trustedDeviceId])
+  @@index([trustedDeviceId, revokedAt])
+}
+
+model ThetaCommSyncEvent {
+  id             BigInt                 @id @default(autoincrement())
+  userId         String
+  kind           ThetaCommSyncEventKind
+  conversationId String?
+  messageId      String?
+  payload        Json?
+  createdAt      DateTime               @default(now())
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, id])
+  @@index([conversationId, id])
+  @@index([createdAt])
 }
 
 model MailThread {
