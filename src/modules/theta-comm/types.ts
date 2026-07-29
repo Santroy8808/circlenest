@@ -37,6 +37,10 @@ export const thetaCommSignedPreKeySchema = thetaCommPreKeySchema.extend({
   signature: base64Schema.max(8 * 1024)
 });
 
+export const thetaCommKyberPreKeySchema = thetaCommPreKeySchema.extend({
+  signature: base64Schema.max(8 * 1024)
+});
+
 export const registerThetaCommDeviceSchema = z.object({
   deviceId: deviceIdentifierSchema,
   platform: z.enum(["android", "ios", "desktop"]),
@@ -45,6 +49,7 @@ export const registerThetaCommDeviceSchema = z.object({
   identityKey: base64Schema.max(8 * 1024),
   signedPreKey: thetaCommSignedPreKeySchema,
   oneTimePreKeys: z.array(thetaCommPreKeySchema).min(1).max(100),
+  oneTimeKyberPreKeys: z.array(thetaCommKyberPreKeySchema).min(1).max(100),
   push: z
     .object({
       provider: z.literal("FCM"),
@@ -56,7 +61,8 @@ export const registerThetaCommDeviceSchema = z.object({
 
 export const replenishThetaCommPreKeysSchema = z.object({
   deviceId: deviceIdentifierSchema,
-  oneTimePreKeys: z.array(thetaCommPreKeySchema).min(1).max(100)
+  oneTimePreKeys: z.array(thetaCommPreKeySchema).min(1).max(100),
+  oneTimeKyberPreKeys: z.array(thetaCommKyberPreKeySchema).min(1).max(100)
 });
 
 export const thetaCommRecipientEnvelopeSchema = z.object({

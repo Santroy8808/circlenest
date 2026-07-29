@@ -1034,6 +1034,7 @@ model UserDevice {
   sentEncryptedMessages     EncryptedChatMessage[]
   receivedChatEnvelopes     EncryptedChatEnvelope[]
   commPreKeys               ThetaCommPreKey[]
+  commKyberPreKeys          ThetaCommKyberPreKey[]
   commPushRegistrations     ThetaCommPushRegistration[]
   commPushOutbox            ThetaCommPushOutbox[]
   commTypingStates          ThetaCommTypingState[]
@@ -2331,6 +2332,20 @@ model ThetaCommPreKey {
   userDeviceId String
   keyId        Int
   publicKey    String
+  consumedAt   DateTime?
+  createdAt    DateTime   @default(now())
+  userDevice   UserDevice @relation(fields: [userDeviceId], references: [id], onDelete: Cascade)
+
+  @@unique([userDeviceId, keyId])
+  @@index([userDeviceId, consumedAt, createdAt])
+}
+
+model ThetaCommKyberPreKey {
+  id           String     @id @default(cuid())
+  userDeviceId String
+  keyId        Int
+  publicKey    String
+  signature    String
   consumedAt   DateTime?
   createdAt    DateTime   @default(now())
   userDevice   UserDevice @relation(fields: [userDeviceId], references: [id], onDelete: Cascade)

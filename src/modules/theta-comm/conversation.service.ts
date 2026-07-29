@@ -175,7 +175,7 @@ export async function createThetaCommConversation(userId: string, input: unknown
       where: { id: data.senderDeviceId, userId, revokedAt: null, commIdentityKey: { not: null } }
     });
     if (!senderDevice) throw new ThetaCommError(400, "DEVICE_NOT_REGISTERED", "Sender device is not registered.");
-    await validateCompleteRecipientSet(tx, participantUserIds, data.metadataEnvelopes);
+    await validateCompleteRecipientSet(tx, participantUserIds, data.metadataEnvelopes, [senderDevice.id]);
     const retentionClass = await resolveChatRetentionClassForWrite(tx, participantUserIds);
     const conversation = await tx.encryptedChatThread.create({
       data: {

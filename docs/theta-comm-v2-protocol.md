@@ -13,7 +13,9 @@ group forum, or group media record.
 - Push notifications contain only an opaque conversation ID and sync hint.
 - Each device owns an identity key, signed prekey, and rotating one-time
   prekeys. Private key material never leaves the device.
-- Every active recipient device receives its own Signal Protocol envelope.
+- Device registration publishes signed classical and post-quantum Kyber prekeys for PQXDH.
+- Every active recipient device, except the sending device that already has the local plaintext,
+  receives its own Signal Protocol envelope.
   Group chats use the same per-device envelope model so removing a member
   prevents that member's devices from receiving future epochs.
 

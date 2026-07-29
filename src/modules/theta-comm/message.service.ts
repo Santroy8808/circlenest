@@ -119,7 +119,7 @@ export async function sendThetaCommMessage(userId: string, input: unknown) {
         if (await hasBlockedRelationshipWithin(participantUserIds)) {
           throw new ThetaCommError(403, "BLOCKED", "This conversation is unavailable.");
         }
-        await validateCompleteRecipientSet(tx, participantUserIds, data.envelopes);
+        await validateCompleteRecipientSet(tx, participantUserIds, data.envelopes, [senderDevice.id]);
         const allowed = await assertChatMessageWriteAllowed(tx, {
           threadKind: "ENCRYPTED",
           threadId: conversation.id,

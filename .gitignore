@@ -11,3 +11,16 @@ coverage
 *.log
 *.out
 public/uploads
+
+# Theta-Comm Android
+android/theta-comm/.gradle/
+android/theta-comm/.gradle-user/
+android/theta-comm/.gradle-tmp/
+android/theta-comm/.android-user/
+android/theta-comm/.inspect-libsignal/
+android/theta-comm/local.properties
+android/theta-comm/**/build/
+android/theta-comm/app/google-services.json
+android/theta-comm/*.jks
+android/theta-comm/*.keystore
+android/theta-comm/keystore.properties

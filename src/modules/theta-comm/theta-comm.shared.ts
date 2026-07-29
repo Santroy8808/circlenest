@@ -150,12 +150,14 @@ export async function validateCompleteRecipientSet(
     recipientDeviceId: string;
     envelopeType: "PREKEY" | "SESSION";
     ciphertext: string;
-  }>
+  }>,
+  excludedDeviceIds: readonly string[] = []
 ) {
   const participantIds = [...new Set(participantUserIds)];
   const devices = await tx.userDevice.findMany({
     where: {
       userId: { in: participantIds },
+      id: { notIn: [...new Set(excludedDeviceIds)] },
       revokedAt: null,
       commIdentityKey: { not: null }
     },

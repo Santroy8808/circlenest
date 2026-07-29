@@ -81,6 +81,18 @@ export async function registerThetaCommDevice(userId: string, input: unknown) {
       })),
       skipDuplicates: true
     });
+    await tx.thetaCommKyberPreKey.deleteMany({
+      where: { userDeviceId: device.id, consumedAt: null }
+    });
+    await tx.thetaCommKyberPreKey.createMany({
+      data: data.oneTimeKyberPreKeys.map((preKey) => ({
+        userDeviceId: device.id,
+        keyId: preKey.keyId,
+        publicKey: preKey.publicKey,
+        signature: preKey.signature
+      })),
+      skipDuplicates: true
+    });
 
     if (identityChanged) {
       await tx.thetaCommDeviceTrust.updateMany({
@@ -129,6 +141,7 @@ export async function registerThetaCommDevice(userId: string, input: unknown) {
     return {
       device: serializeDevice(device),
       preKeyCount: data.oneTimePreKeys.length,
+      kyberPreKeyCount: data.oneTimeKyberPreKeys.length,
       identityChanged
     };
   });
@@ -158,10 +171,24 @@ export async function replenishThetaCommPreKeys(userId: string, input: unknown) 
     })),
     skipDuplicates: true
   });
-  const available = await prisma.thetaCommPreKey.count({
-    where: { userDeviceId: device.id, consumedAt: null }
+  await prisma.thetaCommKyberPreKey.createMany({
+    data: parsed.data.oneTimeKyberPreKeys.map((preKey) => ({
+      userDeviceId: device.id,
+      keyId: preKey.keyId,
+      publicKey: preKey.publicKey,
+      signature: preKey.signature
+    })),
+    skipDuplicates: true
   });
-  return { ok: true as const, available };
+  const [available, kyberAvailable] = await Promise.all([
+    prisma.thetaCommPreKey.count({
+      where: { userDeviceId: device.id, consumedAt: null }
+    }),
+    prisma.thetaCommKyberPreKey.count({
+      where: { userDeviceId: device.id, consumedAt: null }
+    })
+  ]);
+  return { ok: true as const, available, kyberAvailable };
 }
 
 export async function listThetaCommDevices(userId: string) {
@@ -340,12 +367,27 @@ export async function getThetaCommPreKeyBundles(
           where: { userDeviceId: device.id, consumedAt: null },
           orderBy: { createdAt: "asc" }
         });
+        const kyberPreKey = await tx.thetaCommKyberPreKey.findFirst({
+          where: { userDeviceId: device.id, consumedAt: null },
+          orderBy: { createdAt: "asc" }
+        });
+        if (!kyberPreKey) {
+          throw new ThetaCommError(
+            409,
+            "PREKEYS_DEPLETED",
+            "A recipient device needs to replenish its post-quantum pre-keys."
+          );
+        }
         if (preKey) {
           await tx.thetaCommPreKey.update({
             where: { id: preKey.id },
             data: { consumedAt: new Date() }
           });
         }
+        await tx.thetaCommKyberPreKey.update({
+          where: { id: kyberPreKey.id },
+          data: { consumedAt: new Date() }
+        });
         bundles.push({
           userId: device.userId,
           deviceId: device.id,
@@ -357,6 +399,11 @@ export async function getThetaCommPreKeyBundles(
             signature: device.commSignedPreKeySignature
           },
           oneTimePreKey: preKey ? { keyId: preKey.keyId, publicKey: preKey.publicKey } : null,
+          kyberPreKey: {
+            keyId: kyberPreKey.keyId,
+            publicKey: kyberPreKey.publicKey,
+            signature: kyberPreKey.signature
+          },
           keyVersion: device.commKeyVersion,
           verified: trustedByDevice.get(device.id) === identityKeyFingerprint(device.commIdentityKey ?? "")
         });
