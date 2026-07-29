@@ -24,3 +24,4 @@ android/theta-comm/app/google-services.json
 android/theta-comm/*.jks
 android/theta-comm/*.keystore
 android/theta-comm/keystore.properties
+android/theta-comm/theta-comm-*.png

@@ -242,15 +242,53 @@ data class PreKeyBundlesResponseDto(
 )
 
 @Serializable
+data class RecipientDeviceDto(
+    val userId: String,
+    val deviceId: String,
+    val registrationId: Int,
+    val identityKey: String,
+    val keyVersion: Int,
+)
+
+@Serializable
+data class RecipientDevicesResponseDto(
+    val devices: List<RecipientDeviceDto>,
+)
+
+@Serializable
 data class CreateDirectConversationRequestDto(
     val type: String = "DIRECT",
     val targetUserId: String,
 )
 
 @Serializable
+data class CreateGroupConversationRequestDto(
+    val type: String = "GROUP",
+    val clientMessageId: String,
+    val senderDeviceId: String,
+    val clientCreatedAt: String,
+    val participantUserIds: List<String>,
+    val titleCiphertext: String,
+    val metadataEnvelopes: List<RecipientEnvelopeDto>,
+)
+
+@Serializable
 data class CreateConversationResponseDto(
     val conversation: ConversationDto,
     val created: Boolean,
+)
+
+@Serializable
+data class ContactSearchResponseDto(
+    val people: List<ContactDto>,
+)
+
+@Serializable
+data class ContactDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
 )
 
 @Serializable
@@ -334,6 +372,15 @@ data class CompleteUploadRequestDto(
     val action: String = "complete",
     val uploadId: String,
     val ciphertextSha256: String,
+)
+
+@Serializable
+data class AttachmentDownloadDto(
+    val attachmentId: String,
+    val encryptedSizeBytes: String,
+    val chunkCount: Int,
+    val downloadUrl: String,
+    val thumbnailUrl: String? = null,
 )
 
 @Serializable

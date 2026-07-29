@@ -33,6 +33,18 @@ object MessageKinds {
     const val SYSTEM = "SYSTEM"
 }
 
+object AttachmentStates {
+    const val QUEUED = "QUEUED"
+    const val ENCRYPTING = "ENCRYPTING"
+    const val ENCRYPTED = "ENCRYPTED"
+    const val UPLOADING = "UPLOADING"
+    const val UPLOADED = "UPLOADED"
+    const val DOWNLOADING = "DOWNLOADING"
+    const val READY = "READY"
+    const val FAILED = "FAILED"
+    const val CANCELED = "CANCELED"
+}
+
 @Entity(
     tableName = "conversations",
     indices = [
@@ -144,7 +156,7 @@ data class ReceiptEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("clientMessageId"), Index("uploadId")],
+    indices = [Index("clientMessageId"), Index("uploadId"), Index("serverAttachmentId")],
 )
 data class AttachmentEntity(
     @androidx.room.PrimaryKey val id: String,
@@ -157,8 +169,15 @@ data class AttachmentEntity(
     val sourceUri: String?,
     val encryptedFilePath: String?,
     val encryptedThumbnailPath: String?,
+    val encryptedSizeBytes: Long?,
     val ciphertextSha256: String?,
+    val thumbnailCiphertextSha256: String?,
+    val sealedEncryptionKey: String?,
+    val sealedNonce: String?,
+    val sealedThumbnailKey: String?,
+    val sealedThumbnailNonce: String?,
     val uploadId: String?,
+    val serverAttachmentId: String?,
     val uploadedBytes: Long,
     val state: String,
 )

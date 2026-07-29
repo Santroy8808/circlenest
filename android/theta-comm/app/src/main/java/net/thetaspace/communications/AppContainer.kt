@@ -2,11 +2,14 @@ package net.thetaspace.communications
 
 import android.content.Context
 import java.util.concurrent.TimeUnit
+import net.thetaspace.communications.data.EncryptedAttachmentDownloader
+import net.thetaspace.communications.data.EncryptedAttachmentUploader
 import net.thetaspace.communications.data.ThetaCommRepository
 import net.thetaspace.communications.data.local.ThetaCommDatabase
 import net.thetaspace.communications.data.remote.ThetaCommApi
 import net.thetaspace.communications.realtime.ThetaCommRealtime
 import net.thetaspace.communications.security.LocalKeyCipher
+import net.thetaspace.communications.security.AttachmentCrypto
 import net.thetaspace.communications.security.PersistentSignalStores
 import net.thetaspace.communications.security.SessionStore
 import net.thetaspace.communications.security.SignalCryptoEngine
@@ -28,6 +31,18 @@ class AppContainer(
     val api = ThetaCommApi(httpClient, sessionStore)
     val signalStores = PersistentSignalStores(database.thetaCommDao(), localCipher)
     val signalCrypto = SignalCryptoEngine(signalStores)
+    val attachmentCrypto = AttachmentCrypto(context)
+    val attachmentUploader = EncryptedAttachmentUploader(
+        api = api,
+        httpClient = httpClient,
+        dao = database.thetaCommDao(),
+    )
+    val attachmentDownloader = EncryptedAttachmentDownloader(
+        context = context,
+        api = api,
+        httpClient = httpClient,
+        dao = database.thetaCommDao(),
+    )
     val work = ThetaCommWork(context)
     val repository = ThetaCommRepository(
         database = database,
@@ -35,6 +50,9 @@ class AppContainer(
         sessionStore = sessionStore,
         localCipher = localCipher,
         signalCrypto = signalCrypto,
+        attachmentCrypto = attachmentCrypto,
+        attachmentUploader = attachmentUploader,
+        attachmentDownloader = attachmentDownloader,
         work = work,
     )
     val realtime = ThetaCommRealtime(httpClient, sessionStore, work)

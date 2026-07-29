@@ -51,6 +51,13 @@ interface ThetaCommDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun conversation(id: String): ConversationEntity?
 
+    @Query("UPDATE conversations SET sealedTitle = :sealedTitle, updatedAt = :updatedAt WHERE id = :conversationId")
+    suspend fun updateConversationTitle(
+        conversationId: String,
+        sealedTitle: String,
+        updatedAt: Long,
+    )
+
     @Query(
         """
         SELECT * FROM messages
@@ -72,14 +79,57 @@ interface ThetaCommDao {
     @Query("SELECT * FROM participants WHERE conversationId = :conversationId AND leftAt IS NULL AND removedAt IS NULL")
     suspend fun activeParticipants(conversationId: String): List<ParticipantEntity>
 
+    @Query("SELECT * FROM participants WHERE conversationId = :conversationId ORDER BY joinedAt")
+    fun observeParticipants(conversationId: String): Flow<List<ParticipantEntity>>
+
     @Query("SELECT * FROM receipts WHERE messageId = :messageId")
     fun observeReceipts(messageId: String): Flow<List<ReceiptEntity>>
 
     @Query("SELECT * FROM attachments WHERE clientMessageId = :clientMessageId ORDER BY id")
     fun observeAttachments(clientMessageId: String): Flow<List<AttachmentEntity>>
 
+    @Query(
+        """
+        SELECT a.* FROM attachments a
+        INNER JOIN messages m ON m.clientMessageId = a.clientMessageId
+        WHERE m.conversationId = :conversationId
+        ORDER BY m.createdAt, a.id
+        """,
+    )
+    fun observeConversationAttachments(conversationId: String): Flow<List<AttachmentEntity>>
+
     @Query("SELECT * FROM attachments WHERE clientMessageId = :clientMessageId ORDER BY id")
     suspend fun attachments(clientMessageId: String): List<AttachmentEntity>
+
+    @Query("SELECT * FROM attachments WHERE id = :attachmentId")
+    suspend fun attachment(attachmentId: String): AttachmentEntity?
+
+    @Query(
+        """
+        UPDATE attachments
+           SET encryptedFilePath = :encryptedFilePath,
+               encryptedThumbnailPath = :encryptedThumbnailPath,
+               encryptedSizeBytes = :encryptedSizeBytes,
+               uploadedBytes = :downloadedBytes,
+               state = :state
+         WHERE id = :attachmentId
+        """,
+    )
+    suspend fun markAttachmentDownloaded(
+        attachmentId: String,
+        encryptedFilePath: String,
+        encryptedThumbnailPath: String?,
+        encryptedSizeBytes: Long,
+        downloadedBytes: Long,
+        state: String,
+    )
+
+    @Query("UPDATE attachments SET uploadedBytes = :downloadedBytes, state = :state WHERE id = :attachmentId")
+    suspend fun updateAttachmentDownloadProgress(
+        attachmentId: String,
+        downloadedBytes: Long,
+        state: String,
+    )
 
     @Query("SELECT * FROM drafts WHERE conversationId = :conversationId")
     fun observeDraft(conversationId: String): Flow<DraftEntity?>
@@ -214,6 +264,47 @@ interface ThetaCommDao {
         uploadedBytes: Long,
         state: String,
     )
+
+    @Query(
+        """
+        UPDATE attachments
+           SET encryptedFilePath = :encryptedFilePath,
+               encryptedThumbnailPath = :encryptedThumbnailPath,
+               encryptedSizeBytes = :encryptedSizeBytes,
+               ciphertextSha256 = :ciphertextSha256,
+               thumbnailCiphertextSha256 = :thumbnailCiphertextSha256,
+               sealedEncryptionKey = :sealedEncryptionKey,
+               sealedNonce = :sealedNonce,
+               sealedThumbnailKey = :sealedThumbnailKey,
+               sealedThumbnailNonce = :sealedThumbnailNonce,
+               state = 'ENCRYPTED'
+         WHERE id = :attachmentId
+        """,
+    )
+    suspend fun markAttachmentEncrypted(
+        attachmentId: String,
+        encryptedFilePath: String,
+        encryptedThumbnailPath: String?,
+        encryptedSizeBytes: Long,
+        ciphertextSha256: String,
+        thumbnailCiphertextSha256: String?,
+        sealedEncryptionKey: String,
+        sealedNonce: String,
+        sealedThumbnailKey: String?,
+        sealedThumbnailNonce: String?,
+    )
+
+    @Query(
+        """
+        UPDATE attachments
+           SET serverAttachmentId = :serverAttachmentId
+         WHERE id = :attachmentId
+        """,
+    )
+    suspend fun bindServerAttachment(attachmentId: String, serverAttachmentId: String)
+
+    @Query("UPDATE attachments SET state = :state WHERE id = :attachmentId")
+    suspend fun updateAttachmentState(attachmentId: String, state: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSyncState(state: SyncStateEntity)

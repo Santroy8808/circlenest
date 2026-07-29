@@ -18,15 +18,18 @@ class ThetaCommWork(context: Context) {
         .build()
 
     fun enqueueSend(clientMessageId: String, replace: Boolean = false) {
-        val request = OneTimeWorkRequestBuilder<SendMessageWorker>()
+        val prepare = OneTimeWorkRequestBuilder<PrepareOutgoingWorker>()
+            .setInputData(workDataOf(PrepareOutgoingWorker.CLIENT_MESSAGE_ID to clientMessageId))
+            .build()
+        val send = OneTimeWorkRequestBuilder<SendMessageWorker>()
             .setConstraints(connected)
             .setInputData(workDataOf(SendMessageWorker.CLIENT_MESSAGE_ID to clientMessageId))
             .build()
-        manager.enqueueUniqueWork(
+        manager.beginUniqueWork(
             "theta-comm-send-$clientMessageId",
             if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
-            request,
-        )
+            prepare,
+        ).then(send).enqueue()
     }
 
     fun enqueueImmediateSync() {
@@ -35,6 +38,20 @@ class ThetaCommWork(context: Context) {
             .build()
         manager.enqueueUniqueWork(
             IMMEDIATE_SYNC,
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    fun enqueueDownload(attachmentId: String) {
+        val request = OneTimeWorkRequestBuilder<DownloadAttachmentWorker>()
+            .setConstraints(connected)
+            .setInputData(
+                workDataOf(DownloadAttachmentWorker.ATTACHMENT_ID to attachmentId),
+            )
+            .build()
+        manager.enqueueUniqueWork(
+            "theta-comm-download-$attachmentId",
             ExistingWorkPolicy.KEEP,
             request,
         )

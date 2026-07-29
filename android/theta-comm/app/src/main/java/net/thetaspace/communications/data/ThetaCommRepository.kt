@@ -1,32 +1,49 @@
 package net.thetaspace.communications.data
 
 import androidx.room.withTransaction
+import android.net.Uri
+import android.util.Base64
 import com.google.firebase.messaging.FirebaseMessaging
 import java.time.Instant
 import java.util.UUID
+import java.security.SecureRandom
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.thetaspace.communications.data.local.ConversationEntity
+import net.thetaspace.communications.data.local.AttachmentEntity
+import net.thetaspace.communications.data.local.AttachmentStates
 import net.thetaspace.communications.data.local.ConversationSummary
 import net.thetaspace.communications.data.local.MessageEntity
 import net.thetaspace.communications.data.local.MessageKinds
 import net.thetaspace.communications.data.local.MessageStates
+import net.thetaspace.communications.data.local.DraftEntity
 import net.thetaspace.communications.data.local.ParticipantEntity
 import net.thetaspace.communications.data.local.PendingOperationEntity
 import net.thetaspace.communications.data.local.ReceiptEntity
 import net.thetaspace.communications.data.local.SyncStateEntity
 import net.thetaspace.communications.data.local.ThetaCommDatabase
 import net.thetaspace.communications.data.remote.LoginRequestDto
+import net.thetaspace.communications.data.remote.CreateGroupConversationRequestDto
+import net.thetaspace.communications.data.remote.ContactDto
 import net.thetaspace.communications.data.remote.MessageDto
 import net.thetaspace.communications.data.remote.ReceiptRequestDto
 import net.thetaspace.communications.data.remote.SendMessageRequestDto
 import net.thetaspace.communications.data.remote.ThetaCommApi
 import net.thetaspace.communications.data.remote.ThetaCommApiException
+import net.thetaspace.communications.data.remote.TypingRequestDto
 import net.thetaspace.communications.security.LocalKeyCipher
+import net.thetaspace.communications.security.AttachmentCrypto
 import net.thetaspace.communications.security.SessionStore
 import net.thetaspace.communications.security.SignalCryptoEngine
 import net.thetaspace.communications.work.ThetaCommWork
@@ -78,6 +95,29 @@ data class MessageListItem(
     val isDeleted: Boolean,
     val replyToMessageId: String?,
     val eventTargetMessageId: String?,
+    val attachments: List<AttachmentListItem>,
+)
+
+data class AttachmentListItem(
+    val id: String,
+    val kind: String,
+    val filename: String,
+    val caption: String?,
+    val mimeType: String,
+    val byteSize: Long,
+    val sourceUri: String?,
+    val encryptedFilePath: String?,
+    val encryptedThumbnailPath: String?,
+    val uploadedBytes: Long,
+    val encryptedSizeBytes: Long?,
+    val state: String,
+)
+
+data class ConversationHeader(
+    val id: String,
+    val type: String,
+    val title: String,
+    val participants: List<ParticipantEntity>,
 )
 
 class ThetaCommRepository(
@@ -86,6 +126,9 @@ class ThetaCommRepository(
     private val sessionStore: SessionStore,
     private val localCipher: LocalKeyCipher,
     private val signalCrypto: SignalCryptoEngine,
+    private val attachmentCrypto: AttachmentCrypto,
+    private val attachmentUploader: EncryptedAttachmentUploader,
+    private val attachmentDownloader: EncryptedAttachmentDownloader,
     private val work: ThetaCommWork,
     private val json: Json = Json {
         ignoreUnknownKeys = true
@@ -94,6 +137,8 @@ class ThetaCommRepository(
     },
 ) {
     private val dao = database.thetaCommDao()
+    private val typingByConversation = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    private val encryptionMutex = Mutex()
 
     fun conversations(archived: Boolean = false): Flow<List<ConversationListItem>> =
         dao.observeConversationSummaries(archived).map { summaries ->
@@ -101,7 +146,11 @@ class ThetaCommRepository(
         }
 
     fun messages(conversationId: String): Flow<List<MessageListItem>> =
-        dao.observeMessages(conversationId).map { messages ->
+        combine(
+            dao.observeMessages(conversationId),
+            dao.observeConversationAttachments(conversationId),
+        ) { messages, attachments ->
+            val attachmentsByMessage = attachments.groupBy(AttachmentEntity::clientMessageId)
             messages.map { message ->
                 MessageListItem(
                     clientMessageId = message.clientMessageId,
@@ -114,9 +163,50 @@ class ThetaCommRepository(
                     isDeleted = message.deletedAt != null,
                     replyToMessageId = message.replyToMessageId,
                     eventTargetMessageId = message.eventTargetMessageId,
+                    attachments = attachmentsByMessage[message.clientMessageId]
+                        .orEmpty()
+                        .map(::toAttachmentListItem),
                 )
             }
         }
+
+    private fun toAttachmentListItem(attachment: AttachmentEntity) = AttachmentListItem(
+        id = attachment.id,
+        kind = attachment.kind,
+        filename = openSafely(attachment.sealedFilename),
+        caption = attachment.sealedCaption?.let(::openSafely),
+        mimeType = attachment.mimeType,
+        byteSize = attachment.byteSize,
+        sourceUri = attachment.sourceUri,
+        encryptedFilePath = attachment.encryptedFilePath,
+        encryptedThumbnailPath = attachment.encryptedThumbnailPath,
+        uploadedBytes = attachment.uploadedBytes,
+        encryptedSizeBytes = attachment.encryptedSizeBytes,
+        state = attachment.state,
+    )
+
+    fun conversationHeader(conversationId: String): Flow<ConversationHeader?> =
+        combine(
+            dao.observeConversation(conversationId),
+            dao.observeParticipants(conversationId),
+        ) { conversation, participants ->
+            conversation?.let {
+                ConversationHeader(
+                    id = it.id,
+                    type = it.type,
+                    title = it.sealedTitle?.let(::openSafely) ?: "Conversation",
+                    participants = participants,
+                )
+            }
+        }
+
+    fun draft(conversationId: String): Flow<String> =
+        dao.observeDraft(conversationId).map {
+            it?.sealedText?.let(::openSafely).orEmpty()
+        }
+
+    fun typingUsers(conversationId: String): Flow<Set<String>> =
+        typingByConversation.map { it[conversationId].orEmpty() }
 
     suspend fun login(identifier: String, password: String) {
         val stableDeviceId = sessionStore.installationId()
@@ -142,6 +232,58 @@ class ThetaCommRepository(
         )
         val registered = api.registerDevice(request)
         sessionStore.bindCommDevice(registered.device.id)
+    }
+
+    suspend fun searchContacts(query: String): List<ContactDto> {
+        val normalized = query.trim()
+        if (normalized.length < 2) return emptyList()
+        return api.searchContacts(normalized).people
+    }
+
+    suspend fun startDirectConversation(targetUserId: String): String {
+        val response = api.createDirectConversation(targetUserId)
+        sync()
+        return response.conversation.id
+    }
+
+    suspend fun startGroupConversation(
+        title: String,
+        participantUserIds: List<String>,
+    ): String {
+        val cleanTitle = title.trim()
+        require(cleanTitle.length in 1..80) {
+            "Enter a chat group name up to 80 characters."
+        }
+        val targets = participantUserIds.distinct()
+        require(targets.size in 2..99) {
+            "Select at least two people for a chat group."
+        }
+        val session = sessionStore.current() ?: error("Login required.")
+        val commDeviceId = session.commDeviceId ?: error("Device registration required.")
+        val clientMessageId = UUID.randomUUID().toString()
+        val content = EncryptedMessageContent(
+            clientMessageId = clientMessageId,
+            groupTitle = cleanTitle,
+        )
+        val plaintext = json.encodeToString(content).encodeToByteArray()
+        val envelopes = encryptForParticipants(
+            plaintext = plaintext,
+            participantUserIds = (targets + session.userId).distinct(),
+            localUserId = session.userId,
+            localDeviceId = commDeviceId,
+        )
+        val response = api.createGroupConversation(
+            CreateGroupConversationRequestDto(
+                clientMessageId = clientMessageId,
+                senderDeviceId = commDeviceId,
+                clientCreatedAt = Instant.now().toString(),
+                participantUserIds = targets,
+                titleCiphertext = opaqueMetadataCiphertext(cleanTitle),
+                metadataEnvelopes = envelopes,
+            ),
+        )
+        sync()
+        return response.conversation.id
     }
 
     suspend fun queueTextMessage(
@@ -198,7 +340,199 @@ class ThetaCommRepository(
             dao.touchConversation(conversationId, now)
         }
         work.enqueueSend(clientMessageId)
+        dao.deleteDraft(conversationId)
         return clientMessageId
+    }
+
+    suspend fun queueAttachments(
+        conversationId: String,
+        uriValues: List<String>,
+        caption: String = "",
+        voiceNote: Boolean = false,
+    ): String {
+        require(uriValues.isNotEmpty()) { "Choose at least one attachment." }
+        require(uriValues.size <= 10) { "A message can include at most 10 attachments." }
+        val session = sessionStore.current() ?: error("Login required.")
+        val commDeviceId = session.commDeviceId ?: error("Device registration required.")
+        val conversation = dao.conversation(conversationId)
+            ?: error("Conversation is unavailable.")
+        val sources = uriValues.map { attachmentCrypto.inspect(Uri.parse(it)) }
+        val kind = when {
+            voiceNote -> MessageKinds.VOICE
+            sources.size > 1 -> MessageKinds.FILE
+            sources.single().mimeType == "image/gif" -> MessageKinds.GIF
+            sources.single().mimeType.startsWith("image/") -> MessageKinds.IMAGE
+            sources.single().mimeType.startsWith("video/") -> MessageKinds.VIDEO
+            else -> MessageKinds.FILE
+        }
+        val clientMessageId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        database.withTransaction {
+            dao.insertMessage(
+                MessageEntity(
+                    clientMessageId = clientMessageId,
+                    serverMessageId = null,
+                    conversationId = conversation.id,
+                    senderUserId = session.userId,
+                    senderDeviceId = commDeviceId,
+                    kind = kind,
+                    sealedBody = caption.trim().takeIf(String::isNotEmpty)
+                        ?.let(localCipher::sealString),
+                    serverCiphertext = null,
+                    protocolVersion = 2,
+                    membershipVersion = conversation.membershipVersion,
+                    replyToMessageId = null,
+                    eventTargetMessageId = null,
+                    sequence = null,
+                    createdAt = now,
+                    acceptedAt = null,
+                    editedAt = null,
+                    deletedAt = null,
+                    state = MessageStates.QUEUED,
+                    retryCount = 0,
+                    failureCode = null,
+                ),
+            )
+            sources.forEach { source ->
+                val attachmentId = UUID.randomUUID().toString()
+                dao.upsertAttachment(
+                    AttachmentEntity(
+                        id = attachmentId,
+                        clientMessageId = clientMessageId,
+                        kind = kind,
+                        sealedFilename = localCipher.sealString(source.filename),
+                        sealedCaption = caption.trim().takeIf(String::isNotEmpty)
+                            ?.let(localCipher::sealString),
+                        mimeType = source.mimeType,
+                        byteSize = source.byteSize,
+                        sourceUri = source.uri.toString(),
+                        encryptedFilePath = null,
+                        encryptedThumbnailPath = null,
+                        encryptedSizeBytes = null,
+                        ciphertextSha256 = null,
+                        thumbnailCiphertextSha256 = null,
+                        sealedEncryptionKey = null,
+                        sealedNonce = null,
+                        sealedThumbnailKey = null,
+                        sealedThumbnailNonce = null,
+                        uploadId = null,
+                        serverAttachmentId = null,
+                        uploadedBytes = 0,
+                        state = AttachmentStates.QUEUED,
+                    ),
+                )
+            }
+            dao.upsertPendingOperation(
+                PendingOperationEntity(
+                    id = "send:$clientMessageId",
+                    clientMessageId = clientMessageId,
+                    type = "SEND_MESSAGE",
+                    state = "QUEUED",
+                    attempts = 0,
+                    nextAttemptAt = now,
+                    lastError = null,
+                    createdAt = now,
+                ),
+            )
+            dao.touchConversation(conversationId, now)
+        }
+        work.enqueueSend(clientMessageId)
+        return clientMessageId
+    }
+
+    suspend fun prepareOutgoingMessage(clientMessageId: String): Boolean {
+        val message = dao.message(clientMessageId) ?: return true
+        val attachments = dao.attachments(clientMessageId)
+        if (attachments.isEmpty() || attachments.all {
+                it.state in setOf(
+                    AttachmentStates.ENCRYPTED,
+                    AttachmentStates.UPLOADING,
+                    AttachmentStates.UPLOADED,
+                )
+            }
+        ) {
+            return true
+        }
+        dao.updateMessageState(
+            clientMessageId,
+            MessageStates.ENCRYPTING,
+            message.retryCount,
+            null,
+        )
+        return runCatching {
+            attachments
+                .filterNot {
+                    it.state in setOf(
+                        AttachmentStates.ENCRYPTED,
+                        AttachmentStates.UPLOADING,
+                        AttachmentStates.UPLOADED,
+                    )
+                }
+                .forEach { attachment ->
+                    dao.updateAttachmentState(attachment.id, AttachmentStates.ENCRYPTING)
+                    val prepared = attachmentCrypto.prepare(attachment)
+                    dao.markAttachmentEncrypted(
+                        attachmentId = attachment.id,
+                        encryptedFilePath = prepared.encryptedFile.absolutePath,
+                        encryptedThumbnailPath = prepared.encryptedThumbnail?.absolutePath,
+                        encryptedSizeBytes = prepared.encryptedSizeBytes,
+                        ciphertextSha256 = prepared.ciphertextSha256,
+                        thumbnailCiphertextSha256 = prepared.thumbnailCiphertextSha256,
+                        sealedEncryptionKey = localCipher.sealString(prepared.key.base64()),
+                        sealedNonce = localCipher.sealString(prepared.nonce.base64()),
+                        sealedThumbnailKey = prepared.thumbnailKey?.base64()
+                            ?.let(localCipher::sealString),
+                        sealedThumbnailNonce = prepared.thumbnailNonce?.base64()
+                            ?.let(localCipher::sealString),
+                    )
+                }
+            dao.updateMessageState(
+                clientMessageId,
+                MessageStates.QUEUED,
+                message.retryCount,
+                null,
+            )
+            true
+        }.getOrElse {
+            attachments.forEach { attachment ->
+                dao.updateAttachmentState(attachment.id, AttachmentStates.FAILED)
+            }
+            dao.updateMessageState(
+                clientMessageId,
+                MessageStates.FAILED,
+                message.retryCount,
+                "ATTACHMENT_ENCRYPTION_FAILED",
+            )
+            false
+        }
+    }
+
+    suspend fun saveDraft(conversationId: String, text: String) {
+        if (text.isEmpty()) {
+            dao.deleteDraft(conversationId)
+        } else {
+            dao.upsertDraft(
+                DraftEntity(
+                    conversationId = conversationId,
+                    sealedText = localCipher.sealString(text),
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
+    suspend fun setTyping(conversationId: String, typing: Boolean) {
+        val session = sessionStore.current() ?: return
+        val commDeviceId = session.commDeviceId ?: return
+        runCatching {
+            api.setTyping(
+                TypingRequestDto(
+                    conversationId = conversationId,
+                    senderDeviceId = commDeviceId,
+                    typing = typing,
+                ),
+            )
+        }
     }
 
     suspend fun retryMessage(clientMessageId: String) {
@@ -212,7 +546,50 @@ class ThetaCommRepository(
         work.enqueueSend(clientMessageId, replace = true)
     }
 
+    suspend fun downloadAttachment(attachmentId: String): Boolean =
+        runCatching {
+            attachmentDownloader.download(attachmentId)
+            true
+        }.getOrDefault(false)
+
+    suspend fun openAttachment(attachmentId: String, preferThumbnail: Boolean): String {
+        val attachment = attachmentDownloader.download(attachmentId)
+        val useThumbnail = preferThumbnail &&
+            attachment.encryptedThumbnailPath != null &&
+            attachment.sealedThumbnailKey != null &&
+            attachment.sealedThumbnailNonce != null
+        val encryptedFile = if (useThumbnail) {
+            attachment.encryptedThumbnailPath
+        } else {
+            attachment.encryptedFilePath
+        }?.let { java.io.File(it) } ?: error("Encrypted attachment is unavailable.")
+        val sealedKey = if (useThumbnail) {
+            attachment.sealedThumbnailKey
+        } else {
+            attachment.sealedEncryptionKey
+        } ?: error("Attachment key is unavailable.")
+        val sealedNonce = if (useThumbnail) {
+            attachment.sealedThumbnailNonce
+        } else {
+            attachment.sealedNonce
+        } ?: error("Attachment nonce is unavailable.")
+        val key = Base64.decode(localCipher.openString(sealedKey), Base64.NO_WRAP)
+        val nonce = Base64.decode(localCipher.openString(sealedNonce), Base64.NO_WRAP)
+        val outputName = if (useThumbnail) {
+            "${attachment.id}.thumbnail.jpg"
+        } else {
+            "${attachment.id}-${localCipher.openString(attachment.sealedFilename)}"
+        }
+        return attachmentCrypto.decryptToCache(
+            encryptedFile = encryptedFile,
+            key = key,
+            nonce = nonce,
+            outputName = outputName,
+        ).absolutePath
+    }
+
     suspend fun processOutgoingMessage(clientMessageId: String): SendOutcome {
+        if (!prepareOutgoingMessage(clientMessageId)) return SendOutcome.FAILED
         val message = dao.message(clientMessageId) ?: return SendOutcome.COMPLETE
         if (message.serverMessageId != null) return SendOutcome.COMPLETE
         val session = sessionStore.current() ?: return fail(message, "LOGIN_REQUIRED", false)
@@ -229,24 +606,57 @@ class ThetaCommRepository(
         )
 
         return try {
+            var attachments = dao.attachments(clientMessageId)
+            if (attachments.isNotEmpty()) {
+                dao.updateMessageState(
+                    clientMessageId,
+                    MessageStates.UPLOADING,
+                    message.retryCount,
+                    null,
+                )
+                attachments = attachments.map { attachment ->
+                    attachmentUploader.upload(
+                        attachment = attachment,
+                        conversationId = message.conversationId,
+                        senderDeviceId = commDeviceId,
+                    )
+                }
+            }
             val participants = dao.activeParticipants(message.conversationId)
-            val bundles = api.preKeyBundles(
-                participants.map(ParticipantEntity::userId).distinct(),
-                commDeviceId,
-            ).bundles.filterNot { it.deviceId == commDeviceId }
             val content = EncryptedMessageContent(
                 clientMessageId = message.clientMessageId,
                 body = message.sealedBody?.let(localCipher::openString),
+                attachmentKeys = attachments.map { attachment ->
+                    EncryptedAttachmentKey(
+                        attachmentId = attachment.id,
+                        filename = localCipher.openString(attachment.sealedFilename),
+                        mimeType = attachment.mimeType,
+                        byteSize = attachment.byteSize,
+                        key = localCipher.openString(
+                            attachment.sealedEncryptionKey
+                                ?: error("Attachment key is unavailable."),
+                        ),
+                        nonce = localCipher.openString(
+                            attachment.sealedNonce
+                                ?: error("Attachment nonce is unavailable."),
+                        ),
+                        thumbnailKey = attachment.sealedThumbnailKey
+                            ?.let(localCipher::openString),
+                        thumbnailNonce = attachment.sealedThumbnailNonce
+                            ?.let(localCipher::openString),
+                        caption = attachment.sealedCaption?.let(localCipher::openString),
+                    )
+                },
             )
             val plaintext = json.encodeToString(content).encodeToByteArray()
-            val envelopes = bundles.map { bundle ->
-                signalCrypto.encrypt(
-                    plaintext = plaintext,
-                    bundle = bundle,
-                    localUserId = session.userId,
-                    localDeviceId = commDeviceId,
-                )
-            }
+            val envelopes = encryptForParticipants(
+                plaintext = plaintext,
+                participantUserIds = participants
+                    .map(ParticipantEntity::userId)
+                    .distinct(),
+                localUserId = session.userId,
+                localDeviceId = commDeviceId,
+            )
             if (envelopes.isEmpty()) {
                 return fail(message, "RECIPIENT_HAS_NO_DEVICE", false)
             }
@@ -268,8 +678,7 @@ class ThetaCommRepository(
                     eventTargetMessageId = message.eventTargetMessageId,
                     clientCreatedAt = Instant.ofEpochMilli(message.createdAt).toString(),
                     envelopes = envelopes,
-                    attachmentUploadIds = dao.attachments(clientMessageId)
-                        .mapNotNull { it.uploadId },
+                    attachmentUploadIds = attachments.mapNotNull { it.uploadId },
                 ),
             )
             dao.markMessageAccepted(
@@ -300,6 +709,7 @@ class ThetaCommRepository(
         do {
             val page = api.sync(commDeviceId, cursor)
             val delivered = mutableListOf<Pair<String, String>>()
+            val pendingDownloads = mutableSetOf<String>()
             database.withTransaction {
                 for (conversation in page.conversations) {
                     val existing = dao.conversation(conversation.id)
@@ -382,6 +792,13 @@ class ThetaCommRepository(
                             failureCode = null,
                         ),
                     )
+                    decrypted?.groupTitle?.takeIf(String::isNotBlank)?.let { groupTitle ->
+                        dao.updateConversationTitle(
+                            remote.conversationId,
+                            localCipher.sealString(groupTitle),
+                            System.currentTimeMillis(),
+                        )
+                    }
                     dao.upsertReceipts(
                         remote.receipts.map {
                             ReceiptEntity(
@@ -393,6 +810,50 @@ class ThetaCommRepository(
                             )
                         },
                     )
+                    decrypted?.attachmentKeys?.forEachIndexed { index, attachment ->
+                        val existingAttachment = dao.attachment(attachment.attachmentId)
+                        val serverAttachmentId = remote.attachmentIds.getOrNull(index)
+                            ?: existingAttachment?.serverAttachmentId
+                        dao.upsertAttachment(
+                            AttachmentEntity(
+                                id = attachment.attachmentId,
+                                clientMessageId = remote.clientMessageId,
+                                kind = remote.kind,
+                                sealedFilename = existingAttachment?.sealedFilename
+                                    ?: localCipher.sealString(attachment.filename),
+                                sealedCaption = existingAttachment?.sealedCaption
+                                    ?: attachment.caption?.let(localCipher::sealString),
+                                mimeType = attachment.mimeType,
+                                byteSize = attachment.byteSize,
+                                sourceUri = existingAttachment?.sourceUri,
+                                encryptedFilePath = existingAttachment?.encryptedFilePath,
+                                encryptedThumbnailPath = existingAttachment?.encryptedThumbnailPath,
+                                encryptedSizeBytes = existingAttachment?.encryptedSizeBytes,
+                                ciphertextSha256 = existingAttachment?.ciphertextSha256,
+                                thumbnailCiphertextSha256 =
+                                    existingAttachment?.thumbnailCiphertextSha256,
+                                sealedEncryptionKey = existingAttachment?.sealedEncryptionKey
+                                    ?: localCipher.sealString(attachment.key),
+                                sealedNonce = existingAttachment?.sealedNonce
+                                    ?: localCipher.sealString(attachment.nonce),
+                                sealedThumbnailKey = existingAttachment?.sealedThumbnailKey
+                                    ?: attachment.thumbnailKey?.let(localCipher::sealString),
+                                sealedThumbnailNonce = existingAttachment?.sealedThumbnailNonce
+                                    ?: attachment.thumbnailNonce?.let(localCipher::sealString),
+                                uploadId = existingAttachment?.uploadId,
+                                serverAttachmentId = serverAttachmentId,
+                                uploadedBytes = existingAttachment?.uploadedBytes ?: 0,
+                                state = existingAttachment?.state ?: AttachmentStates.QUEUED,
+                            ),
+                        )
+                        if (
+                            remote.senderUserId != session.userId &&
+                            serverAttachmentId != null &&
+                            existingAttachment?.state != AttachmentStates.READY
+                        ) {
+                            pendingDownloads += attachment.attachmentId
+                        }
+                    }
                     if (
                         remote.senderUserId != session.userId &&
                         decrypted != null &&
@@ -405,6 +866,7 @@ class ThetaCommRepository(
                 dao.upsertSyncState(SyncStateEntity(SYNC_CURSOR, page.cursor))
             }
 
+            pendingDownloads.forEach(work::enqueueDownload)
             delivered.forEach { (conversationId, messageId) ->
                 runCatching {
                     api.acknowledge(
@@ -418,6 +880,11 @@ class ThetaCommRepository(
                     )
                 }
             }
+            val now = System.currentTimeMillis()
+            typingByConversation.value = page.typing
+                .filter { parseTime(it.expiresAt) > now && it.userId != session.userId }
+                .groupBy { it.conversationId }
+                .mapValues { (_, values) -> values.map { it.userId }.toSet() }
             continueSync = page.hasMore
         } while (continueSync)
         return true
@@ -528,10 +995,83 @@ class ThetaCommRepository(
         )
     }
 
+    private suspend fun encryptForParticipants(
+        plaintext: ByteArray,
+        participantUserIds: List<String>,
+        localUserId: String,
+        localDeviceId: String,
+    ) = encryptionMutex.withLock {
+        val devices = api.recipientDevices(participantUserIds)
+            .devices
+            .filterNot { it.deviceId == localDeviceId }
+        val missingDevices = devices.filterNot { device ->
+            signalCrypto.hasTrustedSession(
+                recipientUserId = device.userId,
+                recipientDeviceId = device.deviceId,
+                serializedIdentityKey = device.identityKey,
+            )
+        }
+        val bundlesByDeviceId = if (missingDevices.isEmpty()) {
+            emptyMap()
+        } else {
+            api.preKeyBundles(
+                userIds = missingDevices.map { it.userId }.distinct(),
+                verifierDeviceId = localDeviceId,
+                deviceIds = missingDevices.map { it.deviceId },
+            ).bundles.associateBy { it.deviceId }
+        }
+        devices.map { device ->
+            val bundle = bundlesByDeviceId[device.deviceId]
+            if (bundle != null) {
+                signalCrypto.encrypt(
+                    plaintext = plaintext,
+                    bundle = bundle,
+                    localUserId = localUserId,
+                    localDeviceId = localDeviceId,
+                )
+            } else {
+                check(
+                    signalCrypto.hasTrustedSession(
+                        recipientUserId = device.userId,
+                        recipientDeviceId = device.deviceId,
+                        serializedIdentityKey = device.identityKey,
+                    ),
+                ) {
+                    "A recipient device changed its encryption identity."
+                }
+                signalCrypto.encryptEstablishedSession(
+                    plaintext = plaintext,
+                    recipientUserId = device.userId,
+                    recipientDeviceId = device.deviceId,
+                    localUserId = localUserId,
+                    localDeviceId = localDeviceId,
+                )
+            }
+        }
+    }
+
     private fun openSafely(value: String): String =
         runCatching { localCipher.openString(value) }.getOrDefault("")
 
     private fun parseTime(value: String): Long = Instant.parse(value).toEpochMilli()
+
+    private fun ByteArray.base64(): String =
+        Base64.encodeToString(this, Base64.NO_WRAP)
+
+    private fun opaqueMetadataCiphertext(value: String): String {
+        val random = SecureRandom()
+        val key = ByteArray(32).also(random::nextBytes)
+        val nonce = ByteArray(12).also(random::nextBytes)
+        val encrypted = Cipher.getInstance("AES/GCM/NoPadding").run {
+            init(
+                Cipher.ENCRYPT_MODE,
+                SecretKeySpec(key, "AES"),
+                GCMParameterSpec(128, nonce),
+            )
+            doFinal(value.encodeToByteArray())
+        }
+        return (nonce + encrypted).base64()
+    }
 
     private companion object {
         const val SYNC_CURSOR = "sync_cursor"

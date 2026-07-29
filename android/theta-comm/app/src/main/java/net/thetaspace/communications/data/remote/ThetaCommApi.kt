@@ -56,11 +56,22 @@ class ThetaCommApi(
     suspend fun preKeyBundles(
         userIds: List<String>,
         verifierDeviceId: String,
+        deviceIds: List<String>? = null,
     ): PreKeyBundlesResponseDto {
-        val query = userIds.joinToString(",")
+        val users = userIds.joinToString(",")
+        val devices = deviceIds
+            ?.takeIf(List<String>::isNotEmpty)
+            ?.joinToString(",")
+            ?.let { "&deviceIds=$it" }
+            .orEmpty()
         return get(
-            "/api/mobile/comm/devices/prekeys?deviceId=$verifierDeviceId&userIds=$query",
+            "/api/mobile/comm/devices/prekeys?deviceId=$verifierDeviceId&userIds=$users$devices",
         )
+    }
+
+    suspend fun recipientDevices(userIds: List<String>): RecipientDevicesResponseDto {
+        val query = userIds.joinToString(",")
+        return get("/api/mobile/comm/devices/prekeys?mode=devices&userIds=$query")
     }
 
     suspend fun createDirectConversation(targetUserId: String): CreateConversationResponseDto =
@@ -68,6 +79,14 @@ class ThetaCommApi(
             "/api/mobile/comm/conversations",
             CreateDirectConversationRequestDto(targetUserId = targetUserId),
         )
+
+    suspend fun createGroupConversation(
+        request: CreateGroupConversationRequestDto,
+    ): CreateConversationResponseDto =
+        post("/api/mobile/comm/conversations", request)
+
+    suspend fun searchContacts(query: String): ContactSearchResponseDto =
+        get("/api/mobile/contacts/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}")
 
     suspend fun sendMessage(request: SendMessageRequestDto): SendMessageResponseDto =
         post("/api/mobile/comm/messages", request)
@@ -89,6 +108,9 @@ class ThetaCommApi(
 
     suspend fun completeUpload(request: CompleteUploadRequestDto): OkResponseDto =
         post("/api/mobile/comm/uploads", request)
+
+    suspend fun attachmentDownload(attachmentId: String): AttachmentDownloadDto =
+        get("/api/mobile/comm/attachments/$attachmentId")
 
     private suspend inline fun <reified T> get(path: String): T =
         execute("GET", path, null)

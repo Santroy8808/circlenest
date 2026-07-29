@@ -309,7 +309,8 @@ export async function trustThetaCommDevice(userId: string, input: unknown) {
 export async function getThetaCommPreKeyBundles(
   requesterUserId: string,
   verifierDeviceId: string,
-  requestedUserIds: readonly string[]
+  requestedUserIds: readonly string[],
+  requestedDeviceIds: readonly string[] = []
 ) {
   const userIds = [...new Set(requestedUserIds.filter(Boolean))].slice(0, 100);
   if (userIds.length === 0) return { bundles: [] };
@@ -340,6 +341,9 @@ export async function getThetaCommPreKeyBundles(
       const devices = await tx.userDevice.findMany({
         where: {
           userId: { in: userIds },
+          ...(requestedDeviceIds.length > 0
+            ? { id: { in: [...new Set(requestedDeviceIds)].slice(0, 1000) } }
+            : {}),
           revokedAt: null,
           commIdentityKey: { not: null },
           commRegistrationId: { not: null },
@@ -412,4 +416,56 @@ export async function getThetaCommPreKeyBundles(
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );
+}
+
+export async function listThetaCommRecipientDevices(
+  requesterUserId: string,
+  requestedUserIds: readonly string[]
+) {
+  const userIds = [...new Set(requestedUserIds.filter(Boolean))].slice(0, 100);
+  if (userIds.length === 0) return { devices: [] };
+  const context = await resolveChatAccessContext(requesterUserId);
+  if (!context.userId) {
+    throw new ThetaCommError(401, "LOGIN_REQUIRED", "Login required.");
+  }
+  const allowedUsers = await prisma.user.findMany({
+    where: {
+      id: { in: userIds },
+      AND: [{ OR: [{ id: requesterUserId }, context.visibleUserWhere] }]
+    },
+    select: { id: true }
+  });
+  if (allowedUsers.length !== userIds.length) {
+    throw new ThetaCommError(
+      404,
+      "MEMBER_NOT_FOUND",
+      "One or more members are unavailable."
+    );
+  }
+  const devices = await prisma.userDevice.findMany({
+    where: {
+      userId: { in: userIds },
+      revokedAt: null,
+      commIdentityKey: { not: null },
+      commRegistrationId: { not: null },
+      commSignedPreKey: { not: null }
+    },
+    orderBy: [{ userId: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      userId: true,
+      commRegistrationId: true,
+      commIdentityKey: true,
+      commKeyVersion: true
+    }
+  });
+  return {
+    devices: devices.map((device) => ({
+      userId: device.userId,
+      deviceId: device.id,
+      registrationId: device.commRegistrationId,
+      identityKey: device.commIdentityKey,
+      keyVersion: device.commKeyVersion
+    }))
+  };
 }

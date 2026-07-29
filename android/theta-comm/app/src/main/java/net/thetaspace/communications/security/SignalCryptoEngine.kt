@@ -89,7 +89,54 @@ class SignalCryptoEngine(
                 remote,
             ).process(bundle.toSignalBundle())
         }
+        return encryptForAddress(
+            plaintext = plaintext,
+            recipientUserId = bundle.userId,
+            recipientDeviceId = bundle.deviceId,
+            local = local,
+            remote = remote,
+        )
+    }
 
+    fun hasTrustedSession(
+        recipientUserId: String,
+        recipientDeviceId: String,
+        serializedIdentityKey: String,
+    ): Boolean {
+        val remote = protocolAddress(recipientUserId, recipientDeviceId)
+        if (!stores.sessionStore.containsSession(remote)) return false
+        val expected = IdentityKey(Base64.decode(serializedIdentityKey, Base64.NO_WRAP))
+        return stores.identityStore.getIdentity(remote) == expected
+    }
+
+    fun encryptEstablishedSession(
+        plaintext: ByteArray,
+        recipientUserId: String,
+        recipientDeviceId: String,
+        localUserId: String,
+        localDeviceId: String,
+    ): RecipientEnvelopeDto {
+        val local = protocolAddress(localUserId, localDeviceId)
+        val remote = protocolAddress(recipientUserId, recipientDeviceId)
+        check(stores.sessionStore.containsSession(remote)) {
+            "A Signal session has not been established for this device."
+        }
+        return encryptForAddress(
+            plaintext = plaintext,
+            recipientUserId = recipientUserId,
+            recipientDeviceId = recipientDeviceId,
+            local = local,
+            remote = remote,
+        )
+    }
+
+    private fun encryptForAddress(
+        plaintext: ByteArray,
+        recipientUserId: String,
+        recipientDeviceId: String,
+        local: SignalProtocolAddress,
+        remote: SignalProtocolAddress,
+    ): RecipientEnvelopeDto {
         val encrypted = SessionCipher(
             stores.sessionStore,
             stores.preKeyStore,
@@ -101,8 +148,8 @@ class SignalCryptoEngine(
         ).encrypt(plaintext)
 
         return RecipientEnvelopeDto(
-            recipientUserId = bundle.userId,
-            recipientDeviceId = bundle.deviceId,
+            recipientUserId = recipientUserId,
+            recipientDeviceId = recipientDeviceId,
             envelopeType = if (encrypted.type == CiphertextMessage.PREKEY_TYPE) {
                 "PREKEY"
             } else {

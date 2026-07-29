@@ -4,6 +4,7 @@ import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platf
 import { thetaCommApiError } from "@/modules/theta-comm/api";
 import {
   getThetaCommPreKeyBundles,
+  listThetaCommRecipientDevices,
   replenishThetaCommPreKeys
 } from "@/modules/theta-comm/device.service";
 
@@ -17,9 +18,23 @@ export async function GET(request: NextRequest) {
     .map((value) => value.trim())
     .filter(Boolean);
   const verifierDeviceId = (request.nextUrl.searchParams.get("deviceId") ?? "").trim();
+  const requestedDeviceIds = (request.nextUrl.searchParams.get("deviceIds") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   try {
+    if (request.nextUrl.searchParams.get("mode") === "devices") {
+      return NextResponse.json(
+        await listThetaCommRecipientDevices(session.user.id, userIds)
+      );
+    }
     return NextResponse.json(
-      await getThetaCommPreKeyBundles(session.user.id, verifierDeviceId, userIds)
+      await getThetaCommPreKeyBundles(
+        session.user.id,
+        verifierDeviceId,
+        userIds,
+        requestedDeviceIds
+      )
     );
   } catch (error) {
     return thetaCommApiError(error);
