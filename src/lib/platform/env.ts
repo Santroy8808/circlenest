@@ -85,6 +85,7 @@ export const envSchema = z.object({
   SYSTEM_MAIL_FROM: z.string().email().optional(),
   ADMIN_MAIL_FROM: z.string().email().optional(),
   SUPPORT_MAIL_FROM: z.string().email().optional(),
+  FEEDBACK_MAIL_FROM: z.string().email().optional(),
   LEGAL_MAIL_FROM: z.string().email().optional(),
   PRIVACY_MAIL_FROM: z.string().email().optional(),
   SECURITY_MAIL_FROM: z.string().email().optional(),
