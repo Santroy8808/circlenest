@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { MediaAssetStatus, Prisma } from "@prisma/client";
 import {
@@ -6,6 +8,14 @@ import {
   profileMediaAssetSelectionWhere,
   selectProfileMediaWithinTransaction
 } from "@/modules/profile-identity/profile-identity.service";
+
+test("profile uploads bind completed assets through the validated media endpoint", () => {
+  const form = readFileSync(resolve("src/components/profile/profile-edit-form.tsx"), "utf8");
+
+  assert.match(form, /requestProfileMedia\(\{\s*mediaAssetId: uploadedAsset\.assetId,\s*target: type\s*\}\)/);
+  assert.doesNotMatch(form, /^\s+avatarUrl,$/m);
+  assert.doesNotMatch(form, /^\s+bannerUrl,$/m);
+});
 
 test("profile media selection is owner-bound and accepts every ready image MIME type", () => {
   assert.deepEqual(profileMediaAssetSelectionWhere("owner-1", "asset-1"), {

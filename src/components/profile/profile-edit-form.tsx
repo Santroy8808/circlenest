@@ -3,6 +3,7 @@
 import { MediaVisibility, ProfileVisibility } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState, useTransition } from "react";
+import { requestProfileMedia } from "@/components/gallery/profile-media-request";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
@@ -17,7 +18,7 @@ type UploadState = {
 async function uploadAvatarOrBanner(
   file: File,
   options: { fileNamePrefix: string; onProgress: (progress: number) => void }
-): Promise<string> {
+): Promise<{ assetId: string; mediaUrl: string }> {
   if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
     throw new Error("Use a JPG, PNG, or WEBP image.");
   }
@@ -79,7 +80,10 @@ async function uploadAvatarOrBanner(
     throw new Error(complete.error ?? "Could not save upload record.");
   }
 
-  return complete.asset.publicUrl ?? `/api/media/assets/${complete.asset.id}`;
+  return {
+    assetId: complete.asset.id,
+    mediaUrl: `/api/media/assets/${encodeURIComponent(complete.asset.id)}`
+  };
 }
 
 export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardView; nextPath: string }) {
@@ -113,7 +117,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
     }
 
     try {
-      const publicUrl = await uploadAvatarOrBanner(file, {
+      const uploadedAsset = await uploadAvatarOrBanner(file, {
         fileNamePrefix: `${type}-${Date.now()}`,
         onProgress: (progress) => {
           if (type === "avatar") {
@@ -123,14 +127,24 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           }
         }
       });
+      const profileMedia = await requestProfileMedia({
+        mediaAssetId: uploadedAsset.assetId,
+        target: type
+      });
+      if (!profileMedia.ok) {
+        throw new Error(profileMedia.error);
+      }
 
       if (type === "avatar") {
-        setAvatarUrl(publicUrl);
+        setAvatarUrl(uploadedAsset.mediaUrl);
         setAvatarUpload({ fileName: file.name, progress: 100, status: "done" });
+        setMessage("Avatar updated.");
       } else {
-        setBannerUrl(publicUrl);
+        setBannerUrl(uploadedAsset.mediaUrl);
         setBannerUpload({ fileName: file.name, progress: 100, status: "done" });
+        setMessage("Banner updated.");
       }
+      router.refresh();
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Could not upload image.";
       if (type === "avatar") {
@@ -162,8 +176,6 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           tagline: formData.get("tagline"),
           bio: formData.get("bio"),
           location,
-          avatarUrl,
-          bannerUrl,
           visibility: formData.get("visibility"),
           allowProfilePosts: formData.get("allowProfilePosts") === "on"
         })
