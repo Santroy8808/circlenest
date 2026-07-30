@@ -156,6 +156,15 @@ const missingSmtp = [
   ...(smtpAuthMode === "login" ? missingNames(smtpLoginRequired) : [])
 ];
 const smtpPort = Number(envValue("SMTP_PORT"));
+const smtpIgnoreTls = envValue("SMTP_IGNORE_TLS") === "true";
+const smtpRelayTlsException =
+  smtpAuthMode === "relay" &&
+  smtpPort === 25 &&
+  envValue("SMTP_SECURE") !== "true" &&
+  !envPresent("SMTP_USER") &&
+  !envPresent("SMTP_PASS") &&
+  /\.mail\.protection\.outlook\.com$/i.test(envValue("SMTP_HOST"));
+const smtpTlsPolicyValid = !smtpIgnoreTls || smtpRelayTlsException;
 const smtpShapeValid =
   missingSmtp.length === 0 &&
   ["login", "relay"].includes(smtpAuthMode) &&
@@ -297,8 +306,12 @@ const checks: ServiceCheck[] = [
   check(
     "SMTP",
     "TLS policy",
-    requiredStatus(envValue("SMTP_IGNORE_TLS") !== "true"),
-    envValue("SMTP_IGNORE_TLS") !== "true" ? "SMTP_IGNORE_TLS is not enabled." : "SMTP_IGNORE_TLS must not be true in production."
+    requiredStatus(smtpTlsPolicyValid),
+    !smtpIgnoreTls
+      ? "SMTP_IGNORE_TLS is not enabled."
+      : smtpRelayTlsException
+        ? "SMTP_IGNORE_TLS is restricted to unauthenticated Microsoft 365 port-25 relay; credentials are absent and values are redacted."
+        : "SMTP_IGNORE_TLS may only be used for unauthenticated Microsoft 365 port-25 relay."
   ),
   check(
     "Cloudflare R2",
@@ -518,7 +531,7 @@ ${bulletList(productionSafetyVariables.map((name) => `\`${name}\``))}
 ## Manual SMTP and auth smoke
 
 - Confirm password-reset and verification messages reach a designated mailbox and that links use the production HTTPS origin.
-- Confirm SMTP transport requires TLS, **SMTP_IGNORE_TLS** is false, and SPF/DKIM/DMARC posture is documented.
+- Confirm password-authenticated SMTP requires TLS. For the IP-restricted Microsoft 365 port-25 relay, confirm **SMTP_IGNORE_TLS=true**, relay mode, and absent SMTP credentials. Document SPF/DKIM/DMARC posture.
 - Confirm reset tokens are single-use, expire as designed, and do not appear in application logs.
 - Confirm **NEXTAUTH_SECRET**, **MOBILE_AUTH_SECRET**, and **IP_HASH_SECRET** are independently generated and stored only in the protected server environment.
 - Confirm mobile authentication rejects tokens signed with an obsolete or incorrect secret.

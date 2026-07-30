@@ -51,7 +51,10 @@ All of these must pass before stopping `ThetaSpaceWeb`:
 - `APP_ORIGIN` is the canonical HTTPS origin: `https://theta-space.net`.
 - `NEXTAUTH_URL` is the canonical HTTPS origin.
 - `NEXTAUTH_SECRET`, `MOBILE_AUTH_SECRET`, and `IP_HASH_SECRET` are present, high entropy, and mutually independent.
-- SMTP certificate validation is enabled. `SMTP_IGNORE_TLS=true` is not allowed in production.
+- SMTP certificate validation is enabled for password-authenticated mail.
+  `SMTP_IGNORE_TLS=true` is allowed only for the unauthenticated Microsoft 365
+  port-25 relay restricted to the Theta-Space server IP, with no SMTP
+  username or password configured.
 - `CLOUDFLARE_R2_PRIVATE_BUCKET` exists, is accessible by the configured R2 credentials, and is different from the public bucket.
 - Existing private media needed by the release has been copied and verified in the private bucket. Preserve source objects through the rollback window.
 - A restorable PostgreSQL backup can be created before migrations.
