@@ -325,6 +325,16 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
           </div>
           <h2>{activeStep.title}</h2>
           <p>{activeStep.description}</p>
+          {activeStep.definitions?.length ? (
+            <dl className="tutorial-icon-definitions">
+              {activeStep.definitions.map((definition) => (
+                <div key={definition.id}>
+                  <dt>{definition.label}</dt>
+                  <dd>{definition.description}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
           {!targetBox ? <p className="tutorial-missing-target">This control is not visible in the current viewport. Use Next or open the matching area from the table of contents.</p> : null}
           <button className="tutorial-contents-toggle" onClick={() => setContentsOpen((value) => !value)} type="button">
             {contentsOpen ? "Hide table of contents" : "Table of contents"}

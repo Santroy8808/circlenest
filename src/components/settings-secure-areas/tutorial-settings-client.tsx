@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { tutorialSections, tutorialSteps } from "@/modules/tutorial/tutorial-content";
+import {
+  tutorialIconDefinitions,
+  tutorialSections,
+  tutorialSteps
+} from "@/modules/tutorial/tutorial-content";
 
 function startTutorial(detail?: { sectionId?: string; stepId?: string }) {
   window.dispatchEvent(new CustomEvent("theta:tutorial:start", { detail }));
@@ -23,6 +27,31 @@ export function TutorialSettingsClient() {
           <Link className="btn-secondary" href="/settings/users-manual">
             Open Users Manual
           </Link>
+        </div>
+      </section>
+      <section className="surface rounded-md p-5">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Icon Reference</p>
+        <h2 className="mt-2 text-2xl font-semibold">What each icon does</h2>
+        <p className="mt-3 max-w-2xl leading-6 text-[var(--muted)]">
+          Hover or focus an icon anywhere on Theta-Space for a short tooltip. This reference keeps the common navigation and stream controls in one place.
+        </p>
+        <div className="tutorial-icon-reference mt-5">
+          {tutorialIconDefinitions.map((definition) => (
+            <article className="tutorial-icon-reference-item" key={definition.id}>
+              <span className="tutorial-icon-reference-glyph" aria-hidden="true">
+                {definition.iconSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" src={definition.iconSrc} />
+                ) : (
+                  definition.glyph
+                )}
+              </span>
+              <span>
+                <strong>{definition.label}</strong>
+                <small>{definition.description}</small>
+              </span>
+            </article>
+          ))}
         </div>
       </section>
       <section className="surface rounded-md p-5">

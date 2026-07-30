@@ -59,10 +59,10 @@ export function ConductContentActions({ locationType, contentId }: { locationTyp
 
   return (
     <div className="conduct-content-actions" onClick={(event) => event.stopPropagation()}>
-      <button className="conduct-commend-button" onClick={() => open("commend")} title="Commend this contribution" type="button">
+      <button className="conduct-commend-button" data-tooltip="Recognize this contribution as helpful." onClick={() => open("commend")} type="button">
         Commend
       </button>
-      <button className="conduct-report-button" onClick={() => open("report")} title="Report this item for review" type="button">
+      <button className="conduct-report-button" data-tooltip="Send this item to a person for review." onClick={() => open("report")} type="button">
         Report
       </button>
       {mode ? (

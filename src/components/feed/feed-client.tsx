@@ -608,9 +608,9 @@ function ReactionButtons({
       <div className="feed-reaction-control">
         <button
           aria-expanded={choicesOpen}
-          aria-label="React"
+          aria-label="Choose a reaction"
           className={myReactionType ? "feed-reaction-trigger has-user-reaction" : "feed-reaction-trigger"}
-          data-tooltip="React"
+          data-tooltip="Choose a reaction for this item."
           onClick={() => setChoicesOpen((open) => !open)}
           type="button"
         >
@@ -779,7 +779,7 @@ function ComposerToolbar({
     <div className={compact ? "feed-toolbar is-compact" : "feed-toolbar"}>
       <div className="feed-format-tools" aria-label="Text formatting">
         <div className="feed-emoji-menu">
-          <button aria-haspopup="true" className="feed-emoji-trigger" disabled={disabled} type="button">
+          <button aria-haspopup="true" aria-label="Open emoji picker" className="feed-emoji-trigger" data-tooltip="Add an emoji to what you are writing." disabled={disabled} type="button">
             <span aria-hidden="true">{"\u{1F642}"}</span>
           </button>
           <div className="feed-emoji-tools" role="menu" aria-label="Emoji picker">
@@ -790,22 +790,22 @@ function ComposerToolbar({
             ))}
           </div>
         </div>
-        <button aria-pressed={Boolean(activeFormats?.bold)} className={activeFormats?.bold ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("bold")} onMouseDown={(event) => event.preventDefault()} type="button">
+        <button aria-label="Bold" aria-pressed={Boolean(activeFormats?.bold)} className={activeFormats?.bold ? "is-active" : undefined} data-tooltip="Make the selected text bold." disabled={disabled} onClick={() => onFormat("bold")} onMouseDown={(event) => event.preventDefault()} type="button">
           B
         </button>
-        <button aria-pressed={Boolean(activeFormats?.italic)} className={activeFormats?.italic ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("italic")} onMouseDown={(event) => event.preventDefault()} type="button">
+        <button aria-label="Italic" aria-pressed={Boolean(activeFormats?.italic)} className={activeFormats?.italic ? "is-active" : undefined} data-tooltip="Italicize the selected text." disabled={disabled} onClick={() => onFormat("italic")} onMouseDown={(event) => event.preventDefault()} type="button">
           I
         </button>
-        <button aria-pressed={Boolean(activeFormats?.bulletList)} className={activeFormats?.bulletList ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("bulletList")} onMouseDown={(event) => event.preventDefault()} type="button">
+        <button aria-label="Bulleted list" aria-pressed={Boolean(activeFormats?.bulletList)} className={activeFormats?.bulletList ? "is-active" : undefined} data-tooltip="Format the selected text as a bulleted list." disabled={disabled} onClick={() => onFormat("bulletList")} onMouseDown={(event) => event.preventDefault()} type="button">
           Bullets
         </button>
-        <button aria-pressed={Boolean(activeFormats?.numberedList)} className={activeFormats?.numberedList ? "is-active" : undefined} disabled={disabled} onClick={() => onFormat("numberedList")} onMouseDown={(event) => event.preventDefault()} type="button">
+        <button aria-label="Numbered list" aria-pressed={Boolean(activeFormats?.numberedList)} className={activeFormats?.numberedList ? "is-active" : undefined} data-tooltip="Format the selected text as a numbered list." disabled={disabled} onClick={() => onFormat("numberedList")} onMouseDown={(event) => event.preventDefault()} type="button">
           Numbers
         </button>
-        <button disabled={disabled} onClick={() => onFormat("link")} onMouseDown={(event) => event.preventDefault()} type="button">
+        <button aria-label="Add link" data-tooltip="Add a link to the selected text." disabled={disabled} onClick={() => onFormat("link")} onMouseDown={(event) => event.preventDefault()} type="button">
           Link
         </button>
-        <label aria-label="Attach image" className="feed-picture-button" title="Attach image">
+        <label aria-label="Attach image" className="feed-picture-button" data-tooltip="Attach an image to what you are writing.">
           <span aria-hidden="true" className="feed-picture-glyph">▧</span>
           <span className="sr-only">Attach image</span>
           <input
@@ -1851,7 +1851,7 @@ export function FeedClient({
                     {post.visibility === FeedVisibility.FRIENDS ? "friends" : "members"}
                   </span>
                   <details className="feed-trust-menu">
-                    <summary aria-label="Post options">•••</summary>
+                    <summary aria-label="Post options" data-tooltip="Open additional options for this post.">•••</summary>
                     <div className="feed-trust-popover">
                       {showThreadLinks ? <a href={`/posts/${post.id}`}>Open discussion</a> : null}
                       {canRequestSupport ? (
@@ -1923,7 +1923,7 @@ export function FeedClient({
                   </button>
                 )}
               </div>
-              <div className="feed-post-actions">
+              <div className="feed-post-actions" data-tutorial-target="stream-action-icons">
                 <ReactionButtons
                   counts={post.reactions}
                   currentUserId={composerIdentity.id}
@@ -1932,7 +1932,7 @@ export function FeedClient({
                   showCounts={false}
                 />
                 {showThreadLinks ? (
-                  <Link aria-label="Comment" className="feed-reply-button" href={`/posts/${post.id}?reply=op`} title="Comment">
+                  <Link aria-label="Comment" className="feed-reply-button" data-tooltip="Open the discussion and add a comment." href={`/posts/${post.id}?reply=op`}>
                     <ActionGlyph kind="comment" />
                     {commentSummary > 0 ? <span>{commentSummary}</span> : null}
                   </Link>
@@ -1940,8 +1940,8 @@ export function FeedClient({
                   <button
                     aria-label="Comment"
                     className="feed-reply-button"
+                    data-tooltip="Open the discussion and add a comment."
                     onClick={() => activateReply(post.id)}
-                    title="Comment"
                     type="button"
                   >
                     <ActionGlyph kind="comment" />
@@ -1953,8 +1953,8 @@ export function FeedClient({
                     aria-expanded={Boolean(shareMenus[post.id])}
                     aria-label="Share post"
                     className="feed-share-button"
+                    data-tooltip="Share this post by link or echo it to your stream."
                     onClick={() => setShareMenus((current) => ({ ...current, [post.id]: !current[post.id] }))}
-                    title="Share"
                     type="button"
                   >
                     <ActionGlyph kind="share" />

@@ -1,4 +1,5 @@
 export type TutorialStep = {
+  definitions?: TutorialIconDefinition[];
   description: string;
   id: string;
   page: string;
@@ -7,12 +8,157 @@ export type TutorialStep = {
   title: string;
 };
 
+export type TutorialIconDefinition = {
+  category: "NAVIGATION" | "STREAM";
+  description: string;
+  glyph?: string;
+  iconSrc?: string;
+  id: string;
+  label: string;
+};
+
 export type TutorialSection = {
   description: string;
   id: string;
   stepIds: string[];
   title: string;
 };
+
+export const tutorialIconDefinitions: TutorialIconDefinition[] = [
+  {
+    id: "home",
+    category: "NAVIGATION",
+    label: "Home",
+    description: "Opens your home stream.",
+    iconSrc: "/assets/nav/nav-home.png"
+  },
+  {
+    id: "gallery",
+    category: "NAVIGATION",
+    label: "My Pics",
+    description: "Opens your personal picture gallery.",
+    iconSrc: "/assets/nav/nav-gallery-v2.png"
+  },
+  {
+    id: "people",
+    category: "NAVIGATION",
+    label: "People",
+    description: "Finds members and manages personal connections.",
+    iconSrc: "/assets/nav/nav-people.png"
+  },
+  {
+    id: "market",
+    category: "NAVIGATION",
+    label: "Market",
+    description: "Opens member listings in The Market.",
+    iconSrc: "/assets/nav/nav-market.png"
+  },
+  {
+    id: "search",
+    category: "NAVIGATION",
+    label: "Search",
+    description: "Searches Theta-Space.",
+    iconSrc: "/assets/nav/nav-search.png"
+  },
+  {
+    id: "comm-center",
+    category: "NAVIGATION",
+    label: "Comm Center",
+    description: "Opens direct and group conversations.",
+    iconSrc: "/assets/nav/nav-comm.png"
+  },
+  {
+    id: "theme",
+    category: "NAVIGATION",
+    label: "Theme",
+    description: "Switches between the light and dark appearance.",
+    glyph: "Theme"
+  },
+  {
+    id: "notifications",
+    category: "NAVIGATION",
+    label: "Notifications",
+    description: "Opens recent account and community updates.",
+    glyph: "Bell"
+  },
+  {
+    id: "alerts",
+    category: "NAVIGATION",
+    label: "Alerts",
+    description: "Opens important platform or account notices.",
+    glyph: "Alert"
+  },
+  {
+    id: "admin",
+    category: "NAVIGATION",
+    label: "Admin",
+    description: "Opens administrative tools when your account has access.",
+    glyph: "A"
+  },
+  {
+    id: "profile",
+    category: "NAVIGATION",
+    label: "Profile Picture",
+    description: "Opens your profile.",
+    glyph: "Profile"
+  },
+  {
+    id: "react",
+    category: "STREAM",
+    label: "Reaction Triangle",
+    description: "Opens the reaction choices for a post or comment.",
+    iconSrc: "/assets/action-glyphs/action-react.png"
+  },
+  {
+    id: "comment",
+    category: "STREAM",
+    label: "Comment Bubble",
+    description: "Opens the discussion so you can add a comment.",
+    iconSrc: "/assets/action-glyphs/action-comment.png"
+  },
+  {
+    id: "share",
+    category: "STREAM",
+    label: "Share Arrow",
+    description: "Passes a link or echoes a post to your stream.",
+    iconSrc: "/assets/action-glyphs/action-share.png"
+  },
+  {
+    id: "more",
+    category: "STREAM",
+    label: "Three Dots",
+    description: "Opens additional options for the current item.",
+    glyph: "..."
+  },
+  {
+    id: "commend",
+    category: "STREAM",
+    label: "Commend",
+    description: "Recognizes a helpful contribution.",
+    glyph: "Commend"
+  },
+  {
+    id: "report",
+    category: "STREAM",
+    label: "Report",
+    description: "Sends the item to a person for review.",
+    glyph: "Report"
+  },
+  {
+    id: "attach-image",
+    category: "STREAM",
+    label: "Attach Image",
+    description: "Adds a picture to the post or reply you are writing.",
+    glyph: "Image"
+  },
+  {
+    id: "send",
+    category: "STREAM",
+    label: "Send",
+    description: "Submits the post, reply, or message you composed.",
+    glyph: "Send"
+  }
+];
 
 export const tutorialSteps: TutorialStep[] = [
   {
@@ -26,10 +172,11 @@ export const tutorialSteps: TutorialStep[] = [
   {
     id: "top-nav",
     section: "getting-started",
-    title: "Top Shortcuts",
-    description: "These icons are the fastest way to jump around Theta-Space. Home, My Pics, People, Market, Search, and Comm Center stay available while you browse.",
+    title: "Top Shortcut Icons",
+    description: "These icons are the fastest way to move around Theta-Space. Hover or focus an icon at any time to see its purpose.",
     page: "/home",
-    target: "top-nav-home"
+    target: "top-nav-home",
+    definitions: tutorialIconDefinitions.filter((icon) => icon.category === "NAVIGATION")
   },
   {
     id: "control-panel",
@@ -54,6 +201,15 @@ export const tutorialSteps: TutorialStep[] = [
     description: "Use these filters to switch between the newest member stream and posts shared with friends.",
     page: "/home",
     target: "stream-filters"
+  },
+  {
+    id: "stream-icons",
+    section: "stream",
+    title: "Stream And Composer Icons",
+    description: "These controls let you respond to posts, open more choices, attach a picture, or submit what you wrote.",
+    page: "/home",
+    target: "stream-action-icons",
+    definitions: tutorialIconDefinitions.filter((icon) => icon.category === "STREAM")
   },
   {
     id: "comm-center",
@@ -124,7 +280,7 @@ export const tutorialSections: TutorialSection[] = [
     id: "stream",
     title: "Stream",
     description: "Posting, reacting, replying, and filtering the home stream.",
-    stepIds: ["stream-post", "stream-filters"]
+    stepIds: ["stream-post", "stream-filters", "stream-icons"]
   },
   {
     id: "communication",

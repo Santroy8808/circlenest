@@ -12756,6 +12756,32 @@ body,
   line-height: 1.45;
 }
 
+.tutorial-icon-definitions {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0 0;
+}
+
+.tutorial-icon-definitions > div {
+  border-left: 2px solid rgba(255, 216, 95, 0.46);
+  display: grid;
+  gap: 2px;
+  padding-left: 10px;
+}
+
+.tutorial-icon-definitions dt {
+  color: var(--gold);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.tutorial-icon-definitions dd {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .tutorial-actions {
   background: inherit;
   border-top: 1px solid rgba(255, 216, 95, 0.18);
@@ -12774,6 +12800,61 @@ body,
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.tutorial-icon-reference {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.tutorial-icon-reference-item {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+.tutorial-icon-reference-glyph {
+  align-items: center;
+  background: rgba(17, 24, 36, 0.86);
+  border: 1px solid rgba(214, 178, 74, 0.26);
+  border-radius: 6px;
+  color: var(--gold);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 900;
+  height: 42px;
+  justify-content: center;
+  overflow: hidden;
+  text-align: center;
+  width: 42px;
+}
+
+.tutorial-icon-reference-glyph img {
+  height: 34px;
+  object-fit: contain;
+  width: 34px;
+}
+
+.tutorial-icon-reference-item > span:last-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tutorial-icon-reference-item strong {
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.tutorial-icon-reference-item small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 html.theta-theme-light .tutorial-welcome-layer {

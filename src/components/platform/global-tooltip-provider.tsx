@@ -21,12 +21,18 @@ const TOOLTIP_SELECTOR = [
 ].join(",");
 
 const ACTION_DESCRIPTIONS: Record<string, string> = {
+  "attach image": "Attach an image to what you are writing.",
+  "choose a reaction": "Choose a reaction for this item.",
+  "open emoji picker": "Add an emoji to what you are writing.",
+  "post options": "Open additional options for this post.",
+  "share post": "Share this post by link or echo it to your stream.",
   apply: "Apply this change.",
+  alerts: "Open important platform or account notices.",
   back: "Go back.",
   cancel: "Cancel and go back.",
   clear: "Clear the current selection or search.",
   close: "Close this panel.",
-  comment: "Open comments.",
+  comment: "Open the discussion and add a comment.",
   create: "Create a new item.",
   delete: "Delete this item.",
   edit: "Edit this item.",
@@ -35,6 +41,7 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
   love: "React with love.",
   menu: "Open the menu.",
   next: "Continue to the next step.",
+  notifications: "Open recent account and community updates.",
   remove: "Remove this item or setting.",
   reply: "Reply to this item.",
   save: "Save your changes.",
@@ -52,6 +59,10 @@ function cleanText(value: string | null | undefined) {
 function sentence(value: string) {
   if (!value) return "";
   return /[.!?]$/.test(value) ? value : `${value}.`;
+}
+
+export function tooltipActionDescription(value: string) {
+  return ACTION_DESCRIPTIONS[cleanText(value).toLowerCase()] ?? "";
 }
 
 function visibleText(element: Element) {
@@ -87,20 +98,22 @@ function hrefDescription(element: Element) {
 
 function tooltipText(element: Element) {
   const explicit = cleanText(element.getAttribute("data-tooltip"));
-  if (explicit) return explicit;
+  if (explicit) return sentence(explicit);
 
   const title = cleanText(element.getAttribute("title"));
-  if (title) return title;
+  if (title) return tooltipActionDescription(title) || sentence(title);
 
   const ariaLabel = cleanText(element.getAttribute("aria-label"));
-  if (ariaLabel && ariaLabel.length <= 90) return sentence(ariaLabel);
+  if (ariaLabel && ariaLabel.length <= 90) {
+    return tooltipActionDescription(ariaLabel) || sentence(ariaLabel);
+  }
 
   const fromHref = hrefDescription(element);
   if (fromHref) return fromHref;
 
   const label = visibleText(element);
-  const key = label.toLowerCase();
-  if (ACTION_DESCRIPTIONS[key]) return ACTION_DESCRIPTIONS[key];
+  const actionDescription = tooltipActionDescription(label);
+  if (actionDescription) return actionDescription;
   if (label.length > 0 && label.length <= 24) return sentence(label.startsWith("Open ") ? label : `Open ${label}`);
 
   return "";
