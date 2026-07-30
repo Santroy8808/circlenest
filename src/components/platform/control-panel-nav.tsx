@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
@@ -53,6 +53,7 @@ function confirmLogout() {
 export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
+  const [tutorialShimmering, setTutorialShimmering] = useState(false);
   const navRows = useMemo(
     () =>
       sections.map((section) => {
@@ -74,6 +75,19 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
     [sections]
   );
 
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let stopTimer = 0;
+    const interval = window.setInterval(() => {
+      setTutorialShimmering(true);
+      stopTimer = window.setTimeout(() => setTutorialShimmering(false), 1400);
+    }, 30_000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(stopTimer);
+    };
+  }, []);
+
   function handleItemClick(event: MouseEvent<HTMLAnchorElement>, item: NavItem) {
     if (pathname !== "/home" || item.href !== "/messages" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
       return;
@@ -90,7 +104,12 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
 
         return (
           <Link
-            className={section.isActive ? "control-panel-main-link is-active" : "control-panel-main-link"}
+            className={[
+              "control-panel-main-link",
+              section.isActive ? "is-active" : "",
+              section.label === "Tutorial" ? "control-panel-main-link--tutorial" : "",
+              section.label === "Tutorial" && tutorialShimmering ? "control-panel-main-link--shimmer" : ""
+            ].filter(Boolean).join(" ")}
             data-tooltip={`Open ${section.label}.`}
             data-tutorial-target={`control-${section.label.toLowerCase().replace(/\s+/g, "-")}`}
             href={section.targetHref}

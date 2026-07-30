@@ -48,7 +48,7 @@ export function GlobalFeedbackLink() {
     const interval = window.setInterval(() => {
       setShimmering(true);
       stopTimer = window.setTimeout(() => setShimmering(false), 1400);
-    }, 120_000);
+    }, 30_000);
     return () => {
       window.clearInterval(interval);
       window.clearTimeout(stopTimer);
