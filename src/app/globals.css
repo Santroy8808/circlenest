@@ -12807,6 +12807,10 @@ html.theta-theme-light .tutorial-panel {
   animation: feedback-button-shimmer 1.35s ease-in-out 1;
 }
 
+.feedback-fab--capture-hidden {
+  visibility: hidden;
+}
+
 @keyframes feedback-button-shimmer {
   0% {
     transform: translateX(-70%) rotate(8deg);
@@ -12831,6 +12835,8 @@ html.theta-theme-light .tutorial-panel {
 .feedback-modal-layer--capture-hidden {
   opacity: 0;
   pointer-events: none;
+  transition: none;
+  visibility: hidden;
 }
 
 .feedback-modal {

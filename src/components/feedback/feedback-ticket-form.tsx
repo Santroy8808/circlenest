@@ -27,6 +27,16 @@ function animationFrame() {
   return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
 
+function capturedVideoFrame(video: HTMLVideoElement) {
+  return new Promise<void>((resolve) => {
+    if (typeof video.requestVideoFrameCallback === "function") {
+      video.requestVideoFrameCallback(() => resolve());
+      return;
+    }
+    window.setTimeout(resolve, 100);
+  });
+}
+
 function canvasBlob(canvas: HTMLCanvasElement, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -46,6 +56,10 @@ async function captureCurrentTabScreenshot(
 
   let stream: MediaStream | null = null;
   try {
+    setCaptureHidden(true);
+    await animationFrame();
+    await animationFrame();
+
     const options = {
       video: {
         displaySurface: "browser"
@@ -63,10 +77,6 @@ async function captureCurrentTabScreenshot(
       throw new Error("This browser could not confirm a tab-only capture. Continue without a screenshot.");
     }
 
-    setCaptureHidden(true);
-    await animationFrame();
-    await animationFrame();
-
     const video = document.createElement("video");
     video.muted = true;
     video.playsInline = true;
@@ -77,6 +87,8 @@ async function captureCurrentTabScreenshot(
         video.addEventListener("loadedmetadata", () => resolve(), { once: true });
       });
     }
+    await capturedVideoFrame(video);
+    await capturedVideoFrame(video);
 
     const scale = Math.min(1, 1600 / video.videoWidth, 1200 / video.videoHeight);
     const width = Math.max(1, Math.round(video.videoWidth * scale));

@@ -120,7 +120,8 @@ export function GlobalFeedbackLink() {
         aria-haspopup="dialog"
         className={[
           "feedback-fab",
-          shimmering ? "feedback-fab--shimmer" : ""
+          shimmering ? "feedback-fab--shimmer" : "",
+          captureHidden ? "feedback-fab--capture-hidden" : ""
         ].filter(Boolean).join(" ")}
         data-feedback-ui
         onClick={openFeedback}
