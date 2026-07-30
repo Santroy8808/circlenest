@@ -12998,6 +12998,14 @@ html.theta-theme-light .tutorial-panel {
   margin: 4px 0 0;
 }
 
+.feedback-screenshot-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .feedback-screenshot-preview {
   align-items: flex-start;
   display: grid;
@@ -13874,8 +13882,13 @@ html.theta-theme-light .feedback-success {
     flex-direction: column;
   }
 
-  .feedback-screenshot-heading button,
+  .feedback-screenshot-actions,
   .user-feedback-header button {
+    width: 100%;
+  }
+
+  .feedback-screenshot-actions button {
+    flex: 1 1 100%;
     width: 100%;
   }
 

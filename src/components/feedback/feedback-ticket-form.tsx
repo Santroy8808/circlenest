@@ -5,6 +5,7 @@ import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { FeedbackPageContext } from "@/lib/client/recent-activity";
 import {
   FEEDBACK_SCREENSHOT_MAX_BYTES,
+  FEEDBACK_SCREENSHOT_MIME_TYPES,
   FEEDBACK_TYPE_OPTIONS,
   type ConfiguredFeedbackKind
 } from "@/modules/feedback-support/config";
@@ -120,6 +121,40 @@ async function captureCurrentTabScreenshot(
   }
 }
 
+async function prepareUploadedScreenshot(file: File) {
+  if (!FEEDBACK_SCREENSHOT_MIME_TYPES.includes(file.type as (typeof FEEDBACK_SCREENSHOT_MIME_TYPES)[number])) {
+    throw new Error("Choose a JPEG, PNG, or WebP image.");
+  }
+
+  const image = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 1600 / image.width, 1200 / image.height);
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("The screenshot could not be prepared.");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+
+    let blob = await canvasBlob(canvas, 0.82);
+    for (const quality of [0.72, 0.62, 0.52, 0.42]) {
+      if (blob.size <= FEEDBACK_SCREENSHOT_MAX_BYTES) break;
+      blob = await canvasBlob(canvas, quality);
+    }
+    if (blob.size > FEEDBACK_SCREENSHOT_MAX_BYTES) {
+      throw new Error("The image is still too large after compression. Choose a smaller screenshot.");
+    }
+
+    return { blob, width, height };
+  } finally {
+    image.close();
+  }
+}
+
 async function sha256(blob: Blob) {
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   return Array.from(new Uint8Array(digest))
@@ -187,7 +222,9 @@ export function FeedbackTicketForm({
   const [error, setError] = useState("");
   const [ticketId, setTicketId] = useState("");
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const submissionKeyRef = useRef(crypto.randomUUID());
   const typeLabel = useMemo(
     () => FEEDBACK_TYPE_OPTIONS.find((option) => option.value === kind)?.label ?? "Feedback",
@@ -228,6 +265,31 @@ export function FeedbackTicketForm({
       );
     } finally {
       setIsCapturing(false);
+    }
+  }
+
+  async function handleImageSelection(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setCaptureError("");
+    setIsPreparingImage(true);
+    try {
+      const prepared = await prepareUploadedScreenshot(file);
+      removeScreenshot();
+      setScreenshot({
+        ...prepared,
+        previewUrl: URL.createObjectURL(prepared.blob)
+      });
+    } catch (uploadFailure) {
+      setCaptureError(
+        uploadFailure instanceof Error
+          ? uploadFailure.message
+          : "The screenshot could not be prepared."
+      );
+    } finally {
+      setIsPreparingImage(false);
     }
   }
 
@@ -387,16 +449,34 @@ export function FeedbackTicketForm({
             <div className="feedback-screenshot-heading">
               <div>
                 <span className="form-label" id="feedback-screenshot-label">Screenshot</span>
-                <p>Choose the current Theta-Space tab when your browser asks.</p>
+                <p>Capture the current Theta-Space tab or upload a screenshot you already took.</p>
               </div>
-              <button
-                className="btn-secondary"
-                disabled={isCapturing || isSubmitting}
-                onClick={handleCapture}
-                type="button"
-              >
-                {isCapturing ? "Waiting for permission..." : screenshot ? "Capture again" : "Capture screenshot"}
-              </button>
+              <div className="feedback-screenshot-actions">
+                <button
+                  className="btn-secondary"
+                  disabled={isCapturing || isPreparingImage || isSubmitting}
+                  onClick={handleCapture}
+                  type="button"
+                >
+                  {isCapturing ? "Waiting for permission..." : screenshot ? "Capture again" : "Capture screenshot"}
+                </button>
+                <input
+                  accept={FEEDBACK_SCREENSHOT_MIME_TYPES.join(",")}
+                  className="sr-only"
+                  disabled={isCapturing || isPreparingImage || isSubmitting}
+                  onChange={handleImageSelection}
+                  ref={imageInputRef}
+                  type="file"
+                />
+                <button
+                  className="btn-secondary"
+                  disabled={isCapturing || isPreparingImage || isSubmitting}
+                  onClick={() => imageInputRef.current?.click()}
+                  type="button"
+                >
+                  {isPreparingImage ? "Preparing image..." : "Upload image"}
+                </button>
+              </div>
             </div>
             {screenshot ? (
               <div className="feedback-screenshot-preview">

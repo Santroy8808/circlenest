@@ -43,6 +43,10 @@ const DOCUMENT_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 ] as const;
 
+export function uploadCountsAgainstPersonalStorage(purpose: UploadIntentPurpose) {
+  return purpose !== UploadIntentPurpose.FEEDBACK_SCREENSHOT;
+}
+
 type UploadIntentPolicy = {
   allowedMimeTypes: readonly string[];
   allowedVisibilities: readonly MediaVisibility[];
@@ -307,7 +311,8 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + UPLOAD_INTENT_TTL_MS);
-  const [owner, activeIntents, storedAssets, effectivePolicy] = await Promise.all([
+  const countsAgainstPersonalStorage = uploadCountsAgainstPersonalStorage(parsed.data.purpose);
+  const [owner, activeIntents, activeQuotaIntents, storedAssets, effectivePolicy] = await Promise.all([
     prisma.user.findFirst({
       where: { id: cleanOwnerUserId, deactivatedAt: null },
       select: { id: true }
@@ -323,8 +328,23 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
       _count: { _all: true },
       _sum: { declaredSizeBytes: true }
     }),
+    prisma.uploadIntent.aggregate({
+      where: {
+        ownerUserId: cleanOwnerUserId,
+        purpose: { not: UploadIntentPurpose.FEEDBACK_SCREENSHOT },
+        status: {
+          in: [UploadIntentStatus.PENDING, UploadIntentStatus.VERIFYING, UploadIntentStatus.VERIFIED]
+        },
+        expiresAt: { gt: now }
+      },
+      _sum: { declaredSizeBytes: true }
+    }),
     prisma.mediaAsset.aggregate({
-      where: { ownerUserId: cleanOwnerUserId, status: "READY" },
+      where: {
+        ownerUserId: cleanOwnerUserId,
+        status: "READY",
+        feedbackTicketScreenshot: { is: null }
+      },
       _sum: { sizeBytes: true }
     }),
     getEffectivePolicyForUser(cleanOwnerUserId)
@@ -339,9 +359,13 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
   }
 
   const activeDeclaredBytes = activeIntents._sum.declaredSizeBytes ?? BigInt(0);
+  const activeQuotaDeclaredBytes = activeQuotaIntents._sum.declaredSizeBytes ?? BigInt(0);
   const storedBytes = storedAssets._sum.sizeBytes ?? BigInt(0);
   const storageLimitBytes = BigInt(effectivePolicy.limits.storageLimitBytes);
-  if (storedBytes + activeDeclaredBytes + BigInt(parsed.data.sizeBytes) > storageLimitBytes) {
+  if (
+    countsAgainstPersonalStorage &&
+    storedBytes + activeQuotaDeclaredBytes + BigInt(parsed.data.sizeBytes) > storageLimitBytes
+  ) {
     return failure("QUOTA_EXCEEDED", "This upload would exceed your account storage limit.");
   }
   if (
@@ -626,6 +650,7 @@ export async function consumeVerifiedUploadIntent<T>(input: {
   consume: (transaction: Prisma.TransactionClient, intent: VerifiedUploadIntent) => Promise<T>;
 }) {
   const now = new Date();
+  const countsAgainstPersonalStorage = uploadCountsAgainstPersonalStorage(input.purpose);
   const effectivePolicy = await getEffectivePolicyForUser(input.ownerUserId);
   if (!effectivePolicy) {
     return failure("INVALID_UPLOAD", "An active membership is required.");
@@ -680,12 +705,18 @@ export async function consumeVerifiedUploadIntent<T>(input: {
         : { kind: "result" as const, result: failure("CONFLICT", "Upload intent changed while it was being used.") };
     }
 
-    const storedAssets = await transaction.mediaAsset.aggregate({
-      where: { ownerUserId: input.ownerUserId, status: "READY" },
-      _sum: { sizeBytes: true }
-    });
-    if ((storedAssets._sum.sizeBytes ?? BigInt(0)) + intent.declaredSizeBytes > storageLimitBytes) {
-      return { kind: "result" as const, result: failure("QUOTA_EXCEEDED", "This upload would exceed your account storage limit.") };
+    if (countsAgainstPersonalStorage) {
+      const storedAssets = await transaction.mediaAsset.aggregate({
+        where: {
+          ownerUserId: input.ownerUserId,
+          status: "READY",
+          feedbackTicketScreenshot: { is: null }
+        },
+        _sum: { sizeBytes: true }
+      });
+      if ((storedAssets._sum.sizeBytes ?? BigInt(0)) + intent.declaredSizeBytes > storageLimitBytes) {
+        return { kind: "result" as const, result: failure("QUOTA_EXCEEDED", "This upload would exceed your account storage limit.") };
+      }
     }
 
     const claimed = await transaction.uploadIntent.updateMany({
