@@ -6044,13 +6044,11 @@ html.theta-theme-light .gallery-feedback--error {
 
 @media (min-width: 861px) {
   .home-front-compose-row {
-    backdrop-filter: blur(12px);
-    background: rgba(8, 11, 16, 0.82);
-    border-bottom: 1px solid rgba(214, 178, 74, 0.16);
+    isolation: isolate;
     padding: 8px 0;
     position: sticky;
     top: 0;
-    z-index: 24;
+    z-index: 100;
   }
 }
 
