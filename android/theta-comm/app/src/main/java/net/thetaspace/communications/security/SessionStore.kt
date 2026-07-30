@@ -45,7 +45,13 @@ class SessionStore(
     }
 
     suspend fun clear() {
-        context.sessionDataStore.edit { it.clear() }
+        context.sessionDataStore.edit { preferences ->
+            val installationId = preferences[INSTALLATION_ID]
+            preferences.clear()
+            if (installationId != null) {
+                preferences[INSTALLATION_ID] = installationId
+            }
+        }
     }
 
     suspend fun installationId(): String {

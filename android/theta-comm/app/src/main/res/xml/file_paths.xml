@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path
+        name="theta_comm_open"
+        path="theta_comm_open/" />
+    <cache-path
+        name="theta_comm_voice"
+        path="theta_comm_voice/" />
+</paths>

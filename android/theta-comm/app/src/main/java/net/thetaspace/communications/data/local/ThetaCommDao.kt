@@ -51,10 +51,46 @@ interface ThetaCommDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun conversation(id: String): ConversationEntity?
 
+    @Query("DELETE FROM conversations WHERE id = :conversationId")
+    suspend fun deleteConversation(conversationId: String)
+
     @Query("UPDATE conversations SET sealedTitle = :sealedTitle, updatedAt = :updatedAt WHERE id = :conversationId")
     suspend fun updateConversationTitle(
         conversationId: String,
         sealedTitle: String,
+        updatedAt: Long,
+    )
+
+    @Query(
+        """
+        UPDATE conversations
+           SET sealedAvatarReference = :sealedAvatarReference, updatedAt = :updatedAt
+         WHERE id = :conversationId
+        """,
+    )
+    suspend fun updateConversationAvatarReference(
+        conversationId: String,
+        sealedAvatarReference: String?,
+        updatedAt: Long,
+    )
+
+    @Query(
+        """
+        UPDATE conversations
+           SET isArchived = :archived,
+               isPinned = :pinned,
+               mutedUntil = :mutedUntil,
+               notificationLevel = :notificationLevel,
+               updatedAt = :updatedAt
+         WHERE id = :conversationId
+        """,
+    )
+    suspend fun updateConversationPreference(
+        conversationId: String,
+        archived: Boolean,
+        pinned: Boolean,
+        mutedUntil: Long?,
+        notificationLevel: String,
         updatedAt: Long,
     )
 
@@ -84,6 +120,16 @@ interface ThetaCommDao {
 
     @Query("SELECT * FROM receipts WHERE messageId = :messageId")
     fun observeReceipts(messageId: String): Flow<List<ReceiptEntity>>
+
+    @Query(
+        """
+        SELECT r.* FROM receipts r
+        INNER JOIN messages m ON m.serverMessageId = r.messageId
+        WHERE m.conversationId = :conversationId
+        ORDER BY r.messageId, r.userId, r.deviceId
+        """,
+    )
+    fun observeConversationReceipts(conversationId: String): Flow<List<ReceiptEntity>>
 
     @Query("SELECT * FROM attachments WHERE clientMessageId = :clientMessageId ORDER BY id")
     fun observeAttachments(clientMessageId: String): Flow<List<AttachmentEntity>>
@@ -145,6 +191,9 @@ interface ThetaCommDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertMessage(message: MessageEntity)
+
+    @Query("DELETE FROM messages WHERE clientMessageId = :clientMessageId")
+    suspend fun deleteMessage(clientMessageId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertReceipts(items: List<ReceiptEntity>)
@@ -277,6 +326,7 @@ interface ThetaCommDao {
                sealedNonce = :sealedNonce,
                sealedThumbnailKey = :sealedThumbnailKey,
                sealedThumbnailNonce = :sealedThumbnailNonce,
+               sourceUri = NULL,
                state = 'ENCRYPTED'
          WHERE id = :attachmentId
         """,

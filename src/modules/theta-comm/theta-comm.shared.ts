@@ -75,41 +75,6 @@ export async function createSyncEvents(
   });
 }
 
-export async function enqueuePushWakeups(
-  tx: Prisma.TransactionClient,
-  input: {
-    userIds: readonly string[];
-    excludeDeviceIds?: readonly string[];
-    conversationId?: string;
-    reason: "message" | "receipt" | "membership" | "device";
-  }
-) {
-  const userIds = [...new Set(input.userIds.filter(Boolean))];
-  if (userIds.length === 0) return;
-  const excluded = new Set(input.excludeDeviceIds ?? []);
-  const devices = await tx.userDevice.findMany({
-    where: {
-      userId: { in: userIds },
-      revokedAt: null,
-      commIdentityKey: { not: null },
-      commPushRegistrations: { some: { enabled: true } }
-    },
-    select: { id: true }
-  });
-  const targetDeviceIds = devices.map((device) => device.id).filter((id) => !excluded.has(id));
-  if (targetDeviceIds.length === 0) return;
-  await tx.thetaCommPushOutbox.createMany({
-    data: targetDeviceIds.map((userDeviceId) => ({
-      userDeviceId,
-      payload: {
-        type: "theta_comm_sync",
-        reason: input.reason,
-        ...(input.conversationId ? { conversationId: input.conversationId } : {})
-      }
-    }))
-  });
-}
-
 export function clampClientDate(value: string) {
   const parsed = new Date(value);
   const now = Date.now();
@@ -148,6 +113,7 @@ export async function validateCompleteRecipientSet(
   envelopes: ReadonlyArray<{
     recipientUserId: string;
     recipientDeviceId: string;
+    recipientKeyVersion: number;
     envelopeType: "PREKEY" | "SESSION";
     ciphertext: string;
   }>,
@@ -161,14 +127,20 @@ export async function validateCompleteRecipientSet(
       revokedAt: null,
       commIdentityKey: { not: null }
     },
-    select: { id: true, userId: true }
+    select: { id: true, userId: true, commKeyVersion: true }
   });
-  const expectedByDevice = new Map(devices.map((device) => [device.id, device.userId]));
+  const expectedByDevice = new Map(
+    devices.map((device) => [
+      device.id,
+      { userId: device.userId, keyVersion: device.commKeyVersion }
+    ])
+  );
   const received = new Set<string>();
   for (const envelope of envelopes) {
     if (
       received.has(envelope.recipientDeviceId) ||
-      expectedByDevice.get(envelope.recipientDeviceId) !== envelope.recipientUserId
+      expectedByDevice.get(envelope.recipientDeviceId)?.userId !== envelope.recipientUserId ||
+      expectedByDevice.get(envelope.recipientDeviceId)?.keyVersion !== envelope.recipientKeyVersion
     ) {
       throw new ThetaCommError(
         409,

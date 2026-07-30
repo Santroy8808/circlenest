@@ -19,6 +19,7 @@ import {
 const envelope = {
   recipientUserId: "user-1",
   recipientDeviceId: "device-1",
+  recipientKeyVersion: 1,
   envelopeType: "SESSION" as const,
   ciphertext: Buffer.from("ciphertext").toString("base64")
 };
@@ -63,6 +64,14 @@ test("V2 messages require a UUID idempotency key and protocol version", () => {
   );
   assert.equal(
     sendThetaCommMessageSchema.safeParse({ ...base, clientMessageId: "not-idempotent" }).success,
+    false
+  );
+  assert.equal(
+    sendThetaCommMessageSchema.safeParse({
+      ...base,
+      clientMessageId: "3fd28d86-f143-4ed1-9d4d-78d777205779",
+      envelopes: [{ ...envelope, recipientKeyVersion: undefined }]
+    }).success,
     false
   );
 });

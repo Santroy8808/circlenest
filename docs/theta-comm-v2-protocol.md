@@ -10,10 +10,19 @@ group forum, or group media record.
   and attachment bytes are encrypted on the sender device.
 - The service stores ciphertext, routing metadata, membership, timestamps, and
   delivery acknowledgements. It never receives a plaintext message mirror.
-- Push notifications contain only an opaque conversation ID and sync hint.
+- Authenticated server event-stream wakeups contain only opaque routing and
+  sync hints. Device notifications contain no message content.
+- The database, event stream, and encrypted blob store run on the Theta-Space
+  server. Theta-Comm does not require an external database, push provider, or
+  object-storage service.
 - Each device owns an identity key, signed prekey, and rotating one-time
   prekeys. Private key material never leaves the device.
 - Device registration publishes signed classical and post-quantum Kyber prekeys for PQXDH.
+- Recipient envelopes carry the intended device key version. The service
+  rejects stale-key submissions so the sender must refresh after an identity
+  rotation.
+- One-time prekey replenishment uses authoritative server availability rather
+  than the device's local inventory.
 - Every active recipient device, except the sending device that already has the local plaintext,
   receives its own Signal Protocol envelope.
   Group chats use the same per-device envelope model so removing a member
@@ -24,6 +33,8 @@ group forum, or group media record.
 1. The client writes a message locally with a UUID `clientMessageId` and
    `QUEUED` state.
 2. Media is encrypted locally and uploaded as opaque chunks when necessary.
+   JPEG images are normalized, large MP4 videos are compressed before
+   encryption, and chunked uploads and range downloads resume after interruption.
 3. WorkManager creates recipient envelopes and submits the message with the
    client UUID.
 4. The service atomically assigns a conversation sequence and returns the same
@@ -34,8 +45,8 @@ group forum, or group media record.
 7. Recipient devices acknowledge `SEEN` after rendering it in an open
    conversation.
 
-`DELIVERED` never means that FCM accepted a push. It requires a signed-in
-Theta-Comm device acknowledgement.
+`DELIVERED` requires a signed-in Theta-Comm device acknowledgement. A server
+event, notification, or accepted upload never counts as delivery.
 
 ## Group Membership
 
@@ -46,6 +57,18 @@ Theta-Comm device acknowledgement.
   members but cannot remove or demote the owner.
 - Leaving or removing a member ends access to future envelopes. Previous
   history remains only on devices that already received it.
+- Group names and group images travel as encrypted per-device metadata events.
+  Group image bytes, thumbnails, filenames, and keys are never stored in
+  plaintext by the service.
+
+## Linked Devices
+
+- A newly registered or identity-rotated device receives new messages only.
+- The server filters sync history at the device key-registration boundary.
+- Messages sent from one active device are encrypted to the account's other
+  active devices, so future activity remains synchronized.
+- Device identity changes invalidate prior trust and stale recipient
+  envelopes.
 
 ## Product Limits
 

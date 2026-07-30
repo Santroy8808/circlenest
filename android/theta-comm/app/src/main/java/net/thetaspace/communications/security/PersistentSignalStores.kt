@@ -35,6 +35,32 @@ class PersistentSignalStores(
     val sessionStore: SessionStore = PersistentSessionStore()
     val kyberPreKeyStore: KyberPreKeyStore = PersistentKyberPreKeyStore()
 
+    fun allocatePreKeyIds(kyber: Boolean, count: Int): List<Int> =
+        synchronized(lock) {
+            require(count > 0)
+            val recordType = if (kyber) TYPE_KYBER_PRE_KEY else TYPE_PRE_KEY
+            val counterKey = if (kyber) NEXT_KYBER_PRE_KEY else NEXT_PRE_KEY
+            val storedNext = read(TYPE_METADATA, counterKey)
+                ?.let { ByteBuffer.wrap(it).int }
+                ?: 1
+            val highestExisting = records(recordType)
+                .maxOfOrNull { it.first.toIntOrNull() ?: 0 }
+                ?: 0
+            val start = maxOf(storedNext, highestExisting + 1)
+            val next = Math.addExact(start, count)
+            write(
+                TYPE_METADATA,
+                counterKey,
+                ByteBuffer.allocate(Int.SIZE_BYTES).putInt(next).array(),
+            )
+            (start until next).toList()
+        }
+
+    fun availablePreKeyIds(kyber: Boolean): List<Int> =
+        records(if (kyber) TYPE_KYBER_PRE_KEY else TYPE_PRE_KEY)
+            .mapNotNull { it.first.toIntOrNull() }
+            .sorted()
+
     private fun read(type: String, key: String): ByteArray? = synchronized(lock) {
         runBlocking(Dispatchers.IO) {
             dao.signalRecord(type, key)?.sealedValue?.let(localCipher::open)
@@ -237,8 +263,11 @@ class PersistentSignalStores(
         const val TYPE_SIGNED_PRE_KEY = "signed_pre_key"
         const val TYPE_SESSION = "session"
         const val TYPE_KYBER_PRE_KEY = "kyber_pre_key"
+        const val TYPE_METADATA = "metadata"
         const val LOCAL_IDENTITY = "local_pair"
         const val LOCAL_REGISTRATION = "registration_id"
+        const val NEXT_PRE_KEY = "next_pre_key"
+        const val NEXT_KYBER_PRE_KEY = "next_kyber_pre_key"
         const val KEY_SEPARATOR = "\u001F"
     }
 }

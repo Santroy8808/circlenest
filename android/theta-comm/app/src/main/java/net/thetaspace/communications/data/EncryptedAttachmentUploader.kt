@@ -11,17 +11,10 @@ import net.thetaspace.communications.data.local.ThetaCommDao
 import net.thetaspace.communications.data.remote.CompleteUploadRequestDto
 import net.thetaspace.communications.data.remote.CreateUploadRequestDto
 import net.thetaspace.communications.data.remote.EncryptedThumbnailDto
-import net.thetaspace.communications.data.remote.RecordUploadPartRequestDto
 import net.thetaspace.communications.data.remote.ThetaCommApi
-import net.thetaspace.communications.data.remote.UploadPartRequestDto
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 
 class EncryptedAttachmentUploader(
     private val api: ThetaCommApi,
-    private val httpClient: OkHttpClient,
     private val dao: ThetaCommDao,
 ) {
     suspend fun upload(
@@ -41,64 +34,86 @@ class EncryptedAttachmentUploader(
         val thumbnailFile = attachment.encryptedThumbnailPath?.let(::File)
             ?.takeIf(File::exists)
 
-        val created = api.createUpload(
-            CreateUploadRequestDto(
-                conversationId = conversationId,
-                senderDeviceId = senderDeviceId,
-                encryptedSizeBytes = encryptedSize,
-                ciphertextSha256 = checksum,
-                encryptedThumbnail = thumbnailFile?.let {
-                    EncryptedThumbnailDto(
-                        sizeBytes = it.length(),
-                        ciphertextSha256 = attachment.thumbnailCiphertextSha256
-                            ?: error("Thumbnail checksum is unavailable."),
-                    )
-                },
-            ),
-        )
+        val resumed = attachment.uploadId?.let { uploadId ->
+            runCatching { api.uploadStatus(uploadId) }.getOrNull()
+        }
+        if (resumed?.status == "UPLOADED") {
+            dao.updateAttachmentProgress(
+                attachmentId = attachment.id,
+                uploadId = resumed.uploadId,
+                uploadedBytes = encryptedSize,
+                state = AttachmentStates.UPLOADED,
+            )
+            return@withContext dao.attachment(attachment.id) ?: attachment.copy(
+                uploadId = resumed.uploadId,
+                uploadedBytes = encryptedSize,
+                state = AttachmentStates.UPLOADED,
+            )
+        }
+        val session = if (resumed != null) {
+            check(resumed.encryptedSizeBytes.toLong() == encryptedSize) {
+                "Encrypted upload size changed."
+            }
+            UploadSession(
+                uploadId = resumed.uploadId,
+                chunkSizeBytes = resumed.chunkSizeBytes,
+                totalChunks = resumed.totalChunks,
+                uploadedBytes = resumed.uploadedSizeBytes.toLong(),
+                completedPartNumbers = resumed.completedPartNumbers.toSet(),
+                thumbnailRequired = resumed.thumbnailRequired,
+            )
+        } else {
+            val created = api.createUpload(
+                CreateUploadRequestDto(
+                    conversationId = conversationId,
+                    senderDeviceId = senderDeviceId,
+                    encryptedSizeBytes = encryptedSize,
+                    ciphertextSha256 = checksum,
+                    encryptedThumbnail = thumbnailFile?.let {
+                        EncryptedThumbnailDto(
+                            sizeBytes = it.length(),
+                            ciphertextSha256 = attachment.thumbnailCiphertextSha256
+                                ?: error("Thumbnail checksum is unavailable."),
+                        )
+                    },
+                ),
+            )
+            UploadSession(
+                uploadId = created.uploadId,
+                chunkSizeBytes = created.chunkSizeBytes,
+                totalChunks = created.totalChunks,
+                uploadedBytes = 0,
+                completedPartNumbers = emptySet(),
+                thumbnailRequired = created.thumbnailRequired,
+            )
+        }
         dao.updateAttachmentProgress(
             attachmentId = attachment.id,
-            uploadId = created.uploadId,
-            uploadedBytes = 0,
+            uploadId = session.uploadId,
+            uploadedBytes = session.uploadedBytes,
             state = AttachmentStates.UPLOADING,
         )
 
-        if (thumbnailFile != null && created.thumbnailUpload != null) {
-            putBytes(
-                url = created.thumbnailUpload.uploadUrl,
-                bytes = thumbnailFile.readBytes(),
-                headers = created.thumbnailUpload.headers,
-            )
+        if (thumbnailFile != null && session.thumbnailRequired) {
+            api.uploadThumbnail(session.uploadId, thumbnailFile.readBytes())
         }
 
         RandomAccessFile(encryptedFile, "r").use { source ->
-            var uploaded = 0L
-            for (partNumber in 1..created.totalChunks) {
+            var uploaded = session.uploadedBytes
+            for (partNumber in 1..session.totalChunks) {
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                val remaining = encryptedSize - uploaded
-                val partSize = minOf(created.chunkSizeBytes.toLong(), remaining).toInt()
+                if (partNumber in session.completedPartNumbers) continue
+                val offset = (partNumber - 1L) * session.chunkSizeBytes
+                val remaining = encryptedSize - offset
+                val partSize = minOf(session.chunkSizeBytes.toLong(), remaining).toInt()
                 val bytes = ByteArray(partSize)
-                source.seek(uploaded)
+                source.seek(offset)
                 source.readFully(bytes)
-                val part = api.requestUploadPart(
-                    UploadPartRequestDto(
-                        uploadId = created.uploadId,
-                        partNumber = partNumber,
-                    ),
-                )
-                val etag = putBytes(part.uploadUrl, bytes, part.headers)
-                api.recordUploadPart(
-                    RecordUploadPartRequestDto(
-                        uploadId = created.uploadId,
-                        partNumber = partNumber,
-                        etag = etag,
-                        sizeBytes = bytes.size.toLong(),
-                    ),
-                )
+                api.uploadPart(session.uploadId, partNumber, bytes)
                 uploaded += bytes.size
                 dao.updateAttachmentProgress(
                     attachmentId = attachment.id,
-                    uploadId = created.uploadId,
+                    uploadId = session.uploadId,
                     uploadedBytes = uploaded,
                     state = AttachmentStates.UPLOADING,
                 )
@@ -106,42 +121,29 @@ class EncryptedAttachmentUploader(
         }
         api.completeUpload(
             CompleteUploadRequestDto(
-                uploadId = created.uploadId,
+                uploadId = session.uploadId,
                 ciphertextSha256 = checksum,
             ),
         )
         dao.updateAttachmentProgress(
             attachmentId = attachment.id,
-            uploadId = created.uploadId,
+            uploadId = session.uploadId,
             uploadedBytes = encryptedSize,
             state = AttachmentStates.UPLOADED,
         )
         dao.attachment(attachment.id) ?: attachment.copy(
-            uploadId = created.uploadId,
+            uploadId = session.uploadId,
             uploadedBytes = encryptedSize,
             state = AttachmentStates.UPLOADED,
         )
     }
 
-    private fun putBytes(
-        url: String,
-        bytes: ByteArray,
-        headers: Map<String, String>,
-    ): String {
-        val builder = Request.Builder()
-            .url(url)
-            .put(bytes.toRequestBody(BINARY))
-        headers.forEach(builder::header)
-        httpClient.newCall(builder.build()).execute().use { response ->
-            if (!response.isSuccessful) {
-                error("Encrypted upload failed (${response.code}).")
-            }
-            return response.header("ETag")?.trim()
-                ?: error("Encrypted upload did not return an ETag.")
-        }
-    }
-
-    private companion object {
-        val BINARY = "application/octet-stream".toMediaType()
-    }
+    private data class UploadSession(
+        val uploadId: String,
+        val chunkSizeBytes: Int,
+        val totalChunks: Int,
+        val uploadedBytes: Long,
+        val completedPartNumbers: Set<Int>,
+        val thumbnailRequired: Boolean,
+    )
 }

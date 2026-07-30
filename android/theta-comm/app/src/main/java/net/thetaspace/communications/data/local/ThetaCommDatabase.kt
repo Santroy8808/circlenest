@@ -33,7 +33,7 @@ abstract class ThetaCommDatabase : RoomDatabase() {
                 "theta_comm_v2.db",
             )
                 .addMigrations(MIGRATION_1_2)
-                .fallbackToDestructiveMigrationOnDowngrade()
+                .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                 .build()
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {

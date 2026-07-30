@@ -2,6 +2,8 @@ package net.thetaspace.communications.data.remote
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 
 @Serializable
 data class ApiErrorDto(
@@ -104,6 +106,7 @@ data class SyncResponseDto(
 data class RecipientEnvelopeDto(
     val recipientUserId: String,
     val recipientDeviceId: String,
+    val recipientKeyVersion: Int,
     val envelopeType: String,
     val ciphertext: String,
 )
@@ -182,13 +185,6 @@ data class KyberPreKeyDto(
 )
 
 @Serializable
-data class PushRegistrationDto(
-    val provider: String = "FCM",
-    val token: String,
-    val appInstanceId: String? = null,
-)
-
-@Serializable
 data class RegisterDeviceRequestDto(
     val deviceId: String,
     val platform: String = "android",
@@ -198,7 +194,6 @@ data class RegisterDeviceRequestDto(
     val signedPreKey: SignedPreKeyDto,
     val oneTimePreKeys: List<PreKeyDto>,
     val oneTimeKyberPreKeys: List<KyberPreKeyDto>,
-    val push: PushRegistrationDto? = null,
 )
 
 @Serializable
@@ -210,6 +205,8 @@ data class DeviceDto(
     val lastSeenAt: String,
     val revokedAt: String? = null,
     val verified: Boolean = false,
+    val keyVersion: Int = 1,
+    val identityKeyFingerprint: String? = null,
 )
 
 @Serializable
@@ -221,8 +218,39 @@ data class RegisterDeviceResponseDto(
 )
 
 @Serializable
+data class ReplenishPreKeysRequestDto(
+    val deviceId: String,
+    val oneTimePreKeys: List<PreKeyDto>,
+    val oneTimeKyberPreKeys: List<KyberPreKeyDto>,
+)
+
+@Serializable
+data class ReplenishPreKeysResponseDto(
+    val ok: Boolean,
+    val available: Int,
+    val kyberAvailable: Int,
+)
+
+@Serializable
+data class PreKeyStatusResponseDto(
+    val available: Int,
+    val kyberAvailable: Int,
+)
+
+@Serializable
 data class DeviceListResponseDto(
     val devices: List<DeviceDto>,
+)
+
+@Serializable
+data class RevokeDeviceRequestDto(
+    val deviceId: String,
+)
+
+@Serializable
+data class RevokeDeviceResponseDto(
+    val ok: Boolean,
+    val revokedAt: String,
 )
 
 @Serializable
@@ -234,6 +262,7 @@ data class PreKeyBundleDto(
     val signedPreKey: SignedPreKeyDto,
     val oneTimePreKey: PreKeyDto? = null,
     val kyberPreKey: KyberPreKeyDto,
+    val keyVersion: Int,
 )
 
 @Serializable
@@ -276,6 +305,69 @@ data class CreateGroupConversationRequestDto(
 data class CreateConversationResponseDto(
     val conversation: ConversationDto,
     val created: Boolean,
+)
+
+@Serializable
+data class ConversationPreferenceRequestDto(
+    val archived: Boolean? = null,
+    val pinned: Boolean? = null,
+    val mutedUntil: String? = null,
+    val notificationLevel: String? = null,
+)
+
+@Serializable
+data class ConversationPreferenceResponseDto(
+    val ok: Boolean,
+    val preferences: ConversationPreferencesDto,
+)
+
+@Serializable
+data class ClearConversationMuteRequestDto(
+    val mutedUntil: JsonElement = JsonNull,
+)
+
+@Serializable
+data class AddGroupMembersRequestDto(
+    val action: String = "ADD_MEMBERS",
+    val userIds: List<String>,
+)
+
+@Serializable
+data class RemoveGroupMemberRequestDto(
+    val action: String = "REMOVE_MEMBER",
+    val userId: String,
+)
+
+@Serializable
+data class SetGroupRoleRequestDto(
+    val action: String = "SET_ROLE",
+    val userId: String,
+    val role: String,
+)
+
+@Serializable
+data class LeaveGroupRequestDto(
+    val action: String = "LEAVE",
+)
+
+@Serializable
+data class RenameGroupRequestDto(
+    val action: String = "RENAME",
+    val titleCiphertext: String,
+    val metadataEnvelopes: List<RecipientEnvelopeDto>,
+)
+
+@Serializable
+data class SetGroupAvatarRequestDto(
+    val action: String = "SET_AVATAR",
+    val messageId: String? = null,
+)
+
+@Serializable
+data class GroupCommandResponseDto(
+    val ok: Boolean,
+    val membershipVersion: Int,
+    val systemMessageRequired: Boolean,
 )
 
 @Serializable
@@ -333,38 +425,7 @@ data class CreateUploadResponseDto(
     val chunkSizeBytes: Int,
     val totalChunks: Int,
     val expiresAt: String,
-    val thumbnailUpload: PresignedUploadDto? = null,
-)
-
-@Serializable
-data class PresignedUploadDto(
-    val uploadUrl: String,
-    val headers: Map<String, String> = emptyMap(),
-)
-
-@Serializable
-data class UploadPartRequestDto(
-    val action: String = "part",
-    val uploadId: String,
-    val partNumber: Int,
-)
-
-@Serializable
-data class UploadPartResponseDto(
-    val uploadId: String,
-    val partNumber: Int,
-    val sizeBytes: Long,
-    val uploadUrl: String,
-    val headers: Map<String, String> = emptyMap(),
-)
-
-@Serializable
-data class RecordUploadPartRequestDto(
-    val action: String = "recordPart",
-    val uploadId: String,
-    val partNumber: Int,
-    val etag: String,
-    val sizeBytes: Long,
+    val thumbnailRequired: Boolean = false,
 )
 
 @Serializable
@@ -372,6 +433,31 @@ data class CompleteUploadRequestDto(
     val action: String = "complete",
     val uploadId: String,
     val ciphertextSha256: String,
+)
+
+@Serializable
+data class UploadStatusRequestDto(
+    val action: String = "status",
+    val uploadId: String,
+)
+
+@Serializable
+data class UploadStatusResponseDto(
+    val uploadId: String,
+    val status: String,
+    val chunkSizeBytes: Int,
+    val totalChunks: Int,
+    val encryptedSizeBytes: String,
+    val uploadedSizeBytes: String,
+    val completedPartNumbers: List<Int>,
+    val expiresAt: String,
+    val thumbnailRequired: Boolean = false,
+)
+
+@Serializable
+data class CancelUploadRequestDto(
+    val action: String = "cancel",
+    val uploadId: String,
 )
 
 @Serializable
@@ -386,4 +472,25 @@ data class AttachmentDownloadDto(
 @Serializable
 data class OkResponseDto(
     val ok: Boolean,
+)
+
+@Serializable
+data class BlockUserRequestDto(
+    val action: String = "BLOCK",
+    val targetUserId: String,
+)
+
+@Serializable
+data class ReportMessageRequestDto(
+    val action: String = "REPORT",
+    val conversationId: String,
+    val messageId: String,
+    val reason: String,
+    val description: String,
+)
+
+@Serializable
+data class ReportMessageResponseDto(
+    val ok: Boolean,
+    val ticketId: String,
 )

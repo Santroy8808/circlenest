@@ -12,14 +12,4 @@ class MainActivity : ComponentActivity() {
             ThetaCommApp()
         }
     }
-
-    override fun onStart() {
-        super.onStart()
-        (application as ThetaCommApplication).container.realtime.start()
-    }
-
-    override fun onStop() {
-        (application as ThetaCommApplication).container.realtime.stop()
-        super.onStop()
-    }
 }

@@ -10,6 +10,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ThetaCommWork(context: Context) {
     private val manager = WorkManager.getInstance(context)
@@ -30,6 +32,10 @@ class ThetaCommWork(context: Context) {
             if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
             prepare,
         ).then(send).enqueue()
+    }
+
+    fun cancelSend(clientMessageId: String) {
+        manager.cancelUniqueWork("theta-comm-send-$clientMessageId")
     }
 
     fun enqueueImmediateSync() {
@@ -66,6 +72,10 @@ class ThetaCommWork(context: Context) {
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
+    }
+
+    suspend fun cancelAll() = withContext(Dispatchers.IO) {
+        manager.cancelAllWork().result.get()
     }
 
     private companion object {

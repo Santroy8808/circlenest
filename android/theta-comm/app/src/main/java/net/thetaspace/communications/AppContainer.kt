@@ -34,7 +34,6 @@ class AppContainer(
     val attachmentCrypto = AttachmentCrypto(context)
     val attachmentUploader = EncryptedAttachmentUploader(
         api = api,
-        httpClient = httpClient,
         dao = database.thetaCommDao(),
     )
     val attachmentDownloader = EncryptedAttachmentDownloader(
@@ -55,5 +54,5 @@ class AppContainer(
         attachmentDownloader = attachmentDownloader,
         work = work,
     )
-    val realtime = ThetaCommRealtime(httpClient, sessionStore, work)
+    val realtime = ThetaCommRealtime(context, httpClient, sessionStore, work)
 }

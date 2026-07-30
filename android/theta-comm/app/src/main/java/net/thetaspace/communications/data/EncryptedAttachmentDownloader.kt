@@ -104,15 +104,7 @@ class EncryptedAttachmentDownloader(
     ) {
         if (expectedSize != null && output.length() == expectedSize) return
         val existingBytes = output.length()
-        val request = Request.Builder()
-            .url(url)
-            .apply {
-                if (existingBytes > 0L) {
-                    header("Range", "bytes=$existingBytes-")
-                }
-            }
-            .get()
-            .build()
+        val request = api.authenticatedBinaryGet(url, existingBytes)
 
         httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {

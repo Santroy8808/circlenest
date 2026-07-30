@@ -6,9 +6,9 @@ import net.thetaspace.communications.BuildConfig
 import net.thetaspace.communications.data.remote.PreKeyBundleDto
 import net.thetaspace.communications.data.remote.PreKeyDto
 import net.thetaspace.communications.data.remote.KyberPreKeyDto
-import net.thetaspace.communications.data.remote.PushRegistrationDto
 import net.thetaspace.communications.data.remote.RecipientEnvelopeDto
 import net.thetaspace.communications.data.remote.RegisterDeviceRequestDto
+import net.thetaspace.communications.data.remote.ReplenishPreKeysRequestDto
 import net.thetaspace.communications.data.remote.SignedPreKeyDto
 import org.signal.libsignal.protocol.IdentityKey
 import org.signal.libsignal.protocol.SessionBuilder
@@ -32,9 +32,7 @@ class SignalCryptoEngine(
 ) {
     fun registrationRequest(
         stableDeviceId: String,
-        pushToken: String?,
-        appInstanceId: String?,
-        preKeyCount: Int = 50,
+        preKeyCount: Int = 100,
     ): RegisterDeviceRequestDto {
         val identity = stores.identityStore.identityKeyPair
         val registrationId = stores.identityStore.localRegistrationId
@@ -65,8 +63,57 @@ class SignalCryptoEngine(
                     signature = it.signature.base64(),
                 )
             },
-            push = pushToken?.let {
-                PushRegistrationDto(token = it, appInstanceId = appInstanceId)
+        )
+    }
+
+    fun replenishmentRequest(
+        stableDeviceId: String,
+        serverAvailable: Int,
+        serverKyberAvailable: Int,
+        targetCount: Int = 100,
+        threshold: Int = 50,
+    ): ReplenishPreKeysRequestDto? {
+        if (minOf(serverAvailable, serverKyberAvailable) >= threshold) return null
+        val generateCount = maxOf(
+            targetCount - serverAvailable,
+            targetCount - serverKyberAvailable,
+            1,
+        )
+        val preKeys = stores.allocatePreKeyIds(
+            kyber = false,
+            count = generateCount,
+        ).map { id ->
+            PreKeyRecord(id, ECKeyPair.generate()).also {
+                stores.preKeyStore.storePreKey(id, it)
+            }
+        }
+        val identity = stores.identityStore.identityKeyPair
+        val kyberPreKeys = stores.allocatePreKeyIds(
+            kyber = true,
+            count = generateCount,
+        ).map { id ->
+            val keyPair = KEMKeyPair.generate(KEMKeyType.KYBER_1024)
+            val signature = identity.privateKey.calculateSignature(keyPair.publicKey.serialize())
+            KyberPreKeyRecord(
+                id,
+                Instant.now().toEpochMilli(),
+                keyPair,
+                signature,
+            ).also {
+                stores.kyberPreKeyStore.storeKyberPreKey(id, it)
+            }
+        }
+        return ReplenishPreKeysRequestDto(
+            deviceId = stableDeviceId,
+            oneTimePreKeys = preKeys.map {
+                PreKeyDto(it.id, it.keyPair.publicKey.serialize().base64())
+            },
+            oneTimeKyberPreKeys = kyberPreKeys.map {
+                KyberPreKeyDto(
+                    keyId = it.id,
+                    publicKey = it.keyPair.publicKey.serialize().base64(),
+                    signature = it.signature.base64(),
+                )
             },
         )
     }
@@ -93,6 +140,7 @@ class SignalCryptoEngine(
             plaintext = plaintext,
             recipientUserId = bundle.userId,
             recipientDeviceId = bundle.deviceId,
+            recipientKeyVersion = bundle.keyVersion,
             local = local,
             remote = remote,
         )
@@ -113,6 +161,7 @@ class SignalCryptoEngine(
         plaintext: ByteArray,
         recipientUserId: String,
         recipientDeviceId: String,
+        recipientKeyVersion: Int,
         localUserId: String,
         localDeviceId: String,
     ): RecipientEnvelopeDto {
@@ -125,6 +174,7 @@ class SignalCryptoEngine(
             plaintext = plaintext,
             recipientUserId = recipientUserId,
             recipientDeviceId = recipientDeviceId,
+            recipientKeyVersion = recipientKeyVersion,
             local = local,
             remote = remote,
         )
@@ -134,6 +184,7 @@ class SignalCryptoEngine(
         plaintext: ByteArray,
         recipientUserId: String,
         recipientDeviceId: String,
+        recipientKeyVersion: Int,
         local: SignalProtocolAddress,
         remote: SignalProtocolAddress,
     ): RecipientEnvelopeDto {
@@ -150,6 +201,7 @@ class SignalCryptoEngine(
         return RecipientEnvelopeDto(
             recipientUserId = recipientUserId,
             recipientDeviceId = recipientDeviceId,
+            recipientKeyVersion = recipientKeyVersion,
             envelopeType = if (encrypted.type == CiphertextMessage.PREKEY_TYPE) {
                 "PREKEY"
             } else {
@@ -206,18 +258,17 @@ class SignalCryptoEngine(
     }
 
     private fun ensureOneTimePreKeys(count: Int): List<PreKeyRecord> {
-        val records = mutableListOf<PreKeyRecord>()
-        var id = 1
-        while (records.size < count) {
-            val record = if (stores.preKeyStore.containsPreKey(id)) {
-                stores.preKeyStore.loadPreKey(id)
-            } else {
-                PreKeyRecord(id, ECKeyPair.generate()).also {
+        val records = stores.availablePreKeyIds(kyber = false)
+            .take(count)
+            .map(stores.preKeyStore::loadPreKey)
+            .toMutableList()
+        val missing = count - records.size
+        if (missing > 0) {
+            stores.allocatePreKeyIds(kyber = false, count = missing).forEach { id ->
+                records += PreKeyRecord(id, ECKeyPair.generate()).also {
                     stores.preKeyStore.storePreKey(id, it)
                 }
             }
-            records += record
-            id += 1
         }
         return records
     }
@@ -226,16 +277,17 @@ class SignalCryptoEngine(
         identity: org.signal.libsignal.protocol.IdentityKeyPair,
         count: Int,
     ): List<KyberPreKeyRecord> {
-        val records = mutableListOf<KyberPreKeyRecord>()
-        var id = 1
-        while (records.size < count) {
-            val record = if (stores.kyberPreKeyStore.containsKyberPreKey(id)) {
-                stores.kyberPreKeyStore.loadKyberPreKey(id)
-            } else {
+        val records = stores.availablePreKeyIds(kyber = true)
+            .take(count)
+            .map(stores.kyberPreKeyStore::loadKyberPreKey)
+            .toMutableList()
+        val missing = count - records.size
+        if (missing > 0) {
+            stores.allocatePreKeyIds(kyber = true, count = missing).forEach { id ->
                 val keyPair = KEMKeyPair.generate(KEMKeyType.KYBER_1024)
                 val signature = identity.privateKey
                     .calculateSignature(keyPair.publicKey.serialize())
-                KyberPreKeyRecord(
+                records += KyberPreKeyRecord(
                     id,
                     Instant.now().toEpochMilli(),
                     keyPair,
@@ -244,8 +296,6 @@ class SignalCryptoEngine(
                     stores.kyberPreKeyStore.storeKyberPreKey(id, it)
                 }
             }
-            records += record
-            id += 1
         }
         return records
     }

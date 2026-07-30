@@ -23,7 +23,6 @@ import {
   clampClientDate,
   createSyncEvents,
   directConversationKey,
-  enqueuePushWakeups,
   ThetaCommError,
   validateCompleteRecipientSet
 } from "@/modules/theta-comm/theta-comm.shared";
@@ -127,11 +126,6 @@ export async function createThetaCommConversation(userId: string, input: unknown
           kind: ThetaCommSyncEventKind.CONVERSATION,
           conversationId: conversation.id
         });
-        await enqueuePushWakeups(tx, {
-          userIds: participantUserIds.filter((participantUserId) => participantUserId !== userId),
-          conversationId: conversation.id,
-          reason: "membership"
-        });
         return conversation;
       });
       return { conversation: serializeConversation(created, userId), created: true };
@@ -226,12 +220,6 @@ export async function createThetaCommConversation(userId: string, input: unknown
       kind: ThetaCommSyncEventKind.CONVERSATION,
       conversationId: conversation.id,
       messageId: systemMessage.id
-    });
-    await enqueuePushWakeups(tx, {
-      userIds: participantUserIds.filter((participantUserId) => participantUserId !== userId),
-      excludeDeviceIds: [senderDevice.id],
-      conversationId: conversation.id,
-      reason: "membership"
     });
     return tx.encryptedChatThread.findUniqueOrThrow({
       where: { id: conversation.id },
@@ -367,6 +355,12 @@ export async function updateThetaCommGroup(
       if (!target || target.role === EncryptedChatParticipantRole.OWNER) {
         throw new ThetaCommError(404, "MEMBER_NOT_FOUND", "That member cannot be changed.");
       }
+      if (command.role === EncryptedChatParticipantRole.OWNER) {
+        await tx.encryptedChatParticipant.update({
+          where: { id: actor.id },
+          data: { role: EncryptedChatParticipantRole.ADMIN }
+        });
+      }
       await tx.encryptedChatParticipant.update({
         where: { id: target.id },
         data: { role: command.role }
@@ -393,7 +387,35 @@ export async function updateThetaCommGroup(
       if (!canAdministerConversation(actor.role)) {
         throw new ThetaCommError(403, "NOT_ALLOWED", "Only chat group administrators can change the image.");
       }
-      if (command.uploadId) {
+      if (command.messageId) {
+        const avatarMessage = await tx.encryptedChatMessage.findFirst({
+          where: {
+            id: command.messageId,
+            threadId: conversation.id,
+            senderUserId: userId,
+            kind: EncryptedChatMessageKind.SYSTEM
+          },
+          select: {
+            attachments: {
+              orderBy: { createdAt: "asc" },
+              take: 1,
+              select: { storageKey: true }
+            }
+          }
+        });
+        const storageKey = avatarMessage?.attachments[0]?.storageKey;
+        if (!storageKey) {
+          throw new ThetaCommError(
+            400,
+            "AVATAR_MESSAGE_INVALID",
+            "The encrypted group image message is unavailable."
+          );
+        }
+        await tx.encryptedChatThread.update({
+          where: { id: conversation.id },
+          data: { avatarStorageKey: storageKey }
+        });
+      } else if (command.uploadId) {
         const upload = await tx.encryptedChatUpload.findFirst({
           where: {
             id: command.uploadId,
@@ -430,11 +452,6 @@ export async function updateThetaCommGroup(
       kind: membershipChanged ? ThetaCommSyncEventKind.MEMBERSHIP : ThetaCommSyncEventKind.CONVERSATION,
       conversationId: conversation.id,
       payload: { action: command.action, membershipVersion: updated.membershipVersion }
-    });
-    await enqueuePushWakeups(tx, {
-      userIds: [...affectedUserIds],
-      conversationId: conversation.id,
-      reason: "membership"
     });
     return {
       ok: true as const,

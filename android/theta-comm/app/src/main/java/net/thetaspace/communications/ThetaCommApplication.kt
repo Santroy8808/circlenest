@@ -9,8 +9,15 @@ class ThetaCommApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        clearEphemeralPlaintext()
         container = AppContainer(this)
-        ThetaCommNotifications.createChannel(this)
+        ThetaCommNotifications.createChannels(this)
         container.work.schedulePeriodicSync()
+    }
+
+    private fun clearEphemeralPlaintext() {
+        listOf("theta_comm_open", "theta_comm_video").forEach { directory ->
+            cacheDir.resolve(directory).deleteRecursively()
+        }
     }
 }

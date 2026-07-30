@@ -3,6 +3,7 @@ import { readJsonRequest } from "@/lib/platform/api-request";
 import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platform/mobile-auth";
 import { thetaCommApiError } from "@/modules/theta-comm/api";
 import {
+  getThetaCommPreKeyStatus,
   getThetaCommPreKeyBundles,
   listThetaCommRecipientDevices,
   replenishThetaCommPreKeys
@@ -23,7 +24,13 @@ export async function GET(request: NextRequest) {
     .map((value) => value.trim())
     .filter(Boolean);
   try {
-    if (request.nextUrl.searchParams.get("mode") === "devices") {
+    const mode = request.nextUrl.searchParams.get("mode");
+    if (mode === "status") {
+      return NextResponse.json(
+        await getThetaCommPreKeyStatus(session.user.id, verifierDeviceId)
+      );
+    }
+    if (mode === "devices") {
       return NextResponse.json(
         await listThetaCommRecipientDevices(session.user.id, userIds)
       );

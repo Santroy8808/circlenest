@@ -14,7 +14,6 @@ import { enqueueDueConductScans } from "@/modules/conduct-reporting/scanner.serv
 import { runOneAnnouncementDelivery } from "@/modules/admin-moderation/delivery-outbox.service";
 import { allocateContributorMonthlyCredits } from "@/modules/membership-policy/monthly-credits.service";
 import { runBetaActivityReminderSweep } from "@/modules/membership-policy/beta-activity-reminders.service";
-import { runOneThetaCommPush } from "@/modules/theta-comm/push.service";
 import { expireThetaCommUploads } from "@/modules/theta-comm/upload.service";
 
 const workerId = process.env.PLATFORM_WORKER_ID ?? `worker-${randomUUID()}`;
@@ -105,13 +104,12 @@ async function main() {
     await runMonthlyCreditCheck(lastMonthlyCreditCheckAt === 0);
     await runBetaReminderCheck(lastBetaReminderCheckAt === 0);
     const announcement = await runOneAnnouncementDelivery(workerId);
-    const thetaCommPush = await runOneThetaCommPush(workerId);
     const result = await runOnePlatformJob(workerId, undefined, {
       leaseDurationMs: platformJobLeaseMs,
       heartbeatIntervalMs: platformJobHeartbeatMs
     });
     if (once) break;
-    if (!announcement.ran && !thetaCommPush.ran && !result.ran) await sleep(idleDelayMs);
+    if (!announcement.ran && !result.ran) await sleep(idleDelayMs);
   } while (!shuttingDown);
 
   await prisma.$disconnect();

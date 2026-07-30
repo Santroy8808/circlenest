@@ -21,13 +21,18 @@ import androidx.compose.material.icons.filled.AddComment
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import net.thetaspace.communications.data.ConversationListItem
 import net.thetaspace.communications.data.remote.ContactDto
@@ -70,9 +76,12 @@ fun ConversationListScreen(
     onStartDirect: suspend (String) -> String,
     onStartGroup: suspend (String, List<String>) -> String,
     onOpenArchived: () -> Unit,
+    onOpenDevices: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
     var showNewConversation by rememberSaveable { mutableStateOf(false) }
+    var showAccountMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -100,8 +109,48 @@ fun ConversationListScreen(
                     IconButton(onClick = onOpenArchived) {
                         Icon(Icons.Default.Archive, contentDescription = "Archived chats")
                     }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Account menu")
+                    Box {
+                        IconButton(onClick = { showAccountMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Account menu")
+                        }
+                        DropdownMenu(
+                            expanded = showAccountMenu,
+                            onDismissRequest = { showAccountMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Linked devices") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Devices, contentDescription = null)
+                                },
+                                onClick = {
+                                    showAccountMenu = false
+                                    onOpenDevices()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Notification privacy") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Notifications, contentDescription = null)
+                                },
+                                onClick = {
+                                    showAccountMenu = false
+                                    onOpenNotificationSettings()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Log out") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Logout,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    showAccountMenu = false
+                                    onLogout()
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -239,10 +288,22 @@ private fun NewConversationSheet(
     var groupTitle by rememberSaveable { mutableStateOf("") }
     var selectedUserIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var createGroupRequested by remember { mutableStateOf(false) }
+    var operationError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(query) {
         delay(250)
-        results = if (query.trim().length >= 2) onSearch(query) else emptyList()
+        operationError = null
+        if (query.trim().length < 2) {
+            results = emptyList()
+        } else {
+            try {
+                results = onSearch(query)
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                results = emptyList()
+                operationError = "People search is temporarily unavailable."
+            }
+        }
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -330,6 +391,14 @@ private fun NewConversationSheet(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
             ) {}
+            operationError?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
             results.forEach { person ->
                 val selected = person.id in selectedUserIds
                 ListItem(
@@ -363,7 +432,13 @@ private fun NewConversationSheet(
                 )
                 if (loadingUserId == person.id) {
                     LaunchedEffect(person.id) {
-                        onStartDirect(person.id)
+                        try {
+                            onStartDirect(person.id)
+                        } catch (error: Throwable) {
+                            if (error is CancellationException) throw error
+                            operationError =
+                                error.message ?: "The conversation could not be started."
+                        }
                         loadingUserId = null
                     }
                 }
@@ -382,7 +457,13 @@ private fun NewConversationSheet(
                 }
                 if (createGroupRequested) {
                     LaunchedEffect(groupTitle, selectedUserIds) {
-                        onStartGroup(groupTitle, selectedUserIds.toList())
+                        try {
+                            onStartGroup(groupTitle, selectedUserIds.toList())
+                        } catch (error: Throwable) {
+                            if (error is CancellationException) throw error
+                            operationError =
+                                error.message ?: "The chat group could not be created."
+                        }
                         createGroupRequested = false
                     }
                 }

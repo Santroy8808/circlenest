@@ -140,7 +140,6 @@ CREATE TABLE "EncryptedChatUpload" (
     "uploadedSizeBytes" BIGINT NOT NULL DEFAULT 0,
     "chunkSizeBytes" INTEGER NOT NULL,
     "totalChunks" INTEGER NOT NULL,
-    "r2MultipartUploadId" TEXT,
     "status" "EncryptedChatUploadStatus" NOT NULL DEFAULT 'PENDING',
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -185,39 +184,6 @@ CREATE TABLE "ThetaCommPreKey" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ThetaCommPreKey_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ThetaCommPushRegistration" (
-    "id" TEXT NOT NULL,
-    "userDeviceId" TEXT NOT NULL,
-    "provider" TEXT NOT NULL DEFAULT 'FCM',
-    "token" TEXT NOT NULL,
-    "appInstanceId" TEXT,
-    "enabled" BOOLEAN NOT NULL DEFAULT true,
-    "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ThetaCommPushRegistration_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ThetaCommPushOutbox" (
-    "id" TEXT NOT NULL,
-    "userDeviceId" TEXT NOT NULL,
-    "payload" JSONB NOT NULL,
-    "attempts" INTEGER NOT NULL DEFAULT 0,
-    "availableAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "lockedAt" TIMESTAMP(3),
-    "lockedBy" TEXT,
-    "sentAt" TIMESTAMP(3),
-    "failedAt" TIMESTAMP(3),
-    "lastError" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ThetaCommPushOutbox_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -296,18 +262,6 @@ CREATE INDEX "ThetaCommPreKey_userDeviceId_consumedAt_createdAt_idx" ON "ThetaCo
 CREATE UNIQUE INDEX "ThetaCommPreKey_userDeviceId_keyId_key" ON "ThetaCommPreKey"("userDeviceId", "keyId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ThetaCommPushRegistration_token_key" ON "ThetaCommPushRegistration"("token");
-
--- CreateIndex
-CREATE INDEX "ThetaCommPushRegistration_userDeviceId_enabled_lastSeenAt_idx" ON "ThetaCommPushRegistration"("userDeviceId", "enabled", "lastSeenAt");
-
--- CreateIndex
-CREATE INDEX "ThetaCommPushOutbox_availableAt_sentAt_failedAt_idx" ON "ThetaCommPushOutbox"("availableAt", "sentAt", "failedAt");
-
--- CreateIndex
-CREATE INDEX "ThetaCommPushOutbox_userDeviceId_createdAt_idx" ON "ThetaCommPushOutbox"("userDeviceId", "createdAt");
-
--- CreateIndex
 CREATE INDEX "ThetaCommTypingState_conversationId_expiresAt_idx" ON "ThetaCommTypingState"("conversationId", "expiresAt");
 
 -- CreateIndex
@@ -381,12 +335,6 @@ ALTER TABLE "EncryptedChatAttachment" ADD CONSTRAINT "EncryptedChatAttachment_up
 
 -- AddForeignKey
 ALTER TABLE "ThetaCommPreKey" ADD CONSTRAINT "ThetaCommPreKey_userDeviceId_fkey" FOREIGN KEY ("userDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ThetaCommPushRegistration" ADD CONSTRAINT "ThetaCommPushRegistration_userDeviceId_fkey" FOREIGN KEY ("userDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ThetaCommPushOutbox" ADD CONSTRAINT "ThetaCommPushOutbox_userDeviceId_fkey" FOREIGN KEY ("userDeviceId") REFERENCES "UserDevice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ThetaCommTypingState" ADD CONSTRAINT "ThetaCommTypingState_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "EncryptedChatThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;

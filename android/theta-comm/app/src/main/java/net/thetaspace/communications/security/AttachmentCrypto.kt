@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import net.thetaspace.communications.data.local.AttachmentEntity
+import net.thetaspace.communications.media.VideoCompressor
 
 data class PreparedEncryptedAttachment(
     val encryptedFile: File,
@@ -48,6 +49,7 @@ class AttachmentCrypto(
     private val context: Context,
 ) {
     private val secureRandom = SecureRandom()
+    private val videoCompressor = VideoCompressor(context)
     private val outputDirectory = File(context.filesDir, "theta_comm_ciphertext")
         .apply { mkdirs() }
 
@@ -98,7 +100,26 @@ class AttachmentCrypto(
             val key = randomBytes(KEY_BYTES)
             val nonce = randomBytes(NONCE_BYTES)
             val output = File(outputDirectory, "${attachment.id}.bin")
-            val normalized = normalizedImageSource(sourceUri, attachment.mimeType, attachment.id)
+            val normalizedImage =
+                normalizedImageSource(sourceUri, attachment.mimeType, attachment.id)
+            val normalizedVideo = if (
+                attachment.mimeType == "video/mp4" &&
+                attachment.byteSize >= VIDEO_COMPRESSION_THRESHOLD
+            ) {
+                runCatching {
+                    videoCompressor.compress(sourceUri, attachment.id)
+                }.getOrNull()?.let { compressed ->
+                    compressed.takeIf {
+                        it.length() in 1L until attachment.byteSize
+                    } ?: run {
+                        compressed.delete()
+                        null
+                    }
+                }
+            } else {
+                null
+            }
+            val normalized = normalizedImage ?: normalizedVideo
             val encrypted = try {
                 val input = normalized?.inputStream()
                     ?: sourceUri.takeIf { it.scheme == "file" }
@@ -167,6 +188,33 @@ class AttachmentCrypto(
             }
         }
         output
+    }
+
+    fun deleteOwnedPlaintextSource(sourceUri: String?) {
+        val uri = sourceUri?.let(Uri::parse) ?: return
+        if (uri.scheme != "file") return
+        val source = uri.path?.let(::File) ?: return
+        val voiceDirectory = File(context.cacheDir, "theta_comm_voice")
+        val sourcePath = runCatching { source.canonicalPath }.getOrNull() ?: return
+        val voicePath = runCatching { voiceDirectory.canonicalPath }.getOrNull() ?: return
+        if (sourcePath.startsWith("$voicePath${File.separator}")) {
+            source.delete()
+        }
+    }
+
+    fun clearLocalFiles() {
+        outputDirectory.deleteRecursively()
+        outputDirectory.mkdirs()
+        listOf(
+            "theta_comm_open",
+            "theta_comm_video",
+            "theta_comm_voice",
+        ).forEach { directory ->
+            context.cacheDir.resolve(directory).deleteRecursively()
+        }
+        context.cacheDir.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".normalized.jpg") }
+            ?.forEach(File::delete)
     }
 
     private suspend fun encryptStream(
@@ -300,6 +348,7 @@ class AttachmentCrypto(
         const val BUFFER_BYTES = 64 * 1024
         const val MAX_IMAGE_DIMENSION = 2_048
         const val THUMBNAIL_DIMENSION = 480
+        const val VIDEO_COMPRESSION_THRESHOLD = 8L * 1024 * 1024
         const val MAX_ATTACHMENT_BYTES = 250L * 1024 * 1024 - 32
     }
 }

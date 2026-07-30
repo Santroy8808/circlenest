@@ -37,33 +37,50 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -90,6 +107,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -102,8 +120,10 @@ import net.thetaspace.communications.data.AttachmentListItem
 import net.thetaspace.communications.data.ConversationHeader
 import net.thetaspace.communications.data.MessageListItem
 import net.thetaspace.communications.data.local.AttachmentStates
+import net.thetaspace.communications.data.local.MessageKinds
 import net.thetaspace.communications.data.local.MessageStates
 import net.thetaspace.communications.media.VoiceRecorder
+import net.thetaspace.communications.ui.components.EncryptedConversationAvatar
 import net.thetaspace.communications.ui.components.InitialAvatar
 import net.thetaspace.communications.ui.theme.ThetaBlue
 import net.thetaspace.communications.ui.theme.ThetaBubbleIncoming
@@ -123,6 +143,17 @@ fun ChatScreen(
     onQueueVoice: suspend (String) -> Unit,
     onOpenAttachment: suspend (String, Boolean) -> String,
     onRetry: suspend (String) -> Unit,
+    onCancelOutgoing: suspend (String) -> Unit,
+    onReact: suspend (String, String) -> Unit,
+    onEdit: suspend (String, String) -> Unit,
+    onDelete: suspend (String) -> Unit,
+    onArchive: suspend (Boolean) -> Unit,
+    onPin: suspend (Boolean) -> Unit,
+    onMuteUntil: suspend (Long) -> Unit,
+    onUnmute: suspend () -> Unit,
+    onOpenGroupInfo: () -> Unit,
+    onBlockUser: suspend (String) -> Unit,
+    onReportMessage: suspend (String, String, String) -> String,
     onDraftChange: suspend (String) -> Unit,
     onTyping: suspend (Boolean) -> Unit,
     onConversationDisplayed: suspend () -> Unit,
@@ -131,6 +162,12 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     var composerText by rememberSaveable(header?.id) { mutableStateOf(initialDraft) }
     var replyTarget by remember { mutableStateOf<MessageListItem?>(null) }
+    var editTarget by remember { mutableStateOf<MessageListItem?>(null) }
+    var selectedActionMessage by remember { mutableStateOf<MessageListItem?>(null) }
+    var messageInfo by remember { mutableStateOf<MessageListItem?>(null) }
+    var showConversationMenu by remember { mutableStateOf(false) }
+    var showBlockConfirmation by remember { mutableStateOf(false) }
+    var reportTarget by remember { mutableStateOf<MessageListItem?>(null) }
     var searchMode by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showAttachmentSheet by rememberSaveable { mutableStateOf(false) }
@@ -186,7 +223,7 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(header?.id) {
+    LaunchedEffect(header?.id, messages.lastOrNull()?.serverMessageId) {
         onConversationDisplayed()
     }
     LaunchedEffect(initialDraft) {
@@ -240,7 +277,12 @@ fun ChatScreen(
                         )
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            InitialAvatar(header?.title.orEmpty(), size = 38.dp)
+                            EncryptedConversationAvatar(
+                                title = header?.title.orEmpty(),
+                                attachmentId = header?.avatarAttachmentId,
+                                size = 38.dp,
+                                onOpenAttachment = onOpenAttachment,
+                            )
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(
@@ -279,8 +321,117 @@ fun ChatScreen(
                             contentDescription = if (searchMode) "Close search" else "Search",
                         )
                     }
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Conversation menu")
+                    Box {
+                        IconButton(onClick = { showConversationMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Conversation menu")
+                        }
+                        DropdownMenu(
+                            expanded = showConversationMenu,
+                            onDismissRequest = { showConversationMenu = false },
+                        ) {
+                            if (header?.type == "GROUP") {
+                                DropdownMenuItem(
+                                    text = { Text("Chat group info") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Group, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showConversationMenu = false
+                                        onOpenGroupInfo()
+                                    },
+                                )
+                            }
+                            if (header?.type == "DIRECT") {
+                                DropdownMenuItem(
+                                    text = { Text("Block contact") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Block, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showConversationMenu = false
+                                        showBlockConfirmation = true
+                                    },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Text(if (header?.isPinned == true) "Unpin" else "Pin")
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.PushPin, contentDescription = null)
+                                },
+                                onClick = {
+                                    showConversationMenu = false
+                                    scope.launch {
+                                        runCatching { onPin(header?.isPinned != true) }
+                                            .onFailure {
+                                                attachmentError =
+                                                    it.message ?: "Could not update this chat."
+                                            }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (
+                                            header?.mutedUntil?.let {
+                                                it > System.currentTimeMillis()
+                                            } == true
+                                        ) {
+                                            "Unmute"
+                                        } else {
+                                            "Mute for 8 hours"
+                                        },
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.NotificationsOff, contentDescription = null)
+                                },
+                                onClick = {
+                                    showConversationMenu = false
+                                    scope.launch {
+                                        runCatching {
+                                            if (
+                                                header?.mutedUntil?.let {
+                                                    it > System.currentTimeMillis()
+                                                } == true
+                                            ) {
+                                                onUnmute()
+                                            } else {
+                                                onMuteUntil(
+                                                    System.currentTimeMillis() + 8 * 60 * 60 * 1_000L,
+                                                )
+                                            }
+                                        }.onFailure {
+                                            attachmentError =
+                                                it.message ?: "Could not update notifications."
+                                        }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (header?.isArchived == true) "Unarchive" else "Archive",
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Archive, contentDescription = null)
+                                },
+                                onClick = {
+                                    showConversationMenu = false
+                                    scope.launch {
+                                        runCatching {
+                                            onArchive(header?.isArchived != true)
+                                        }.onFailure {
+                                            attachmentError =
+                                                it.message ?: "Could not update this chat."
+                                        }
+                                    }
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -289,8 +440,12 @@ fun ChatScreen(
             MessageComposer(
                 text = composerText,
                 replyTarget = replyTarget,
+                editTarget = editTarget,
                 onTextChange = { composerText = it },
-                onCancelReply = { replyTarget = null },
+                onCancelContext = {
+                    replyTarget = null
+                    editTarget = null
+                },
                 onAttachment = { showAttachmentSheet = true },
                 isRecording = isRecording,
                 microphoneAllowed = microphoneAllowed,
@@ -325,10 +480,16 @@ fun ChatScreen(
                 onSend = {
                     val outgoing = composerText
                     if (outgoing.isNotBlank()) {
+                        val editing = editTarget
                         val replyId = replyTarget?.serverMessageId
                         composerText = ""
                         replyTarget = null
-                        onSend(outgoing, replyId)
+                        editTarget = null
+                        if (editing != null) {
+                            onEdit(editing.clientMessageId, outgoing)
+                        } else {
+                            onSend(outgoing, replyId)
+                        }
                     }
                 },
             )
@@ -345,13 +506,23 @@ fun ChatScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             items(visibleMessages, key = MessageListItem::clientMessageId) { message ->
-                MessageBubble(
-                    message = message,
-                    isMine = message.senderUserId == currentUserId,
-                    onReply = { replyTarget = message },
-                    onRetry = { onRetry(message.clientMessageId) },
-                    onOpenAttachment = onOpenAttachment,
-                )
+                if (message.kind == MessageKinds.SYSTEM) {
+                    SystemMessageRow(
+                        message = message,
+                        onRetry = { onRetry(message.clientMessageId) },
+                    )
+                } else {
+                    MessageBubble(
+                        message = message,
+                        isMine = message.senderUserId == currentUserId,
+                        onLongPress = { selectedActionMessage = message },
+                        onRetry = { onRetry(message.clientMessageId) },
+                        onCancelOutgoing = {
+                            onCancelOutgoing(message.clientMessageId)
+                        },
+                        onOpenAttachment = onOpenAttachment,
+                    )
+                }
             }
         }
     }
@@ -381,7 +552,10 @@ fun ChatScreen(
             ListItem(
                 headlineContent = { Text("Files") },
                 leadingContent = {
-                    Icon(Icons.Default.InsertDriveFile, contentDescription = null)
+                    Icon(
+                        Icons.AutoMirrored.Filled.InsertDriveFile,
+                        contentDescription = null,
+                    )
                 },
                 modifier = Modifier.clickable {
                     showAttachmentSheet = false
@@ -390,14 +564,246 @@ fun ChatScreen(
             )
         }
     }
+
+    selectedActionMessage?.let { selected ->
+        val isMine = selected.senderUserId == currentUserId
+        val age = System.currentTimeMillis() - selected.createdAt
+        ModalBottomSheet(
+            onDismissRequest = { selectedActionMessage = null },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                listOf("👍", "❤️", "😂", "😮", "😢", "🙏").forEach { emoji ->
+                    Text(
+                        emoji,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable {
+                                scope.launch {
+                                    onReact(selected.clientMessageId, emoji)
+                                }
+                                selectedActionMessage = null
+                            }
+                            .padding(9.dp),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            }
+            ListItem(
+                headlineContent = { Text("Reply") },
+                leadingContent = {
+                    Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null)
+                },
+                modifier = Modifier.clickable {
+                    replyTarget = selected
+                    editTarget = null
+                    selectedActionMessage = null
+                },
+            )
+            if (isMine && age <= 15 * 60 * 1_000L && !selected.isDeleted) {
+                ListItem(
+                    headlineContent = { Text("Edit") },
+                    leadingContent = { Icon(Icons.Default.Edit, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        editTarget = selected
+                        replyTarget = null
+                        composerText = selected.body.orEmpty()
+                        selectedActionMessage = null
+                    },
+                )
+            }
+            if (isMine && age <= 48 * 60 * 60 * 1_000L && !selected.isDeleted) {
+                ListItem(
+                    headlineContent = { Text("Delete for everyone") },
+                    leadingContent = {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable {
+                        scope.launch { onDelete(selected.clientMessageId) }
+                        selectedActionMessage = null
+                    },
+                )
+            }
+            if (isMine && header?.type == "GROUP") {
+                ListItem(
+                    headlineContent = { Text("Delivery and read info") },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        messageInfo = selected
+                        selectedActionMessage = null
+                    },
+                )
+            }
+            if (!isMine && selected.serverMessageId != null) {
+                ListItem(
+                    headlineContent = { Text("Report message") },
+                    leadingContent = { Icon(Icons.Default.Flag, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        reportTarget = selected
+                        selectedActionMessage = null
+                    },
+                )
+            }
+        }
+    }
+
+    messageInfo?.let { info ->
+        ModalBottomSheet(onDismissRequest = { messageInfo = null }) {
+            Text(
+                "Message info",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            header?.participants
+                ?.filter { it.userId != currentUserId && it.leftAt == null && it.removedAt == null }
+                ?.forEach { participant ->
+                    val deviceReceipts = info.receipts.filter { it.userId == participant.userId }
+                    val seen = deviceReceipts.count { it.seenAt != null }
+                    val delivered = deviceReceipts.count {
+                        it.deliveredAt != null && it.seenAt == null
+                    }
+                    val status = when {
+                        seen > 0 -> "Seen"
+                        delivered > 0 -> "Delivered"
+                        else -> "Sent"
+                    }
+                    ListItem(
+                        headlineContent = { Text(participant.displayName) },
+                        supportingContent = {
+                            val detail = if (deviceReceipts.size > 1) {
+                                "Across ${deviceReceipts.size} devices: $seen seen, $delivered delivered"
+                            } else {
+                                status
+                            }
+                            Text(detail)
+                        },
+                        leadingContent = {
+                            InitialAvatar(participant.displayName, size = 40.dp)
+                        },
+                        trailingContent = {
+                            Text(
+                                status,
+                                color = if (status == "Seen") {
+                                    ThetaBlue
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        },
+                    )
+                }
+        }
+    }
+
+    if (showBlockConfirmation) {
+        val target = header?.participants?.firstOrNull { it.userId != currentUserId }
+        AlertDialog(
+            onDismissRequest = { showBlockConfirmation = false },
+            title = { Text("Block ${target?.displayName ?: "contact"}?") },
+            text = {
+                Text("This contact will no longer be able to start or continue a chat with you.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val targetUserId = target?.userId ?: return@Button
+                        scope.launch {
+                            runCatching { onBlockUser(targetUserId) }
+                                .onFailure {
+                                    attachmentError = it.message ?: "The contact could not be blocked."
+                                }
+                        }
+                        showBlockConfirmation = false
+                    },
+                ) {
+                    Text("Block")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBlockConfirmation = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    reportTarget?.let { target ->
+        var reason by rememberSaveable(target.clientMessageId) {
+            mutableStateOf("Spam")
+        }
+        var description by rememberSaveable(target.clientMessageId) {
+            mutableStateOf("")
+        }
+        AlertDialog(
+            onDismissRequest = { reportTarget = null },
+            title = { Text("Report message") },
+            text = {
+                Column {
+                    listOf("Spam", "Harassment", "Threats", "Illegal content", "Other")
+                        .forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { reason = option },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = reason == option,
+                                    onClick = { reason = option },
+                                )
+                                Text(option)
+                            }
+                        }
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it.take(3_000) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Additional details") },
+                        minLines = 3,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            runCatching {
+                                onReportMessage(
+                                    target.clientMessageId,
+                                    reason,
+                                    description,
+                                )
+                            }.onSuccess { ticketId ->
+                                attachmentError = "Report submitted: $ticketId"
+                            }.onFailure {
+                                attachmentError = it.message ?: "The report could not be submitted."
+                            }
+                        }
+                        reportTarget = null
+                    },
+                ) {
+                    Text("Submit report")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { reportTarget = null }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 @Composable
 private fun MessageComposer(
     text: String,
     replyTarget: MessageListItem?,
+    editTarget: MessageListItem?,
     onTextChange: (String) -> Unit,
-    onCancelReply: () -> Unit,
+    onCancelContext: () -> Unit,
     onAttachment: () -> Unit,
     isRecording: Boolean,
     microphoneAllowed: Boolean,
@@ -429,7 +835,8 @@ private fun MessageComposer(
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
-            if (replyTarget != null) {
+            val contextTarget = editTarget ?: replyTarget
+            if (contextTarget != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -439,18 +846,18 @@ private fun MessageComposer(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Reply",
+                            if (editTarget != null) "Edit message" else "Reply",
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelMedium,
                         )
                         Text(
-                            replyTarget.body.orEmpty(),
+                            contextTarget.body.orEmpty(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    IconButton(onClick = onCancelReply) {
+                    IconButton(onClick = onCancelContext) {
                         Icon(Icons.Default.Close, contentDescription = "Cancel reply")
                     }
                 }
@@ -536,20 +943,64 @@ private fun MessageComposer(
     }
 }
 
+@Composable
+private fun SystemMessageRow(
+    message: MessageListItem,
+    onRetry: suspend () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.clickable(
+                enabled = message.state == MessageStates.FAILED,
+            ) {
+                scope.launch { onRetry() }
+            },
+        ) {
+            Text(
+                text = buildString {
+                    append(message.body.orEmpty())
+                    if (message.state == MessageStates.FAILED) {
+                        append(" Tap to retry.")
+                    }
+                },
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     message: MessageListItem,
     isMine: Boolean,
-    onReply: () -> Unit,
+    onLongPress: () -> Unit,
     onRetry: suspend () -> Unit,
+    onCancelOutgoing: suspend () -> Unit,
     onOpenAttachment: suspend (String, Boolean) -> String,
 ) {
     var retryRequested by remember { mutableStateOf(false) }
+    var cancelRequested by remember { mutableStateOf(false) }
     LaunchedEffect(retryRequested) {
         if (retryRequested) {
             onRetry()
             retryRequested = false
+        }
+    }
+    LaunchedEffect(cancelRequested) {
+        if (cancelRequested) {
+            onCancelOutgoing()
+            cancelRequested = false
         }
     }
     Row(
@@ -566,7 +1017,7 @@ private fun MessageBubble(
                     onClick = {
                         if (message.state == MessageStates.FAILED) retryRequested = true
                     },
-                    onLongClick = onReply,
+                    onLongClick = onLongPress,
                 ),
         ) {
             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
@@ -589,6 +1040,41 @@ private fun MessageBubble(
                         },
                     )
                 }
+                if (message.reactions.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        message.reactions.forEach { reaction ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text(
+                                    "${reaction.emoji} ${reaction.userIds.size}",
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+                if (
+                    message.attachments.isNotEmpty() &&
+                    message.state in setOf(
+                        MessageStates.QUEUED,
+                        MessageStates.ENCRYPTING,
+                        MessageStates.UPLOADING,
+                        MessageStates.SENDING,
+                    )
+                ) {
+                    TextButton(
+                        onClick = { cancelRequested = true },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Text("Cancel")
+                    }
+                }
                 Row(
                     modifier = Modifier.align(Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
@@ -598,6 +1084,13 @@ private fun MessageBubble(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (message.isEdited && !message.isDeleted) {
+                        Text(
+                            " edited",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (isMine) {
                         Spacer(Modifier.width(3.dp))
                         MessageStateIcon(message.state)
@@ -614,6 +1107,8 @@ private fun AttachmentPreview(
     onOpenAttachment: suspend (String, Boolean) -> String,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var openError by remember { mutableStateOf<String?>(null) }
     val isVisual = attachment.mimeType.startsWith("image/") ||
         attachment.mimeType.startsWith("video/")
     val preview by produceState<Bitmap?>(
@@ -645,7 +1140,20 @@ private fun AttachmentPreview(
                     .fillMaxWidth()
                     .aspectRatio(4f / 3f)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable {
+                        scope.launch {
+                            runCatching {
+                                openAttachmentExternally(
+                                    context,
+                                    attachment,
+                                    onOpenAttachment,
+                                )
+                            }.onFailure {
+                                openError = "This media could not be opened."
+                            }
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
@@ -678,6 +1186,19 @@ private fun AttachmentPreview(
                         MaterialTheme.colorScheme.surfaceVariant,
                         RoundedCornerShape(6.dp),
                     )
+                    .clickable {
+                        scope.launch {
+                            runCatching {
+                                openAttachmentExternally(
+                                    context,
+                                    attachment,
+                                    onOpenAttachment,
+                                )
+                            }.onFailure {
+                                openError = "This file could not be opened."
+                            }
+                        }
+                    }
                     .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -685,7 +1206,7 @@ private fun AttachmentPreview(
                     if (attachment.mimeType.startsWith("audio/")) {
                         Icons.Default.AudioFile
                     } else {
-                        Icons.Default.InsertDriveFile
+                        Icons.AutoMirrored.Filled.InsertDriveFile
                     },
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
@@ -706,6 +1227,13 @@ private fun AttachmentPreview(
                     )
                 }
             }
+        }
+        openError?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
 
         when (attachment.state) {
@@ -742,6 +1270,29 @@ private fun AttachmentPreview(
             )
         }
     }
+}
+
+private suspend fun openAttachmentExternally(
+    context: Context,
+    attachment: AttachmentListItem,
+    onOpenAttachment: suspend (String, Boolean) -> String,
+) {
+    val originalUri = attachment.sourceUri?.let(Uri::parse)
+    val uri = if (originalUri != null) {
+        originalUri
+    } else {
+        val path = onOpenAttachment(attachment.id, false)
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.files",
+            File(path),
+        )
+    }
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, attachment.mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(intent)
 }
 
 private fun loadMediaPreview(context: Context, uriValue: String, mimeType: String): Bitmap? =

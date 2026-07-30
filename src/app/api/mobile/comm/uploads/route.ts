@@ -6,8 +6,7 @@ import {
   cancelThetaCommUpload,
   completeThetaCommUpload,
   createThetaCommUpload,
-  recordThetaCommUploadPart,
-  requestThetaCommUploadPart
+  getThetaCommUploadStatus
 } from "@/modules/theta-comm/upload.service";
 
 export async function POST(request: NextRequest) {
@@ -24,10 +23,8 @@ export async function POST(request: NextRequest) {
   const action = typeof payload.action === "string" ? payload.action : "create";
   try {
     const result =
-      action === "part"
-        ? await requestThetaCommUploadPart(session.user.id, payload)
-        : action === "recordPart"
-          ? await recordThetaCommUploadPart(session.user.id, payload)
+      action === "status"
+          ? await getThetaCommUploadStatus(session.user.id, payload)
           : action === "complete"
             ? await completeThetaCommUpload(session.user.id, payload)
             : action === "cancel"

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import net.thetaspace.communications.ThetaCommApplication
+import net.thetaspace.communications.push.ThetaCommNotifications
 
 class PrepareOutgoingWorker(
     appContext: Context,
@@ -13,6 +14,15 @@ class PrepareOutgoingWorker(
         val clientMessageId = inputData.getString(CLIENT_MESSAGE_ID)
             ?: return Result.failure()
         val app = applicationContext as ThetaCommApplication
+        if (app.container.repository.messageHasAttachments(clientMessageId)) {
+            setForeground(
+                ThetaCommNotifications.transferForegroundInfo(
+                    applicationContext,
+                    clientMessageId,
+                    preparing = true,
+                ),
+            )
+        }
         return if (app.container.repository.prepareOutgoingMessage(clientMessageId)) {
             Result.success()
         } else {

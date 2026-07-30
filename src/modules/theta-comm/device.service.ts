@@ -10,7 +10,6 @@ import {
 } from "@/modules/theta-comm/types";
 import {
   createSyncEvents,
-  enqueuePushWakeups,
   identityKeyFingerprint,
   serializeDevice,
   ThetaCommError
@@ -71,7 +70,10 @@ export async function registerThetaCommDevice(userId: string, input: unknown) {
     });
 
     await tx.thetaCommPreKey.deleteMany({
-      where: { userDeviceId: device.id, consumedAt: null }
+      where: {
+        userDeviceId: device.id,
+        ...(identityChanged ? {} : { consumedAt: null })
+      }
     });
     await tx.thetaCommPreKey.createMany({
       data: data.oneTimePreKeys.map((preKey) => ({
@@ -82,7 +84,10 @@ export async function registerThetaCommDevice(userId: string, input: unknown) {
       skipDuplicates: true
     });
     await tx.thetaCommKyberPreKey.deleteMany({
-      where: { userDeviceId: device.id, consumedAt: null }
+      where: {
+        userDeviceId: device.id,
+        ...(identityChanged ? {} : { consumedAt: null })
+      }
     });
     await tx.thetaCommKyberPreKey.createMany({
       data: data.oneTimeKyberPreKeys.map((preKey) => ({
@@ -101,29 +106,6 @@ export async function registerThetaCommDevice(userId: string, input: unknown) {
       });
     }
 
-    if (data.push) {
-      await tx.thetaCommPushRegistration.updateMany({
-        where: { userDeviceId: device.id, token: { not: data.push.token } },
-        data: { enabled: false }
-      });
-      await tx.thetaCommPushRegistration.upsert({
-        where: { token: data.push.token },
-        update: {
-          userDeviceId: device.id,
-          provider: data.push.provider,
-          appInstanceId: data.push.appInstanceId,
-          enabled: true,
-          lastSeenAt: new Date()
-        },
-        create: {
-          userDeviceId: device.id,
-          provider: data.push.provider,
-          token: data.push.token,
-          appInstanceId: data.push.appInstanceId
-        }
-      });
-    }
-
     await createSyncEvents(tx, {
       userIds: [userId],
       kind: ThetaCommSyncEventKind.CONVERSATION,
@@ -132,12 +114,6 @@ export async function registerThetaCommDevice(userId: string, input: unknown) {
         deviceId: device.id
       }
     });
-    await enqueuePushWakeups(tx, {
-      userIds: [userId],
-      excludeDeviceIds: [device.id],
-      reason: "device"
-    });
-
     return {
       device: serializeDevice(device),
       preKeyCount: data.oneTimePreKeys.length,
@@ -191,6 +167,33 @@ export async function replenishThetaCommPreKeys(userId: string, input: unknown) 
   return { ok: true as const, available, kyberAvailable };
 }
 
+export async function getThetaCommPreKeyStatus(userId: string, stableDeviceId: string) {
+  if (!stableDeviceId) {
+    throw new ThetaCommError(400, "INVALID_DEVICE", "A device identifier is required.");
+  }
+  const device = await prisma.userDevice.findFirst({
+    where: {
+      userId,
+      deviceId: stableDeviceId,
+      revokedAt: null,
+      commIdentityKey: { not: null }
+    },
+    select: { id: true }
+  });
+  if (!device) {
+    throw new ThetaCommError(404, "DEVICE_NOT_FOUND", "Theta-Comm device not found.");
+  }
+  const [available, kyberAvailable] = await Promise.all([
+    prisma.thetaCommPreKey.count({
+      where: { userDeviceId: device.id, consumedAt: null }
+    }),
+    prisma.thetaCommKyberPreKey.count({
+      where: { userDeviceId: device.id, consumedAt: null }
+    })
+  ]);
+  return { available, kyberAvailable };
+}
+
 export async function listThetaCommDevices(userId: string) {
   const devices = await prisma.userDevice.findMany({
     where: { userId },
@@ -222,10 +225,6 @@ export async function revokeThetaCommDevice(userId: string, input: unknown) {
 
     const revokedAt = new Date();
     await tx.userDevice.update({ where: { id: device.id }, data: { revokedAt } });
-    await tx.thetaCommPushRegistration.updateMany({
-      where: { userDeviceId: device.id },
-      data: { enabled: false }
-    });
     await tx.thetaCommDeviceTrust.updateMany({
       where: {
         OR: [{ verifierDeviceId: device.id }, { trustedDeviceId: device.id }],
@@ -237,11 +236,6 @@ export async function revokeThetaCommDevice(userId: string, input: unknown) {
       userIds: [userId],
       kind: ThetaCommSyncEventKind.DEVICE_REVOKED,
       payload: { deviceId: device.id }
-    });
-    await enqueuePushWakeups(tx, {
-      userIds: [userId],
-      excludeDeviceIds: [device.id],
-      reason: "device"
     });
     return { ok: true as const, revokedAt: revokedAt.toISOString() };
   });

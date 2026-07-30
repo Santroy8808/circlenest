@@ -3,20 +3,20 @@ package net.thetaspace.communications.data
 import androidx.room.withTransaction
 import android.net.Uri
 import android.util.Base64
-import com.google.firebase.messaging.FirebaseMessaging
 import java.time.Instant
 import java.util.UUID
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -35,7 +35,11 @@ import net.thetaspace.communications.data.local.SyncStateEntity
 import net.thetaspace.communications.data.local.ThetaCommDatabase
 import net.thetaspace.communications.data.remote.LoginRequestDto
 import net.thetaspace.communications.data.remote.CreateGroupConversationRequestDto
+import net.thetaspace.communications.data.remote.ConversationPreferenceRequestDto
+import net.thetaspace.communications.data.remote.RenameGroupRequestDto
+import net.thetaspace.communications.data.remote.ReportMessageRequestDto
 import net.thetaspace.communications.data.remote.ContactDto
+import net.thetaspace.communications.data.remote.DeviceDto
 import net.thetaspace.communications.data.remote.MessageDto
 import net.thetaspace.communications.data.remote.ReceiptRequestDto
 import net.thetaspace.communications.data.remote.SendMessageRequestDto
@@ -93,9 +97,24 @@ data class MessageListItem(
     val createdAt: Long,
     val state: String,
     val isDeleted: Boolean,
+    val isEdited: Boolean,
     val replyToMessageId: String?,
     val eventTargetMessageId: String?,
     val attachments: List<AttachmentListItem>,
+    val reactions: List<ReactionListItem>,
+    val receipts: List<ReceiptListItem>,
+)
+
+data class ReceiptListItem(
+    val userId: String,
+    val deviceId: String,
+    val deliveredAt: Long?,
+    val seenAt: Long?,
+)
+
+data class ReactionListItem(
+    val emoji: String,
+    val userIds: List<String>,
 )
 
 data class AttachmentListItem(
@@ -117,7 +136,11 @@ data class ConversationHeader(
     val id: String,
     val type: String,
     val title: String,
+    val avatarAttachmentId: String?,
     val participants: List<ParticipantEntity>,
+    val isPinned: Boolean,
+    val isArchived: Boolean,
+    val mutedUntil: Long?,
 )
 
 class ThetaCommRepository(
@@ -149,25 +172,100 @@ class ThetaCommRepository(
         combine(
             dao.observeMessages(conversationId),
             dao.observeConversationAttachments(conversationId),
-        ) { messages, attachments ->
+            dao.observeConversationReceipts(conversationId),
+        ) { messages, attachments, receipts ->
             val attachmentsByMessage = attachments.groupBy(AttachmentEntity::clientMessageId)
-            messages.map { message ->
-                MessageListItem(
+            val receiptsByServerMessage = receipts.groupBy(ReceiptEntity::messageId)
+            val itemsByClientId = messages
+                .filterNot { it.kind in EVENT_MESSAGE_KINDS }
+                .associate { message ->
+                    message.clientMessageId to MessageListItem(
                     clientMessageId = message.clientMessageId,
                     serverMessageId = message.serverMessageId,
                     senderUserId = message.senderUserId,
                     kind = message.kind,
-                    body = message.sealedBody?.let(::openSafely),
+                    body = message.sealedBody?.let(::openSafely)?.let { body ->
+                        if (message.kind == MessageKinds.SYSTEM &&
+                            body.startsWith(GROUP_TITLE_PREFIX)
+                        ) {
+                            "Chat group renamed to ${body.removePrefix(GROUP_TITLE_PREFIX)}."
+                        } else if (
+                            message.kind == MessageKinds.SYSTEM &&
+                            body == GROUP_AVATAR_EVENT
+                        ) {
+                            "Chat group image updated."
+                        } else if (
+                            message.kind == MessageKinds.SYSTEM &&
+                            body == GROUP_AVATAR_REMOVED_EVENT
+                        ) {
+                            "Chat group image removed."
+                        } else {
+                            body
+                        }
+                    },
                     createdAt = message.createdAt,
                     state = message.state,
                     isDeleted = message.deletedAt != null,
+                    isEdited = message.editedAt != null,
                     replyToMessageId = message.replyToMessageId,
                     eventTargetMessageId = message.eventTargetMessageId,
                     attachments = attachmentsByMessage[message.clientMessageId]
                         .orEmpty()
                         .map(::toAttachmentListItem),
+                    reactions = emptyList(),
+                    receipts = message.serverMessageId
+                        ?.let(receiptsByServerMessage::get)
+                        .orEmpty()
+                        .map {
+                            ReceiptListItem(
+                                userId = it.userId,
+                                deviceId = it.deviceId,
+                                deliveredAt = it.deliveredAt,
+                                seenAt = it.seenAt,
+                            )
+                        },
                 )
+                }.toMutableMap()
+            val clientIdByServerId = messages.mapNotNull { message ->
+                message.serverMessageId?.let { it to message.clientMessageId }
+            }.toMap()
+            val reactionsByTarget = mutableMapOf<String, MutableMap<String, String>>()
+            messages
+                .filter { it.kind in EVENT_MESSAGE_KINDS && it.state != MessageStates.FAILED }
+                .sortedWith(compareBy<MessageEntity> { it.sequence ?: Long.MAX_VALUE }.thenBy { it.createdAt })
+                .forEach { event ->
+                    val targetClientId = event.eventTargetMessageId
+                        ?.let(clientIdByServerId::get)
+                        ?: return@forEach
+                    val target = itemsByClientId[targetClientId] ?: return@forEach
+                    when (event.kind) {
+                        MessageKinds.EDIT -> itemsByClientId[targetClientId] = target.copy(
+                            body = event.sealedBody?.let(::openSafely) ?: target.body,
+                            isEdited = true,
+                        )
+                        MessageKinds.DELETE -> itemsByClientId[targetClientId] = target.copy(
+                            isDeleted = true,
+                        )
+                        MessageKinds.REACTION -> {
+                            val byUser = reactionsByTarget.getOrPut(targetClientId) {
+                                mutableMapOf()
+                            }
+                            val emoji = event.sealedBody?.let(::openSafely).orEmpty()
+                            if (emoji.isBlank()) byUser.remove(event.senderUserId)
+                            else byUser[event.senderUserId] = emoji
+                        }
+                    }
+                }
+            reactionsByTarget.forEach { (targetClientId, byUser) ->
+                val target = itemsByClientId[targetClientId] ?: return@forEach
+                val reactions = byUser.entries
+                    .groupBy(Map.Entry<String, String>::value)
+                    .map { (emoji, entries) ->
+                        ReactionListItem(emoji, entries.map(Map.Entry<String, String>::key))
+                    }
+                itemsByClientId[targetClientId] = target.copy(reactions = reactions)
             }
+            messages.mapNotNull { itemsByClientId[it.clientMessageId] }
         }
 
     private fun toAttachmentListItem(attachment: AttachmentEntity) = AttachmentListItem(
@@ -195,10 +293,126 @@ class ThetaCommRepository(
                     id = it.id,
                     type = it.type,
                     title = it.sealedTitle?.let(::openSafely) ?: "Conversation",
+                    avatarAttachmentId = it.sealedAvatarReference?.let(::openSafely),
                     participants = participants,
+                    isPinned = it.isPinned,
+                    isArchived = it.isArchived,
+                    mutedUntil = it.mutedUntil,
                 )
             }
         }
+
+    suspend fun setConversationArchived(conversationId: String, archived: Boolean) {
+        applyConversationPreference(
+            conversationId,
+            ConversationPreferenceRequestDto(archived = archived),
+        )
+    }
+
+    suspend fun setConversationPinned(conversationId: String, pinned: Boolean) {
+        applyConversationPreference(
+            conversationId,
+            ConversationPreferenceRequestDto(pinned = pinned),
+        )
+    }
+
+    suspend fun muteConversation(conversationId: String, until: Long) {
+        applyConversationPreference(
+            conversationId,
+            ConversationPreferenceRequestDto(
+                mutedUntil = Instant.ofEpochMilli(until).toString(),
+            ),
+        )
+    }
+
+    suspend fun unmuteConversation(conversationId: String) {
+        val response = api.clearConversationMute(conversationId)
+        storeConversationPreference(conversationId, response.preferences)
+    }
+
+    private suspend fun applyConversationPreference(
+        conversationId: String,
+        request: ConversationPreferenceRequestDto,
+    ) {
+        val response = api.updateConversationPreference(conversationId, request)
+        storeConversationPreference(conversationId, response.preferences)
+    }
+
+    private suspend fun storeConversationPreference(
+        conversationId: String,
+        preferences: net.thetaspace.communications.data.remote.ConversationPreferencesDto,
+    ) {
+        dao.updateConversationPreference(
+            conversationId = conversationId,
+            archived = preferences.archived,
+            pinned = preferences.pinned,
+            mutedUntil = preferences.mutedUntil?.let(::parseTime),
+            notificationLevel = preferences.notificationLevel,
+            updatedAt = System.currentTimeMillis(),
+        )
+    }
+
+    suspend fun addGroupMembers(conversationId: String, userIds: List<String>) {
+        val result = api.addGroupMembers(conversationId, userIds.distinct())
+        sync()
+        if (result.systemMessageRequired) {
+            queueSystemMessage(conversationId, "Chat group membership changed.")
+        }
+    }
+
+    suspend fun removeGroupMember(conversationId: String, userId: String) {
+        val result = api.removeGroupMember(conversationId, userId)
+        sync()
+        if (result.systemMessageRequired) {
+            queueSystemMessage(conversationId, "Chat group membership changed.")
+        }
+    }
+
+    suspend fun setGroupRole(conversationId: String, userId: String, role: String) {
+        require(role in setOf("OWNER", "ADMIN", "MEMBER")) {
+            "Invalid chat group role."
+        }
+        val result = api.setGroupRole(conversationId, userId, role)
+        sync()
+        if (result.systemMessageRequired) {
+            queueSystemMessage(conversationId, "Chat group roles changed.")
+        }
+    }
+
+    suspend fun leaveGroup(conversationId: String) {
+        api.leaveGroup(conversationId)
+        dao.deleteConversation(conversationId)
+    }
+
+    suspend fun renameGroup(conversationId: String, title: String) {
+        val cleanTitle = title.trim()
+        require(cleanTitle.length in 1..80) {
+            "Enter a chat group name up to 80 characters."
+        }
+        val session = sessionStore.current() ?: error("Login required.")
+        val localDeviceId = session.commDeviceId ?: error("Device registration required.")
+        val participants = dao.activeParticipants(conversationId)
+        val content = EncryptedMessageContent(
+            clientMessageId = UUID.randomUUID().toString(),
+            groupTitle = cleanTitle,
+        )
+        val envelopes = encryptForParticipants(
+            plaintext = json.encodeToString(content).encodeToByteArray(),
+            participantUserIds = participants.map(ParticipantEntity::userId).distinct(),
+            localUserId = session.userId,
+            localDeviceId = localDeviceId,
+        )
+        val result = api.renameGroup(
+            conversationId,
+            RenameGroupRequestDto(
+                titleCiphertext = opaqueMetadataCiphertext(cleanTitle),
+                metadataEnvelopes = envelopes,
+            ),
+        )
+        if (result.systemMessageRequired) {
+            queueSystemMessage(conversationId, "$GROUP_TITLE_PREFIX$cleanTitle")
+        }
+    }
 
     fun draft(conversationId: String): Flow<String> =
         dao.observeDraft(conversationId).map {
@@ -218,17 +432,24 @@ class ThetaCommRepository(
             ),
         )
         sessionStore.saveLogin(response.token, response.user.id, stableDeviceId)
-        registerCurrentDevice()
+        try {
+            registerCurrentDevice()
+        } catch (error: Throwable) {
+            sessionStore.clear()
+            withContext(Dispatchers.IO) {
+                database.clearAllTables()
+                attachmentCrypto.clearLocalFiles()
+            }
+            throw error
+        }
+        work.schedulePeriodicSync()
         work.enqueueImmediateSync()
     }
 
     suspend fun registerCurrentDevice() {
         val session = sessionStore.current() ?: return
-        val pushToken = runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull()
         val request = signalCrypto.registrationRequest(
             stableDeviceId = session.stableDeviceId,
-            pushToken = pushToken,
-            appInstanceId = session.stableDeviceId,
         )
         val registered = api.registerDevice(request)
         sessionStore.bindCommDevice(registered.device.id)
@@ -238,6 +459,40 @@ class ThetaCommRepository(
         val normalized = query.trim()
         if (normalized.length < 2) return emptyList()
         return api.searchContacts(normalized).people
+    }
+
+    suspend fun listDevices(): List<DeviceDto> = api.listDevices().devices
+
+    suspend fun revokeDevice(deviceId: String) {
+        val session = sessionStore.current() ?: error("Login required.")
+        api.revokeDevice(deviceId)
+        if (session.commDeviceId == deviceId) {
+            logout()
+        }
+    }
+
+    suspend fun blockUser(conversationId: String, targetUserId: String) {
+        api.blockUser(targetUserId)
+        setConversationArchived(conversationId, archived = true)
+    }
+
+    suspend fun reportMessage(
+        clientMessageId: String,
+        reason: String,
+        description: String,
+    ): String {
+        val message = dao.message(clientMessageId) ?: error("Message is unavailable.")
+        val serverMessageId = message.serverMessageId
+            ?: error("Wait until the message is delivered before reporting it.")
+        val response = api.reportMessage(
+            ReportMessageRequestDto(
+                conversationId = message.conversationId,
+                messageId = serverMessageId,
+                reason = reason.trim().take(120),
+                description = description.trim().take(3_000),
+            ),
+        )
+        return response.ticketId
     }
 
     suspend fun startDirectConversation(targetUserId: String): String {
@@ -344,11 +599,177 @@ class ThetaCommRepository(
         return clientMessageId
     }
 
+    suspend fun reactToMessage(clientMessageId: String, emoji: String) {
+        require(emoji.length <= 16) { "Reaction is too long." }
+        queueMessageEvent(clientMessageId, MessageKinds.REACTION, emoji)
+    }
+
+    suspend fun editMessage(clientMessageId: String, text: String) {
+        val normalized = text.trim()
+        require(normalized.isNotEmpty()) { "Message cannot be empty." }
+        val target = dao.message(clientMessageId) ?: error("Message is unavailable.")
+        require(System.currentTimeMillis() - target.createdAt <= EDIT_WINDOW_MS) {
+            "Messages may be edited for 15 minutes."
+        }
+        queueMessageEvent(clientMessageId, MessageKinds.EDIT, normalized)
+    }
+
+    suspend fun deleteMessage(clientMessageId: String) {
+        val target = dao.message(clientMessageId) ?: error("Message is unavailable.")
+        require(System.currentTimeMillis() - target.createdAt <= DELETE_WINDOW_MS) {
+            "Delete for everyone is available for 48 hours."
+        }
+        queueMessageEvent(clientMessageId, MessageKinds.DELETE, null)
+    }
+
+    private suspend fun queueMessageEvent(
+        targetClientMessageId: String,
+        kind: String,
+        value: String?,
+    ) {
+        require(kind in EVENT_MESSAGE_KINDS) { "Unsupported message event." }
+        val target = dao.message(targetClientMessageId) ?: error("Message is unavailable.")
+        val targetServerId = target.serverMessageId
+            ?: error("Wait until the message is sent before changing it.")
+        val session = sessionStore.current() ?: error("Login required.")
+        val commDeviceId = session.commDeviceId ?: error("Device registration required.")
+        val conversation = dao.conversation(target.conversationId)
+            ?: error("Conversation is unavailable.")
+        val clientMessageId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        database.withTransaction {
+            dao.insertMessage(
+                MessageEntity(
+                    clientMessageId = clientMessageId,
+                    serverMessageId = null,
+                    conversationId = conversation.id,
+                    senderUserId = session.userId,
+                    senderDeviceId = commDeviceId,
+                    kind = kind,
+                    sealedBody = value?.let(localCipher::sealString),
+                    serverCiphertext = null,
+                    protocolVersion = 2,
+                    membershipVersion = conversation.membershipVersion,
+                    replyToMessageId = null,
+                    eventTargetMessageId = targetServerId,
+                    sequence = null,
+                    createdAt = now,
+                    acceptedAt = null,
+                    editedAt = null,
+                    deletedAt = null,
+                    state = MessageStates.QUEUED,
+                    retryCount = 0,
+                    failureCode = null,
+                ),
+            )
+            dao.upsertPendingOperation(
+                PendingOperationEntity(
+                    id = "send:$clientMessageId",
+                    clientMessageId = clientMessageId,
+                    type = "SEND_MESSAGE",
+                    state = "QUEUED",
+                    attempts = 0,
+                    nextAttemptAt = now,
+                    lastError = null,
+                    createdAt = now,
+                ),
+            )
+        }
+        work.enqueueSend(clientMessageId)
+    }
+
+    private suspend fun queueSystemMessage(
+        conversationId: String,
+        body: String,
+    ): String {
+        val session = sessionStore.current() ?: error("Login required.")
+        val commDeviceId = session.commDeviceId ?: error("Device registration required.")
+        val conversation = dao.conversation(conversationId)
+            ?: error("Conversation is unavailable.")
+        val clientMessageId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        database.withTransaction {
+            dao.insertMessage(
+                MessageEntity(
+                    clientMessageId = clientMessageId,
+                    serverMessageId = null,
+                    conversationId = conversationId,
+                    senderUserId = session.userId,
+                    senderDeviceId = commDeviceId,
+                    kind = MessageKinds.SYSTEM,
+                    sealedBody = localCipher.sealString(body),
+                    serverCiphertext = null,
+                    protocolVersion = 2,
+                    membershipVersion = conversation.membershipVersion,
+                    replyToMessageId = null,
+                    eventTargetMessageId = null,
+                    sequence = null,
+                    createdAt = now,
+                    acceptedAt = null,
+                    editedAt = null,
+                    deletedAt = null,
+                    state = MessageStates.QUEUED,
+                    retryCount = 0,
+                    failureCode = null,
+                ),
+            )
+            dao.upsertPendingOperation(
+                PendingOperationEntity(
+                    id = "send:$clientMessageId",
+                    clientMessageId = clientMessageId,
+                    type = "SEND_MESSAGE",
+                    state = "QUEUED",
+                    attempts = 0,
+                    nextAttemptAt = now,
+                    lastError = null,
+                    createdAt = now,
+                ),
+            )
+        }
+        work.enqueueSend(clientMessageId)
+        return clientMessageId
+    }
+
     suspend fun queueAttachments(
         conversationId: String,
         uriValues: List<String>,
         caption: String = "",
         voiceNote: Boolean = false,
+    ): String = queueAttachmentsInternal(
+        conversationId = conversationId,
+        uriValues = uriValues,
+        caption = caption,
+        voiceNote = voiceNote,
+    )
+
+    suspend fun queueGroupAvatar(conversationId: String, uriValue: String): String {
+        val source = attachmentCrypto.inspect(Uri.parse(uriValue))
+        require(source.mimeType.startsWith("image/")) {
+            "Choose an image for the chat group."
+        }
+        require(source.byteSize <= MAX_GROUP_AVATAR_BYTES) {
+            "Chat group images must be no larger than 10 MB."
+        }
+        return queueAttachmentsInternal(
+            conversationId = conversationId,
+            uriValues = listOf(uriValue),
+            caption = "",
+            voiceNote = false,
+            forcedKind = MessageKinds.SYSTEM,
+            systemBody = GROUP_AVATAR_EVENT,
+        )
+    }
+
+    suspend fun removeGroupAvatar(conversationId: String): String =
+        queueSystemMessage(conversationId, GROUP_AVATAR_REMOVED_EVENT)
+
+    private suspend fun queueAttachmentsInternal(
+        conversationId: String,
+        uriValues: List<String>,
+        caption: String,
+        voiceNote: Boolean,
+        forcedKind: String? = null,
+        systemBody: String? = null,
     ): String {
         require(uriValues.isNotEmpty()) { "Choose at least one attachment." }
         require(uriValues.size <= 10) { "A message can include at most 10 attachments." }
@@ -357,7 +778,7 @@ class ThetaCommRepository(
         val conversation = dao.conversation(conversationId)
             ?: error("Conversation is unavailable.")
         val sources = uriValues.map { attachmentCrypto.inspect(Uri.parse(it)) }
-        val kind = when {
+        val kind = forcedKind ?: when {
             voiceNote -> MessageKinds.VOICE
             sources.size > 1 -> MessageKinds.FILE
             sources.single().mimeType == "image/gif" -> MessageKinds.GIF
@@ -376,7 +797,7 @@ class ThetaCommRepository(
                     senderUserId = session.userId,
                     senderDeviceId = commDeviceId,
                     kind = kind,
-                    sealedBody = caption.trim().takeIf(String::isNotEmpty)
+                    sealedBody = (systemBody ?: caption.trim()).takeIf(String::isNotEmpty)
                         ?.let(localCipher::sealString),
                     serverCiphertext = null,
                     protocolVersion = 2,
@@ -485,6 +906,7 @@ class ThetaCommRepository(
                         sealedThumbnailNonce = prepared.thumbnailNonce?.base64()
                             ?.let(localCipher::sealString),
                     )
+                    attachmentCrypto.deleteOwnedPlaintextSource(attachment.sourceUri)
                 }
             dao.updateMessageState(
                 clientMessageId,
@@ -506,6 +928,9 @@ class ThetaCommRepository(
             false
         }
     }
+
+    suspend fun messageHasAttachments(clientMessageId: String): Boolean =
+        dao.attachments(clientMessageId).isNotEmpty()
 
     suspend fun saveDraft(conversationId: String, text: String) {
         if (text.isEmpty()) {
@@ -544,6 +969,21 @@ class ThetaCommRepository(
             null,
         )
         work.enqueueSend(clientMessageId, replace = true)
+    }
+
+    suspend fun cancelOutgoingMessage(clientMessageId: String) {
+        val message = dao.message(clientMessageId) ?: return
+        require(message.serverMessageId == null) {
+            "A sent message cannot be canceled."
+        }
+        work.cancelSend(clientMessageId)
+        dao.attachments(clientMessageId).forEach { attachment ->
+            attachment.uploadId?.let { runCatching { api.cancelUpload(it) } }
+            attachment.encryptedFilePath?.let { java.io.File(it).delete() }
+            attachment.encryptedThumbnailPath?.let { java.io.File(it).delete() }
+        }
+        dao.deleteOperation("send:$clientMessageId")
+        dao.deleteMessage(clientMessageId)
     }
 
     suspend fun downloadAttachment(attachmentId: String): Boolean =
@@ -623,9 +1063,26 @@ class ThetaCommRepository(
                 }
             }
             val participants = dao.activeParticipants(message.conversationId)
+            val openedBody = message.sealedBody?.let(localCipher::openString)
+            val groupTitle = openedBody
+                ?.takeIf { message.kind == MessageKinds.SYSTEM }
+                ?.takeIf { it.startsWith(GROUP_TITLE_PREFIX) }
+                ?.removePrefix(GROUP_TITLE_PREFIX)
             val content = EncryptedMessageContent(
                 clientMessageId = message.clientMessageId,
-                body = message.sealedBody?.let(localCipher::openString),
+                body = if (message.kind == MessageKinds.REACTION) {
+                    null
+                } else if (groupTitle != null) {
+                    null
+                } else {
+                    openedBody
+                },
+                reaction = if (message.kind == MessageKinds.REACTION) {
+                    message.sealedBody?.let(localCipher::openString)
+                } else {
+                    null
+                },
+                groupTitle = groupTitle,
                 attachmentKeys = attachments.map { attachment ->
                     EncryptedAttachmentKey(
                         attachmentId = attachment.id,
@@ -681,6 +1138,26 @@ class ThetaCommRepository(
                     attachmentUploadIds = attachments.mapNotNull { it.uploadId },
                 ),
             )
+            when (openedBody) {
+                GROUP_AVATAR_EVENT -> {
+                    val avatarAttachmentId = attachments.firstOrNull()?.id
+                        ?: error("The encrypted group image is unavailable.")
+                    api.setGroupAvatar(message.conversationId, response.message.id)
+                    dao.updateConversationAvatarReference(
+                        conversationId = message.conversationId,
+                        sealedAvatarReference = localCipher.sealString(avatarAttachmentId),
+                        updatedAt = System.currentTimeMillis(),
+                    )
+                }
+                GROUP_AVATAR_REMOVED_EVENT -> {
+                    api.setGroupAvatar(message.conversationId, null)
+                    dao.updateConversationAvatarReference(
+                        conversationId = message.conversationId,
+                        sealedAvatarReference = null,
+                        updatedAt = System.currentTimeMillis(),
+                    )
+                }
+            }
             dao.markMessageAccepted(
                 clientMessageId = clientMessageId,
                 serverMessageId = response.message.id,
@@ -708,6 +1185,10 @@ class ThetaCommRepository(
 
         do {
             val page = api.sync(commDeviceId, cursor)
+            if (commDeviceId in page.revokedDeviceIds) {
+                sessionStore.clear()
+                return false
+            }
             val delivered = mutableListOf<Pair<String, String>>()
             val pendingDownloads = mutableSetOf<String>()
             database.withTransaction {
@@ -772,7 +1253,14 @@ class ThetaCommRepository(
                             senderDeviceId = remote.senderDeviceId,
                             kind = remote.kind,
                             sealedBody = existing?.sealedBody
-                                ?: decrypted?.body?.let(localCipher::sealString),
+                                ?: (
+                                    decrypted?.body
+                                        ?: decrypted?.reaction
+                                        ?: decrypted?.groupTitle?.let {
+                                            "$GROUP_TITLE_PREFIX$it"
+                                        }
+                                    )
+                                    ?.let(localCipher::sealString),
                             serverCiphertext = remote.ciphertext,
                             protocolVersion = remote.protocolVersion,
                             membershipVersion = remote.membershipVersion,
@@ -854,6 +1342,24 @@ class ThetaCommRepository(
                             pendingDownloads += attachment.attachmentId
                         }
                     }
+                    when (decrypted?.body) {
+                        GROUP_AVATAR_EVENT -> {
+                            decrypted.attachmentKeys.firstOrNull()?.attachmentId?.let {
+                                dao.updateConversationAvatarReference(
+                                    conversationId = remote.conversationId,
+                                    sealedAvatarReference = localCipher.sealString(it),
+                                    updatedAt = System.currentTimeMillis(),
+                                )
+                            }
+                        }
+                        GROUP_AVATAR_REMOVED_EVENT -> {
+                            dao.updateConversationAvatarReference(
+                                conversationId = remote.conversationId,
+                                sealedAvatarReference = null,
+                                updatedAt = System.currentTimeMillis(),
+                            )
+                        }
+                    }
                     if (
                         remote.senderUserId != session.userId &&
                         decrypted != null &&
@@ -887,6 +1393,17 @@ class ThetaCommRepository(
                 .mapValues { (_, values) -> values.map { it.userId }.toSet() }
             continueSync = page.hasMore
         } while (continueSync)
+        runCatching {
+            api.preKeyStatus(session.stableDeviceId)
+        }.getOrNull()?.let { status ->
+            signalCrypto.replenishmentRequest(
+                stableDeviceId = session.stableDeviceId,
+                serverAvailable = status.available,
+                serverKyberAvailable = status.kyberAvailable,
+            )?.let { request ->
+                runCatching { api.replenishPreKeys(request) }
+            }
+        }
         return true
     }
 
@@ -912,7 +1429,15 @@ class ThetaCommRepository(
     }
 
     suspend fun logout() {
-        sessionStore.clear()
+        try {
+            work.cancelAll()
+        } finally {
+            sessionStore.clear()
+            withContext(Dispatchers.IO) {
+                database.clearAllTables()
+                attachmentCrypto.clearLocalFiles()
+            }
+        }
     }
 
     private fun decryptRemote(
@@ -1043,6 +1568,7 @@ class ThetaCommRepository(
                     plaintext = plaintext,
                     recipientUserId = device.userId,
                     recipientDeviceId = device.deviceId,
+                    recipientKeyVersion = device.keyVersion,
                     localUserId = localUserId,
                     localDeviceId = localDeviceId,
                 )
@@ -1076,6 +1602,17 @@ class ThetaCommRepository(
     private companion object {
         const val SYNC_CURSOR = "sync_cursor"
         const val MAX_AUTOMATIC_ATTEMPTS = 6
+        const val EDIT_WINDOW_MS = 15 * 60 * 1_000L
+        const val DELETE_WINDOW_MS = 48 * 60 * 60 * 1_000L
+        const val GROUP_TITLE_PREFIX = "GROUP_TITLE:"
+        const val GROUP_AVATAR_EVENT = "GROUP_AVATAR_UPDATED"
+        const val GROUP_AVATAR_REMOVED_EVENT = "GROUP_AVATAR_REMOVED"
+        const val MAX_GROUP_AVATAR_BYTES = 10L * 1024 * 1024
+        val EVENT_MESSAGE_KINDS = setOf(
+            MessageKinds.REACTION,
+            MessageKinds.EDIT,
+            MessageKinds.DELETE,
+        )
     }
 }
 

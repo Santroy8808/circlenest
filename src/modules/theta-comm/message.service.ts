@@ -7,6 +7,7 @@ import {
   ThetaCommSyncEventKind
 } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
+import { consumeRateLimit } from "@/lib/platform/rate-limit";
 import { hasBlockedRelationshipWithin } from "@/modules/chat-messages/chat-access-policy";
 import { assertChatMessageWriteAllowed } from "@/modules/chat-messages/chat-retention";
 import {
@@ -22,7 +23,6 @@ import {
   canAdministerConversation,
   clampClientDate,
   createSyncEvents,
-  enqueuePushWakeups,
   ThetaCommError,
   validateCompleteRecipientSet
 } from "@/modules/theta-comm/theta-comm.shared";
@@ -77,6 +77,19 @@ export async function sendThetaCommMessage(userId: string, input: unknown) {
       throw new ThetaCommError(409, "IDEMPOTENCY_CONFLICT", "That client message ID was already used.");
     }
     return { message: serializeCreatedMessage(replay), replayed: true };
+  }
+  const sendRate = await consumeRateLimit({
+    namespace: "theta-comm-message-send",
+    key: userId,
+    limit: 120,
+    windowMs: 60 * 1000
+  });
+  if (!sendRate.allowed) {
+    throw new ThetaCommError(
+      429,
+      "MESSAGE_RATE_LIMIT",
+      "Too many messages were sent at once. Try again shortly."
+    );
   }
 
   try {
@@ -273,12 +286,6 @@ export async function sendThetaCommMessage(userId: string, input: unknown) {
           conversationId: conversation.id,
           messageId: created.id
         });
-        await enqueuePushWakeups(tx, {
-          userIds: participantUserIds,
-          excludeDeviceIds: [senderDevice.id],
-          conversationId: conversation.id,
-          reason: "message"
-        });
         return created;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
@@ -342,11 +349,6 @@ export async function acknowledgeThetaCommMessage(userId: string, input: unknown
       conversationId: data.conversationId,
       messageId: data.messageId,
       payload: { status: data.status, recipientDeviceId: data.recipientDeviceId }
-    });
-    await enqueuePushWakeups(tx, {
-      userIds: [envelope.message.senderUserId],
-      conversationId: data.conversationId,
-      reason: "receipt"
     });
     return {
       ok: true as const,
@@ -414,12 +416,17 @@ export async function syncThetaComm(
   const cursor = BigInt(cursorText);
   const device = await prisma.userDevice.findFirst({
     where: { id: deviceId, userId, revokedAt: null, commIdentityKey: { not: null } },
-    select: { id: true }
+    select: { id: true, createdAt: true, commKeyUpdatedAt: true }
   });
   if (!device) throw new ThetaCommError(400, "DEVICE_NOT_REGISTERED", "This Theta-Comm device is not registered.");
+  const historyStart = device.commKeyUpdatedAt ?? device.createdAt;
 
   const events = await prisma.thetaCommSyncEvent.findMany({
-    where: { userId, id: { gt: cursor } },
+    where: {
+      userId,
+      id: { gt: cursor },
+      ...(cursor === BigInt(0) ? { createdAt: { gte: historyStart } } : {})
+    },
     orderBy: { id: "asc" },
     take: parsed.data.limit + 1
   });
@@ -448,7 +455,10 @@ export async function syncThetaComm(
   const eventMessageIds = page.map((event) => event.messageId).filter((id): id is string => Boolean(id));
   const initialInbound = initial
     ? await prisma.encryptedChatEnvelope.findMany({
-        where: { recipientDeviceId: device.id },
+        where: {
+          recipientDeviceId: device.id,
+          message: { createdAt: { gte: historyStart } }
+        },
         orderBy: { message: { sequence: "desc" } },
         take: 100,
         select: { messageId: true }
@@ -456,7 +466,11 @@ export async function syncThetaComm(
     : [];
   const initialOutbound = initial
     ? await prisma.encryptedChatMessage.findMany({
-        where: { senderUserId: userId, protocolVersion: { gte: 2 } },
+        where: {
+          senderUserId: userId,
+          protocolVersion: { gte: 2 },
+          createdAt: { gte: historyStart }
+        },
         orderBy: { sequence: "desc" },
         take: 100,
         select: { id: true }
@@ -475,6 +489,7 @@ export async function syncThetaComm(
         where: {
           id: { in: messageIds },
           threadId: { in: conversationIds },
+          createdAt: { gte: historyStart },
           OR: [
             { senderUserId: userId },
             { envelopes: { some: { recipientDeviceId: device.id } } }
@@ -513,7 +528,11 @@ export async function syncThetaComm(
     where: {
       recipientDeviceId: device.id,
       readAt: null,
-      message: { threadId: { in: conversationIds }, senderUserId: { not: userId } }
+      message: {
+        threadId: { in: conversationIds },
+        senderUserId: { not: userId },
+        createdAt: { gte: historyStart }
+      }
     },
     select: { message: { select: { threadId: true } } }
   });

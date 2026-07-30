@@ -15,8 +15,9 @@ export async function GET(request: NextRequest) {
   const session = await requireMobileSession(request);
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
   const deviceId = (request.nextUrl.searchParams.get("deviceId") ?? "").trim();
-  const cursorText = (request.nextUrl.searchParams.get("cursor") ?? "0").trim();
-  if (!/^\d+$/.test(cursorText)) {
+  const cursorParameter = request.nextUrl.searchParams.get("cursor");
+  const cursorText = cursorParameter?.trim();
+  if (cursorText !== undefined && !/^\d+$/.test(cursorText)) {
     return NextResponse.json({ error: "Invalid event cursor." }, { status: 400 });
   }
   const device = await prisma.userDevice.findFirst({
@@ -31,7 +32,15 @@ export async function GET(request: NextRequest) {
   if (!device) return NextResponse.json({ error: "Device is not registered." }, { status: 400 });
 
   const encoder = new TextEncoder();
-  let cursor = BigInt(cursorText);
+  const latestEvent =
+    cursorText === undefined
+      ? await prisma.thetaCommSyncEvent.findFirst({
+          where: { userId: session.user.id },
+          orderBy: { id: "desc" },
+          select: { id: true }
+        })
+      : null;
+  let cursor = cursorText === undefined ? latestEvent?.id ?? BigInt(0) : BigInt(cursorText);
   let closed = false;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -57,6 +66,17 @@ export async function GET(request: NextRequest) {
               take: 100
             });
             if (events.length > 0) {
+              const incomingMessageIds = events
+                .filter((event) => event.kind === "MESSAGE" && event.messageId)
+                .map((event) => event.messageId!);
+              const incomingMessage =
+                incomingMessageIds.length > 0 &&
+                (await prisma.encryptedChatMessage.count({
+                  where: {
+                    id: { in: incomingMessageIds },
+                    senderUserId: { not: session.user.id }
+                  }
+                })) > 0;
               cursor = events.at(-1)!.id;
               controller.enqueue(
                 encoder.encode(
@@ -68,8 +88,9 @@ export async function GET(request: NextRequest) {
                         events
                           .map((event) => event.conversationId)
                           .filter((id): id is string => Boolean(id))
-                      )
-                    ]
+                        )
+                    ],
+                    incomingMessage
                   })
                 )
               );

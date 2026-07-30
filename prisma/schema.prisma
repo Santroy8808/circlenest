@@ -1035,8 +1035,6 @@ model UserDevice {
   receivedChatEnvelopes     EncryptedChatEnvelope[]
   commPreKeys               ThetaCommPreKey[]
   commKyberPreKeys          ThetaCommKyberPreKey[]
-  commPushRegistrations     ThetaCommPushRegistration[]
-  commPushOutbox            ThetaCommPushOutbox[]
   commTypingStates          ThetaCommTypingState[]
   commTrustsCreated         ThetaCommDeviceTrust[]      @relation("ThetaCommTrustVerifier")
   commTrustsReceived        ThetaCommDeviceTrust[]      @relation("ThetaCommTrustSubject")
@@ -2281,7 +2279,6 @@ model EncryptedChatUpload {
   uploadedSizeBytes          BigInt                    @default(0)
   chunkSizeBytes             Int
   totalChunks                Int
-  r2MultipartUploadId        String?
   status                     EncryptedChatUploadStatus @default(PENDING)
   expiresAt                  DateTime
   createdAt                  DateTime                  @default(now())
@@ -2352,40 +2349,6 @@ model ThetaCommKyberPreKey {
 
   @@unique([userDeviceId, keyId])
   @@index([userDeviceId, consumedAt, createdAt])
-}
-
-model ThetaCommPushRegistration {
-  id            String     @id @default(cuid())
-  userDeviceId  String
-  provider      String     @default("FCM")
-  token         String     @unique
-  appInstanceId String?
-  enabled       Boolean    @default(true)
-  lastSeenAt    DateTime   @default(now())
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  userDevice    UserDevice @relation(fields: [userDeviceId], references: [id], onDelete: Cascade)
-
-  @@index([userDeviceId, enabled, lastSeenAt])
-}
-
-model ThetaCommPushOutbox {
-  id           String     @id @default(cuid())
-  userDeviceId String
-  payload      Json
-  attempts     Int        @default(0)
-  availableAt  DateTime   @default(now())
-  lockedAt     DateTime?
-  lockedBy     String?
-  sentAt       DateTime?
-  failedAt     DateTime?
-  lastError    String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  userDevice   UserDevice @relation(fields: [userDeviceId], references: [id], onDelete: Cascade)
-
-  @@index([availableAt, sentAt, failedAt])
-  @@index([userDeviceId, createdAt])
 }
 
 model ThetaCommTypingState {

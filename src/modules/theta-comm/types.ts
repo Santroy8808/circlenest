@@ -49,14 +49,7 @@ export const registerThetaCommDeviceSchema = z.object({
   identityKey: base64Schema.max(8 * 1024),
   signedPreKey: thetaCommSignedPreKeySchema,
   oneTimePreKeys: z.array(thetaCommPreKeySchema).min(1).max(100),
-  oneTimeKyberPreKeys: z.array(thetaCommKyberPreKeySchema).min(1).max(100),
-  push: z
-    .object({
-      provider: z.literal("FCM"),
-      token: z.string().trim().min(32).max(4_096),
-      appInstanceId: z.string().trim().min(1).max(256).optional()
-    })
-    .optional()
+  oneTimeKyberPreKeys: z.array(thetaCommKyberPreKeySchema).min(1).max(100)
 });
 
 export const replenishThetaCommPreKeysSchema = z.object({
@@ -68,6 +61,7 @@ export const replenishThetaCommPreKeysSchema = z.object({
 export const thetaCommRecipientEnvelopeSchema = z.object({
   recipientUserId: opaqueIdSchema,
   recipientDeviceId: opaqueIdSchema,
+  recipientKeyVersion: z.number().int().positive(),
   envelopeType: z.enum(["PREKEY", "SESSION"]),
   ciphertext: base64Schema
 });
@@ -151,17 +145,11 @@ export const completeThetaCommUploadSchema = z.object({
   ciphertextSha256: z.string().trim().regex(/^[a-f0-9]{64}$/i)
 });
 
-export const requestThetaCommUploadPartSchema = z.object({
-  uploadId: opaqueIdSchema,
-  partNumber: z.number().int().min(1).max(10_000)
-});
-
-export const recordThetaCommUploadPartSchema = requestThetaCommUploadPartSchema.extend({
-  etag: z.string().trim().min(1).max(256),
-  sizeBytes: z.number().int().positive().max(THETA_COMM_UPLOAD_CHUNK_BYTES)
-});
-
 export const cancelThetaCommUploadSchema = z.object({
+  uploadId: opaqueIdSchema
+});
+
+export const thetaCommUploadStatusSchema = z.object({
   uploadId: opaqueIdSchema
 });
 
@@ -184,7 +172,11 @@ export const thetaCommGroupCommandSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("SET_ROLE"),
     userId: opaqueIdSchema,
-    role: z.enum([EncryptedChatParticipantRole.ADMIN, EncryptedChatParticipantRole.MEMBER])
+    role: z.enum([
+      EncryptedChatParticipantRole.OWNER,
+      EncryptedChatParticipantRole.ADMIN,
+      EncryptedChatParticipantRole.MEMBER
+    ])
   }),
   z.object({
     action: z.literal("LEAVE")
@@ -199,7 +191,8 @@ export const thetaCommGroupCommandSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("SET_AVATAR"),
-    uploadId: opaqueIdSchema.nullable()
+    uploadId: opaqueIdSchema.nullable().optional(),
+    messageId: opaqueIdSchema.nullable().optional()
   })
 ]);
 
