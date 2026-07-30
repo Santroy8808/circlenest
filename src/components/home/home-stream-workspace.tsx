@@ -4,6 +4,11 @@ import { ChatThreadType } from "@prisma/client";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { FeedClient } from "@/components/feed/feed-client";
+import {
+  contactsWithoutExistingDirectChats,
+  filterHomeCommThreads,
+  homeCommContactScope
+} from "@/components/home/home-comm-search";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { ChatMessageView, ChatPersonView, ChatThreadDetailView, ChatThreadView } from "@/modules/chat-messages/types";
@@ -106,25 +111,24 @@ function HomeCommDock({
   const messageListRef = useRef<HTMLDivElement>(null);
   const [threads, setThreads] = useState(initialThreads);
   const [selectedThread, setSelectedThread] = useState<ChatThreadDetailView | null>(null);
-  const [threadQuery, setThreadQuery] = useState("");
-  const [contactQuery, setContactQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [includeAllMembers, setIncludeAllMembers] = useState(false);
   const [contacts, setContacts] = useState<ChatPersonView[]>([]);
+  const [isSearchingContacts, setIsSearchingContacts] = useState(false);
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const selectedThreadIsNotice = Boolean(selectedThread?.title.match(/^announcement:/i));
   const selectedThreadTitle = selectedThread?.title.replace(/^announcement:\s*/i, "") ?? "Messages";
 
-  const filteredThreads = useMemo(() => {
-    const query = threadQuery.trim().toLowerCase();
-    if (!query) return threads;
-    return threads.filter((thread) => {
-      return (
-        thread.title.toLowerCase().includes(query) ||
-        thread.participants.some((participant) => participant.displayName.toLowerCase().includes(query) || participant.username.toLowerCase().includes(query))
-      );
-    });
-  }, [threadQuery, threads]);
+  const filteredThreads = useMemo(
+    () => filterHomeCommThreads(threads, searchQuery),
+    [searchQuery, threads]
+  );
+  const availableContacts = useMemo(
+    () => contactsWithoutExistingDirectChats(contacts, threads, currentUserId),
+    [contacts, currentUserId, threads]
+  );
 
   const refreshThreads = useCallback(async () => {
     const response = await fetch("/api/chat/threads", { cache: "no-store" });
@@ -179,17 +183,39 @@ function HomeCommDock({
   }, [selectedThread?.id, selectedThread?.messages.length]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !searchQuery.trim()) {
+      setContacts([]);
+      setIsSearchingContacts(false);
+      return;
+    }
+
+    let cancelled = false;
     const timeout = window.setTimeout(async () => {
-      const response = await fetch(`/api/chat/contacts?q=${encodeURIComponent(contactQuery)}`, { cache: "no-store" });
-      if (response.ok) {
-        const payload = (await response.json()) as { people: ChatPersonView[] };
-        setContacts(payload.people ?? []);
+      setIsSearchingContacts(true);
+      try {
+        const params = new URLSearchParams({
+          q: searchQuery,
+          filter: homeCommContactScope(includeAllMembers)
+        });
+        const response = await fetch(`/api/chat/contacts?${params.toString()}`, { cache: "no-store" });
+        const payload = (await response.json()) as { error?: string; people?: ChatPersonView[] };
+        if (!response.ok) throw new Error(payload.error ?? "Could not search members.");
+        if (!cancelled) setContacts(payload.people ?? []);
+      } catch (caught) {
+        if (!cancelled) {
+          setContacts([]);
+          setError(caught instanceof Error ? caught.message : "Could not search members.");
+        }
+      } finally {
+        if (!cancelled) setIsSearchingContacts(false);
       }
     }, 220);
 
-    return () => window.clearTimeout(timeout);
-  }, [contactQuery, open]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [includeAllMembers, open, searchQuery]);
 
   function startDirectChat(person: ChatPersonView) {
     setError("");
@@ -207,7 +233,7 @@ function HomeCommDock({
       }
 
       setSelectedThread(payload.thread);
-      setContactQuery("");
+      setSearchQuery("");
       await refreshThreads();
     });
   }
@@ -310,52 +336,67 @@ function HomeCommDock({
             </>
           ) : (
             <div className="home-comm-list-panel">
-              <input
-                className="form-field"
-                onChange={(event) => setThreadQuery(event.target.value)}
-                placeholder="Search messages..."
-                value={threadQuery}
-              />
+              <div className="home-comm-search-controls">
+                <input
+                  className="form-field"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search chats, messages, or people..."
+                  value={searchQuery}
+                />
+                <label className="home-comm-member-scope">
+                  <input
+                    checked={includeAllMembers}
+                    onChange={(event) => setIncludeAllMembers(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Include all non-private members</span>
+                </label>
+              </div>
               <div className="home-comm-filter-row" aria-label="Chat filters">
                 <span className="is-active">All</span>
                 <span>Direct</span>
                 <span>Groups</span>
               </div>
-              <div className="home-comm-thread-list">
-                {filteredThreads.length === 0 ? <p className="home-comm-empty">No chats found.</p> : null}
-                {filteredThreads.map((thread) => (
-                  <button className="home-comm-thread" key={thread.id} onClick={() => loadThread(thread.id)} type="button">
-                    <span className="chat-avatar">{initials(thread.title)}</span>
-                    <span className="min-w-0 flex-1 text-left">
-                      <span className="home-comm-thread-title">
-                        {thread.title}
-                        {thread.type === ChatThreadType.GROUP ? <small>Group</small> : null}
-                      </span>
-                      <span className="home-comm-thread-preview">{messagePreview(thread.lastMessage)}</span>
-                    </span>
-                    {thread.unread ? <span className="home-comm-unread" /> : null}
-                  </button>
-                ))}
-              </div>
-              <div className="home-comm-contact-search">
-                <p className="text-sm font-semibold text-[var(--gold)]">Start chat</p>
-                <input
-                  className="form-field"
-                  onChange={(event) => setContactQuery(event.target.value)}
-                  placeholder="Find a member..."
-                  value={contactQuery}
-                />
-                <div className="home-comm-contact-list">
-                  {contacts.map((person) => (
-                    <button className="home-comm-thread" key={person.id} onClick={() => startDirectChat(person)} type="button">
-                      <span className="chat-avatar">{initials(person.displayName)}</span>
-                      <span className="min-w-0 flex-1 text-left">
-                        <span className="home-comm-thread-title">{person.displayName}</span>
-                        <span className="home-comm-thread-preview">@{person.username}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              <div className="home-comm-search-results">
+                {filteredThreads.length > 0 ? (
+                  <section className="home-comm-result-section">
+                    {searchQuery.trim() ? <p className="home-comm-result-heading">Chats and messages</p> : null}
+                    <div className="home-comm-thread-list">
+                      {filteredThreads.map((thread) => (
+                        <button className="home-comm-thread" key={thread.id} onClick={() => loadThread(thread.id)} type="button">
+                          <span className="chat-avatar">{initials(thread.title)}</span>
+                          <span className="min-w-0 flex-1 text-left">
+                            <span className="home-comm-thread-title">
+                              {thread.title}
+                              {thread.type === ChatThreadType.GROUP ? <small>Group</small> : null}
+                            </span>
+                            <span className="home-comm-thread-preview">{messagePreview(thread.lastMessage)}</span>
+                          </span>
+                          {thread.unread ? <span className="home-comm-unread" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                {searchQuery.trim() && availableContacts.length > 0 ? (
+                  <section className="home-comm-result-section">
+                    <p className="home-comm-result-heading">People</p>
+                    <div className="home-comm-contact-list">
+                      {availableContacts.map((person) => (
+                        <button className="home-comm-thread" key={person.id} onClick={() => startDirectChat(person)} type="button">
+                          <span className="chat-avatar">{initials(person.displayName)}</span>
+                          <span className="min-w-0 flex-1 text-left">
+                            <span className="home-comm-thread-title">{person.displayName}</span>
+                            <span className="home-comm-thread-preview">@{person.username}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                {searchQuery.trim() && !isSearchingContacts && filteredThreads.length === 0 && availableContacts.length === 0 ? (
+                  <p className="home-comm-empty">No chats or people found.</p>
+                ) : null}
               </div>
             </div>
           )}

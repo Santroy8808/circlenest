@@ -163,16 +163,22 @@ function uniquePeopleById(people: ChatPersonView[]) {
   });
 }
 
-type ChatContactFilter = "ALL" | "FRIENDS" | "FAMILY" | "ACQUAINTANCE" | "MEMBERS";
+type ChatContactFilter = "ALL" | "RELATIONSHIPS" | "FRIENDS" | "FAMILY" | "ACQUAINTANCE" | "MEMBERS";
 
-const relationshipContactFilters: Record<Exclude<ChatContactFilter, "ALL" | "MEMBERS">, SocialRelationshipType> = {
+const relationshipContactFilters: Record<Exclude<ChatContactFilter, "ALL" | "RELATIONSHIPS" | "MEMBERS">, SocialRelationshipType> = {
   FRIENDS: SocialRelationshipType.FRIEND,
   FAMILY: SocialRelationshipType.FAMILY,
   ACQUAINTANCE: SocialRelationshipType.ACQUAINTANCE
 };
 
 function normalizedContactFilter(filter?: string | null): ChatContactFilter {
-  if (filter === "FRIENDS" || filter === "FAMILY" || filter === "ACQUAINTANCE" || filter === "MEMBERS") return filter;
+  if (
+    filter === "RELATIONSHIPS" ||
+    filter === "FRIENDS" ||
+    filter === "FAMILY" ||
+    filter === "ACQUAINTANCE" ||
+    filter === "MEMBERS"
+  ) return filter;
   return "ALL";
 }
 
@@ -1493,7 +1499,7 @@ export async function searchChatContacts(userId: string, query: string, filter?:
   const cleanQuery = query.trim();
   const contactFilter = normalizedContactFilter(filter);
   const relationshipTypes =
-    contactFilter === "ALL"
+    contactFilter === "ALL" || contactFilter === "RELATIONSHIPS"
       ? [SocialRelationshipType.FRIEND, SocialRelationshipType.FAMILY, SocialRelationshipType.ACQUAINTANCE, SocialRelationshipType.CONTACT]
       : contactFilter === "MEMBERS"
         ? []

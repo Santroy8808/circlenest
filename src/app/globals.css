@@ -1039,6 +1039,25 @@ a {
   width: 100%;
 }
 
+.home-comm-search-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.home-comm-member-scope {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.78rem;
+  gap: 8px;
+}
+
+.home-comm-member-scope input {
+  accent-color: var(--gold);
+  height: 16px;
+  width: 16px;
+}
+
 .home-comm-filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -1060,12 +1079,14 @@ a {
   color: white;
 }
 
+.home-comm-search-results,
 .home-comm-thread-list,
 .home-comm-contact-list,
 .home-comm-message-list {
   scrollbar-width: none;
 }
 
+.home-comm-search-results::-webkit-scrollbar,
 .home-comm-thread-list::-webkit-scrollbar,
 .home-comm-contact-list::-webkit-scrollbar,
 .home-comm-message-list::-webkit-scrollbar {
@@ -1080,6 +1101,35 @@ a {
   max-height: 285px;
   overflow: auto;
   padding-right: 2px;
+}
+
+.home-comm-search-results {
+  align-content: start;
+  display: grid;
+  flex: 1;
+  gap: 14px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.home-comm-result-section {
+  display: grid;
+  gap: 8px;
+}
+
+.home-comm-result-heading {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 900;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.home-comm-search-results .home-comm-thread-list,
+.home-comm-search-results .home-comm-contact-list {
+  max-height: none;
+  overflow: visible;
 }
 
 .home-comm-thread {
@@ -1124,19 +1174,6 @@ a {
   box-shadow: 0 0 0 4px rgba(255, 216, 95, 0.12);
   height: 8px;
   width: 8px;
-}
-
-.home-comm-contact-search {
-  border-top: 1px solid rgba(214, 178, 74, 0.16);
-  display: grid;
-  gap: 10px;
-  padding-top: 12px;
-}
-
-.home-comm-contact-search label {
-  color: var(--gold);
-  font-size: 0.8rem;
-  font-weight: 900;
 }
 
 .home-comm-contact-list {
