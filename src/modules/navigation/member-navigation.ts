@@ -78,10 +78,17 @@ const settingsSection: NavSection = {
     { label: "My Scientology", href: "/profile/scientology" },
     { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Membership", href: "/membership" },
-    { label: "Tutorial", href: "/settings/tutorial" },
-    { label: "Users Manual", href: "/settings/users-manual" },
     { label: "Progression Path", href: "/settings/progression-path" },
     { label: "Settings", href: "/settings" }
+  ]
+};
+
+const tutorialSection: NavSection = {
+  href: "/settings/tutorial",
+  label: "Tutorial",
+  items: [
+    { label: "Guided Tutorial", href: "/settings/tutorial" },
+    { label: "Users Manual", href: "/settings/users-manual" }
   ]
 };
 
@@ -153,7 +160,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
   if (toolItems.length > 0) {
     memberSections.push({ ...toolsSection, href: toolItems[0]?.href, items: toolItems });
   }
-  memberSections.push(settings);
+  memberSections.push(tutorialSection, settings);
 
   if (input.isAdmin) {
     memberSections.push(

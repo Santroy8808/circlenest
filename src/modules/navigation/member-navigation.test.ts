@@ -47,6 +47,17 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/fundraisers"), false);
 });
 
+test("every signed-in member tier receives a top-level Tutorial section with the Users Manual", () => {
+  for (const tier of [MembershipTier.FREE, MembershipTier.CONTRIBUTOR]) {
+    const tutorial = navigation(tier).find((section) => section.label === "Tutorial");
+    assert.equal(tutorial?.href, "/settings/tutorial");
+    assert.deepEqual(
+      tutorial?.items.map((item) => item.href),
+      ["/settings/tutorial", "/settings/users-manual"]
+    );
+  }
+});
+
 test("administrator role adds administration without leaking disabled member tools", () => {
   const sections = navigation(MembershipTier.FREE, true);
   const hrefs = sections.flatMap((section) => section.items.map((item) => item.href).filter(Boolean));
