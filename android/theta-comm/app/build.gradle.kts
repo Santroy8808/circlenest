@@ -10,6 +10,10 @@ providers.gradleProperty("thetaCommBuildDir").orNull?.let {
     layout.buildDirectory.set(file(it))
 }
 
+val isBundleBuild = gradle.startParameter.taskNames.any {
+    it.contains("bundle", ignoreCase = true)
+}
+
 android {
     namespace = "net.thetaspace.communications"
     compileSdk = 36
@@ -52,7 +56,7 @@ android {
     }
     splits {
         abi {
-            isEnable = true
+            isEnable = !isBundleBuild
             reset()
             include("arm64-v8a", "x86_64")
             isUniversalApk = false
