@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import {
   FeedbackTicketMessageType,
@@ -21,6 +23,13 @@ test("every authenticated account can create feedback regardless of membership t
   assert.equal(canCreateFeedbackTicket("member"), true);
   assert.equal(canCreateFeedbackTicket("administrator"), true);
   assert.equal(canCreateFeedbackTicket(undefined), false);
+});
+
+test("the feedback submission route does not apply a membership capability gate", () => {
+  const route = readFileSync(resolve("src/app/api/feedback/tickets/route.ts"), "utf8");
+
+  assert.doesNotMatch(route, /resolveMembershipRouteAccess|supportCreate/);
+  assert.match(route, /!session\?\.user \|\| session\.user\.revoked/);
 });
 
 test("ticket threads and their messages are visible only to administrators", () => {

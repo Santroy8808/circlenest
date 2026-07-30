@@ -6,17 +6,11 @@ import { getRequestContext } from "@/lib/platform/request-context";
 import { createFeedbackTicket } from "@/modules/feedback-support/feedback-support.service";
 import { FEEDBACK_NO_STORE_HEADERS, feedbackErrorStatus } from "@/modules/feedback-support/http";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
-import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
-  }
-
-  const routeAccess = await resolveMembershipRouteAccess(session.user.id, "supportCreate", "api");
-  if (!routeAccess.allowed) {
-    return NextResponse.json({ error: routeAccess.error }, { status: routeAccess.status });
   }
 
   if (!(await isFeatureEnabled("support.feedback_center"))) {
