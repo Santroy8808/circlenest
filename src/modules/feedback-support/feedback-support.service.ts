@@ -20,6 +20,7 @@ import {
 } from "@/modules/feedback-support/authorization";
 import { deliverFeedbackReplyToCommCenter } from "@/modules/chat-messages/chat-messages.service";
 import { feedbackTypeLabel } from "@/modules/feedback-support/config";
+import { sendFeedbackNotificationEmail } from "@/modules/feedback-support/feedback-notification-email";
 import {
   createFeedbackTicketMessageSchema,
   createFeedbackTicketSchema,
@@ -307,6 +308,36 @@ async function notifyAdminsOfNewTicket(ticket: { id: string; publicId: string; t
   }
 }
 
+async function notifyFeedbackMailbox(
+  ticket: {
+    publicId: string;
+    title: string;
+    description: string;
+    kind: FeedbackTicketKind;
+    severity: string;
+    pageUrl: string | null;
+  },
+  reporter: TicketUser | null
+) {
+  try {
+    await sendFeedbackNotificationEmail({
+      publicId: ticket.publicId,
+      title: ticket.title,
+      description: ticket.description,
+      kind: ticket.kind,
+      severity: ticket.severity,
+      reporterName: userDisplayName(reporter),
+      reporterEmail: reporter?.email ?? "unknown@theta-space.net",
+      pageUrl: ticket.pageUrl
+    });
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not deliver a new feedback ticket to the feedback mailbox.", {
+      ticketId: ticket.publicId,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
+}
+
 function ticketCreateData(
   parsed: ReturnType<typeof createFeedbackTicketSchema.parse>,
   context: { userId: string; userAgent?: string },
@@ -428,6 +459,7 @@ export async function createFeedbackTicket(input: unknown, context: { userId?: s
       });
     }
 
+    const reporter = await getActiveUser(context.userId);
     await Promise.all([
       diagnostics.info(MODULE_KEY, "Feedback ticket created.", {
         ticketId: ticket.publicId,
@@ -435,7 +467,8 @@ export async function createFeedbackTicket(input: unknown, context: { userId?: s
         pageUrl: ticket.pageUrl,
         hasScreenshot: Boolean(ticket.screenshotMediaAssetId)
       }),
-      notifyAdminsOfNewTicket(ticket)
+      notifyAdminsOfNewTicket(ticket),
+      notifyFeedbackMailbox(ticket, reporter)
     ]);
 
     return { ok: true as const, ticket, replayed: false as const };
