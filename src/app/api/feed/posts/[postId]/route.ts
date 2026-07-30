@@ -5,7 +5,8 @@ import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protecti
 import { isAdminRole } from "@/lib/platform/roles";
 import { deleteFeedPost, getFeedPostThreadPage } from "@/modules/feed-stream/feed-stream.service";
 
-export async function GET(request: NextRequest, { params }: { params: { postId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ postId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest, { params }: { params: { postId: 
   return NextResponse.json({ posts: [page.post], post: page.post, nextCursor: page.nextCursor, hasMore: page.hasMore });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { postId: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ postId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

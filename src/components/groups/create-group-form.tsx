@@ -1,6 +1,7 @@
 "use client";
 
 import { GroupJoinPolicy, GroupVisibility } from "@prisma/client";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 export function CreateGroupForm() {
@@ -109,9 +110,9 @@ export function CreateGroupForm() {
 
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       <div className="flex justify-end gap-3">
-        <a className="btn-secondary" href="/groups">
+        <Link className="btn-secondary" href="/groups">
           Cancel
-        </a>
+        </Link>
         <button className="btn-primary" disabled={isPending || name.trim().length < 2} type="submit">
           {isPending ? "Creating..." : "Create group"}
         </button>

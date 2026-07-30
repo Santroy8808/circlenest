@@ -83,9 +83,8 @@ function initials(value: string) {
     .toUpperCase();
 }
 
-function isAndroidAppRequest() {
-  const requestHeaders = headers();
-  const cookieStore = cookies();
+async function isAndroidAppRequest() {
+  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const platformCookie = cookieStore.get("theta_platform")?.value ?? "";
   const platformHeader = requestHeaders.get("x-theta-platform") ?? "";
@@ -100,8 +99,8 @@ function isAndroidAppRequest() {
   ].some((value) => /android|theta-space|thetaspace|webview|wv/i.test(value));
 }
 
-function isMobileBrowserRequest() {
-  const requestHeaders = headers();
+async function isMobileBrowserRequest() {
+  const requestHeaders = await headers();
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const mobileHint = requestHeaders.get("sec-ch-ua-mobile") ?? "";
 
@@ -111,7 +110,7 @@ function isMobileBrowserRequest() {
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await timeServerStep("shell.auth", auth());
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
-  const currentPath = headers().get("x-current-path") ?? "";
+  const currentPath = (await headers()).get("x-current-path") ?? "";
   const isOnboardingPath = currentPath.startsWith("/onboarding");
   const isAuditorSeeker = session?.user?.accountPurpose === AccountPurpose.AUDITOR_SEEKER;
 
@@ -140,9 +139,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
   const activeActorUserId = actorPicker.activeActorUserId || session?.user?.id;
   const mailEnabled = isInternalMailEnabled();
-  const isAndroidApp = isAndroidAppRequest();
+  const isAndroidApp = await isAndroidAppRequest();
   const canSeeAdRail = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
-  const showAdRail = canSeeAdRail && shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || isMobileBrowserRequest());
+  const showAdRail =
+    canSeeAdRail &&
+    shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || (await isMobileBrowserRequest()));
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const tutorialState = isSignedIn && session?.user?.id
     ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })

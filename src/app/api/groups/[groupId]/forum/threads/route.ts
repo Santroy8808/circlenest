@@ -15,7 +15,8 @@ function parseThreadPageLimit(value: string | null) {
     : { ok: false as const };
 }
 
-export async function GET(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -41,7 +42,8 @@ export async function GET(request: NextRequest, { params }: { params: { groupId:
   return NextResponse.json(result);
 }
 
-export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

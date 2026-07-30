@@ -4,7 +4,8 @@ import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { createContributionIntent } from "@/modules/fundraisers-funds/fundraisers-funds.service";
 
-export async function POST(request: Request, { params }: { params: { campaignId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ campaignId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

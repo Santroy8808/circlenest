@@ -12,7 +12,7 @@ export type ActiveAccountActor = {
 };
 
 export async function getActiveAccountActor(privateUserId: string): Promise<ActiveAccountActor> {
-  const requestedActorUserId = cookies().get(ACCOUNT_ACTOR_COOKIE_NAME)?.value;
+  const requestedActorUserId = (await cookies()).get(ACCOUNT_ACTOR_COOKIE_NAME)?.value;
   const resolved = await resolveAccountActorUserId(privateUserId, requestedActorUserId);
 
   if (!resolved.ok) {

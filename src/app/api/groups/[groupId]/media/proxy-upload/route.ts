@@ -6,7 +6,8 @@ import { getR2Client, readR2Config } from "@/lib/platform/r2";
 import { createGroupAssetUploadIntentSchema } from "@/modules/group-media-docs/types";
 import { canUploadGroupAsset, currentGroupStorageBytes, getGroupMediaContext } from "@/modules/group-media-docs/group-media-docs.service";
 
-export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   if (process.env.UPLOAD_PROXY_FALLBACK_ENABLED !== "true") {
     return NextResponse.json(
       { error: "Direct upload fallback is temporarily unavailable. Check your connection and try again." },

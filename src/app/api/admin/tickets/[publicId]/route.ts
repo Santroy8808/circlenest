@@ -7,7 +7,8 @@ import {
 } from "@/modules/feedback-support/feedback-support.service";
 import { FEEDBACK_NO_STORE_HEADERS, feedbackErrorStatus } from "@/modules/feedback-support/http";
 
-export async function GET(_request: Request, { params }: { params: { publicId: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ publicId: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401, headers: FEEDBACK_NO_STORE_HEADERS });
@@ -22,7 +23,8 @@ export async function GET(_request: Request, { params }: { params: { publicId: s
   return NextResponse.json(result, { headers: FEEDBACK_NO_STORE_HEADERS });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { publicId: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ publicId: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401, headers: FEEDBACK_NO_STORE_HEADERS });

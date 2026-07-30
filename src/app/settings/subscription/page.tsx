@@ -6,11 +6,12 @@ import { SubscriptionSettingsDetail } from "@/components/settings-secure-areas/s
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import { getSubscriptionBillingSummary } from "@/modules/membership-policy/subscriptions.service";
 
-export default async function SubscriptionSettingsPage({
-  searchParams
-}: {
-  searchParams?: { checkout?: string; portal?: string };
-}) {
+export default async function SubscriptionSettingsPage(
+  props: {
+    searchParams?: Promise<{ checkout?: string; portal?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

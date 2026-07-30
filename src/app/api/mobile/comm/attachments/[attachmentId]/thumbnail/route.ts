@@ -13,10 +13,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { attachmentId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ attachmentId: string }> }) {
+  const params = await props.params;
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
   const session = await requireMobileSession(request);

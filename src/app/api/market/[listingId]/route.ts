@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { updateMarketListing } from "@/modules/market/market.service";
 
-export async function PATCH(request: NextRequest, { params }: { params: { listingId: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

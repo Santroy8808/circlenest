@@ -4,7 +4,11 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
 import { deleteGroupAsset } from "@/modules/group-media-docs/group-media-docs.service";
 
-export async function POST(request: Request, { params }: { params: { groupId: string; assetId: string } }) {
+export async function POST(
+  request: Request,
+  props: { params: Promise<{ groupId: string; assetId: string }> }
+) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

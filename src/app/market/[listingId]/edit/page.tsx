@@ -5,7 +5,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getMarketCreateState, safeGetMarketListingDetail } from "@/modules/market/market.service";
 
-export default async function EditMarketListingPage({ params }: { params: { listingId: string } }) {
+export default async function EditMarketListingPage(props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

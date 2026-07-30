@@ -10,7 +10,8 @@ import {
   setMailThreadArchived
 } from "@/modules/mail/mail.service";
 
-export async function GET(request: NextRequest, { params }: { params: { threadId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ threadId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest, { params }: { params: { threadId
   return NextResponse.json({ thread: result.thread, nextCursor: result.thread.nextCursor });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { threadId: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ threadId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -57,7 +59,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { thread
     : NextResponse.json({ error: result.error }, { status: 404 });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { threadId: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ threadId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

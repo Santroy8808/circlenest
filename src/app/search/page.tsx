@@ -4,7 +4,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { SearchPageView } from "@/components/search-discovery/search-page-view";
 import { safeSearchPlatform } from "@/modules/search-discovery/search-discovery.service";
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
+export default async function SearchPage(props: { searchParams: Promise<{ q?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

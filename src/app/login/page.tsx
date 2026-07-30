@@ -3,11 +3,12 @@ import { auth } from "@/auth";
 import { AuthCard } from "@/components/auth/auth-card";
 import { LoginForm } from "@/components/auth/login-form";
 
-export default async function LoginPage({
-  searchParams
-}: {
-  searchParams?: { callbackUrl?: string };
-}) {
+export default async function LoginPage(
+  props: {
+    searchParams?: Promise<{ callbackUrl?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (session?.user && !session.user.revoked) {

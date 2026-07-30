@@ -20,9 +20,8 @@ export const metadata: Metadata = {
   }
 };
 
-function isAndroidAppRequest() {
-  const requestHeaders = headers();
-  const cookieStore = cookies();
+async function isAndroidAppRequest() {
+  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const platformCookie = cookieStore.get("theta_platform")?.value ?? "";
   const platformHeader = requestHeaders.get("x-theta-platform") ?? "";
@@ -37,8 +36,8 @@ function isAndroidAppRequest() {
   ].some((value) => /android|theta-space|thetaspace|webview|wv/i.test(value));
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const appClassName = isAndroidAppRequest() ? "theta-android-app" : undefined;
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const appClassName = (await isAndroidAppRequest()) ? "theta-android-app" : undefined;
 
   return (
     <html className={appClassName} lang="en">

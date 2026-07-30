@@ -4,7 +4,8 @@ import { FundraiserDetail } from "@/components/fundraisers-funds/fundraiser-deta
 import { AppShell } from "@/components/platform/app-shell";
 import { safeGetFundraiserDetail } from "@/modules/fundraisers-funds/fundraisers-funds.service";
 
-export default async function FundraiserDetailPage({ params }: { params: { campaignId: string } }) {
+export default async function FundraiserDetailPage(props: { params: Promise<{ campaignId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

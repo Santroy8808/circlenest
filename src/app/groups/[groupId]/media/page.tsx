@@ -5,7 +5,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { safeListGroupAssets } from "@/modules/group-media-docs/group-media-docs.service";
 
-export default async function GroupMediaPage({ params }: { params: { groupId: string } }) {
+export default async function GroupMediaPage(props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

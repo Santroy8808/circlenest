@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { dismissPublicAnnouncement } from "@/modules/admin-moderation/announcements.service";
 
-export async function POST(_request: Request, { params }: { params: { announcementId: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ announcementId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -34,7 +34,8 @@ const allowedDocs = new Set([
   "26-search-discovery"
 ]);
 
-export default async function ModuleDocPage({ params }: { params: { slug: string } }) {
+export default async function ModuleDocPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   await requireAdminPage(`/docs/modules/${params.slug}`);
 
   if (!allowedDocs.has(params.slug)) notFound();

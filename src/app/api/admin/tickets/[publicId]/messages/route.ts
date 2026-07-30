@@ -6,7 +6,8 @@ import { addFeedbackTicketMessage } from "@/modules/feedback-support/feedback-su
 import { FEEDBACK_NO_STORE_HEADERS, feedbackErrorStatus } from "@/modules/feedback-support/http";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 
-export async function POST(request: NextRequest, { params }: { params: { publicId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ publicId: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401, headers: FEEDBACK_NO_STORE_HEADERS });

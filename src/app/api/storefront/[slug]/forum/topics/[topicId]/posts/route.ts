@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createStorefrontForumPost } from "@/modules/storefront-forum/storefront-forum.service";
 
-export async function POST(request: Request, { params }: { params: { slug: string; topicId: string } }) {
+export async function POST(
+  request: Request,
+  props: { params: Promise<{ slug: string; topicId: string }> }
+) {
+  const params = await props.params;
   const session = await auth();
 
   if (session?.user?.revoked) {

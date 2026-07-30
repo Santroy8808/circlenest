@@ -21,7 +21,8 @@ function ResumeList({ items, title }: { items: string[]; title: string }) {
   );
 }
 
-export default async function PublicResumePage({ params }: { params: { username: string } }) {
+export default async function PublicResumePage(props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

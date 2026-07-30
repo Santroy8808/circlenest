@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { safeGetPublicBusinessArticle } from "@/modules/business-storefront/business-storefront.service";
 
-export default async function StorefrontArticlePage({ params }: { params: { slug: string; articleSlug: string } }) {
+export default async function StorefrontArticlePage(props: { params: Promise<{ slug: string; articleSlug: string }> }) {
+  const params = await props.params;
   const result = await safeGetPublicBusinessArticle(params.slug, params.articleSlug);
 
   if (!result.ok) {
@@ -22,7 +23,7 @@ export default async function StorefrontArticlePage({ params }: { params: { slug
       <article className="surface rounded-md p-6">
         {result.article.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={result.article.title} className="business-article-cover" src={result.article.coverImageUrl} />
+          (<img alt={result.article.title} className="business-article-cover" src={result.article.coverImageUrl} />)
         ) : null}
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Storefront article</p>
         <h1 className="mt-3 text-4xl font-semibold">{result.article.title}</h1>

@@ -6,7 +6,8 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { listGroupsPage } from "@/modules/groups/groups.service";
 import { groupDirectoryModeSchema, type GroupDirectoryMode } from "@/modules/groups/types";
 
-export default async function GroupsPage({ searchParams }: { searchParams: { mode?: string; q?: string } }) {
+export default async function GroupsPage(props: { searchParams: Promise<{ mode?: string; q?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

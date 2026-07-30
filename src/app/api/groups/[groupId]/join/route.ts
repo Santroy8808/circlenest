@@ -4,7 +4,8 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { joinGroup } from "@/modules/groups/groups.service";
 
-export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -5,7 +5,7 @@ import { readJsonRequest } from "@/lib/platform/api-request";
 import { reactToChatMessage } from "@/modules/chat-messages/chat-messages.service";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 
-export async function POST(request: NextRequest, context: { params: { messageId: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ messageId: string }> }) {
   if (!(await isFeatureEnabled("communication.direct_messages"))) return NextResponse.json({ error: "Direct messages are currently unavailable." }, { status: 503 });
   const session = await auth();
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, context: { params: { messageId:
 
   const result = await reactToChatMessage(actor.actorUserId, {
     ...value,
-    messageId: context.params.messageId
+    messageId: (await context.params).messageId
   });
 
   if (!result.ok) {

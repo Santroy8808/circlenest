@@ -4,7 +4,8 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getChatThread } from "@/modules/chat-messages/chat-messages.service";
 import { isFeatureEnabled } from "@/modules/feature-flags/feature-flags.service";
 
-export async function GET(request: NextRequest, { params }: { params: { threadId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ threadId: string }> }) {
+  const params = await props.params;
   if (!(await isFeatureEnabled("communication.direct_messages"))) return NextResponse.json({ error: "Direct messages are currently unavailable." }, { status: 503 });
   const session = await auth();
 

@@ -7,8 +7,9 @@ import { removeGroupMember, updateGroupMemberRole } from "@/modules/groups/group
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { groupId: string; memberId: string } }
+  props: { params: Promise<{ groupId: string; memberId: string }> }
 ) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
@@ -30,7 +31,11 @@ export async function PATCH(
   return NextResponse.json(result);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { groupId: string; memberId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  props: { params: Promise<{ groupId: string; memberId: string }> }
+) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });

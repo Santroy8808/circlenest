@@ -4,11 +4,12 @@ import { AppShell } from "@/components/platform/app-shell";
 import { requireAdminPage } from "@/lib/platform/page-access";
 import { listAdminFeedbackTickets } from "@/modules/feedback-support/feedback-support.service";
 
-export default async function AdminTicketsPage({
-  searchParams
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
+export default async function AdminTicketsPage(
+  props: {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireAdminPage("/admin/tickets");
   const query = Object.fromEntries(
     Object.entries(searchParams ?? {}).flatMap(([key, value]) =>

@@ -1,11 +1,12 @@
 import { AuthCard } from "@/components/auth/auth-card";
 import { EmailVerificationForm } from "@/components/auth/email-verification-form";
 
-export default function VerifyEmailPage({
-  searchParams
-}: {
-  searchParams?: { token?: string };
-}) {
+export default async function VerifyEmailPage(
+  props: {
+    searchParams?: Promise<{ token?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   return (
     <AuthCard
       eyebrow="Verification"

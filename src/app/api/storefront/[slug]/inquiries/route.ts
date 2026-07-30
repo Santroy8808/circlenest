@@ -4,7 +4,8 @@ import { consumeRateLimit, rateLimitHeaders } from "@/lib/platform/rate-limit";
 import { getRequestContext } from "@/lib/platform/request-context";
 import { createBusinessInquiry } from "@/modules/business-storefront/business-storefront.service";
 
-export async function POST(request: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const context = getRequestContext(request);
   const rateLimit = await consumeRateLimit({
     namespace: "public:storefront-inquiry",

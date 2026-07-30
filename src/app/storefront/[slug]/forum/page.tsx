@@ -4,7 +4,8 @@ import { auth } from "@/auth";
 import { StorefrontForumClient } from "@/components/business-storefront/storefront-forum-client";
 import { safeListStorefrontForumTopics } from "@/modules/storefront-forum/storefront-forum.service";
 
-export default async function StorefrontForumPage({ params }: { params: { slug: string } }) {
+export default async function StorefrontForumPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const session = await auth();
   const result = await safeListStorefrontForumTopics(params.slug, {
     viewerUserId: session?.user && !session.user.revoked ? session.user.id : null

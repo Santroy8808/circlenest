@@ -10,7 +10,8 @@ import {
   safeListChatThreads
 } from "@/modules/chat-messages/chat-messages.service";
 
-export default async function MessagesPage({ searchParams }: { searchParams: { thread?: string } }) {
+export default async function MessagesPage(props: { searchParams: Promise<{ thread?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await timeServerStep("messages.auth", auth());
 
   if (!session?.user || session.user.revoked) {

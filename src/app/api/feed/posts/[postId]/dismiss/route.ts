@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { dismissFeedPost } from "@/modules/feed-stream/feed-stream.service";
 
-export async function POST(_request: Request, { params }: { params: { postId: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ postId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

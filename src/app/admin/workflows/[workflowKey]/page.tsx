@@ -5,7 +5,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getAdminPortalView } from "@/modules/admin-moderation/admin-moderation.service";
 import { getAdminWorkflowCategory } from "@/modules/admin-moderation/admin-workflows";
 
-export default async function AdminWorkflowRoute({ params }: { params: { workflowKey: string } }) {
+export default async function AdminWorkflowRoute(props: { params: Promise<{ workflowKey: string }> }) {
+  const params = await props.params;
   const session = await auth();
   const callbackUrl = `/admin/workflows/${params.workflowKey}`;
 

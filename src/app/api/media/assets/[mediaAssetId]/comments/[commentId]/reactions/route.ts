@@ -6,8 +6,9 @@ import { reactToGalleryAssetComment } from "@/modules/gallery-media-storage/gall
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { mediaAssetId: string; commentId: string } }
+  props: { params: Promise<{ mediaAssetId: string; commentId: string }> }
 ) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

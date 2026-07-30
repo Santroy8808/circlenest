@@ -75,7 +75,8 @@ function SummaryItem({ label, value }: { label: string; value?: string | null })
   );
 }
 
-export default async function PublicScientologyPage({ params }: { params: { username: string } }) {
+export default async function PublicScientologyPage(props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -252,7 +252,8 @@ async function getMediaViewerUserId(request: NextRequest) {
   return mobileSession?.user.id ?? null;
 }
 
-export async function GET(request: NextRequest, { params }: { params: { mediaAssetId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ mediaAssetId: string }> }) {
+  const params = await props.params;
   if (/^Bearer\s+/i.test(request.headers.get("authorization") ?? "")) {
     const unavailable = mobileAuthUnavailableResponse();
     if (unavailable) return unavailable;

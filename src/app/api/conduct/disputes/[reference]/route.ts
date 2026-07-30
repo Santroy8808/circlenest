@@ -8,14 +8,16 @@ import {
   selectConductDisputeResolved
 } from "@/modules/conduct-reporting/disputes.service";
 
-export async function GET(_request: NextRequest, { params }: { params: { reference: string } }) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ reference: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) return NextResponse.json({ error: "Login required." }, { status: 401 });
   const view = await getConductDisputeView(session.user.id, params.reference);
   return view ? NextResponse.json(view) : NextResponse.json({ error: "Dispute not found." }, { status: 404 });
 }
 
-export async function POST(request: NextRequest, { params }: { params: { reference: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ reference: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) return NextResponse.json({ error: "Login required." }, { status: 401 });
   const rateLimit = await consumeRateLimit({ namespace: "conduct:dispute-action", key: session.user.id, limit: 40, windowMs: 60 * 60 * 1000 });

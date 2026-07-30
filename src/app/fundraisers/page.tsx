@@ -5,7 +5,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { isAdminRole } from "@/lib/platform/roles";
 import { getFundraiserCreateState, safeListFundraisers } from "@/modules/fundraisers-funds/fundraisers-funds.service";
 
-export default async function FundraisersPage({ searchParams }: { searchParams: { category?: string } }) {
+export default async function FundraisersPage(props: { searchParams: Promise<{ category?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

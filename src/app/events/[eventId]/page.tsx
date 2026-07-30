@@ -4,7 +4,8 @@ import { EventDetailClient } from "@/components/events/event-detail-client";
 import { AppShell } from "@/components/platform/app-shell";
 import { safeGetEventDetail } from "@/modules/events/events.service";
 
-export default async function EventDetailPage({ params }: { params: { eventId: string } }) {
+export default async function EventDetailPage(props: { params: Promise<{ eventId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

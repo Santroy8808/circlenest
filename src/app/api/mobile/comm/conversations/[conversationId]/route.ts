@@ -6,8 +6,9 @@ import { updateThetaCommConversationPreference } from "@/modules/theta-comm/conv
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  props: { params: Promise<{ conversationId: string }> }
 ) {
+  const params = await props.params;
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
   const session = await requireMobileSession(request);

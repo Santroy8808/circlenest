@@ -6,7 +6,8 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { isAdminRole } from "@/lib/platform/roles";
 import { getGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
-export default async function GroupForumThreadPage({ params }: { params: { groupId: string; threadId: string } }) {
+export default async function GroupForumThreadPage(props: { params: Promise<{ groupId: string; threadId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { INTERNAL_MAIL_UNAVAILABLE_ERROR, isInternalMailEnabled, markMailThreadRead } from "@/modules/mail/mail.service";
 
-export async function POST(_request: Request, { params }: { params: { threadId: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ threadId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -22,7 +22,10 @@ function readInterest(value: string | string[] | undefined) {
   return values.filter((item): item is InterestCategory => Object.values(InterestCategory).includes(item as InterestCategory)).slice(0, 6);
 }
 
-export default async function CreateAdPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+export default async function CreateAdPage(
+  props: { searchParams?: Promise<Record<string, string | string[] | undefined>> }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

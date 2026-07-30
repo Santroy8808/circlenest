@@ -11,7 +11,8 @@ import {
 } from "@/modules/mail/mail.service";
 import { mailFolderSchema, type MailFolder } from "@/modules/mail/types";
 
-export default async function MailPage({ searchParams }: { searchParams: { folder?: string; thread?: string } }) {
+export default async function MailPage(props: { searchParams: Promise<{ folder?: string; thread?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

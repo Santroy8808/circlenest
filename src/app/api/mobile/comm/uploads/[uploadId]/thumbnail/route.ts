@@ -13,10 +13,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { uploadId: string } }
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ uploadId: string }> }) {
+  const params = await props.params;
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
   const session = await requireMobileSession(request);

@@ -4,7 +4,11 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { reactToGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
-export async function POST(request: NextRequest, { params }: { params: { groupId: string; threadId: string } }) {
+export async function POST(
+  request: NextRequest,
+  props: { params: Promise<{ groupId: string; threadId: string }> }
+) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

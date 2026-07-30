@@ -4,7 +4,8 @@ import { resolvePlatformApiFeatureAccess } from "@/modules/feature-flags/api-fea
 import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 import { updateChapter } from "@/modules/writers-corner/writers-corner.service";
 
-export async function PATCH(request: Request, { params }: { params: { chapterId: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ chapterId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

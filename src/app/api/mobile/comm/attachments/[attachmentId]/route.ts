@@ -3,10 +3,8 @@ import { mobileAuthUnavailableResponse, requireMobileSession } from "@/lib/platf
 import { thetaCommApiError } from "@/modules/theta-comm/api";
 import { getThetaCommAttachmentDownload } from "@/modules/theta-comm/upload.service";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { attachmentId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ attachmentId: string }> }) {
+  const params = await props.params;
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
   const session = await requireMobileSession(request);

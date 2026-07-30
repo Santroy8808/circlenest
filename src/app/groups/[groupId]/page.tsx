@@ -5,7 +5,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { getGroupProfile } from "@/modules/groups/groups.service";
 
-export default async function GroupProfilePage({ params }: { params: { groupId: string } }) {
+export default async function GroupProfilePage(props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

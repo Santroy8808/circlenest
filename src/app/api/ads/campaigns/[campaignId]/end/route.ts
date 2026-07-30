@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { endAdCampaign } from "@/modules/ads-credits/ads-credits.service";
 
-export async function POST(_request: Request, { params }: { params: { campaignId: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ campaignId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

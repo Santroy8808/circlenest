@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { leaveGroup } from "@/modules/groups/groups.service";
 
-export async function POST(_request: Request, { params }: { params: { groupId: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session?.user || session.user.revoked) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });

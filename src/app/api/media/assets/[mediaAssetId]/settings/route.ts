@@ -4,7 +4,8 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { updateGalleryAssetSettings } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
-export async function PUT(request: NextRequest, { params }: { params: { mediaAssetId: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ mediaAssetId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

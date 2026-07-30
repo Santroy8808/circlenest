@@ -14,7 +14,8 @@ function removeManagementControls(post: StorefrontForumPostView): StorefrontForu
   };
 }
 
-export default async function StorefrontForumTopicPage({ params }: { params: { slug: string; topicId: string } }) {
+export default async function StorefrontForumTopicPage(props: { params: Promise<{ slug: string; topicId: string }> }) {
+  const params = await props.params;
   const session = await auth();
   const result = await safeGetStorefrontForumTopic(params.slug, params.topicId, session?.user && !session.user.revoked ? session.user.id : null);
 

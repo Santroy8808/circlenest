@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { readJsonRequest } from "@/lib/platform/api-request";
 import { respondToFriendRelationshipRequest } from "@/modules/social-graph/social-graph.service";
 
-export async function POST(request: NextRequest, { params }: { params: { requestId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ requestId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -9,13 +9,14 @@ import { isAdminRole } from "@/lib/platform/roles";
 import { safeGetFeedPostThread } from "@/modules/feed-stream/feed-stream.service";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
-export default async function FeedPostThreadPage({
-  params,
-  searchParams
-}: {
-  params: { postId: string };
-  searchParams?: { reply?: string };
-}) {
+export default async function FeedPostThreadPage(
+  props: {
+    params: Promise<{ postId: string }>;
+    searchParams?: Promise<{ reply?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
 import { SecureAreaUnlock } from "@/components/settings-secure-areas/secure-area-unlock";
 
-export default async function SecureAreaPage({ searchParams }: { searchParams: { next?: string } }) {
+export default async function SecureAreaPage(props: { searchParams: Promise<{ next?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

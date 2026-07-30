@@ -4,7 +4,11 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
 import { deleteEndedGroupForumThread } from "@/modules/group-forum/group-forum.service";
 
-export async function POST(request: Request, { params }: { params: { groupId: string; threadId: string } }) {
+export async function POST(
+  request: Request,
+  props: { params: Promise<{ groupId: string; threadId: string }> }
+) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

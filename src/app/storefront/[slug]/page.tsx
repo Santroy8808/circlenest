@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { BusinessStorefront } from "@/components/business-storefront/business-storefront";
 import { safeGetPublicBusinessProfile } from "@/modules/business-storefront/business-storefront.service";
 
-export default async function StorefrontPage({ params }: { params: { slug: string } }) {
+export default async function StorefrontPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const result = await safeGetPublicBusinessProfile(params.slug);
 
   if (!result.ok) {

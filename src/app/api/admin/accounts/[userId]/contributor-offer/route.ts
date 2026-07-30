@@ -16,7 +16,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type RouteContext = { params: { userId: string } };
+type RouteContext = { params: Promise<{ userId: string }> };
 
 async function requireAdministrator() {
   const session = await auth();
@@ -57,7 +57,8 @@ function serviceFailure(error: string) {
   );
 }
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(_request: Request, props: RouteContext) {
+  const params = await props.params;
   const administrator = await requireAdministrator();
   if (!administrator.ok) return administrator.response;
 
@@ -69,7 +70,8 @@ export async function GET(_request: Request, { params }: RouteContext) {
   );
 }
 
-export async function POST(request: Request, { params }: RouteContext) {
+export async function POST(request: Request, props: RouteContext) {
+  const params = await props.params;
   const administrator = await requireAdministrator();
   if (!administrator.ok) return administrator.response;
 
@@ -133,7 +135,8 @@ export async function POST(request: Request, { params }: RouteContext) {
   );
 }
 
-export async function DELETE(request: Request, { params }: RouteContext) {
+export async function DELETE(request: Request, props: RouteContext) {
+  const params = await props.params;
   const administrator = await requireAdministrator();
   if (!administrator.ok) return administrator.response;
 

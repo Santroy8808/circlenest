@@ -4,7 +4,8 @@ import { NoticeCenterClient, type NoticeCenterItem } from "@/components/notifica
 import { AppShell } from "@/components/platform/app-shell";
 import { listAlertsPage, listNotificationsPage } from "@/modules/notifications-alerts/notifications-alerts.service";
 
-export default async function NotificationsPage({ searchParams }: { searchParams?: { view?: string } }) {
+export default async function NotificationsPage(props: { searchParams?: Promise<{ view?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

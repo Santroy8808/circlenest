@@ -11,7 +11,8 @@ import { redirect } from "next/navigation";
 import { isAdminRole } from "@/lib/platform/roles";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 
-export default async function PublicProfilePage({ params }: { params: { username: string } }) {
+export default async function PublicProfilePage(props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

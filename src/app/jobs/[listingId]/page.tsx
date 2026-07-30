@@ -4,7 +4,8 @@ import { JobListingDetail } from "@/components/jobs/job-listing-detail";
 import { AppShell } from "@/components/platform/app-shell";
 import { safeGetJobListingDetail } from "@/modules/jobs/jobs.service";
 
-export default async function JobListingPage({ params }: { params: { listingId: string } }) {
+export default async function JobListingPage(props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

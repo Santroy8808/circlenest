@@ -4,7 +4,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { ChapterReaderEditor } from "@/components/writers-corner/chapter-reader-editor";
 import { safeGetChapterDetail } from "@/modules/writers-corner/writers-corner.service";
 
-export default async function ChapterPage({ params }: { params: { manuscriptId: string; chapterId: string } }) {
+export default async function ChapterPage(props: { params: Promise<{ manuscriptId: string; chapterId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

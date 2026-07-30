@@ -19,7 +19,8 @@ const docFiles: Record<string, string> = {
   "external-services-readiness": "docs/external-services-readiness.md"
 };
 
-export default async function RootDocPage({ params }: { params: { doc: string } }) {
+export default async function RootDocPage(props: { params: Promise<{ doc: string }> }) {
+  const params = await props.params;
   await requireAdminPage(`/docs/${params.doc}`);
 
   const fileName = docFiles[params.doc];

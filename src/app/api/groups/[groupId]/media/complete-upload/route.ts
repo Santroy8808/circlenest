@@ -5,7 +5,8 @@ import { readJsonRequest } from "@/lib/platform/api-request";
 import { uploadIntentFailureResponse } from "@/lib/platform/upload-intent-response";
 import { completeGroupAssetUpload } from "@/modules/group-media-docs/group-media-docs.service";
 
-export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

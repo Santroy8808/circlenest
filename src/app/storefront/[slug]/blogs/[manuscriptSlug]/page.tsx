@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { safeGetPublicStorefrontBlog } from "@/modules/business-storefront/business-storefront.service";
 
-export default async function StorefrontBlogPage({ params }: { params: { slug: string; manuscriptSlug: string } }) {
+export default async function StorefrontBlogPage(props: { params: Promise<{ slug: string; manuscriptSlug: string }> }) {
+  const params = await props.params;
   const result = await safeGetPublicStorefrontBlog(params.slug, params.manuscriptSlug);
 
   if (!result.ok) {
@@ -19,7 +20,6 @@ export default async function StorefrontBlogPage({ params }: { params: { slug: s
           Member login
         </Link>
       </div>
-
       <article className="surface rounded-md p-6">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Storefront blog</p>
         <h1 className="mt-3 text-4xl font-semibold">{result.blog.title}</h1>
@@ -30,7 +30,6 @@ export default async function StorefrontBlogPage({ params }: { params: { slug: s
           <span className="pill rounded-full px-3 py-1">{result.blog.wordCount.toLocaleString()} words</span>
         </div>
       </article>
-
       <div className="mt-5 grid gap-5">
         {result.blog.chapters.map((chapter, index) => (
           <article className="surface rounded-md p-6" key={chapter.id}>

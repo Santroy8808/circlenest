@@ -4,7 +4,8 @@ import { isAdminRole } from "@/lib/platform/roles";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { inviteUserToEvent } from "@/modules/events/events.service";
 
-export async function POST(request: NextRequest, { params }: { params: { eventId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ eventId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

@@ -5,7 +5,8 @@ import { readJsonRequest } from "@/lib/platform/api-request";
 import { requireDeletePasswordFromBodyOrRequest } from "@/lib/platform/delete-protection";
 import { purgeGroupStorage, updateGroupStorageLimit } from "@/modules/group-media-docs/group-media-docs.service";
 
-export async function PATCH(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
@@ -27,7 +28,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { groupI
   return NextResponse.json(result);
 }
 
-export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ groupId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

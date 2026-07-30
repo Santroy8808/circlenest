@@ -4,7 +4,8 @@ import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { listProfileFeedPostsPage } from "@/modules/feed-stream/feed-stream.service";
 
-export async function GET(request: NextRequest, { params }: { params: { username: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

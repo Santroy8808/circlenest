@@ -30,13 +30,14 @@ import { getConductAdminView } from "@/modules/conduct-reporting/admin.service";
 import { FEATURE_FLAG_CATEGORIES, listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
 import { listPlatformCostRules } from "@/modules/platform-pricing/platform-pricing.service";
 
-export default async function AdminActionPage({
-  params,
-  searchParams
-}: {
-  params: { actionKey: string };
-  searchParams?: { tool?: string; inviteCode?: string };
-}) {
+export default async function AdminActionPage(
+  props: {
+    params: Promise<{ actionKey: string }>;
+    searchParams?: Promise<{ tool?: string; inviteCode?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

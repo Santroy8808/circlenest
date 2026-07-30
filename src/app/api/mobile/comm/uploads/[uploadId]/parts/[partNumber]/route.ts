@@ -16,12 +16,11 @@ export const maxDuration = 300;
 
 export async function PUT(
   request: NextRequest,
-  {
-    params
-  }: {
-    params: { uploadId: string; partNumber: string };
+  props: {
+    params: Promise<{ uploadId: string; partNumber: string }>;
   }
 ) {
+  const params = await props.params;
   const unavailable = mobileAuthUnavailableResponse();
   if (unavailable) return unavailable;
   const session = await requireMobileSession(request);

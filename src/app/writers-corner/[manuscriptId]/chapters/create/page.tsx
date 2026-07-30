@@ -5,7 +5,8 @@ import { CreateChapterForm } from "@/components/writers-corner/create-chapter-fo
 import { resolveMembershipRouteAccess } from "@/modules/membership-policy/route-access";
 import { safeGetManuscriptDetail } from "@/modules/writers-corner/writers-corner.service";
 
-export default async function CreateChapterPage({ params }: { params: { manuscriptId: string } }) {
+export default async function CreateChapterPage(props: { params: Promise<{ manuscriptId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

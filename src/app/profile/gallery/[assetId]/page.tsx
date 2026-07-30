@@ -12,7 +12,8 @@ import { prisma } from "@/lib/platform/db";
 import { timeServerStep } from "@/lib/platform/server-timing";
 import { getGalleryAssetViewer } from "@/modules/gallery-media-storage/gallery-media-storage.service";
 
-export default async function GalleryAssetPage({ params }: { params: { assetId: string } }) {
+export default async function GalleryAssetPage(props: { params: Promise<{ assetId: string }> }) {
+  const params = await props.params;
   const session = await timeServerStep("gallery-detail.auth", auth());
 
   if (!session?.user || session.user.revoked) {

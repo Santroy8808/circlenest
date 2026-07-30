@@ -4,7 +4,8 @@ import { AppShell } from "@/components/platform/app-shell";
 import { ManuscriptDetail } from "@/components/writers-corner/manuscript-detail";
 import { safeGetManuscriptDetail } from "@/modules/writers-corner/writers-corner.service";
 
-export default async function ManuscriptPage({ params }: { params: { manuscriptId: string } }) {
+export default async function ManuscriptPage(props: { params: Promise<{ manuscriptId: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

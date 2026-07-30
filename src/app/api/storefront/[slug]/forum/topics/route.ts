@@ -5,7 +5,8 @@ import {
   listStorefrontForumTopics
 } from "@/modules/storefront-forum/storefront-forum.service";
 
-export async function GET(request: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const session = await auth();
   const result = await listStorefrontForumTopics(params.slug, {
     query: request.nextUrl.searchParams.get("q") ?? "",
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
   return NextResponse.json({ forum: result.forum });
 }
 
-export async function POST(request: Request, { params }: { params: { slug: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const session = await auth();
 
   if (session?.user?.revoked) {

@@ -57,11 +57,12 @@ function safeDeletionFailureReason(error: string | null) {
   return "Theta-Space could not finish secure deletion. Retry, or contact support if it continues.";
 }
 
-export default async function MyPicsPage({
-  searchParams
-}: {
-  searchParams: { deletionRequest?: string };
-}) {
+export default async function MyPicsPage(
+  props: {
+    searchParams: Promise<{ deletionRequest?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await timeServerStep("gallery.auth", auth());
 
   if (!session?.user || session.user.revoked) {

@@ -13,8 +13,9 @@ function parsePostPageLimit(value: string | null) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; threadId: string } }
+  props: { params: Promise<{ groupId: string; threadId: string }> }
 ) {
+  const params = await props.params;
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
