@@ -1,0 +1,23 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { updateJobListing } from "@/modules/jobs/jobs.service";
+
+export async function PATCH(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
+  const session = await auth();
+
+  if (!session?.user || session.user.revoked) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const actor = await getActiveAccountActor(session.user.id);
+  const body = await request.json();
+  const result = await updateJobListing(actor.actorUserId, params.listingId, body);
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
+  }
+
+  return NextResponse.json({ job: result.job });
+}

@@ -115,6 +115,12 @@ const UPLOAD_INTENT_POLICIES: Record<UploadIntentPurpose, UploadIntentPolicy> = 
     defaultVisibility: MediaVisibility.PUBLIC,
     maxSizeBytes: 10 * 1024 * 1024
   },
+  [UploadIntentPurpose.JOB_LISTING]: {
+    allowedMimeTypes: STATIC_IMAGE_MIME_TYPES,
+    allowedVisibilities: [MediaVisibility.PUBLIC],
+    defaultVisibility: MediaVisibility.PUBLIC,
+    maxSizeBytes: 10 * 1024 * 1024
+  },
   [UploadIntentPurpose.RESUME]: {
     allowedMimeTypes: DOCUMENT_MIME_TYPES.filter((mimeType) => mimeType !== "text/plain"),
     allowedVisibilities: [MediaVisibility.PRIVATE],

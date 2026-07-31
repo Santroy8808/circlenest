@@ -271,7 +271,7 @@ export function TutorialTour({ shouldPromptOnFirstLogin }: { shouldPromptOnFirst
           <p className="tutorial-kicker">Welcome to Theta-Space</p>
           <h2 id="tutorial-welcome-title">Would you like a quick walkthrough?</h2>
           <p>
-            I can point out the main controls, show where posting and replies happen, and show how to find Settings, My Pics, People, Groups, Market, and Comm Center.
+            I can point out the main controls, show where posting and replies happen, and show how to find Settings, My Pics, Market, and Comm Center, including People and Groups.
           </p>
           <div className="tutorial-welcome-actions">
             <button className="btn-primary" onClick={() => startTour()} type="button">

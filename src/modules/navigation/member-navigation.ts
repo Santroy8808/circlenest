@@ -28,23 +28,9 @@ const communicationsSection: NavSection = {
     { label: "Messages", href: "/messages", countKey: "messages" },
     { label: "Mail", href: "/mail", countKey: "mail" },
     { label: "Notifications", href: "/notifications", countKey: "notifications" },
-    { label: "Alerts", href: "/notifications?view=alerts", countKey: "alerts" }
-  ]
-};
-
-const peopleSection: NavSection = {
-  href: "/people",
-  label: "People",
-  items: [
-    { label: "Browse People", href: "/people" },
-    { label: "Friends", href: "/friends" }
-  ]
-};
-
-const groupsSection: NavSection = {
-  href: "/groups",
-  label: "Groups",
-  items: [
+    { label: "Alerts", href: "/notifications?view=alerts", countKey: "alerts" },
+    { label: "People", href: "/people" },
+    { label: "Friends", href: "/friends" },
     { label: "Browse Groups", href: "/groups" },
     { label: "Create Group", href: "/groups/create" }
   ]
@@ -55,7 +41,7 @@ const marketSection: NavSection = {
   label: "Market",
   items: [
     { label: "The Market", href: "/market" },
-    { label: "Find a Job", href: "/jobs" },
+    { label: "Find a Job", href: "/market/jobs" },
     { label: "Find an Auditor", href: "/auditors" }
   ]
 };
@@ -124,6 +110,9 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     if (item.href === "/messages" || item.countKey === "messages") {
       return input.platformFeatures["communication.direct_messages"] !== false;
     }
+    if (item.href === "/groups" || item.href === "/groups/create") {
+      return input.platformFeatures["community.groups"] !== false;
+    }
     return true;
   });
   const communications = {
@@ -134,7 +123,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
   const marketItems = marketSection.items.filter((item) => {
     if (item.href === "/market") return input.platformFeatures["marketplace.member_market"] !== false;
     if (item.href === "/auditors") return input.platformFeatures["directory.auditor_directory"] !== false;
-    if (item.href === "/jobs") return input.features["jobs.browse"] === true;
+    if (item.href === "/market/jobs") return input.features["jobs.browse"] === true;
     return false;
   });
   const toolItems = toolsSection.items.filter((item) => {
@@ -152,8 +141,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
   });
   const settings = settingsSection;
 
-  const memberSections: NavSection[] = [home, communications, peopleSection];
-  if (input.platformFeatures["community.groups"] !== false) memberSections.push(groupsSection);
+  const memberSections: NavSection[] = [home, communications];
   if (marketItems.length > 0) {
     memberSections.push({ ...marketSection, href: marketItems[0]?.href ?? "/market", items: marketItems });
   }

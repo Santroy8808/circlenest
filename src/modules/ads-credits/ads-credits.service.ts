@@ -1504,7 +1504,7 @@ async function verifyCustomAdDestination(userId: string, destinationUrl: string)
       businessProfileId: null,
       marketListingId: null,
       businessArticleId: null,
-      destinationUrl: `/jobs/${job.slug}${internal.suffix}`
+      destinationUrl: `/market/jobs/${job.slug}${internal.suffix}`
     };
   }
 

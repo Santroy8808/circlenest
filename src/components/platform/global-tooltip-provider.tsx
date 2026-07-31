@@ -84,8 +84,8 @@ function hrefDescription(element: Element) {
   if (href.includes("/ads/create")) return "Create an ad campaign.";
   if (href.startsWith("/messages")) return "Open messages.";
   if (href.startsWith("/mail")) return "Open mail.";
+  if (href.startsWith("/market/jobs") || href.startsWith("/jobs")) return "Open job listings.";
   if (href.startsWith("/market")) return "Open The Market.";
-  if (href.startsWith("/jobs")) return "Open job listings.";
   if (href.startsWith("/groups")) return "Open groups.";
   if (href.startsWith("/people") || href.startsWith("/friends")) return "Find and manage people.";
   if (href.startsWith("/feedback")) return "Open Feedback.";

@@ -31,19 +31,39 @@ export const employmentTypeOptions = Object.entries(employmentTypeLabels).map(([
   label
 }));
 
+export const MAX_JOB_IMAGE_BYTES = 10 * 1024 * 1024;
+
+export const createJobImageUploadIntentSchema = z.object({
+  fileName: z.string().min(1).max(240),
+  mimeType: z.string().regex(/^image\/(jpeg|png|webp)$/),
+  sizeBytes: z.number().int().positive().max(MAX_JOB_IMAGE_BYTES)
+});
+
+export const completeJobImageUploadSchema = createJobImageUploadIntentSchema.extend({
+  intentId: z.string().trim().min(1).max(80),
+  storageKey: z.string().min(1).max(600)
+});
+
 export const createJobListingSchema = z.object({
   title: z.string().min(2, "Name the job.").max(140),
   companyName: z.string().max(140).optional().or(z.literal("")),
   summary: z.string().max(220).optional().or(z.literal("")),
   description: z.string().min(10, "Describe the job.").max(4000),
+  needs: z.string().max(2000).optional().or(z.literal("")),
+  wants: z.string().max(2000).optional().or(z.literal("")),
   category: z.nativeEnum(JobCategory),
   employmentType: z.nativeEnum(JobEmploymentType),
   location: z.string().max(180).optional().or(z.literal("")),
   remote: z.boolean().default(false),
   compensation: z.string().max(140).optional().or(z.literal("")),
   contactEmail: z.string().email().optional().or(z.literal("")),
-  contactInstructions: z.string().max(1000).optional().or(z.literal(""))
+  contactPhone: z.string().max(60).optional().or(z.literal("")),
+  contactInstructions: z.string().max(1000).optional().or(z.literal("")),
+  imageMediaAssetId: z.string().max(80).optional().nullable().or(z.literal("")),
+  imageOverlayText: z.string().max(140).optional().or(z.literal(""))
 });
+
+export const updateJobListingSchema = createJobListingSchema;
 
 export type JobListingCardView = {
   id: string;
@@ -58,6 +78,9 @@ export type JobListingCardView = {
   location?: string | null;
   remote: boolean;
   compensation?: string | null;
+  imageMediaAssetId?: string | null;
+  imageUrl?: string | null;
+  imageOverlayText?: string | null;
   status: JobListingStatus;
   createdAt: string;
   employer: {
@@ -70,8 +93,12 @@ export type JobListingCardView = {
 
 export type JobListingDetailView = JobListingCardView & {
   description: string;
+  needs?: string | null;
+  wants?: string | null;
   contactEmail?: string | null;
+  contactPhone?: string | null;
   contactInstructions?: string | null;
+  imageOriginalName?: string | null;
   viewerCanManage: boolean;
   viewerCanPromote: boolean;
 };

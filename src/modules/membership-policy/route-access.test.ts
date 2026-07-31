@@ -24,12 +24,14 @@ test("Free and Contributor direct-route capability matrix matches the release co
   assert.equal(tierCanUseRoute(MembershipTier.FREE, "writersCreate"), false);
   assert.equal(tierCanUseRoute(MembershipTier.FREE, "supportCreate"), false);
   assert.equal(tierCanUseRoute(MembershipTier.FREE, "businessManage"), false);
+  assert.equal(resolvePolicy({ tier: MembershipTier.FREE, role: UserRole.MEMBER }).features["jobs.createListing"], true);
 
   assert.equal(tierCanUseRoute(MembershipTier.CONTRIBUTOR, "writersCreate"), true);
   assert.equal(tierCanUseRoute(MembershipTier.CONTRIBUTOR, "supportCreate"), true);
   assert.equal(tierCanUseRoute(MembershipTier.CONTRIBUTOR, "businessManage"), false);
   assert.equal(tierCanUseRoute(MembershipTier.CONTRIBUTOR, "writersStorefrontPublish"), false);
   assert.equal(tierCanUseRoute(MembershipTier.CONTRIBUTOR, "businessAdsManage"), false);
+  assert.equal(resolvePolicy({ tier: MembershipTier.CONTRIBUTOR, role: UserRole.MEMBER }).features["jobs.createListing"], true);
 });
 
 test("disabled-tier creation routes stay unavailable after operational normalization", () => {
@@ -51,7 +53,7 @@ test("administrator status does not silently enable disabled member creation pro
   assert.equal(adminPolicy.features["support.createRequest"], true);
   assert.equal(adminPolicy.features["invites.send"], true);
   assert.equal(adminPolicy.features["invites.bulkSend"], true);
-  assert.equal(adminPolicy.features["jobs.createListing"], false);
+  assert.equal(adminPolicy.features["jobs.createListing"], true);
   assert.equal(adminPolicy.features["ads.createGeneral"], false);
 });
 

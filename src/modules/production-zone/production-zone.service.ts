@@ -51,7 +51,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
     card({
       title: "Find a Job",
       description: "Browse available job listings and open details/contact instructions.",
-      href: "/jobs",
+      href: "/market/jobs",
       featureKey: "jobs.browse",
       badge: "Browse",
       available: features["jobs.browse"]
@@ -105,7 +105,7 @@ export async function getProductionZoneView(userId: string): Promise<ProductionZ
     card({
       title: "Create Job Listing",
       description: "Post a job opportunity with full detail and contact instructions.",
-      href: "/jobs/create",
+      href: "/market/jobs/create",
       featureKey: "jobs.createListing",
       badge: "Create",
       available: features["jobs.createListing"],

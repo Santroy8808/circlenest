@@ -19,7 +19,7 @@ export function JobsBoardClient({
   const [category, setCategory] = useState("");
   const [view, setView] = useState<ListingViewMode>(initialView);
   const listings = initialListings.filter((job) => {
-    const haystack = [job.title, job.companyName, job.summary, job.categoryLabel, job.location].join(" ").toLowerCase();
+    const haystack = [job.title, job.companyName, job.summary, job.categoryLabel, job.location, job.compensation].join(" ").toLowerCase();
     return haystack.includes(query.trim().toLowerCase()) && (category ? job.category === category : true);
   });
 
@@ -28,17 +28,22 @@ export function JobsBoardClient({
       <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Member Opportunities</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Market Jobs</p>
             <h1 className="mt-3 text-3xl font-semibold">Find a Job</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
               Browse available opportunities or post an opening for other members.
             </p>
           </div>
-          {viewerCanCreate ? (
-            <Link className="btn-primary" href="/jobs/create">
-              Create Job
+          <div className="flex flex-wrap gap-3">
+            <Link className="btn-secondary" href="/market/jobs/my-listings">
+              My Jobs
             </Link>
-          ) : null}
+            {viewerCanCreate ? (
+              <Link className="btn-primary" href="/market/jobs/create">
+                Create Job
+              </Link>
+            ) : null}
+          </div>
         </div>
         <div className="jobs-directory-controls mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
           <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search jobs..." value={query} />
@@ -62,23 +67,24 @@ export function JobsBoardClient({
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>
           {listings.map((job) => (
-            <Link className={`listing-square-card listing-card--${view} job-card`} href={`/jobs/${job.slug}`} key={job.id}>
+            <Link className={`listing-square-card listing-card--${view} job-card`} href={`/market/jobs/${job.slug}`} key={job.id}>
               <div className="listing-square-visual">
-                {job.employer.avatarUrl ? (
+                {job.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" src={job.employer.avatarUrl} />
+                  <img alt="" src={job.imageUrl} />
                 ) : (
-                  <span className="listing-square-fallback">{(job.companyName || job.employer.displayName).slice(0, 2).toUpperCase()}</span>
+                  <span className="listing-square-fallback">{job.categoryLabel}</span>
                 )}
               </div>
-              <span className="listing-square-top-badge">{job.employmentTypeLabel}</span>
+              <span className="listing-square-top-badge">{job.compensation || "Salary listed on detail"}</span>
+              {job.imageOverlayText ? <span className="listing-square-overlay-text">{job.imageOverlayText}</span> : null}
               <div className="listing-square-meta">
-                <p className="listing-square-kicker">{job.remote ? "Remote" : job.location || "City TBD"}</p>
+                <p className="listing-square-kicker">{job.companyName || job.employer.displayName}</p>
                 <h2>{job.title}</h2>
-                <p className="listing-square-subtitle">{job.companyName || job.employer.displayName}</p>
+                <p className="listing-square-subtitle">{job.remote ? "Remote" : job.location || "City TBD"}</p>
                 <div className="listing-square-facts">
-                  <span>{job.categoryLabel}</span>
-                  {job.compensation ? <strong>{job.compensation}</strong> : null}
+                  <span>{job.employmentTypeLabel}</span>
+                  <strong>{job.compensation || job.categoryLabel}</strong>
                 </div>
               </div>
             </Link>

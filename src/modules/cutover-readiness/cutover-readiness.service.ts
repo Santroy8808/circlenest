@@ -112,7 +112,7 @@ export function getCutoverDashboard(): CutoverDashboardView {
       },
       {
         area: "Jobs",
-        path: "/jobs",
+        path: "/market/jobs",
         expected: "Job cards are clickable and show detail/contact pages.",
         requiresLogin: true
       },

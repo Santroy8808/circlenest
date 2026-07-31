@@ -70,10 +70,9 @@ const primaryNavItems: PrimaryNavItem[] = [
     lightIcon: "/assets/nav/light/light-gallery.png",
     tooltip: "Open your gallery."
   },
-  { href: "/people", icon: "/assets/nav/nav-people.png", key: "people", label: "People", tooltip: "Find people, friends, and groups." },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
-  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm Center", tooltip: "Open direct and group messages." }
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm Center", tooltip: "Open messages, people, friends, and chat groups." }
 ];
 
 const initialSummaryState: Record<SummaryKind, SummaryState> = {
@@ -248,7 +247,11 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
           if (item.key === "messages") return platformFeatures["communication.direct_messages"] !== false;
           return true;
         }).map((item) => {
-          const active = item.key === "home" ? pathname === item.href : pathname.startsWith(item.href);
+          const active = item.key === "home"
+            ? pathname === item.href
+            : item.key === "messages"
+              ? pathname.startsWith(item.href) || pathname.startsWith("/people") || pathname.startsWith("/friends") || pathname.startsWith("/groups")
+              : pathname.startsWith(item.href);
           return (
             <Link
               aria-label={item.label}

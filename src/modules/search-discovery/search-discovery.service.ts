@@ -282,7 +282,7 @@ async function searchJobs(input: { blockedUserIds: string[]; query: string }) {
     title: job.title,
     subtitle: job.companyName,
     description: compact(job.summary ?? job.description),
-    href: `/jobs/${job.slug}`,
+    href: `/market/jobs/${job.slug}`,
     badge: "Job",
     meta: [job.remote ? "Remote" : null, job.location, job.compensation].filter(Boolean).join(" - ")
   }));

@@ -214,6 +214,8 @@ test("each media-reference writer maps failures in the function that performs th
     ["src/modules/feed-stream/feed-stream.service.ts", "createFeedComment", "assertFeedChildWriteAllowed"],
     ["src/modules/feed-stream/feed-retention.service.ts", "importFeedThread", "assertNewFeedPostWriteAllowed"],
     ["src/modules/group-forum/group-forum.service.ts", "createGroupForumPost", "lockReadyMediaAssetsForReference"],
+    ["src/modules/jobs/jobs.service.ts", "createJobListing", "lockReadyMediaAssetsForReference"],
+    ["src/modules/jobs/jobs.service.ts", "updateJobListing", "lockReadyMediaAssetsForReference"],
     ["src/modules/mail/mail.service.ts", "sendMail", "lockReadyMediaAssetsForReference"],
     ["src/modules/market/market.service.ts", "createMarketListing", "lockReadyMediaAssetsForReference"],
     ["src/modules/market/market.service.ts", "updateMarketListing", "lockReadyMediaAssetsForReference"],

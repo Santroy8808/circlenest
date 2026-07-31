@@ -36,6 +36,7 @@ test("Free navigation hides Contributor and disabled business creation surfaces"
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);
   assert.equal(hrefs.includes("/events"), false);
+  assert.equal(hrefs.includes("/market/jobs"), true);
 });
 
 test("Contributor navigation exposes Writers but keeps Feedback submission in the global control", () => {
@@ -45,6 +46,25 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/business-center"), false);
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);
+  assert.equal(hrefs.includes("/market/jobs"), true);
+});
+
+test("People and Groups live under Comm Center while Jobs lives under Market", () => {
+  for (const tier of [MembershipTier.FREE, MembershipTier.CONTRIBUTOR]) {
+    const sections = navigation(tier);
+    const commCenter = sections.find((section) => section.label === "Comm Center");
+    const market = sections.find((section) => section.label === "Market");
+
+    assert.deepEqual(
+      commCenter?.items
+        .map((item) => item.href)
+        .filter((href) => href === "/people" || href === "/friends" || href === "/groups" || href === "/groups/create"),
+      ["/people", "/friends", "/groups", "/groups/create"]
+    );
+    assert.equal(sections.some((section) => section.label === "People"), false);
+    assert.equal(sections.some((section) => section.label === "Groups"), false);
+    assert.equal(market?.items.some((item) => item.href === "/market/jobs"), true);
+  }
 });
 
 test("every signed-in member tier receives a top-level Tutorial section with the Users Manual", () => {

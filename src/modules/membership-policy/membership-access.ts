@@ -92,6 +92,7 @@ const freeCapabilities = [
   "market.browse",
   "market.createListing",
   "jobs.browse",
+  "jobs.createListing",
   "auditors.browse",
   "moderation.siteEligible"
 ] as const satisfies readonly Capability[];

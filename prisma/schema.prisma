@@ -301,6 +301,7 @@ enum UploadIntentPurpose {
   MAIL_ATTACHMENT
   GROUP_ASSET
   MARKET_LISTING
+  JOB_LISTING
   RESUME
   FEEDBACK_SCREENSHOT
 }
@@ -1719,6 +1720,7 @@ model MediaAsset {
   groupForumPosts          GroupForumPost[]
   groupAssets              GroupAsset[]
   marketListingPhotos      MarketListingPhoto[]
+  jobListingImages         JobListing[]             @relation("JobListingImage")
   scientologyCommendation  ScientologyCommendation?
   feedbackTicketScreenshot FeedbackTicket?          @relation("FeedbackTicketScreenshot")
 
@@ -2824,20 +2826,27 @@ model JobListing {
   companyName         String?
   summary             String?
   description         String
+  needs               String?
+  wants               String?
   category            JobCategory
   employmentType      JobEmploymentType
   location            String?
   remote              Boolean           @default(false)
   compensation        String?
   contactEmail        String?
+  contactPhone        String?
   contactInstructions String?
+  imageMediaAssetId   String?
+  imageOverlayText    String?
   status              JobListingStatus  @default(ACTIVE)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   employer            User              @relation("JobListingEmployer", fields: [employerUserId], references: [id], onDelete: Cascade)
+  image               MediaAsset?       @relation("JobListingImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
 
   @@index([status, category, createdAt])
   @@index([employerUserId, createdAt])
+  @@index([imageMediaAssetId])
 }
 
 model AuditorProfile {

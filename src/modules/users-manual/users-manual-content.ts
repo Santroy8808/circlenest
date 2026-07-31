@@ -43,7 +43,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   },
   {
     term: "Contributor Tier",
-    definition: "A community membership level with expanded storage and access to approved Contributor tools, including Market listing creation, Groups, and Writers Corner. Business Center, Jobs, Events, Fundraisers, general ad creation, and auditor-profile creation are not Contributor functions."
+    definition: "A community membership level with expanded storage and access to approved Contributor tools, including Market listing creation, Market Jobs, Groups, and Writers Corner. Business Center, Events, Fundraisers, general ad creation, and auditor-profile creation are not Contributor functions."
   },
   {
     term: "Stream",
@@ -168,7 +168,7 @@ export const usersManualSections: UsersManualSection[] = [
         purpose: "Use Home as the starting point for the Stream and daily site activity.",
         howToUse: [
           "Open Home to read the latest Stream activity.",
-          "Use the top icon bar for fast access to Home, My Pics, People, Market, Search, and Comm Center.",
+  "Use the top icon bar for fast access to Home, My Pics, Market, Search, and Comm Center. People and Groups are under Comm Center.",
           "Use the left Control Panel for section menus and related actions.",
           "Use Logout from the Home section when you are done on a shared computer."
         ],
@@ -621,10 +621,10 @@ export const usersManualSections: UsersManualSection[] = [
       },
       {
         title: "Find a Job",
-        href: "/jobs",
-        purpose: "Browse available job-related listings or opportunities.",
-        howToUse: ["Open Find a Job.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions."],
-        limits: ["Jobs is not a Contributor feature and should be hidden for Contributors.", "Only visible opportunities are shown when Jobs is available to the current tier.", "Do not share sensitive personal information until you trust the contact path."],
+        href: "/market/jobs",
+        purpose: "Browse or create available job-related listings under Market.",
+        howToUse: ["Open Market, then Find a Job.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions.", "Use Create Job when your account needs to post an opening."],
+        limits: ["Free and Contributor accounts can browse and create job listings during beta.", "Only active visible opportunities are shown.", "Do not share sensitive personal information until you trust the contact path."],
         faq: [
           {
             question: "Can I apply inside Theta-Space?",
@@ -632,7 +632,7 @@ export const usersManualSections: UsersManualSection[] = [
           },
           {
             question: "Can I create job posts as Free Tier?",
-            answer: "Use only the creation options shown to your account. Some posting tools may require future business or paid features."
+            answer: "Yes. Free and Contributor accounts can create job listings during beta. Future paid posting can be enabled later."
           }
         ],
         visual: {

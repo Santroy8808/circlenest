@@ -40,13 +40,6 @@ export const tutorialIconDefinitions: TutorialIconDefinition[] = [
     iconSrc: "/assets/nav/nav-gallery-v2.png"
   },
   {
-    id: "people",
-    category: "NAVIGATION",
-    label: "People",
-    description: "Finds members and manages personal connections.",
-    iconSrc: "/assets/nav/nav-people.png"
-  },
-  {
     id: "market",
     category: "NAVIGATION",
     label: "Market",
@@ -64,7 +57,7 @@ export const tutorialIconDefinitions: TutorialIconDefinition[] = [
     id: "comm-center",
     category: "NAVIGATION",
     label: "Comm Center",
-    description: "Opens direct and group conversations.",
+    description: "Opens messages, people, friends, and chat groups.",
     iconSrc: "/assets/nav/nav-comm.png"
   },
   {
@@ -215,7 +208,7 @@ export const tutorialSteps: TutorialStep[] = [
     id: "comm-center",
     section: "communication",
     title: "Comm Center",
-    description: "Comm Center is where direct messages, notifications, and alerts live. Alerts are for platform or account-critical notices.",
+    description: "Comm Center is where direct messages, notifications, alerts, People, Friends, and Groups live. Alerts are for platform or account-critical notices.",
     page: "/home",
     target: "control-comm-center"
   },
@@ -223,17 +216,17 @@ export const tutorialSteps: TutorialStep[] = [
     id: "people",
     section: "people-groups",
     title: "People",
-    description: "People is where you browse members, visit profile pages, and manage friend or family connections.",
+    description: "People lives under Comm Center. It is where you browse members, visit profile pages, and manage friend or family connections.",
     page: "/people",
-    target: "control-people"
+    target: "control-comm-center"
   },
   {
     id: "groups",
     section: "people-groups",
     title: "Groups",
-    description: "Groups collect members around a topic. Inside a group you can use posts, forums, and group media where enabled.",
+    description: "Groups lives under Comm Center. Groups collect members around a topic, with posts, forums, and group media where enabled.",
     page: "/groups",
-    target: "control-groups"
+    target: "control-comm-center"
   },
   {
     id: "market",
