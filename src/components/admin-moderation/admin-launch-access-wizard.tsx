@@ -2,10 +2,37 @@
 
 import { MembershipTier, PromotionAccessScope } from "@prisma/client";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  buildExistingUserGrantPayload,
+  buildInviteNewUserPayload,
+  canGrantExistingUserAccess,
+  inviteNewUserButtonLabel,
+  type AdminInviteWorkflowMode
+} from "@/components/admin-moderation/admin-launch-access-invite-workflows";
 
 type LaunchTargetTier = "CONTRIBUTOR";
 type LaunchAccessMode = "promo" | "invite" | "founder-pricing" | "ad-guardrails" | "review";
+
+type StatusChangeAccountView = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  tierName: string;
+  suspended: boolean;
+};
+
+type InviteResultView = {
+  inviteId: string;
+  recipientEmail: string | null;
+  inviteCode: string;
+  expiresAt: string;
+  emailed: boolean;
+  emailError?: string;
+  status: "active" | "revoked";
+  userLabel?: string | null;
+};
 
 type FreeInviteView = {
   id: string;
@@ -136,11 +163,57 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
   const [label, setLabel] = useState("Launch Access");
   const [reason, setReason] = useState("Promotional launch access for early platform adoption.");
   const [message, setMessage] = useState("");
+  const [inviteWorkflowMode, setInviteWorkflowMode] = useState<AdminInviteWorkflowMode>("new-user");
   const [inviteRecipientEmail, setInviteRecipientEmail] = useState("");
-  const [generatedInviteCode, setGeneratedInviteCode] = useState("");
+  const [inviteExpiresInDays, setInviteExpiresInDays] = useState(7);
+  const [sendInviteEmailImmediately, setSendInviteEmailImmediately] = useState(true);
+  const [inviteResult, setInviteResult] = useState<InviteResultView | null>(null);
   const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [existingAccountQuery, setExistingAccountQuery] = useState("");
+  const [existingAccountResults, setExistingAccountResults] = useState<StatusChangeAccountView[]>([]);
+  const [selectedExistingAccount, setSelectedExistingAccount] = useState<StatusChangeAccountView | null>(null);
+  const [existingAccountSearchMessage, setExistingAccountSearchMessage] = useState("");
+  const [existingAccessExpiresInDays, setExistingAccessExpiresInDays] = useState(7);
   const [isPending, startTransition] = useTransition();
   const activeMode = normalizeMode(mode);
+
+  useEffect(() => {
+    if (inviteWorkflowMode !== "existing-user") return;
+    const query = existingAccountQuery.trim();
+    if (query.length < 2) {
+      setExistingAccountResults([]);
+      setExistingAccountSearchMessage(query ? "Enter at least 2 characters to search accounts." : "");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setExistingAccountSearchMessage("Searching accounts...");
+      try {
+        const response = await fetch(`/api/admin/status-change?query=${encodeURIComponent(query)}`, {
+          signal: controller.signal
+        });
+        const payload = (await response.json().catch(() => null)) as { accounts?: StatusChangeAccountView[]; error?: string } | null;
+        if (!response.ok) {
+          setExistingAccountResults([]);
+          setExistingAccountSearchMessage(payload?.error ?? "Could not search accounts.");
+          return;
+        }
+        const accounts = payload?.accounts ?? [];
+        setExistingAccountResults(accounts);
+        setExistingAccountSearchMessage(accounts.length ? "" : "No matching account was found.");
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setExistingAccountResults([]);
+          setExistingAccountSearchMessage("Could not search accounts.");
+        }
+      }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [existingAccountQuery, inviteWorkflowMode]);
 
   function applyPreset(tier: LaunchTargetTier) {
     setTargetTier(tier);
@@ -184,18 +257,26 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
 
   function generateInviteCode() {
     setInviteMessage("");
-    setGeneratedInviteCode("");
+    setInviteError("");
+    setInviteResult(null);
     const recipientEmail = inviteRecipientEmail.trim();
+    if (sendInviteEmailImmediately && !recipientEmail) {
+      setInviteError("Enter an email address before sending the invitation email.");
+      return;
+    }
+    if (inviteExpiresInDays < 1 || inviteExpiresInDays > 90) {
+      setInviteError("Invite expiration must be between 1 and 90 days.");
+      return;
+    }
     startTransition(async () => {
       const response = await fetch("/api/admin/free-account-invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate",
+        body: JSON.stringify(buildInviteNewUserPayload({
           recipientEmail,
-          expiresInDays: 7,
-          sendEmail: Boolean(recipientEmail)
-        })
+          expiresInDays: inviteExpiresInDays,
+          sendEmailImmediately: sendInviteEmailImmediately
+        }))
       });
 
       const payload = (await response.json().catch(() => null)) as {
@@ -203,14 +284,23 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
         inviteCode?: string;
         emailed?: boolean;
         emailError?: string;
+        invite?: { id: string; recipientEmail: string | null; expiresAt: string };
       } | null;
 
       if (!response.ok || !payload?.inviteCode) {
-        setInviteMessage(payload?.error ?? "Could not generate invite code.");
+        setInviteError(payload?.error ?? "Could not generate invite code.");
         return;
       }
 
-      setGeneratedInviteCode(payload.inviteCode);
+      setInviteResult({
+        inviteId: payload.invite?.id ?? "",
+        recipientEmail: payload.invite?.recipientEmail ?? (recipientEmail || null),
+        inviteCode: payload.inviteCode,
+        expiresAt: payload.invite?.expiresAt ?? "",
+        emailed: Boolean(payload.emailed),
+        emailError: payload.emailError,
+        status: "active"
+      });
       await refreshView();
       setInviteMessage(
         payload.emailError
@@ -219,6 +309,106 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
             ? `Invite sent to ${recipientEmail}.`
             : "Invite code created. No email was sent."
       );
+    });
+  }
+
+  function grantExistingUserFreeAccess() {
+    setInviteMessage("");
+    setInviteError("");
+    setInviteResult(null);
+    if (!selectedExistingAccount) {
+      setInviteError("Select an account before granting free access.");
+      return;
+    }
+    if (existingAccessExpiresInDays < 1 || existingAccessExpiresInDays > 90) {
+      setInviteError("Access expiration must be between 1 and 90 days.");
+      return;
+    }
+    startTransition(async () => {
+      const response = await fetch("/api/admin/free-account-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildExistingUserGrantPayload({
+          account: selectedExistingAccount,
+          expiresInDays: existingAccessExpiresInDays
+        }))
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        inviteCode?: string;
+        userLabel?: string;
+        invite?: { id: string; recipientEmail: string | null; expiresAt: string };
+      } | null;
+      if (!response.ok || !payload?.inviteCode) {
+        setInviteError(payload?.error ?? "Failed access grant.");
+        return;
+      }
+      setInviteResult({
+        inviteId: payload.invite?.id ?? "",
+        recipientEmail: payload.invite?.recipientEmail ?? null,
+        inviteCode: payload.inviteCode,
+        expiresAt: payload.invite?.expiresAt ?? "",
+        emailed: false,
+        status: "active",
+        userLabel: payload.userLabel ?? selectedExistingAccount.displayName
+      });
+      await refreshView();
+      setInviteMessage(`Free access assigned to ${payload.userLabel ?? selectedExistingAccount.displayName}.`);
+    });
+  }
+
+  function copyInviteCode() {
+    if (!inviteResult?.inviteCode) return;
+    void navigator.clipboard?.writeText(inviteResult.inviteCode);
+    setInviteMessage("Invite code copied.");
+  }
+
+  function resendInviteEmail() {
+    if (!inviteResult?.inviteCode || !inviteResult.recipientEmail) {
+      setInviteError("This invite does not have a recipient email to resend to.");
+      return;
+    }
+    setInviteMessage("");
+    setInviteError("");
+    startTransition(async () => {
+      const response = await fetch("/api/admin/free-account-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "email",
+          inviteCode: inviteResult.inviteCode,
+          recipientEmail: inviteResult.recipientEmail
+        })
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        setInviteError(payload?.error ?? "Email delivery failure.");
+        return;
+      }
+      setInviteResult({ ...inviteResult, emailed: true, emailError: undefined });
+      setInviteMessage(`Invitation email resent to ${inviteResult.recipientEmail}.`);
+      await refreshView();
+    });
+  }
+
+  function revokeInvite() {
+    if (!inviteResult?.inviteId) return;
+    setInviteMessage("");
+    setInviteError("");
+    startTransition(async () => {
+      const response = await fetch("/api/admin/free-account-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke", inviteId: inviteResult.inviteId })
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        setInviteError(payload?.error ?? "Could not revoke invite.");
+        return;
+      }
+      setInviteResult({ ...inviteResult, status: "revoked" });
+      setInviteMessage("Invite revoked.");
+      await refreshView();
     });
   }
 
@@ -320,29 +510,216 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
   if (activeMode === "invite") {
     return (
       <div className="grid gap-5">
-        <ToolHeader description="Enter an email address to send a one-time free account invite. Leave the email blank to create a code only." title="Generate Free Account Invite Code" />
+        <ToolHeader description="Invite a new user or grant promotional access to an existing account." title="Free Account Access" />
         <section className="surface rounded-md p-5">
           <div className="grid gap-5">
-            <label className="grid gap-2">
-              <span className="form-label">Email address</span>
-              <input className="form-field" onChange={(event) => setInviteRecipientEmail(event.target.value)} placeholder="person@example.com" type="email" value={inviteRecipientEmail} />
-            </label>
-            <button className="btn-primary w-fit" disabled={isPending} onClick={generateInviteCode} type="button">
-              {isPending ? "Working..." : inviteRecipientEmail.trim() ? "Send invite" : "Create invite code"}
-            </button>
-            <div className="rounded-md border border-dashed border-[var(--line)] bg-black/20 p-4">
-              <p className="form-label">Output</p>
-              {inviteMessage ? <p className="mt-3 text-sm text-[var(--muted)]">{inviteMessage}</p> : <p className="mt-3 text-sm text-[var(--muted)]">No invite created in this session.</p>}
-              <label className="grid gap-2">
-                <span className="form-label mt-4">Invite code</span>
-                <input
-                  className="form-field font-mono"
-                  onFocus={(event) => event.currentTarget.select()}
-                  readOnly
-                  value={generatedInviteCode || ""}
-                />
-              </label>
+            <div aria-label="Free account access workflow" className="grid gap-3 rounded-md border border-[var(--line)] bg-black/10 p-2 sm:grid-cols-2" role="tablist">
+              <button
+                aria-selected={inviteWorkflowMode === "new-user"}
+                className={inviteWorkflowMode === "new-user" ? "btn-primary justify-center" : "btn-secondary justify-center"}
+                onClick={() => {
+                  setInviteWorkflowMode("new-user");
+                  setInviteError("");
+                  setInviteMessage("");
+                  setInviteResult(null);
+                }}
+                role="tab"
+                type="button"
+              >
+                Invite New User
+              </button>
+              <button
+                aria-selected={inviteWorkflowMode === "existing-user"}
+                className={inviteWorkflowMode === "existing-user" ? "btn-primary justify-center" : "btn-secondary justify-center"}
+                onClick={() => {
+                  setInviteWorkflowMode("existing-user");
+                  setInviteError("");
+                  setInviteMessage("");
+                  setInviteResult(null);
+                }}
+                role="tab"
+                type="button"
+              >
+                Existing User
+              </button>
             </div>
+
+            {inviteWorkflowMode === "new-user" ? (
+              <div className="grid gap-5" role="tabpanel">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+                  <label className="grid gap-2">
+                    <span className="form-label">Recipient Email</span>
+                    <input
+                      aria-invalid={Boolean(inviteError && inviteError.toLowerCase().includes("email"))}
+                      className="form-field"
+                      onChange={(event) => setInviteRecipientEmail(event.target.value)}
+                      placeholder="person@example.com"
+                      type="email"
+                      value={inviteRecipientEmail}
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="form-label">Invite expiration in days</span>
+                    <input
+                      className="form-field"
+                      max={90}
+                      min={1}
+                      onChange={(event) => setInviteExpiresInDays(Number(event.target.value))}
+                      type="number"
+                      value={inviteExpiresInDays}
+                    />
+                  </label>
+                </div>
+                <label className="flex items-center gap-3 text-sm text-[var(--muted)]">
+                  <input
+                    checked={sendInviteEmailImmediately}
+                    className="h-5 w-5 accent-[var(--gold)]"
+                    onChange={(event) => setSendInviteEmailImmediately(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Send invitation email immediately</span>
+                </label>
+                <button className="btn-primary w-fit disabled:cursor-not-allowed disabled:opacity-60" disabled={isPending} onClick={generateInviteCode} type="button">
+                  {isPending ? "Working..." : inviteNewUserButtonLabel(sendInviteEmailImmediately)}
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-5" role="tabpanel">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+                  <label className="grid gap-2">
+                    <span className="form-label">Find Account</span>
+                    <input
+                      className="form-field"
+                      onChange={(event) => {
+                        setExistingAccountQuery(event.target.value);
+                        setSelectedExistingAccount(null);
+                      }}
+                      placeholder="Search by email, username, or name"
+                      type="search"
+                      value={existingAccountQuery}
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="form-label">Access expiration in days</span>
+                    <input
+                      className="form-field"
+                      max={90}
+                      min={1}
+                      onChange={(event) => setExistingAccessExpiresInDays(Number(event.target.value))}
+                      type="number"
+                      value={existingAccessExpiresInDays}
+                    />
+                  </label>
+                </div>
+                {existingAccountResults.length ? (
+                  <div className="grid gap-2" role="listbox">
+                    {existingAccountResults.map((account) => (
+                      <button
+                        className={`rounded-md border p-4 text-left transition ${selectedExistingAccount?.id === account.id ? "border-[var(--gold)] bg-[var(--gold)]/10" : "border-[var(--line)] bg-black/20 hover:border-[var(--gold)]/60"}`}
+                        key={account.id}
+                        onClick={() => {
+                          setSelectedExistingAccount(account);
+                          setExistingAccountQuery(account.email);
+                        }}
+                        type="button"
+                      >
+                        <span className="block font-semibold">{account.displayName}</span>
+                        <span className="block text-sm text-[var(--muted)]">{account.email} · @{account.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : existingAccountSearchMessage ? (
+                  <p className="text-sm text-[var(--muted)]">{existingAccountSearchMessage}</p>
+                ) : null}
+                {selectedExistingAccount ? (
+                  <div className="rounded-md border border-[var(--line)] bg-black/20 p-4">
+                    <p className="form-label">Selected-user summary</p>
+                    <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                      <div>
+                        <dt className="text-[var(--muted)]">Display name</dt>
+                        <dd className="font-semibold">{selectedExistingAccount.displayName}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[var(--muted)]">Email</dt>
+                        <dd className="font-semibold">{selectedExistingAccount.email}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[var(--muted)]">Username</dt>
+                        <dd className="font-semibold">@{selectedExistingAccount.username}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[var(--muted)]">Current access</dt>
+                        <dd className="font-semibold">{selectedExistingAccount.suspended ? "Suspended" : selectedExistingAccount.tierName}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                ) : null}
+                <button
+                  className="btn-primary w-fit disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!canGrantExistingUserAccess(selectedExistingAccount, isPending)}
+                  onClick={grantExistingUserFreeAccess}
+                  type="button"
+                >
+                  {isPending ? "Working..." : "Grant Free Access"}
+                </button>
+              </div>
+            )}
+
+            {inviteError ? (
+              <p className="rounded-md border border-red-400/50 bg-red-950/40 p-3 text-sm text-red-100" role="alert">
+                {inviteError}
+              </p>
+            ) : null}
+            {inviteResult ? (
+              <div className="rounded-md border border-[var(--gold)]/50 bg-black/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="form-label">Success</p>
+                    <h2 className="mt-2 text-xl font-semibold">{inviteResult.status === "revoked" ? "Invite revoked" : "Free invite ready"}</h2>
+                    {inviteMessage ? <p className="mt-2 text-sm text-[var(--muted)]">{inviteMessage}</p> : null}
+                  </div>
+                  <span className="pill rounded-full px-3 py-1 text-xs">{inviteResult.status === "revoked" ? "Revoked" : "Active"}</span>
+                </div>
+                <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+                  <div>
+                    <dt className="text-[var(--muted)]">Recipient email</dt>
+                    <dd className="font-semibold">{inviteResult.recipientEmail ?? "No email sent"}</dd>
+                  </div>
+                  {inviteResult.userLabel ? (
+                    <div>
+                      <dt className="text-[var(--muted)]">Existing account</dt>
+                      <dd className="font-semibold">{inviteResult.userLabel}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt className="text-[var(--muted)]">Expiration date</dt>
+                    <dd className="font-semibold">{inviteResult.expiresAt ? new Date(inviteResult.expiresAt).toLocaleString() : "Not available"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[var(--muted)]">Email status</dt>
+                    <dd className="font-semibold">{inviteResult.emailError ? `Failed: ${inviteResult.emailError}` : inviteResult.emailed ? "Sent" : "Not sent"}</dd>
+                  </div>
+                </dl>
+                <label className="mt-4 grid gap-2">
+                  <span className="form-label">Generated invite code</span>
+                  <input className="form-field font-mono" onFocus={(event) => event.currentTarget.select()} readOnly value={inviteResult.inviteCode} />
+                </label>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button className="btn-secondary" onClick={copyInviteCode} type="button">Copy Code</button>
+                  <button className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60" disabled={!inviteResult.recipientEmail || inviteResult.status === "revoked" || isPending} onClick={resendInviteEmail} type="button">
+                    Resend Email
+                  </button>
+                  <button className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60" disabled={inviteResult.status === "revoked" || isPending} onClick={revokeInvite} type="button">
+                    Revoke Invite
+                  </button>
+                  <Link className="btn-secondary" href={`/admin/actions/account-support?tool=create-user&inviteCode=${encodeURIComponent(inviteResult.inviteCode)}`}>
+                    Create Account Manually
+                  </Link>
+                </div>
+              </div>
+            ) : inviteMessage ? (
+              <p className="text-sm text-[var(--muted)]">{inviteMessage}</p>
+            ) : null}
           </div>
         </section>
       </div>

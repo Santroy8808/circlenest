@@ -47,6 +47,11 @@ const applyInviteSchema = z.object({
   userIdentifier: z.string().trim().min(2).max(180)
 });
 
+const grantExistingUserSchema = z.object({
+  userIdentifier: z.string().trim().min(2).max(180),
+  expiresInDays: z.coerce.number().int().min(1).max(90).default(7)
+});
+
 const revokeInviteSchema = z.object({
   inviteId: z.string().min(1)
 });
@@ -1211,6 +1216,84 @@ export async function applyFreeAccountInviteCodeToAccount(actorUserId: string, i
   });
 
   return { ok: true as const, userLabel: userLabel(user) };
+}
+
+export async function grantFreeAccountInviteCodeToExistingAccount(actorUserId: string, input: unknown) {
+  if (!(await isAdminUser(actorUserId))) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+
+  const parsed = grantExistingUserSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid access grant request." };
+  }
+
+  const created = await createFreeAccountInviteCode(actorUserId, {
+    assignedUserIdentifier: parsed.data.userIdentifier,
+    expiresInDays: parsed.data.expiresInDays,
+    sendEmail: false
+  });
+
+  if (!created.ok) return created;
+
+  const applied = await applyFreeAccountInviteCodeToAccount(actorUserId, {
+    inviteCode: created.inviteCode,
+    userIdentifier: parsed.data.userIdentifier
+  });
+
+  if (!applied.ok) return applied;
+
+  return {
+    ok: true as const,
+    invite: created.invite,
+    inviteCode: created.inviteCode,
+    userLabel: applied.userLabel
+  };
+}
+
+export async function revokeFreeAccountInviteCodeAdmin(actorUserId: string, input: unknown) {
+  if (!(await isAdminUser(actorUserId))) {
+    return { ok: false as const, error: "Admin access required." };
+  }
+
+  const parsed = revokeInviteSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid invite revoke request." };
+  }
+
+  const invite = await prisma.freeAccountInviteCode.findUnique({
+    where: { id: parsed.data.inviteId }
+  });
+
+  if (!invite) {
+    return { ok: false as const, error: "Invite code was not found." };
+  }
+
+  if (invite.usedAt) {
+    return { ok: false as const, error: "Used invite codes cannot be revoked." };
+  }
+
+  if (invite.revokedAt) {
+    return { ok: false as const, error: "Invite code was already revoked." };
+  }
+
+  await prisma.freeAccountInviteCode.update({
+    where: { id: invite.id },
+    data: { revokedAt: new Date() }
+  });
+
+  await writeAuditLog({
+    actorUserId,
+    module: MODULE_KEY,
+    action: "free-invite.revoked",
+    targetType: "FreeAccountInviteCode",
+    targetId: invite.id,
+    severity: AuditSeverity.warning
+  });
+
+  return { ok: true as const };
 }
 
 export async function revokeOwnFreeAccountInviteCode(actorUserId: string, input: unknown) {

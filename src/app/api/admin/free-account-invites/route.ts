@@ -5,7 +5,9 @@ import {
   applyFreeAccountInviteCodeToAccount,
   createFreeAccountInviteCode,
   emailFreeAccountInviteCode,
-  listFreeAccountInviteAdminView
+  grantFreeAccountInviteCodeToExistingAccount,
+  listFreeAccountInviteAdminView,
+  revokeFreeAccountInviteCodeAdmin
 } from "@/modules/membership-policy/free-account-invites.service";
 
 export async function GET() {
@@ -29,12 +31,18 @@ export async function POST(request: Request) {
   let result:
     | Awaited<ReturnType<typeof createFreeAccountInviteCode>>
     | Awaited<ReturnType<typeof emailFreeAccountInviteCode>>
-    | Awaited<ReturnType<typeof applyFreeAccountInviteCodeToAccount>>;
+    | Awaited<ReturnType<typeof applyFreeAccountInviteCodeToAccount>>
+    | Awaited<ReturnType<typeof grantFreeAccountInviteCodeToExistingAccount>>
+    | Awaited<ReturnType<typeof revokeFreeAccountInviteCodeAdmin>>;
 
   if (body?.action === "email") {
     result = await emailFreeAccountInviteCode(session.user.id, body);
   } else if (body?.action === "apply") {
     result = await applyFreeAccountInviteCodeToAccount(session.user.id, body);
+  } else if (body?.action === "grant-existing") {
+    result = await grantFreeAccountInviteCodeToExistingAccount(session.user.id, body);
+  } else if (body?.action === "revoke") {
+    result = await revokeFreeAccountInviteCodeAdmin(session.user.id, body);
   } else {
     result = await createFreeAccountInviteCode(session.user.id, body);
   }
