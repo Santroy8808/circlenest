@@ -73,7 +73,7 @@ const hubCards: Array<{
     href: "/admin/actions/launch-access?tool=invite",
     title: "Generate Free Account Invite Code",
     kicker: "Private membership invite",
-    description: "Generate a one-time free account invite code, email it through SMTP, or attach it to an existing account."
+    description: "Create a one-time free account invite code and optionally send it by email."
   },
   {
     href: "/admin/actions/launch-access?tool=founder-pricing",
@@ -137,12 +137,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
   const [reason, setReason] = useState("Promotional launch access for early platform adoption.");
   const [message, setMessage] = useState("");
   const [inviteRecipientEmail, setInviteRecipientEmail] = useState("");
-  const [inviteAssignedIdentifier, setInviteAssignedIdentifier] = useState("");
-  const [inviteExpiresInDays, setInviteExpiresInDays] = useState(7);
-  const [inviteSendEmail, setInviteSendEmail] = useState(false);
   const [generatedInviteCode, setGeneratedInviteCode] = useState("");
-  const [inviteEmailTarget, setInviteEmailTarget] = useState("");
-  const [inviteApplyIdentifier, setInviteApplyIdentifier] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const activeMode = normalizeMode(mode);
@@ -190,16 +185,16 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
   function generateInviteCode() {
     setInviteMessage("");
     setGeneratedInviteCode("");
+    const recipientEmail = inviteRecipientEmail.trim();
     startTransition(async () => {
       const response = await fetch("/api/admin/free-account-invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "generate",
-          recipientEmail: inviteRecipientEmail,
-          assignedUserIdentifier: inviteAssignedIdentifier,
-          expiresInDays: inviteExpiresInDays,
-          sendEmail: inviteSendEmail
+          recipientEmail,
+          expiresInDays: 7,
+          sendEmail: Boolean(recipientEmail)
         })
       });
 
@@ -216,65 +211,14 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
       }
 
       setGeneratedInviteCode(payload.inviteCode);
-      setInviteEmailTarget(inviteRecipientEmail);
       await refreshView();
       setInviteMessage(
         payload.emailError
           ? `Invite generated, but SMTP send failed: ${payload.emailError}`
           : payload.emailed
-            ? "Invite generated and emailed."
-            : "Invite generated."
+            ? `Invite sent to ${recipientEmail}.`
+            : "Invite code created. No email was sent."
       );
-    });
-  }
-
-  function emailGeneratedInviteCode() {
-    setInviteMessage("");
-    startTransition(async () => {
-      const response = await fetch("/api/admin/free-account-invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "email",
-          inviteCode: generatedInviteCode,
-          recipientEmail: inviteEmailTarget
-        })
-      });
-
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-      if (!response.ok) {
-        setInviteMessage(payload?.error ?? "Could not email invite code.");
-        return;
-      }
-
-      await refreshView();
-      setInviteMessage("Invite code emailed.");
-    });
-  }
-
-  function applyGeneratedInviteCode() {
-    setInviteMessage("");
-    startTransition(async () => {
-      const response = await fetch("/api/admin/free-account-invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "apply",
-          inviteCode: generatedInviteCode,
-          userIdentifier: inviteApplyIdentifier
-        })
-      });
-
-      const payload = (await response.json().catch(() => null)) as { error?: string; userLabel?: string } | null;
-
-      if (!response.ok) {
-        setInviteMessage(payload?.error ?? "Could not apply invite code.");
-        return;
-      }
-
-      await refreshView();
-      setInviteMessage(`Invite code applied${payload?.userLabel ? ` to ${payload.userLabel}` : ""}.`);
     });
   }
 
@@ -376,61 +320,29 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
   if (activeMode === "invite") {
     return (
       <div className="grid gap-5">
-        <ToolHeader description="Generate a one-time free account invite code, optionally email it by SMTP, or attach the generated code to an account." title="Generate Free Account Invite Code" />
+        <ToolHeader description="Enter an email address to send a one-time free account invite. Leave the email blank to create a code only." title="Generate Free Account Invite Code" />
         <section className="surface rounded-md p-5">
           <div className="grid gap-5">
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
-              <label className="grid gap-2">
-                <span className="form-label">Step 1: Recipient email</span>
-                <input className="form-field" onChange={(event) => setInviteRecipientEmail(event.target.value)} placeholder="person@example.com" type="email" value={inviteRecipientEmail} />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Expires in days</span>
-                <input className="form-field" min={1} max={90} onChange={(event) => setInviteExpiresInDays(Number(event.target.value))} type="number" value={inviteExpiresInDays} />
-              </label>
-            </div>
             <label className="grid gap-2">
-              <span className="form-label">Step 2: Grant/apply to existing account, optional</span>
-              <input className="form-field" onChange={(event) => setInviteAssignedIdentifier(event.target.value)} placeholder="Existing email or username" value={inviteAssignedIdentifier} />
-            </label>
-            <label className="flex items-center gap-3 text-sm text-[var(--muted)]">
-              <input checked={inviteSendEmail} onChange={(event) => setInviteSendEmail(event.target.checked)} type="checkbox" />
-              Step 3: Email the invite code immediately after generation.
+              <span className="form-label">Email address</span>
+              <input className="form-field" onChange={(event) => setInviteRecipientEmail(event.target.value)} placeholder="person@example.com" type="email" value={inviteRecipientEmail} />
             </label>
             <button className="btn-primary w-fit" disabled={isPending} onClick={generateInviteCode} type="button">
-              {isPending ? "Generating..." : "Generate Free Account Invite Code"}
+              {isPending ? "Working..." : inviteRecipientEmail.trim() ? "Send invite" : "Create invite code"}
             </button>
             <div className="rounded-md border border-dashed border-[var(--line)] bg-black/20 p-4">
-              <p className="form-label">Generated code</p>
-              <p className="mt-3 font-mono text-lg">{generatedInviteCode || "No code generated in this session."}</p>
-              {generatedInviteCode ? (
-                <Link
-                  className="btn-secondary mt-4 inline-flex"
-                  href={`/admin/actions/account-support?tool=create-user&inviteCode=${encodeURIComponent(generatedInviteCode)}`}
-                >
-                  Create User with this code
-                </Link>
-              ) : null}
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
+              <p className="form-label">Output</p>
+              {inviteMessage ? <p className="mt-3 text-sm text-[var(--muted)]">{inviteMessage}</p> : <p className="mt-3 text-sm text-[var(--muted)]">No invite created in this session.</p>}
               <label className="grid gap-2">
-                <span className="form-label">Email generated code to</span>
-                <input className="form-field" disabled={!generatedInviteCode} onChange={(event) => setInviteEmailTarget(event.target.value)} type="email" value={inviteEmailTarget} />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Apply generated code to account</span>
-                <input className="form-field" disabled={!generatedInviteCode} onChange={(event) => setInviteApplyIdentifier(event.target.value)} placeholder="Existing email or username" value={inviteApplyIdentifier} />
+                <span className="form-label mt-4">Invite code</span>
+                <input
+                  className="form-field font-mono"
+                  onFocus={(event) => event.currentTarget.select()}
+                  readOnly
+                  value={generatedInviteCode || ""}
+                />
               </label>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button className="btn-secondary" disabled={!generatedInviteCode || isPending} onClick={emailGeneratedInviteCode} type="button">
-                Send code by SMTP
-              </button>
-              <button className="btn-secondary" disabled={!generatedInviteCode || isPending} onClick={applyGeneratedInviteCode} type="button">
-                Apply code to account
-              </button>
-            </div>
-            {inviteMessage ? <p className="text-sm text-[var(--muted)]">{inviteMessage}</p> : null}
           </div>
         </section>
       </div>
