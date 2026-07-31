@@ -26,6 +26,11 @@ type BulkInviteBatch = {
   updatedAt: string;
 };
 
+function countUniqueEmails(value: string) {
+  return value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+/gi)
+    ?.filter((email, index, values) => values.findIndex((candidate) => candidate.toLowerCase() === email.toLowerCase()) === index).length ?? 0;
+}
+
 export function InviteSettingsClient({
   canInvite,
   canBulkInvite,
@@ -41,22 +46,21 @@ export function InviteSettingsClient({
   initialInvites: OwnInvite[];
   initialBulkBatches: BulkInviteBatch[];
 }) {
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [sendEmail, setSendEmail] = useState(false);
-  const [expiresInDays, setExpiresInDays] = useState(7);
+  const [toField, setToField] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
   const [bulkEmails, setBulkEmails] = useState("");
+  const [bulkExpiresInDays, setBulkExpiresInDays] = useState(7);
   const [invites, setInvites] = useState(initialInvites);
   const [bulkBatches, setBulkBatches] = useState(initialBulkBatches);
-  const [generatedCode, setGeneratedCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const bulkAddressCount = bulkEmails.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+/gi)?.filter((email, index, values) => values.findIndex((candidate) => candidate.toLowerCase() === email.toLowerCase()) === index).length ?? 0;
+  const inviteAddressCount = countUniqueEmails(toField);
+  const bulkAddressCount = countUniqueEmails(bulkEmails);
 
-  function generateInvite(event: React.FormEvent<HTMLFormElement>) {
+  function sendInvites(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setGeneratedCode("");
     setMessage("");
     setError("");
 
@@ -65,27 +69,40 @@ export function InviteSettingsClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          recipientEmail,
-          sendEmail,
-          expiresInDays
+          action: "send-member-invites",
+          to: toField,
+          message: inviteMessage
         })
       });
-      const payload = (await response.json()) as { error?: string; inviteCode?: string; invites?: OwnInvite[] };
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        invites?: OwnInvite[];
+        sentCount?: number;
+        failedCount?: number;
+        skippedCount?: number;
+        emailErrors?: Array<{ recipientEmail: string; error: string }>;
+      } | null;
 
-      if (!response.ok || !payload.inviteCode) {
-        setError(payload.error ?? "Could not generate invite.");
+      if (!response.ok) {
+        setError(payload?.error ?? "Could not send invitations.");
         return;
       }
 
-      setGeneratedCode(payload.inviteCode);
-      setInvites(payload.invites ?? invites);
-      setMessage(sendEmail ? "Invite code generated and emailed." : "Invite code generated.");
+      const sentCount = payload?.sentCount ?? 0;
+      const failedCount = payload?.failedCount ?? 0;
+      const skippedCount = payload?.skippedCount ?? 0;
+      setInvites(payload?.invites ?? invites);
+      setToField("");
+      setInviteMessage("");
+      setMessage(`${sentCount} invite${sentCount === 1 ? "" : "s"} sent.${skippedCount ? ` ${skippedCount} skipped because they were duplicate or already active.` : ""}${failedCount ? ` ${failedCount} could not be emailed.` : ""}`);
+      if (failedCount && payload?.emailErrors?.length) {
+        setError(payload.emailErrors.map((entry) => `${entry.recipientEmail}: ${entry.error}`).join(" "));
+      }
     });
   }
 
   function queueBulkInvites(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setGeneratedCode("");
     setMessage("");
     setError("");
 
@@ -93,7 +110,7 @@ export function InviteSettingsClient({
       const response = await fetch("/api/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "bulk", emails: bulkEmails, expiresInDays })
+        body: JSON.stringify({ action: "bulk", emails: bulkEmails, expiresInDays: bulkExpiresInDays })
       });
       const payload = (await response.json().catch(() => null)) as { error?: string; bulkBatches?: BulkInviteBatch[]; queuedCount?: number; skippedCount?: number } | null;
       if (!response.ok) {
@@ -136,34 +153,36 @@ export function InviteSettingsClient({
   return (
     <div className="grid gap-5">
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">Generate free account invite</h2>
+        <h2 className="text-2xl font-semibold text-[var(--gold)]">Invite Someone!</h2>
         <p className="mt-2 leading-6 text-[var(--muted)]">{reason}</p>
         {canInvite ? (
-          <form className="mt-5 grid gap-4" onSubmit={generateInvite}>
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
-              <label className="grid gap-2">
-                <span className="form-label">Recipient email</span>
-                <input className="form-field" onChange={(event) => setRecipientEmail(event.target.value)} type="email" value={recipientEmail} />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Expires in days</span>
-                <input className="form-field" max={90} min={1} onChange={(event) => setExpiresInDays(Number(event.target.value))} type="number" value={expiresInDays} />
-              </label>
-            </div>
-            <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
-              <input checked={sendEmail} onChange={(event) => setSendEmail(event.target.checked)} type="checkbox" />
-              Email this invite code immediately.
+          <form className="mt-5 grid gap-4" onSubmit={sendInvites}>
+            <label className="grid gap-2">
+              <span className="form-label">To</span>
+              <textarea
+                className="form-field min-h-24 resize-y"
+                onChange={(event) => setToField(event.target.value)}
+                placeholder="Invitee@email.com, invitee2@email.com"
+                value={toField}
+              />
+              <span className="text-xs text-[var(--muted)]">
+                Separate addresses with commas or semicolons. {inviteAddressCount > 0 ? `${inviteAddressCount} unique address${inviteAddressCount === 1 ? "" : "es"} detected.` : "No addresses detected yet."}
+              </span>
             </label>
-            <button className="btn-primary w-fit" disabled={isPending || (sendEmail && recipientEmail.trim().length < 3)} type="submit">
-              {isPending ? "Generating..." : "Generate invite code"}
+            <label className="grid gap-2">
+              <span className="form-label">Message</span>
+              <textarea
+                className="form-field min-h-32 resize-y"
+                maxLength={1000}
+                onChange={(event) => setInviteMessage(event.target.value)}
+                placeholder="Hey, try out this site! Here's a free invite code."
+                value={inviteMessage}
+              />
+            </label>
+            <button className="btn-primary w-fit" disabled={isPending || inviteAddressCount === 0} type="submit">
+              {isPending ? "Sending..." : "Send invite"}
             </button>
           </form>
-        ) : null}
-        {generatedCode ? (
-          <div className="mt-4 rounded-md border border-[var(--line)] bg-black/20 p-4">
-            <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted)]">Generated code</p>
-            <p className="mt-2 font-mono text-xl text-[var(--gold)]">{generatedCode}</p>
-          </div>
         ) : null}
         {message ? <p className="mt-4 rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
         {error ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
@@ -183,7 +202,7 @@ export function InviteSettingsClient({
             </label>
             <label className="grid max-w-[180px] gap-2">
               <span className="form-label">Expires in days</span>
-              <input className="form-field" max={90} min={1} onChange={(event) => setExpiresInDays(Number(event.target.value))} type="number" value={expiresInDays} />
+              <input className="form-field" max={90} min={1} onChange={(event) => setBulkExpiresInDays(Number(event.target.value))} type="number" value={bulkExpiresInDays} />
             </label>
             <button className="btn-primary w-fit" disabled={isPending || bulkAddressCount === 0} type="submit">
               {isPending ? "Queueing..." : "Queue invitations"}

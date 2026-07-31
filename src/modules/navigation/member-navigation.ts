@@ -65,6 +65,7 @@ const settingsSection: NavSection = {
     { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Membership", href: "/membership" },
     { label: "Progression Path", href: "/settings/progression-path" },
+    { label: "Invite Someone!", href: "/settings/invite" },
     { label: "Settings", href: "/settings" }
   ]
 };
@@ -139,7 +140,17 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     if (item.href === "/fundraisers") return input.features["fundraisers.create"] === true;
     return false;
   });
-  const settings = settingsSection;
+  const singleInvitesEnabled = input.platformFeatures["membership.single_invites"] !== false;
+  const bulkInvitesEnabled = input.platformFeatures["membership.bulk_invites"] !== false;
+  const settings = {
+    ...settingsSection,
+    items: settingsSection.items.filter((item) => {
+      if (item.href !== "/settings/invite") return true;
+      if (input.isAdmin) return singleInvitesEnabled || bulkInvitesEnabled;
+      return (singleInvitesEnabled && input.features["invites.send"] === true)
+        || (bulkInvitesEnabled && input.features["invites.bulkSend"] === true);
+    })
+  };
 
   const memberSections: NavSection[] = [home, communications];
   if (marketItems.length > 0) {

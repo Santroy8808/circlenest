@@ -30,7 +30,7 @@ export default async function InviteSettingsPage() {
 
   return (
     <AppShell>
-      <SecureSettingsPanel title="Invite Controls" description="Generate private membership free-account invite codes when your account is eligible.">
+      <SecureSettingsPanel title="Invite Someone!" description="Send standard Theta-Space free-tier invites when your account has invite rights.">
         <InviteSettingsClient canInvite={singleFeatureEnabled && (access.allowed || admin)} canBulkInvite={bulkFeatureEnabled && (bulkAccess.allowed || admin)} initialInvites={invites} initialBulkBatches={bulkBatches} reason={!singleFeatureEnabled ? "Single invitations are currently disabled by Platform Management." : admin ? "Administrator access includes invite creation by default." : access.reason} bulkReason={!bulkFeatureEnabled ? "Bulk invitations are currently disabled by Platform Management." : admin ? "Administrator access includes bulk invitations by default." : bulkAccess.reason} />
       </SecureSettingsPanel>
     </AppShell>

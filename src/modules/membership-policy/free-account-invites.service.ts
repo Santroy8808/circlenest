@@ -23,6 +23,9 @@ const BULK_INVITE_DAILY_CAP = 300;
 const BULK_INVITE_MAX_ADDRESSES = 250;
 const BULK_INVITE_INTERVAL_MS = 2 * 60 * 1000;
 const INVITE_ORIENTATION_DELAY_MS = 30 * 60 * 1000;
+const MEMBER_INVITE_MAX_ADDRESSES = 25;
+const MEMBER_INVITE_MESSAGE_MAX_LENGTH = 1000;
+const MEMBER_INVITE_RECIPIENTS_MAX_LENGTH = 10_000;
 
 export class FreeInviteError extends Error {}
 
@@ -30,7 +33,8 @@ const generateInviteSchema = z.object({
   recipientEmail: z.string().email().optional().or(z.literal("")),
   assignedUserIdentifier: z.string().trim().max(180).optional().or(z.literal("")),
   expiresInDays: z.coerce.number().int().min(1).max(90).default(7),
-  sendEmail: z.boolean().default(false)
+  sendEmail: z.boolean().default(false),
+  message: z.string().max(MEMBER_INVITE_MESSAGE_MAX_LENGTH).optional().or(z.literal(""))
 });
 
 const emailInviteSchema = z.object({
@@ -49,6 +53,14 @@ const revokeInviteSchema = z.object({
 
 const bulkInviteSchema = z.object({
   emails: z.string().trim().min(1).max(100_000),
+  expiresInDays: z.coerce.number().int().min(1).max(90).default(7)
+});
+
+const sendMemberInvitesSchema = z.object({
+  to: z.string().max(MEMBER_INVITE_RECIPIENTS_MAX_LENGTH).optional().or(z.literal("")),
+  recipients: z.string().max(MEMBER_INVITE_RECIPIENTS_MAX_LENGTH).optional().or(z.literal("")),
+  emails: z.string().max(MEMBER_INVITE_RECIPIENTS_MAX_LENGTH).optional().or(z.literal("")),
+  message: z.string().max(MEMBER_INVITE_MESSAGE_MAX_LENGTH).optional().or(z.literal("")),
   expiresInDays: z.coerce.number().int().min(1).max(90).default(7)
 });
 
@@ -141,7 +153,42 @@ function inviteEmailDetails(code: string, expiresAt: Date) {
   return { normalizedCode, signupUrl, expirationLabel };
 }
 
-function inviteEmailText(code: string, expiresAt: Date) {
+type FreeAccountInviteEmailOptions = {
+  personalMessage?: string | null;
+};
+
+function normalizePersonalInviteMessage(value?: string | null) {
+  return value?.trim().replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n") ?? "";
+}
+
+function invitePersonalMessageText(value?: string | null) {
+  const personalMessage = normalizePersonalInviteMessage(value);
+  if (!personalMessage) return [];
+
+  return [
+    "A NOTE FROM THE MEMBER WHO INVITED YOU",
+    personalMessage,
+    ""
+  ];
+}
+
+function invitePersonalMessageHtml(value?: string | null) {
+  const personalMessage = normalizePersonalInviteMessage(value);
+  if (!personalMessage) return "";
+  const safeMessage = escapeHtml(personalMessage).replace(/\n/g, "<br>");
+
+  return `
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 24px;background-color:#172133;border:1px solid #766b45;border-radius:12px;">
+                  <tr>
+                    <td style="padding:18px 20px;color:#dbe2ee;font-size:15px;line-height:1.7;">
+                      <div style="margin:0 0 8px;color:#ffd85f;font-size:12px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;">A note from the member who invited you</div>
+                      <div>${safeMessage}</div>
+                    </td>
+                  </tr>
+                </table>`;
+}
+
+function inviteEmailText(code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
   const { normalizedCode, signupUrl, expirationLabel } = inviteEmailDetails(code, expiresAt);
 
   return [
@@ -150,6 +197,7 @@ function inviteEmailText(code: string, expiresAt: Date) {
     "",
     "You’re invited to join Theta-Space, a private community for thoughtful connection, communication, and shared discovery.",
     "",
+    ...invitePersonalMessageText(options.personalMessage),
     "YOUR ONE-TIME INVITE CODE",
     normalizedCode,
     "",
@@ -170,11 +218,12 @@ function inviteEmailText(code: string, expiresAt: Date) {
   ].join("\n");
 }
 
-function inviteEmailHtml(code: string, expiresAt: Date) {
+function inviteEmailHtml(code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
   const { normalizedCode, signupUrl, expirationLabel } = inviteEmailDetails(code, expiresAt);
   const safeCode = escapeHtml(normalizedCode);
   const safeSignupUrl = escapeHtml(signupUrl);
   const safeExpirationLabel = escapeHtml(expirationLabel);
+  const personalMessageHtml = invitePersonalMessageHtml(options.personalMessage);
 
   return `<!doctype html>
 <html lang="en">
@@ -220,6 +269,7 @@ function inviteEmailHtml(code: string, expiresAt: Date) {
                 <h1 class="theta-title" style="margin:0;color:#f4f7fc;font-size:36px;line-height:1.15;font-weight:750;">You’re invited.</h1>
                 <p style="margin:20px 0 26px;color:#c5cfdd;font-size:16px;line-height:1.7;">You’ve been invited to join Theta-Space, a private community for thoughtful connection, communication, and shared discovery.</p>
 
+${personalMessageHtml}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 26px;background-color:#172133;border:1px solid #766b45;border-radius:12px;">
                   <tr>
                     <td align="center" style="padding:16px 18px 7px;color:#aab4c3;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Your one-time invite code</td>
@@ -279,16 +329,16 @@ function inviteEmailHtml(code: string, expiresAt: Date) {
 </html>`;
 }
 
-export function buildFreeAccountInviteEmail(code: string, expiresAt: Date) {
+export function buildFreeAccountInviteEmail(code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
   return {
     subject: "You’re invited to Theta-Space",
-    text: inviteEmailText(code, expiresAt),
-    html: inviteEmailHtml(code, expiresAt)
+    text: inviteEmailText(code, expiresAt, options),
+    html: inviteEmailHtml(code, expiresAt, options)
   };
 }
 
-async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date) {
-  const message = buildFreeAccountInviteEmail(code, expiresAt);
+async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
+  const message = buildFreeAccountInviteEmail(code, expiresAt, options);
   const mailboxes = readPlatformMailboxes();
   await sendPlatformMail({
     to: recipientEmail,
@@ -486,6 +536,20 @@ async function canGenerateBulkMemberInvites(userId: string) {
   return tierPolicies[user.membership?.tier ?? "FREE"].features["invites.bulkSend"];
 }
 
+async function createUniqueInviteCodePair() {
+  let code = createInviteCode();
+  let codeHash = hashFreeAccountInviteCode(code);
+
+  for (let attempts = 0; attempts < 3; attempts += 1) {
+    const existing = await prisma.freeAccountInviteCode.findUnique({ where: { codeHash }, select: { id: true } });
+    if (!existing) break;
+    code = createInviteCode();
+    codeHash = hashFreeAccountInviteCode(code);
+  }
+
+  return { code, codeHash };
+}
+
 export async function createBulkMemberInvites(actorUserId: string, input: unknown) {
   if (!(await isFeatureEnabled("membership.bulk_invites"))) {
     return { ok: false as const, error: "Bulk invitations are currently disabled by Platform Management." };
@@ -547,6 +611,134 @@ export async function createBulkMemberInvites(actorUserId: string, input: unknow
     queuedCount: result.inviteIds.length,
     dailyCap: BULK_INVITE_DAILY_CAP,
     intervalMinutes: BULK_INVITE_INTERVAL_MS / 60_000
+  };
+}
+
+export async function sendMemberFreeAccountInvites(actorUserId: string, input: unknown) {
+  if (!(await isFeatureEnabled("membership.single_invites"))) {
+    return { ok: false as const, error: "Single invitations are currently disabled by Platform Management." };
+  }
+  if (!(await canGenerateMemberInvite(actorUserId))) {
+    return { ok: false as const, error: "Invite permission is not available on this account." };
+  }
+
+  const parsed = sendMemberInvitesSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid invite request." };
+  }
+
+  const recipientSource = [parsed.data.to, parsed.data.recipients, parsed.data.emails].find((value) => value?.trim()) ?? "";
+  const parsedEmails = parseBulkInviteEmails(recipientSource);
+  if (parsedEmails.extractedCount === 0) {
+    return { ok: false as const, error: "No valid email addresses were found." };
+  }
+  if (parsedEmails.extractedCount > MEMBER_INVITE_MAX_ADDRESSES) {
+    return { ok: false as const, error: `Invite Someone is limited to ${MEMBER_INVITE_MAX_ADDRESSES} addresses at a time.` };
+  }
+
+  const now = new Date();
+  const existing = await prisma.freeAccountInviteCode.findMany({
+    where: {
+      recipientEmail: { in: parsedEmails.emails },
+      usedAt: null,
+      revokedAt: null,
+      expiresAt: { gt: now }
+    },
+    select: { recipientEmail: true }
+  });
+  const existingEmails = new Set(existing.map((invite) => invite.recipientEmail).filter((email): email is string => Boolean(email)));
+  const acceptedEmails = parsedEmails.emails.filter((email) => !existingEmails.has(email));
+  if (acceptedEmails.length === 0) {
+    return { ok: false as const, error: "Every address already has an active invitation or was duplicated." };
+  }
+
+  const expiresAt = new Date(now.getTime() + parsed.data.expiresInDays * 24 * 60 * 60 * 1000);
+  const personalMessage = normalizePersonalInviteMessage(parsed.data.message);
+  const invites: Array<{
+    id: string;
+    codePreview: string;
+    recipientEmail: string | null;
+    emailedAt: string | null;
+    usedAt: string | null;
+    expiresAt: string;
+    revokedAt: string | null;
+    createdAt: string;
+  }> = [];
+  const emailErrors: Array<{ recipientEmail: string; error: string }> = [];
+
+  for (const recipientEmail of acceptedEmails) {
+    const { code, codeHash } = await createUniqueInviteCodePair();
+    const invite = await prisma.freeAccountInviteCode.create({
+      data: {
+        codeHash,
+        codePreview: previewCode(code),
+        recipientEmail,
+        generatedByUserId: actorUserId,
+        expiresAt
+      }
+    });
+
+    let deliveredAt: Date | null = null;
+    let emailError: string | undefined;
+    try {
+      await sendInviteEmail(recipientEmail, code, expiresAt, { personalMessage });
+      deliveredAt = new Date();
+      await prisma.freeAccountInviteCode.update({
+        where: { id: invite.id },
+        data: { emailedAt: deliveredAt, betaNoticeEmailedAt: deliveredAt }
+      });
+      await sendInviteOrientationOrQueue(invite.id, recipientEmail);
+    } catch (error) {
+      emailError = error instanceof Error ? error.message : "Could not send SMTP email.";
+      emailErrors.push({ recipientEmail, error: emailError });
+      await prisma.freeAccountInviteCode.update({
+        where: { id: invite.id },
+        data: { revokedAt: new Date() }
+      });
+      await diagnostics.warn(MODULE_KEY, "Member invite SMTP send failed.", {
+        inviteId: invite.id,
+        recipientEmail,
+        error: emailError
+      });
+    }
+
+    await writeAuditLog({
+      actorUserId,
+      module: MODULE_KEY,
+      action: "member-free-invite.sent",
+      targetType: "FreeAccountInviteCode",
+      targetId: invite.id,
+      severity: emailError ? AuditSeverity.warning : AuditSeverity.info,
+      metadata: {
+        recipientEmail,
+        expiresAt: expiresAt.toISOString(),
+        emailed: Boolean(deliveredAt),
+        personalMessageIncluded: Boolean(personalMessage),
+        revokedDueToEmailFailure: Boolean(emailError)
+      }
+    });
+
+    if (deliveredAt) {
+      invites.push({
+        id: invite.id,
+        codePreview: invite.codePreview,
+        recipientEmail: invite.recipientEmail,
+        emailedAt: deliveredAt.toISOString(),
+        usedAt: null,
+        expiresAt: invite.expiresAt.toISOString(),
+        revokedAt: null,
+        createdAt: invite.createdAt.toISOString()
+      });
+    }
+  }
+
+  return {
+    ok: true as const,
+    sentCount: invites.length,
+    failedCount: emailErrors.length,
+    skippedCount: parsedEmails.duplicateCount + existingEmails.size,
+    invites,
+    emailErrors
   };
 }
 
@@ -682,7 +874,7 @@ export async function createMemberFreeAccountInviteCode(actorUserId: string, inp
 
   if (parsed.data.sendEmail && recipientEmail) {
     try {
-      await sendInviteEmail(recipientEmail, code, expiresAt);
+      await sendInviteEmail(recipientEmail, code, expiresAt, { personalMessage: parsed.data.message });
       const deliveredAt = new Date();
       await prisma.freeAccountInviteCode.update({
         where: { id: invite.id },

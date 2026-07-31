@@ -87,8 +87,8 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["notifications", "alerts", "mobile app"]
   },
   {
-    title: "Create Invite",
-    description: "Open your invite eligibility and unused private membership invite codes.",
+    title: "Invite Someone!",
+    description: "Send a standard free-tier Theta-Space invite when your account has invite rights.",
     href: "/secure-area?next=/settings/invite",
     badge: "secure",
     sensitive: true,

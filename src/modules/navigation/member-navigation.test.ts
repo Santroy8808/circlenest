@@ -10,13 +10,15 @@ const platformFeatures = {
   "directory.auditor_directory": true,
   "marketplace.member_market": true,
   "media.personal_gallery": true,
+  "membership.bulk_invites": true,
+  "membership.single_invites": true,
   "publishing.writers_corner": true,
   "support.feedback_center": true
 };
 
-function navigation(tier: MembershipTier, isAdmin = false) {
+function navigation(tier: MembershipTier, isAdmin = false, featureOverrides: Record<string, boolean> = {}) {
   return buildMemberNavigation({
-    features: getTierPolicy(tier).features,
+    features: { ...getTierPolicy(tier).features, ...featureOverrides },
     isAdmin,
     isSignedIn: true,
     mailEnabled: false,
@@ -76,6 +78,13 @@ test("every signed-in member tier receives a top-level Tutorial section with the
       ["/settings/tutorial", "/settings/users-manual"]
     );
   }
+});
+
+test("gifted Free invite permission adds Invite Someone under Settings", () => {
+  assert.equal(links(MembershipTier.FREE).includes("/settings/invite"), false);
+
+  const settings = navigation(MembershipTier.FREE, false, { "invites.send": true }).find((section) => section.label === "Settings");
+  assert.equal(settings?.items.some((item) => item.label === "Invite Someone!" && item.href === "/settings/invite"), true);
 });
 
 test("administrator role adds administration without leaking disabled member tools", () => {

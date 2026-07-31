@@ -6,7 +6,8 @@ import {
   createMemberFreeAccountInviteCode,
   listOwnBulkInviteBatches,
   listOwnFreeAccountInvites,
-  revokeOwnFreeAccountInviteCode
+  revokeOwnFreeAccountInviteCode,
+  sendMemberFreeAccountInvites
 } from "@/modules/membership-policy/free-account-invites.service";
 
 export async function GET() {
@@ -33,7 +34,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const result = body?.action === "bulk"
     ? await createBulkMemberInvites(session.user.id, body)
-    : await createMemberFreeAccountInviteCode(session.user.id, body);
+    : body?.action === "send-member-invites"
+      ? await sendMemberFreeAccountInvites(session.user.id, body)
+      : await createMemberFreeAccountInviteCode(session.user.id, body);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
@@ -46,6 +49,18 @@ export async function POST(request: NextRequest) {
       queuedCount: result.queuedCount,
       dailyCap: result.dailyCap,
       intervalMinutes: result.intervalMinutes,
+      invites: await listOwnFreeAccountInvites(session.user.id),
+      bulkBatches: await listOwnBulkInviteBatches(session.user.id)
+    });
+  }
+
+  if (body?.action === "send-member-invites") {
+    if (!("sentCount" in result)) return NextResponse.json({ error: "Could not send invitations." }, { status: 400 });
+    return NextResponse.json({
+      sentCount: result.sentCount,
+      failedCount: result.failedCount,
+      skippedCount: result.skippedCount,
+      emailErrors: result.emailErrors,
       invites: await listOwnFreeAccountInvites(session.user.id),
       bulkBatches: await listOwnBulkInviteBatches(session.user.id)
     });
