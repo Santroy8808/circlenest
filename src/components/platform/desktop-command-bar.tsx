@@ -32,6 +32,7 @@ type DesktopCommandBarProps = {
   avatarUrl?: string | null;
   canCreateAd: boolean;
   counts: Counts;
+  defaultHomeHref: string;
   displayName: string;
   isAdmin: boolean;
   isSignedIn: boolean;
@@ -156,13 +157,20 @@ function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
   );
 }
 
-export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
+export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeHref, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const liveCounts = useShellCounts(counts);
   const commCount = totalCommCount(liveCounts);
+  const navItems = primaryNavItems.map((item) => item.key === "home"
+    ? {
+        ...item,
+        href: defaultHomeHref,
+        tooltip: defaultHomeHref === "/home" ? "Home stream." : "Open your default home page."
+      }
+    : item);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("theta-theme");
@@ -214,7 +222,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
   return (
     <header className="desktop-command-bar" aria-label="Theta-Space command bar">
       <div className="desktop-command-brand">
-        <Link className="desktop-command-mark" href="/home" data-tooltip="Go to your stream.">
+        <Link className="desktop-command-mark" href={defaultHomeHref} data-tooltip={defaultHomeHref === "/home" ? "Go to your stream." : "Go to your default home page."}>
           <Image alt="" aria-hidden="true" height={44} src="/assets/theta-send-logo.png" width={58} />
           <span className="sr-only">Theta-Space home</span>
         </Link>
@@ -241,7 +249,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, displayName,
       </div>
 
       <nav className="desktop-command-nav" aria-label="Primary">
-        {primaryNavItems.filter((item) => {
+        {navItems.filter((item) => {
           if (item.key === "gallery") return platformFeatures["media.personal_gallery"] !== false;
           if (item.key === "market") return platformFeatures["marketplace.member_market"] !== false;
           if (item.key === "messages") return platformFeatures["communication.direct_messages"] !== false;

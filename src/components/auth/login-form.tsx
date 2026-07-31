@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState, useTransition } from "react";
 
-export function LoginForm({ callbackUrl = "/home" }: { callbackUrl?: string }) {
+export function LoginForm({ callbackUrl = "/home/default" }: { callbackUrl?: string }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");

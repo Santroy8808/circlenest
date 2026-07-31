@@ -12,6 +12,7 @@ type CountKey = "messages" | "mail" | "notifications" | "alerts";
 
 type AndroidAppControlsProps = {
   counts: Record<CountKey, number>;
+  defaultHomeHref: string;
   mailEnabled: boolean;
   platformFeatures: Record<string, boolean>;
   sections: NavSection[];
@@ -180,19 +181,21 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-export function AndroidAppControls({ counts, mailEnabled, platformFeatures, sections }: AndroidAppControlsProps) {
+export function AndroidAppControls({ counts, defaultHomeHref, mailEnabled, platformFeatures, sections }: AndroidAppControlsProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const primarySections = useMemo(() => sections.filter((section) => section.items.length > 0), [sections]);
-  const visibleBottomActions = useMemo(() => bottomActions.filter((action) => {
-    if (action.href === "/mail" || action.countKey === "mail") return mailEnabled;
-    if (action.href === "/profile/gallery") return platformFeatures["media.personal_gallery"] !== false;
-    if (action.href === "/messages") return platformFeatures["communication.direct_messages"] !== false;
-    return true;
-  }), [mailEnabled, platformFeatures]);
+  const visibleBottomActions = useMemo(() => bottomActions
+    .map((action) => action.icon === "home" ? { ...action, href: defaultHomeHref } : action)
+    .filter((action) => {
+      if (action.href === "/mail" || action.countKey === "mail") return mailEnabled;
+      if (action.href === "/profile/gallery") return platformFeatures["media.personal_gallery"] !== false;
+      if (action.href === "/messages") return platformFeatures["communication.direct_messages"] !== false;
+      return true;
+    }), [defaultHomeHref, mailEnabled, platformFeatures]);
 
   useEffect(() => {
     setSheetOpen(false);

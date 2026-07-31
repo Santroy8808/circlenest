@@ -8,6 +8,7 @@ type MemberNavigationInput = {
   isSignedIn: boolean;
   mailEnabled: boolean;
   platformFeatures: Record<string, boolean>;
+  defaultHomeHref?: string;
 };
 
 const homeSection: NavSection = {
@@ -64,6 +65,7 @@ const settingsSection: NavSection = {
     { label: "My Scientology", href: "/profile/scientology" },
     { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Membership", href: "/membership" },
+    { label: "Default Home", href: "/settings/default-home" },
     { label: "Progression Path", href: "/settings/progression-path" },
     { label: "Invite Someone!", href: "/settings/invite" },
     { label: "Settings", href: "/settings" }
@@ -102,6 +104,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
 
   const home = {
     ...homeSection,
+    href: input.defaultHomeHref ?? homeSection.href,
     items: homeSection.items.filter(
       (item) => item.href !== "/profile/gallery" || input.platformFeatures["media.personal_gallery"] !== false
     )

@@ -22,6 +22,7 @@ import { ControlPanelNav } from "@/components/platform/control-panel-nav";
 import { getWelcomeTutorialState } from "@/modules/tutorial/tutorial.service";
 import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
 import { buildMemberNavigation } from "@/modules/navigation/member-navigation";
+import { getDefaultHomeHref } from "@/modules/home-preferences/default-home-preferences.service";
 
 const AD_RAIL_DISABLED_PREFIXES = [
   "/admin",
@@ -139,6 +140,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     : { activeActorUserId: "", activeKind: "PERSONAL" as const, actors: [] };
   const activeActorUserId = actorPicker.activeActorUserId || session?.user?.id;
   const mailEnabled = isInternalMailEnabled();
+  const defaultHomeHref = isSignedIn && session?.user?.id
+    ? await timeServerStep("shell.default-home", getDefaultHomeHref(session.user.id, {
+        accountPurpose: session.user.accountPurpose,
+        features: tierFeatures,
+        isAdmin,
+        mailEnabled,
+        platformFeatures
+      }), { path: currentPath })
+    : "/home";
   const isAndroidApp = await isAndroidAppRequest();
   const canSeeAdRail = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
   const showAdRail =
@@ -149,7 +159,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })
     : { shouldPrompt: false };
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
-  const navSections = buildMemberNavigation({ accountPurpose: session?.user?.accountPurpose, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
+  const navSections = buildMemberNavigation({ accountPurpose: session?.user?.accountPurpose, defaultHomeHref, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
 
@@ -162,6 +172,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         canCreateAd={canCreateAd}
         counts={counts}
         displayName={displayName}
+        defaultHomeHref={defaultHomeHref}
         isAdmin={isAdmin}
         isSignedIn={isSignedIn}
         platformFeatures={platformFeatures}
@@ -206,7 +217,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </section>
         </aside>
       ) : null}
-      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} mailEnabled={mailEnabled} platformFeatures={platformFeatures} sections={navSections} /> : null}
+      {isAndroidApp && isSignedIn ? <AndroidAppControls counts={counts} defaultHomeHref={defaultHomeHref} mailEnabled={mailEnabled} platformFeatures={platformFeatures} sections={navSections} /> : null}
       {isSignedIn ? <TutorialTour shouldPromptOnFirstLogin={!isOnboardingPath && tutorialState.shouldPrompt} /> : null}
       </ShellCountsProvider>
     </div>

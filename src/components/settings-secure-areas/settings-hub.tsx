@@ -71,6 +71,14 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["progression", "path", "roadmap", "features", "future", "planned", "free", "contributor"]
   },
   {
+    title: "Default Home Page",
+    description: "Choose where Theta-Space opens after login.",
+    href: "/settings/default-home",
+    badge: "preference",
+    sensitive: false,
+    keywords: ["home", "default", "landing", "stream", "market", "jobs", "login"]
+  },
+  {
     title: "Blocked Users",
     description: "Manage blocked users and account protection rules.",
     href: "/secure-area?next=/settings/security",

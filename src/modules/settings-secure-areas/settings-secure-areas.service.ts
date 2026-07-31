@@ -23,6 +23,13 @@ export const settingsCards: SettingsCard[] = [
     badge: "Rules"
   },
   {
+    title: "Default Home Page",
+    description: "Choose whether Theta-Space opens to Stream, Market, Jobs, or another available member area.",
+    href: "/settings/default-home",
+    sensitive: false,
+    badge: "Preferences"
+  },
+  {
     title: "Reports and Commendations",
     description: "Review conduct reports concerning your account, reports you submitted, commendations, disputes, and temporary communication restrictions.",
     href: "/settings/reports",

@@ -16,8 +16,9 @@ const platformFeatures = {
   "support.feedback_center": true
 };
 
-function navigation(tier: MembershipTier, isAdmin = false, featureOverrides: Record<string, boolean> = {}) {
+function navigation(tier: MembershipTier, isAdmin = false, featureOverrides: Record<string, boolean> = {}, defaultHomeHref?: string) {
   return buildMemberNavigation({
+    defaultHomeHref,
     features: { ...getTierPolicy(tier).features, ...featureOverrides },
     isAdmin,
     isSignedIn: true,
@@ -85,6 +86,13 @@ test("gifted Free invite permission adds Invite Someone under Settings", () => {
 
   const settings = navigation(MembershipTier.FREE, false, { "invites.send": true }).find((section) => section.label === "Settings");
   assert.equal(settings?.items.some((item) => item.label === "Invite Someone!" && item.href === "/settings/invite"), true);
+});
+
+test("Home section can point to the selected default while keeping My Stream", () => {
+  const home = navigation(MembershipTier.FREE, false, {}, "/market/jobs").find((section) => section.label === "Home");
+
+  assert.equal(home?.href, "/market/jobs");
+  assert.equal(home?.items.some((item) => item.label === "My Stream" && item.href === "/home"), true);
 });
 
 test("administrator role adds administration without leaking disabled member tools", () => {
