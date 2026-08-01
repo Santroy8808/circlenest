@@ -657,6 +657,12 @@ a {
   display: none;
 }
 
+.main-surface > * {
+  margin-inline: auto;
+  max-width: 860px;
+  width: 100%;
+}
+
 .ad-rail {
   border-left: 1px solid rgba(214, 178, 74, 0.18);
   background: rgba(8, 11, 16, 0.48);
@@ -8086,7 +8092,8 @@ html.theta-theme-light .event-card:hover {
 .market-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 260px));
+  justify-content: start;
 }
 
 .listing-toolbar {

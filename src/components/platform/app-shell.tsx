@@ -150,9 +150,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       }), { path: currentPath })
     : "/home";
   const isAndroidApp = await isAndroidAppRequest();
-  const canSeeAdRail = isAdmin || tierFeatures["ads.createGeneral"] || tierFeatures["ads.createFundraiser"];
   const showAdRail =
-    canSeeAdRail &&
     shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || (await isMobileBrowserRequest()));
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const tutorialState = isSignedIn && session?.user?.id
