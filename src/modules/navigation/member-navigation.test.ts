@@ -52,17 +52,20 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/jobs"), true);
 });
 
-test("People and Groups live under Comm Center while Jobs is linked from Market", () => {
+test("Comm Center opens a hub with Comms, Contacts, and Groups while Jobs is linked from Market", () => {
   for (const tier of [MembershipTier.FREE, MembershipTier.CONTRIBUTOR]) {
     const sections = navigation(tier);
     const commCenter = sections.find((section) => section.label === "Comm Center");
     const market = sections.find((section) => section.label === "Market");
 
+    assert.equal(commCenter?.href, "/comm-center");
     assert.deepEqual(
-      commCenter?.items
-        .map((item) => item.href)
-        .filter((href) => href === "/people" || href === "/friends" || href === "/groups" || href === "/groups/create"),
-      ["/people", "/friends", "/groups", "/groups/create"]
+      commCenter?.items.map((item) => [item.label, item.href]),
+      [
+        ["Comms", "/messages"],
+        ["Contacts", "/comm-center/contacts"],
+        ["Groups", "/comm-center/groups"]
+      ]
     );
     assert.equal(sections.some((section) => section.label === "People"), false);
     assert.equal(sections.some((section) => section.label === "Groups"), false);

@@ -24,17 +24,12 @@ const homeSection: NavSection = {
 };
 
 const communicationsSection: NavSection = {
-  href: "/messages",
+  href: "/comm-center",
   label: "Comm Center",
   items: [
-    { label: "Messages", href: "/messages", countKey: "messages" },
-    { label: "Mail", href: "/mail", countKey: "mail" },
-    { label: "Notifications", href: "/notifications", countKey: "notifications" },
-    { label: "Alerts", href: "/notifications?view=alerts", countKey: "alerts" },
-    { label: "People", href: "/people" },
-    { label: "Friends", href: "/friends" },
-    { label: "Browse Groups", href: "/groups" },
-    { label: "Create Group", href: "/groups/create" }
+    { label: "Comms", href: "/messages", countKey: "messages" },
+    { label: "Contacts", href: "/comm-center/contacts" },
+    { label: "Groups", href: "/comm-center/groups" }
   ]
 };
 
@@ -111,18 +106,17 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     )
   };
   const communicationItems = communicationsSection.items.filter((item) => {
-    if (item.href === "/mail" || item.countKey === "mail") return input.mailEnabled;
     if (item.href === "/messages" || item.countKey === "messages") {
       return input.platformFeatures["communication.direct_messages"] !== false;
     }
-    if (item.href === "/groups" || item.href === "/groups/create") {
+    if (item.href === "/comm-center/groups") {
       return input.platformFeatures["community.groups"] !== false;
     }
     return true;
   });
   const communications = {
     ...communicationsSection,
-    href: communicationItems[0]?.href ?? "/notifications",
+    href: "/comm-center",
     items: communicationItems
   };
   const marketItems = marketSection.items.filter((item) => {

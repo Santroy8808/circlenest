@@ -56,8 +56,8 @@ export const tutorialIconDefinitions: TutorialIconDefinition[] = [
   {
     id: "comm-center",
     category: "NAVIGATION",
-    label: "Comm Center",
-    description: "Opens messages, people, friends, and chat groups.",
+    label: "Messages",
+    description: "Opens chat messages.",
     iconSrc: "/assets/nav/nav-comm.png"
   },
   {
@@ -208,24 +208,24 @@ export const tutorialSteps: TutorialStep[] = [
     id: "comm-center",
     section: "communication",
     title: "Comm Center",
-    description: "Comm Center is where direct messages, notifications, alerts, People, Friends, and Groups live. Alerts are for platform or account-critical notices.",
+    description: "Comm Center is the hub for Comms, Contacts, and Groups. Use Comms for chat, Contacts for people you know, and Groups for groups you created or joined.",
     page: "/home",
     target: "control-comm-center"
   },
   {
     id: "people",
     section: "people-groups",
-    title: "People",
-    description: "People lives under Comm Center. It is where you browse members, visit profile pages, and manage friend or family connections.",
-    page: "/people",
+    title: "Contacts",
+    description: "Contacts lives under Comm Center. It is where you search family, friends, acquaintances, and other saved contacts so you can chat or open their stream.",
+    page: "/comm-center/contacts",
     target: "control-comm-center"
   },
   {
     id: "groups",
     section: "people-groups",
     title: "Groups",
-    description: "Groups lives under Comm Center. Groups collect members around a topic, with posts, forums, and group media where enabled.",
-    page: "/groups",
+    description: "Groups lives under Comm Center. It shows groups you created or joined, with links into each group space.",
+    page: "/comm-center/groups",
     target: "control-comm-center"
   },
   {
@@ -283,8 +283,8 @@ export const tutorialSections: TutorialSection[] = [
   },
   {
     id: "people-groups",
-    title: "People And Groups",
-    description: "Member browsing, friend connections, family requests, and groups.",
+    title: "Contacts And Groups",
+    description: "Known contacts, family and friend connections, acquaintances, and groups.",
     stepIds: ["people", "groups"]
   },
   {

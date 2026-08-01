@@ -14,13 +14,21 @@ function initials(name: string) {
 }
 
 export function GroupsDirectoryClient({
+  createHref = "/groups/create",
+  description = "See your groups first, or search by name or topic to find more.",
   initialGroups,
   initialMode,
-  initialNextCursor
+  initialNextCursor,
+  kicker = "People",
+  title = "Groups"
 }: {
+  createHref?: string;
+  description?: string;
   initialGroups: GroupCardView[];
   initialMode: GroupDirectoryMode;
   initialNextCursor: string | null;
+  kicker?: string;
+  title?: string;
 }) {
   const [groups, setGroups] = useState(initialGroups);
   const [mode, setMode] = useState<GroupDirectoryMode>(initialMode);
@@ -115,13 +123,11 @@ export function GroupsDirectoryClient({
       <section className="surface rounded-md p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">People</p>
-            <h1 className="mt-3 text-3xl font-semibold">Groups</h1>
-            <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              See your groups first, or search by name or topic to find more.
-            </p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{kicker}</p>
+            <h1 className="mt-3 text-3xl font-semibold">{title}</h1>
+            <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">{description}</p>
           </div>
-          <Link className="btn-primary" href="/groups/create">
+          <Link className="btn-primary" href={createHref}>
             Create
           </Link>
         </div>

@@ -73,7 +73,7 @@ const primaryNavItems: PrimaryNavItem[] = [
   },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
-  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Comm Center", tooltip: "Open messages, people, friends, and chat groups." }
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Messages", tooltip: "Open chat messages." }
 ];
 
 const initialSummaryState: Record<SummaryKind, SummaryState> = {
@@ -257,9 +257,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeH
         }).map((item) => {
           const active = item.key === "home"
             ? pathname === item.href
-            : item.key === "messages"
-              ? pathname.startsWith(item.href) || pathname.startsWith("/people") || pathname.startsWith("/friends") || pathname.startsWith("/groups")
-              : pathname.startsWith(item.href);
+            : pathname.startsWith(item.href);
           return (
             <Link
               aria-label={item.label}
