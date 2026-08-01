@@ -107,7 +107,7 @@ export async function lookupAdminObjectById(actorUserId: string | undefined, que
       id: jobListing.id,
       title: jobListing.title,
       detail: `Status: ${jobListing.status}`,
-      href: `/market/jobs/${jobListing.slug}`,
+      href: `/jobs/${jobListing.slug}`,
       createdAt: formatDate(jobListing.createdAt)
     });
   }

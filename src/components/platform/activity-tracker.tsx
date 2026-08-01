@@ -8,7 +8,7 @@ const HEARTBEAT_MS = 60000;
 function moduleFromPath(pathname: string) {
   const segment = pathname.split("/").filter(Boolean)[0] ?? "home";
 
-  if (pathname.startsWith("/market/jobs")) return "jobs";
+  if (pathname.startsWith("/jobs") || pathname.startsWith("/market/jobs")) return "jobs";
   if (segment === "profile") return "profile-identity";
   if (segment === "messages") return "chat-messages";
   if (segment === "mail") return "mail";

@@ -20,11 +20,11 @@ export function MyJobListings({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link className="btn-secondary" href="/market/jobs">
+            <Link className="btn-secondary" href="/jobs">
               Back to Jobs
             </Link>
             {viewerCanCreate ? (
-              <Link className="btn-primary" href="/market/jobs/create">
+              <Link className="btn-primary" href="/jobs/create">
                 Create Job
               </Link>
             ) : null}
@@ -37,13 +37,13 @@ export function MyJobListings({
           <div className="market-management-list">
             {listings.map((listing) => (
               <article className="market-management-row" key={listing.id}>
-                <Link className="min-w-0 flex-1" href={`/market/jobs/${listing.slug}`}>
+                <Link className="min-w-0 flex-1" href={`/jobs/${listing.slug}`}>
                   <strong>{listing.title}</strong>
                   <small>
                     {listing.companyName || listing.employer.displayName} - {listing.remote ? "Remote" : listing.location || "City TBD"}
                   </small>
                 </Link>
-                <Link className="market-management-row-action" href={`/market/jobs/${listing.slug}/edit`}>
+                <Link className="market-management-row-action" href={`/jobs/${listing.slug}/edit`}>
                   Edit
                 </Link>
               </article>
@@ -55,7 +55,7 @@ export function MyJobListings({
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No job listings yet</h2>
           <p className="mt-2 text-[var(--muted)]">Create your first listing when you are ready to hire.</p>
           {viewerCanCreate ? (
-            <Link className="btn-primary mt-5 inline-flex" href="/market/jobs/create">
+            <Link className="btn-primary mt-5 inline-flex" href="/jobs/create">
               Create Job
             </Link>
           ) : null}

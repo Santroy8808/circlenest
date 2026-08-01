@@ -35,11 +35,11 @@ export function JobsBoardClient({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link className="btn-secondary" href="/market/jobs/my-listings">
+            <Link className="btn-secondary" href="/jobs/my-listings">
               My Jobs
             </Link>
             {viewerCanCreate ? (
-              <Link className="btn-primary" href="/market/jobs/create">
+              <Link className="btn-primary" href="/jobs/create">
                 Create Job
               </Link>
             ) : null}
@@ -67,7 +67,7 @@ export function JobsBoardClient({
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>
           {listings.map((job) => (
-            <Link className={`listing-square-card listing-card--${view} job-card`} href={`/market/jobs/${job.slug}`} key={job.id}>
+            <Link className={`listing-square-card listing-card--${view} job-card`} href={`/jobs/${job.slug}`} key={job.id}>
               <div className="listing-square-visual">
                 {job.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

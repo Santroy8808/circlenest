@@ -621,7 +621,7 @@ export const usersManualSections: UsersManualSection[] = [
       },
       {
         title: "Find a Job",
-        href: "/market/jobs",
+        href: "/jobs",
         purpose: "Browse or create available job-related listings under Market.",
         howToUse: ["Open Market, then Find a Job.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions.", "Use Create Job when your account needs to post an opening."],
         limits: ["Free and Contributor accounts can browse and create job listings during beta.", "Only active visible opportunities are shown.", "Do not share sensitive personal information until you trust the contact path."],

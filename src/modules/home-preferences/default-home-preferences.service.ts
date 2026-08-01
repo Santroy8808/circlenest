@@ -98,7 +98,7 @@ export function buildDefaultHomeOptions(context: DefaultHomeContext): DefaultHom
     options.push({
       key: "jobs",
       label: "Jobs",
-      href: "/market/jobs",
+      href: "/jobs",
       description: "Open active job listings."
     });
   }

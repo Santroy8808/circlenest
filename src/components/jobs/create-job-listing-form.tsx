@@ -161,7 +161,7 @@ export function CreateJobListingForm({
         throw new Error(payload.error ?? "Could not save job.");
       }
 
-      window.location.href = `/market/jobs/${payload.job.slug}`;
+      window.location.href = `/jobs/${payload.job.slug}`;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save job.");
       setUploadItem({ status: "error" });
@@ -174,7 +174,7 @@ export function CreateJobListingForm({
       <section className="surface rounded-md p-8 text-center">
         <h1 className="text-3xl font-semibold text-[var(--gold)]">Create Job</h1>
         <p className="mt-3 text-[var(--muted)]">{error}</p>
-        <Link className="btn-secondary mt-5 inline-block" href="/market/jobs">
+        <Link className="btn-secondary mt-5 inline-block" href="/jobs">
           Browse jobs
         </Link>
       </section>
@@ -363,7 +363,7 @@ export function CreateJobListingForm({
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
 
       <div className="flex justify-end gap-3">
-        <Link className="btn-secondary" href={mode === "edit" && initialJob ? `/market/jobs/${initialJob.slug}` : "/market/jobs"}>
+        <Link className="btn-secondary" href={mode === "edit" && initialJob ? `/jobs/${initialJob.slug}` : "/jobs"}>
           Cancel
         </Link>
         <button className="btn-primary" disabled={isSubmitting || title.trim().length < 2 || description.trim().length < 10} type="submit">

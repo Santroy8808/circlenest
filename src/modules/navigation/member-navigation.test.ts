@@ -39,7 +39,7 @@ test("Free navigation hides Contributor and disabled business creation surfaces"
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);
   assert.equal(hrefs.includes("/events"), false);
-  assert.equal(hrefs.includes("/market/jobs"), true);
+  assert.equal(hrefs.includes("/jobs"), true);
 });
 
 test("Contributor navigation exposes Writers but keeps Feedback submission in the global control", () => {
@@ -49,10 +49,10 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/business-center"), false);
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);
-  assert.equal(hrefs.includes("/market/jobs"), true);
+  assert.equal(hrefs.includes("/jobs"), true);
 });
 
-test("People and Groups live under Comm Center while Jobs lives under Market", () => {
+test("People and Groups live under Comm Center while Jobs is linked from Market", () => {
   for (const tier of [MembershipTier.FREE, MembershipTier.CONTRIBUTOR]) {
     const sections = navigation(tier);
     const commCenter = sections.find((section) => section.label === "Comm Center");
@@ -66,7 +66,7 @@ test("People and Groups live under Comm Center while Jobs lives under Market", (
     );
     assert.equal(sections.some((section) => section.label === "People"), false);
     assert.equal(sections.some((section) => section.label === "Groups"), false);
-    assert.equal(market?.items.some((item) => item.href === "/market/jobs"), true);
+    assert.equal(market?.items.some((item) => item.href === "/jobs"), true);
   }
 });
 
@@ -89,9 +89,9 @@ test("gifted Free invite permission adds Invite Someone under Settings", () => {
 });
 
 test("Home section can point to the selected default while keeping My Stream", () => {
-  const home = navigation(MembershipTier.FREE, false, {}, "/market/jobs").find((section) => section.label === "Home");
+  const home = navigation(MembershipTier.FREE, false, {}, "/jobs").find((section) => section.label === "Home");
 
-  assert.equal(home?.href, "/market/jobs");
+  assert.equal(home?.href, "/jobs");
   assert.equal(home?.items.some((item) => item.label === "My Stream" && item.href === "/home"), true);
 });
 

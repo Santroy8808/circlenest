@@ -43,7 +43,7 @@ const marketSection: NavSection = {
   label: "Market",
   items: [
     { label: "The Market", href: "/market" },
-    { label: "Find a Job", href: "/market/jobs" },
+    { label: "Jobs", href: "/jobs" },
     { label: "Find an Auditor", href: "/auditors" }
   ]
 };
@@ -128,7 +128,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
   const marketItems = marketSection.items.filter((item) => {
     if (item.href === "/market") return input.platformFeatures["marketplace.member_market"] !== false;
     if (item.href === "/auditors") return input.platformFeatures["directory.auditor_directory"] !== false;
-    if (item.href === "/market/jobs") return input.features["jobs.browse"] === true;
+    if (item.href === "/jobs") return input.features["jobs.browse"] === true;
     return false;
   });
   const toolItems = toolsSection.items.filter((item) => {

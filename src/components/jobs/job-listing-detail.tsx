@@ -37,11 +37,11 @@ export function JobListingDetail({ job }: { job: JobListingDetailView }) {
               </div>
               <div className="flex flex-wrap gap-2">
                 {job.viewerCanManage ? (
-                  <Link className="btn-secondary" href={`/market/jobs/${job.slug}/edit`}>
+                  <Link className="btn-secondary" href={`/jobs/${job.slug}/edit`}>
                     Edit job
                   </Link>
                 ) : null}
-                <Link className="btn-secondary" href="/market/jobs">
+                <Link className="btn-secondary" href="/jobs">
                   Back to jobs
                 </Link>
               </div>
@@ -98,7 +98,7 @@ export function JobListingDetail({ job }: { job: JobListingDetailView }) {
           </p>
           <Link
             className="btn-secondary mt-4 inline-block"
-            href={`/ads/create?destinationKind=${AdDestinationKind.EXTERNAL_URL}&customDestinationUrl=${encodeURIComponent(`/market/jobs/${job.slug}`)}&title=${encodeURIComponent(`Promote ${job.title}`)}&body=${encodeURIComponent(job.summary ?? `View this ${job.employmentTypeLabel.toLowerCase()} role on Theta-Space.`)}&targetInterestCategories=${InterestCategory.JOBS}`}
+            href={`/ads/create?destinationKind=${AdDestinationKind.EXTERNAL_URL}&customDestinationUrl=${encodeURIComponent(`/jobs/${job.slug}`)}&title=${encodeURIComponent(`Promote ${job.title}`)}&body=${encodeURIComponent(job.summary ?? `View this ${job.employmentTypeLabel.toLowerCase()} role on Theta-Space.`)}&targetInterestCategories=${InterestCategory.JOBS}`}
           >
             Create job ad
           </Link>
