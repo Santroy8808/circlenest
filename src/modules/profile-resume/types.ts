@@ -17,7 +17,7 @@ export const resumeExperienceSchema = z.object({
   organization: z.string().max(160).optional().or(z.literal("")),
   location: z.string().max(160).optional().or(z.literal("")),
   dates: z.string().max(120).optional().or(z.literal("")),
-  bullets: z.array(z.string().max(280)).max(8).default([])
+  bullets: z.array(z.string().max(900)).max(20).default([])
 });
 
 export const resumeEducationSchema = z.object({
@@ -28,6 +28,7 @@ export const resumeEducationSchema = z.object({
 });
 
 const stringList = z.array(z.string().min(1).max(180)).max(40).default([]);
+const longStringList = z.array(z.string().min(1).max(220)).max(120).default([]);
 
 export const updateResumeSchema = z.object({
   headline: shortText,
@@ -36,11 +37,11 @@ export const updateResumeSchema = z.object({
   phone: shortText,
   location: shortText,
   website: urlText,
-  coreSkills: stringList,
-  experience: z.array(resumeExperienceSchema).max(8).default([]),
-  education: z.array(resumeEducationSchema).max(6).default([]),
-  credentials: stringList,
-  achievements: stringList,
+  coreSkills: longStringList,
+  experience: z.array(resumeExperienceSchema).max(40).default([]),
+  education: z.array(resumeEducationSchema).max(20).default([]),
+  credentials: longStringList,
+  achievements: longStringList,
   additionalNotes: optionalText,
   includeScientology: z.boolean().default(false),
   visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS)

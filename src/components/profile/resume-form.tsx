@@ -204,7 +204,7 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Resume</p>
         <h1 className="mt-3 text-3xl font-semibold">Executive resume builder</h1>
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
-          Fill the sections once. Theta-Space renders a printable executive-style resume.
+          Fill the sections once. Theta-Space renders a polished executive resume that can be saved as a PDF and can run across multiple pages when needed.
         </p>
       </section>
 

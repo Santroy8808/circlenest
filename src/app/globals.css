@@ -2626,75 +2626,80 @@ html.theta-theme-light .progression-dot-in-progress {
   display: grid;
   gap: 18px;
   margin: 0 auto;
-  max-width: 980px;
+  max-width: 1040px;
 }
 
 .resume-cover-page,
 .resume-page {
-  background:
-    linear-gradient(90deg, #1d2b42 0 14px, transparent 14px),
-    linear-gradient(180deg, #ffffff, #f7f3e8);
+  background: #ffffff;
   border: 1px solid rgba(31, 42, 60, 0.18);
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
   min-height: 10.5in;
-  padding: 0.72in 0.74in 0.72in 0.86in;
-}
-
-.resume-cover-page {
-  align-content: center;
-  background:
-    radial-gradient(circle at 78% 18%, rgba(214, 178, 74, 0.22), transparent 14rem),
-    linear-gradient(90deg, #172133 0 38%, #f8f5eb 38%);
-  color: #162033;
-  display: grid;
-  gap: 18px;
-}
-
-.resume-cover-page h1 {
-  color: #111827;
-  font-size: clamp(2.6rem, 6vw, 5.2rem);
-  font-weight: 850;
-  letter-spacing: 0;
-  line-height: 0.95;
-  max-width: 720px;
+  padding: 0.64in 0.68in;
 }
 
 .resume-kicker {
-  color: #a47b19;
+  color: #8a660f;
   font-size: 0.78rem;
   font-weight: 850;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
 .resume-headline {
-  border-left: 4px solid #d6b24a;
   color: #2b3445;
-  font-size: 1.22rem;
+  font-size: 1.08rem;
   font-weight: 700;
-  padding-left: 14px;
+  line-height: 1.42;
+  margin-top: 10px;
+  max-width: 760px;
+}
+
+.executive-resume-page {
+  background:
+    linear-gradient(90deg, #142033 0 0.18in, transparent 0.18in),
+    linear-gradient(180deg, #ffffff, #fbfbf8);
+  padding-left: 0.82in;
+}
+
+.executive-resume-header {
+  border-bottom: 2px solid #142033;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.38fr);
+  padding-bottom: 18px;
+}
+
+.executive-resume-header h1 {
+  color: #0f172a;
+  font-size: clamp(2.25rem, 5vw, 4.1rem);
+  font-weight: 880;
+  letter-spacing: -0.015em;
+  line-height: 0.98;
+  margin-top: 8px;
 }
 
 .resume-contact-row {
   color: #4b5565;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  font-size: 0.94rem;
+  display: grid;
+  font-style: normal;
+  gap: 6px;
+  font-size: 0.86rem;
   font-weight: 650;
+  justify-items: end;
+  line-height: 1.38;
+  text-align: right;
 }
 
 .resume-contact-row span {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
 }
 
 .resume-contact-row span:not(:last-child)::after {
-  color: #d6b24a;
-  content: "/";
-  margin-left: 8px;
+  content: "";
+  margin-left: 0;
 }
 
 .resume-cover-summary {
@@ -2707,7 +2712,7 @@ html.theta-theme-light .progression-dot-in-progress {
 .resume-upload-link {
   align-self: start;
   border: 1px solid rgba(164, 123, 25, 0.38);
-  border-radius: 999px;
+  border-radius: 6px;
   color: #7a560e;
   font-weight: 800;
   justify-self: start;
@@ -2717,21 +2722,49 @@ html.theta-theme-light .progression-dot-in-progress {
 
 .resume-page {
   display: grid;
-  gap: 20px;
+  gap: 22px;
+}
+
+.executive-resume-layout {
+  align-items: start;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.34fr);
+}
+
+.executive-resume-layout-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.executive-resume-main,
+.executive-resume-sidebar {
+  display: grid;
+  gap: 22px;
+}
+
+.executive-resume-sidebar {
+  border-left: 1px solid rgba(20, 32, 51, 0.16);
+  padding-left: 22px;
+}
+
+.executive-summary-section p {
+  color: #223044;
+  font-size: 1rem;
+  line-height: 1.68;
 }
 
 .resume-section {
-  break-inside: avoid;
+  break-inside: auto;
   display: grid;
   gap: 10px;
 }
 
 .resume-section h2 {
-  border-bottom: 1px solid rgba(31, 42, 60, 0.18);
-  color: #1f2a3c;
-  font-size: 0.92rem;
+  border-bottom: 1px solid rgba(20, 32, 51, 0.22);
+  color: #142033;
+  font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   padding-bottom: 7px;
   text-transform: uppercase;
 }
@@ -2746,7 +2779,8 @@ html.theta-theme-light .progression-dot-in-progress {
 .resume-section li,
 .resume-education span {
   color: #334155;
-  line-height: 1.62;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .resume-section ul {
@@ -2758,19 +2792,20 @@ html.theta-theme-light .progression-dot-in-progress {
 }
 
 .resume-section li {
-  padding-left: 16px;
+  break-inside: avoid;
+  padding-left: 15px;
   position: relative;
 }
 
 .resume-section li::before {
-  background: #d6b24a;
+  background: #9f7612;
   border-radius: 999px;
   content: "";
-  height: 5px;
+  height: 4px;
   left: 0;
   position: absolute;
-  top: 0.72em;
-  width: 5px;
+  top: 0.68em;
+  width: 4px;
 }
 
 .resume-bullet-list {
@@ -2790,17 +2825,33 @@ html.theta-theme-light .progression-dot-in-progress {
 }
 
 .resume-experience {
-  border-left: 3px solid rgba(214, 178, 74, 0.68);
+  break-inside: avoid;
+  border-left: 3px solid rgba(159, 118, 18, 0.68);
   display: grid;
   gap: 8px;
   padding-left: 14px;
 }
 
 .resume-experience + .resume-experience {
-  margin-top: 10px;
+  margin-top: 14px;
+}
+
+.resume-experience-heading {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.resume-experience-heading > span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 760;
+  white-space: nowrap;
 }
 
 .resume-education {
+  break-inside: avoid;
   display: grid;
   gap: 3px;
 }
@@ -11699,6 +11750,11 @@ html.theta-theme-light .pill-alert {
 }
 
 @media print {
+  @page {
+    margin: 0.45in;
+    size: letter;
+  }
+
   body {
     background: #ffffff !important;
     color: #111827 !important;
@@ -11735,12 +11791,74 @@ html.theta-theme-light .pill-alert {
 
   .resume-cover-page,
   .resume-page {
+    background: #ffffff !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    min-height: 10.5in;
-    page-break-after: always;
-    break-after: page;
+    min-height: auto !important;
+    padding: 0 !important;
+  }
+
+  .executive-resume-header {
+    gap: 14px !important;
+    grid-template-columns: minmax(0, 1fr) 2.05in !important;
+    padding-bottom: 14px !important;
+  }
+
+  .executive-resume-header h1 {
+    font-size: 32pt !important;
+  }
+
+  .resume-headline {
+    font-size: 10.5pt !important;
+  }
+
+  .resume-contact-row,
+  .resume-section p,
+  .resume-section li,
+  .resume-education span {
+    font-size: 8.8pt !important;
+  }
+
+  .executive-resume-layout {
+    gap: 0.25in !important;
+    grid-template-columns: minmax(0, 1fr) 2.05in !important;
+  }
+
+  .executive-resume-layout-full {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .executive-resume-main,
+  .executive-resume-sidebar {
+    gap: 14px !important;
+  }
+
+  .executive-resume-sidebar {
+    padding-left: 0.18in !important;
+  }
+
+  .resume-section {
+    gap: 7px !important;
+  }
+
+  .resume-section h2 {
+    font-size: 7.6pt !important;
+    padding-bottom: 5px !important;
+  }
+
+  .resume-experience {
+    break-inside: avoid !important;
+    gap: 6px !important;
+  }
+
+  .resume-experience + .resume-experience {
+    margin-top: 10px !important;
+  }
+
+  .resume-document > .resume-scientology-page {
+    page-break-before: always;
+    break-before: page;
   }
 
   .resume-document > :last-child {

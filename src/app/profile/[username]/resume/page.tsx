@@ -6,6 +6,14 @@ import { AppShell } from "@/components/platform/app-shell";
 import { PrintButton } from "@/components/profile/print-button";
 import { getPublicResumeByUsername } from "@/modules/profile-resume/profile-resume.service";
 
+function hasText(value: string | null | undefined) {
+  return Boolean(value?.trim());
+}
+
+function contactUrlLabel(value: string) {
+  return value.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+}
+
 function ResumeList({ items, title }: { items: string[]; title: string }) {
   if (items.length === 0) return null;
 
@@ -47,6 +55,13 @@ export default async function PublicResumePage(props: { params: Promise<{ userna
   }
 
   const { resume, scientology, user } = view;
+  const contactItems = [
+    resume.location,
+    resume.email,
+    resume.phone,
+    resume.website ? contactUrlLabel(resume.website) : ""
+  ].filter(hasText);
+  const hasSidebar = resume.coreSkills.length > 0 || resume.credentials.length > 0 || resume.education.length > 0;
 
   return (
     <AppShell>
@@ -56,69 +71,90 @@ export default async function PublicResumePage(props: { params: Promise<{ userna
         </Link>
         <PrintButton />
       </div>
-      <article className="resume-document">
-        <section className="resume-cover-page">
-          <p className="resume-kicker">Professional Resume</p>
-          <h1>{user.displayName}</h1>
-          {resume.headline ? <p className="resume-headline">{resume.headline}</p> : null}
-          <div className="resume-contact-row">
-            {resume.location ? <span>{resume.location}</span> : null}
-            {resume.email ? <span>{resume.email}</span> : null}
-            {resume.phone ? <span>{resume.phone}</span> : null}
-            {resume.website ? <span>{resume.website}</span> : null}
-          </div>
-          {resume.executiveSummary ? <p className="resume-cover-summary">{resume.executiveSummary}</p> : null}
-          {resume.uploadedResumeUrl ? (
-            <a className="resume-upload-link" href={resume.uploadedResumeUrl} rel="noreferrer" target="_blank">
-              {resume.uploadedResumeName || "Uploaded resume"}
-            </a>
-          ) : null}
-        </section>
+      <article className="resume-document executive-resume-document">
+        <section className="resume-page executive-resume-page">
+          <header className="executive-resume-header">
+            <div>
+              <p className="resume-kicker">Executive Resume</p>
+              <h1>{user.displayName}</h1>
+              {resume.headline ? <p className="resume-headline">{resume.headline}</p> : null}
+            </div>
+            {contactItems.length > 0 ? (
+              <address className="resume-contact-row">
+                {contactItems.map((item) => (
+                  <span key={item}>{item}</span>
+                ))}
+              </address>
+            ) : null}
+          </header>
 
-        <section className="resume-page">
-          <ResumeList items={resume.coreSkills} title="Core Strengths" />
-          <ResumeList items={resume.achievements} title="Selected Achievements" />
-          {resume.experience.length > 0 ? (
-            <section className="resume-section">
-              <h2>Professional Experience</h2>
-              {resume.experience.map((item, index) => (
-                <div className="resume-experience" key={`${item.title}-${item.organization}-${index}`}>
-                  <div>
-                    <h3>{item.title || item.organization || "Experience"}</h3>
-                    <p>
-                      {[item.organization, item.location, item.dates].filter(Boolean).join(" | ")}
-                    </p>
-                  </div>
-                  {item.bullets.length > 0 ? (
-                    <ul>
-                      {item.bullets.map((bullet) => (
-                        <li key={bullet}>{bullet}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ))}
-            </section>
-          ) : null}
-          {resume.education.length > 0 ? (
-            <section className="resume-section">
-              <h2>Education</h2>
-              {resume.education.map((item, index) => (
-                <div className="resume-education" key={`${item.credential}-${item.institution}-${index}`}>
-                  <strong>{item.credential || item.institution}</strong>
-                  <span>{[item.institution, item.dates].filter(Boolean).join(" | ")}</span>
-                  {item.details ? <p>{item.details}</p> : null}
-                </div>
-              ))}
-            </section>
-          ) : null}
-          <ResumeList items={resume.credentials} title="Credentials" />
-          {resume.additionalNotes ? (
-            <section className="resume-section">
-              <h2>Additional Notes</h2>
-              <p>{resume.additionalNotes}</p>
-            </section>
-          ) : null}
+          <div className={hasSidebar ? "executive-resume-layout" : "executive-resume-layout executive-resume-layout-full"}>
+            <main className="executive-resume-main">
+              {resume.executiveSummary ? (
+                <section className="resume-section executive-summary-section">
+                  <h2>Executive Profile</h2>
+                  <p>{resume.executiveSummary}</p>
+                </section>
+              ) : null}
+              <ResumeList items={resume.achievements} title="Selected Impact" />
+              {resume.experience.length > 0 ? (
+                <section className="resume-section">
+                  <h2>Leadership Experience</h2>
+                  {resume.experience.map((item, index) => (
+                    <div className="resume-experience" key={`${item.title}-${item.organization}-${index}`}>
+                      <div className="resume-experience-heading">
+                        <div>
+                          <h3>{item.title || item.organization || "Experience"}</h3>
+                          <p>{[item.organization, item.location].filter(Boolean).join(" | ")}</p>
+                        </div>
+                        {item.dates ? <span>{item.dates}</span> : null}
+                      </div>
+                      {item.bullets.length > 0 ? (
+                        <ul>
+                          {item.bullets.map((bullet) => (
+                            <li key={bullet}>{bullet}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ))}
+                </section>
+              ) : null}
+              {resume.additionalNotes ? (
+                <section className="resume-section">
+                  <h2>Additional Notes</h2>
+                  <p>{resume.additionalNotes}</p>
+                </section>
+              ) : null}
+              {resume.uploadedResumeUrl ? (
+                <section className="resume-section no-print">
+                  <h2>Uploaded Resume File</h2>
+                  <a className="resume-upload-link" href={resume.uploadedResumeUrl} rel="noreferrer" target="_blank">
+                    {resume.uploadedResumeName || "Uploaded resume"}
+                  </a>
+                </section>
+              ) : null}
+            </main>
+
+            {hasSidebar ? (
+              <aside className="executive-resume-sidebar">
+                <ResumeList items={resume.coreSkills} title="Core Strengths" />
+                <ResumeList items={resume.credentials} title="Credentials" />
+                {resume.education.length > 0 ? (
+                  <section className="resume-section">
+                    <h2>Education</h2>
+                    {resume.education.map((item, index) => (
+                      <div className="resume-education" key={`${item.credential}-${item.institution}-${index}`}>
+                        <strong>{item.credential || item.institution}</strong>
+                        <span>{[item.institution, item.dates].filter(Boolean).join(" | ")}</span>
+                        {item.details ? <p>{item.details}</p> : null}
+                      </div>
+                    ))}
+                  </section>
+                ) : null}
+              </aside>
+            ) : null}
+          </div>
         </section>
 
         {scientology ? (
