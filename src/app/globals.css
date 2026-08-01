@@ -4,6 +4,7 @@
 
 :root {
   color-scheme: dark;
+  --theta-content-width: 860px;
   --font-sans: "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
   --bg: #080b10;
   --panel: #111824;
@@ -657,9 +658,11 @@ a {
   display: none;
 }
 
-.main-surface > * {
+.main-content-frame {
+  display: grid;
+  gap: clamp(16px, 1.2vw, 22px);
   margin-inline: auto;
-  max-width: 860px;
+  max-width: var(--theta-content-width);
   width: 100%;
 }
 

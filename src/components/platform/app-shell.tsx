@@ -24,22 +24,11 @@ import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flag
 import { buildMemberNavigation } from "@/modules/navigation/member-navigation";
 import { getDefaultHomeHref } from "@/modules/home-preferences/default-home-preferences.service";
 
-const AD_RAIL_DISABLED_PREFIXES = [
-  "/admin",
-  "/cutover",
-  "/dev",
-  "/docs",
-  "/feedback",
-  "/health",
-  "/onboarding",
-  "/secure-area"
-];
-
 const zeroCounts = { alerts: 0, mail: 0, messages: 0, notifications: 0 };
 
-function shouldShowAdRail(currentPath: string, isSignedIn: boolean, isMobileAdRailRequest: boolean) {
+function shouldShowAdRail(isSignedIn: boolean, isMobileAdRailRequest: boolean) {
   if (!isSignedIn || isMobileAdRailRequest) return false;
-  return !AD_RAIL_DISABLED_PREFIXES.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`));
+  return true;
 }
 
 function isAllowedAuditorSeekerPath(currentPath: string) {
@@ -151,7 +140,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     : "/home";
   const isAndroidApp = await isAndroidAppRequest();
   const showAdRail =
-    shouldShowAdRail(currentPath, isSignedIn, isAndroidApp || (await isMobileBrowserRequest()));
+    shouldShowAdRail(isSignedIn, isAndroidApp || (await isMobileBrowserRequest()));
   const shellProfile = await timeServerStep("shell.profile", getShellProfile(activeActorUserId), { path: currentPath });
   const tutorialState = isSignedIn && session?.user?.id
     ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })
@@ -194,7 +183,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         {isSignedIn ? <AccountActorSwitcher activeActorUserId={actorPicker.activeActorUserId} actors={actorPicker.actors} /> : null}
         <ControlPanelNav counts={counts} sections={navSections} />
       </aside>
-      <main aria-label="Main content" className="main-surface" tabIndex={0}>{children}</main>
+      <main aria-label="Main content" className="main-surface" tabIndex={0}>
+        <div className="main-content-frame">{children}</div>
+      </main>
       {showAdRail ? (
         <aside className="ad-rail">
           <section className="ad-rail-card">
