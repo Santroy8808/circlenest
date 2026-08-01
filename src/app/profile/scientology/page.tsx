@@ -4,8 +4,13 @@ import { ScientologyReferenceNotice } from "@/components/legal/scientology-refer
 import { AppShell } from "@/components/platform/app-shell";
 import { ScientologyProfileForm } from "@/components/profile/scientology-profile-form";
 import { getScientologyProfileForOwner } from "@/modules/my-scientology/my-scientology.service";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 
 export default async function MyScientologyPage() {
+  if (!myScientologyVisible) {
+    redirect("/settings/profile");
+  }
+
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

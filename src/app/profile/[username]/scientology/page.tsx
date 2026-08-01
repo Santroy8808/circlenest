@@ -6,6 +6,7 @@ import { ScientologyReferenceNotice } from "@/components/legal/scientology-refer
 import { AppShell } from "@/components/platform/app-shell";
 import { prisma } from "@/lib/platform/db";
 import { parseScientologySelections } from "@/modules/my-scientology/types";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 
 function BridgeResumeSection({
   emptyLabel,
@@ -77,6 +78,11 @@ function SummaryItem({ label, value }: { label: string; value?: string | null })
 
 export default async function PublicScientologyPage(props: { params: Promise<{ username: string }> }) {
   const params = await props.params;
+
+  if (!myScientologyVisible) {
+    redirect(`/profile/${params.username}`);
+  }
+
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

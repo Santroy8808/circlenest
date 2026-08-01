@@ -11,6 +11,7 @@ import {
   readCurrentTermsPdf
 } from "@/modules/legal/terms";
 import { scientologyProcessingStatuses, scientologyTrainingLevels } from "@/modules/my-scientology/types";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 
 const MODULE_KEY = "onboarding";
 
@@ -143,7 +144,7 @@ export async function getOnboardingState(userId: string) {
   const hasProfile = Boolean(user.profile?.displayName?.trim() && user.profile.location?.trim());
   const hasScientology = Boolean(user.scientologyProfile?.orgName?.trim() && user.scientologyProfile.lastServiceName?.trim());
   const profileStepDone = hasProfile || Boolean(user.profileOnboardingSkippedAt);
-  const scientologyStepDone = hasScientology || Boolean(user.scientologyOnboardingSkippedAt);
+  const scientologyStepDone = !myScientologyVisible || hasScientology || Boolean(user.scientologyOnboardingSkippedAt);
   const hasGoodStanding = Boolean(user.scientologyProfile?.goodStandingAttested);
   const hasTerms = Boolean(user.termsAcceptedAt);
   const completed = Boolean(user.onboardingCompletedAt && hasGoodStanding && hasTerms);
@@ -161,7 +162,7 @@ export async function getOnboardingState(userId: string) {
       ? "/onboarding/application-complete"
       : !profileStepDone
         ? "/onboarding/profile"
-        : !scientologyStepDone
+        : myScientologyVisible && !scientologyStepDone
           ? "/onboarding/scientology"
           : !hasGoodStanding
             ? "/onboarding/good-standing"
@@ -197,7 +198,7 @@ export async function saveOnboardingProfile(userId: string, input: unknown) {
 
   await diagnostics.info(MODULE_KEY, "Onboarding profile step completed.", { userId });
 
-  return { ok: true as const, nextPath: "/onboarding/scientology" };
+  return { ok: true as const, nextPath: myScientologyVisible ? "/onboarding/scientology" : "/onboarding/good-standing" };
 }
 
 export async function skipOnboardingProfile(userId: string) {
@@ -208,7 +209,7 @@ export async function skipOnboardingProfile(userId: string) {
 
   await diagnostics.info(MODULE_KEY, "Onboarding profile step skipped.", { userId });
 
-  return { ok: true as const, nextPath: "/onboarding/scientology" };
+  return { ok: true as const, nextPath: myScientologyVisible ? "/onboarding/scientology" : "/onboarding/good-standing" };
 }
 
 export async function saveOnboardingScientology(userId: string, input: unknown) {

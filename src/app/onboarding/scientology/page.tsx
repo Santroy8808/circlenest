@@ -2,9 +2,14 @@ import { ScientologyClassification } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { OnboardingScientologyForm } from "@/components/onboarding/onboarding-forms";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 
 export default async function OnboardingScientologyPage() {
+  if (!myScientologyVisible) {
+    redirect("/onboarding/good-standing");
+  }
+
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {

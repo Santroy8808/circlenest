@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 import type { SettingsCard } from "@/modules/settings-secure-areas/types";
 
 type SettingsSearchEntry = {
@@ -30,17 +31,17 @@ const settingShortcuts: SettingsSearchEntry[] = [
     sensitive: false,
     keywords: ["photos", "pictures", "gallery", "my pics", "avatar image", "banner image"]
   },
-  {
+  ...(myScientologyVisible ? [{
     title: "My Scientology",
     description: "Manage Scientology-specific classification, org, training, processing, and privacy.",
     href: "/profile/scientology",
     badge: "Profile",
     sensitive: false,
     keywords: ["scientology", "public", "staff", "sea org", "auditor", "training", "processing", "org"]
-  },
+  }] : []),
   {
     title: "My Resume",
-    description: "Build a printable professional resume with optional My Scientology summary.",
+    description: "Build a printable professional resume.",
     href: "/settings/profile/resume",
     badge: "Profile",
     sensitive: false,
@@ -156,7 +157,7 @@ export function SettingsHub({ cards }: { cards: SettingsCard[] }) {
             aria-label="Search settings"
             className="form-field"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Try: pics, invite, blocked users, notifications, My Scientology"
+            placeholder="Try: pics, invite, blocked users, notifications"
             type="search"
             value={query}
           />

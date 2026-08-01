@@ -1,5 +1,6 @@
 import { AccountPurpose } from "@prisma/client";
 import type { NavSection } from "@/components/platform/control-panel-nav";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 
 type MemberNavigationInput = {
   accountPurpose?: AccountPurpose;
@@ -62,7 +63,7 @@ const settingsSection: NavSection = {
   label: "Settings",
   items: [
     { label: "Profile", href: "/profile" },
-    { label: "My Scientology", href: "/profile/scientology" },
+    ...(myScientologyVisible ? [{ label: "My Scientology", href: "/profile/scientology" }] : []),
     { label: "My Resume", href: "/settings/profile/resume" },
     { label: "Membership", href: "/membership" },
     { label: "Default Home", href: "/settings/default-home" },

@@ -2,12 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/platform/app-shell";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 
 const profileCards = [
   { title: "Edit Profile", description: "Edit display name, bio, avatar, banner, location, and profile visibility.", href: "/profile/edit" },
   { title: "My Pics", description: "Open your photo gallery without the secure settings wall.", href: "/profile/gallery" },
-  { title: "My Scientology", description: "Manage Scientology-specific profile details and privacy.", href: "/profile/scientology" },
-  { title: "My Resume", description: "Build a printable executive resume and optional My Scientology summary page.", href: "/settings/profile/resume" },
+  ...(myScientologyVisible ? [{ title: "My Scientology", description: "Manage Scientology-specific profile details and privacy.", href: "/profile/scientology" }] : []),
+  { title: "My Resume", description: "Build a printable executive resume.", href: "/settings/profile/resume" },
   { title: "My Interests", description: "Choose optional interest categories for discovery and relevant internal ads.", href: "/profile/interests" },
   { title: "Public Profile", description: "View your member-facing profile page.", href: "/profile" }
 ];

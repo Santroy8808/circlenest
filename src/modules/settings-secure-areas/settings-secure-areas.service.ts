@@ -3,7 +3,7 @@ import type { SettingsCard } from "@/modules/settings-secure-areas/types";
 export const settingsCards: SettingsCard[] = [
   {
     title: "Profile",
-    description: "Edit Profile, My Pics, My Scientology, My Resume, interests, and public profile links.",
+    description: "Edit Profile, My Pics, My Resume, interests, and public profile links.",
     href: "/settings/profile",
     sensitive: false,
     badge: "Profile"

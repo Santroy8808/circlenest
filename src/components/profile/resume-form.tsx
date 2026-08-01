@@ -3,6 +3,7 @@
 import { ProfileVisibility } from "@prisma/client";
 import { useState, useTransition, type FormEvent } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 import type { ResumeEducation, ResumeExperience, ResumeView } from "@/modules/profile-resume/types";
 
 function listToText(items?: string[]) {
@@ -203,7 +204,7 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">My Resume</p>
         <h1 className="mt-3 text-3xl font-semibold">Executive resume builder</h1>
         <p className="mt-3 max-w-3xl leading-7 text-[var(--muted)]">
-          Fill the sections once. Theta-Space renders a printable executive-style resume and can include your member-visible My Scientology summary as the final page.
+          Fill the sections once. Theta-Space renders a printable executive-style resume.
         </p>
       </section>
 
@@ -283,7 +284,7 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
       </section>
 
       <section className="surface rounded-md p-5">
-        <h2 className="text-xl font-semibold text-[var(--gold)]">Optional resume file and Scientology page</h2>
+        <h2 className="text-xl font-semibold text-[var(--gold)]">Optional resume file</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">
             <span className="form-label">Resume file</span>
@@ -309,13 +310,15 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
         </div>
         <input name="uploadedResumeUrl" type="hidden" value={resumeUrl} />
         <input name="uploadedResumeName" type="hidden" value={resumeName} />
-        <label className="mt-4 flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
-          <input className="mt-1" name="includeScientology" type="checkbox" defaultChecked={initialResume?.includeScientology ?? false} />
-          <span>
-            <span className="form-label block">Include My Scientology as final page</span>
-            <span className="text-sm text-[var(--muted)]">Only member-visible My Scientology data is shown.</span>
-          </span>
-        </label>
+        {myScientologyVisible ? (
+          <label className="mt-4 flex items-start gap-3 rounded-md border border-[var(--line)] bg-black/10 p-4">
+            <input className="mt-1" name="includeScientology" type="checkbox" defaultChecked={initialResume?.includeScientology ?? false} />
+            <span>
+              <span className="form-label block">Include My Scientology as final page</span>
+              <span className="text-sm text-[var(--muted)]">Only member-visible My Scientology data is shown.</span>
+            </span>
+          </label>
+        ) : null}
         <label className="mt-4 grid gap-2">
           <span className="form-label">Additional notes</span>
           <textarea className="form-field min-h-32" name="additionalNotes" defaultValue={initialResume?.additionalNotes ?? ""} />

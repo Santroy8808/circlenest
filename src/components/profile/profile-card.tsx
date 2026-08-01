@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProfileRelationshipActions } from "@/components/profile/profile-relationship-actions";
+import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
 function initials(displayName: string) {
@@ -56,7 +57,7 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
             {profile.location ? <span className="pill rounded-full px-3 py-1 text-xs font-semibold">{profile.location}</span> : null}
           </div>
           <div className="profile-header-links">
-            {profile.scientologyVisible ? (
+            {myScientologyVisible && profile.scientologyVisible ? (
               <Link className="profile-header-link" href={`/profile/${profile.username}/scientology`}>
                 My Scientology
               </Link>
