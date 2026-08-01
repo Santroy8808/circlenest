@@ -6045,6 +6045,68 @@ html.theta-theme-light .gallery-feedback--error {
   animation: feedback-button-shimmer 1.35s ease-in-out 1;
 }
 
+.control-panel-menu-wrap {
+  position: relative;
+}
+
+.control-panel-menu-wrap > .control-panel-main-link {
+  font: inherit;
+}
+
+.control-panel-menu-caret {
+  display: inline-block;
+  font-size: 1.4rem;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform 160ms ease;
+}
+
+.control-panel-main-link[aria-expanded="true"] .control-panel-menu-caret {
+  transform: rotate(-90deg);
+}
+
+.control-panel-popup-menu {
+  background: rgba(8, 13, 22, 0.98);
+  border: 1px solid rgba(255, 216, 95, 0.34);
+  border-radius: 16px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.36);
+  display: grid;
+  gap: 6px;
+  left: calc(100% + 12px);
+  min-width: min(280px, calc(100vw - 48px));
+  padding: 8px;
+  position: absolute;
+  top: 0;
+  z-index: 80;
+}
+
+.control-panel-popup-link {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.88rem;
+  font-weight: 900;
+  justify-content: space-between;
+  letter-spacing: 0.12em;
+  padding: 11px 12px;
+  text-transform: uppercase;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.control-panel-popup-link:hover,
+.control-panel-popup-link.is-active {
+  background: rgba(23, 33, 51, 0.88);
+  border-color: rgba(255, 216, 95, 0.42);
+  color: var(--text);
+  transform: translateX(2px);
+}
+
 .control-panel-utility-list {
   border-top: 1px solid rgba(214, 178, 74, 0.16);
   display: grid;

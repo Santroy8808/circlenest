@@ -53,6 +53,7 @@ function confirmLogout() {
 export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [tutorialShimmering, setTutorialShimmering] = useState(false);
   const navRows = useMemo(
     () =>
@@ -97,10 +98,60 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
     window.dispatchEvent(new CustomEvent("theta:toggle-comm-dock"));
   }
 
+  function closeMenu() {
+    setOpenMenu(null);
+  }
+
   return (
     <nav aria-label="Control panel" className="mt-8 control-panel-nav">
       {navRows.map((section) => {
         if (!section.targetHref) return null;
+        const isCommCenter = section.label === "Comm Center";
+
+        if (isCommCenter) {
+          const isOpen = openMenu === section.label;
+          return (
+            <div className="control-panel-menu-wrap" key={section.label}>
+              <button
+                aria-expanded={isOpen}
+                aria-haspopup="menu"
+                className={[
+                  "control-panel-main-link",
+                  section.isActive ? "is-active" : ""
+                ].filter(Boolean).join(" ")}
+                data-tooltip="Open Comm Center menu."
+                data-tutorial-target="control-comm-center"
+                onClick={() => setOpenMenu((current) => current === section.label ? null : section.label)}
+                type="button"
+              >
+                <span>{section.label}</span>
+                <span className="control-panel-header-meta">
+                  {section.totalCount > 0 ? <span className="control-panel-section-count">{section.totalCount}</span> : null}
+                  <span aria-hidden="true" className="control-panel-menu-caret">›</span>
+                </span>
+              </button>
+              {isOpen ? (
+                <div className="control-panel-popup-menu" role="menu">
+                  {section.items.filter((item) => item.href).map((item) => (
+                    <Link
+                      className={itemMatchesPath(pathname, item) ? "control-panel-popup-link is-active" : "control-panel-popup-link"}
+                      href={item.href ?? "#"}
+                      key={item.label}
+                      onClick={(event) => {
+                        handleItemClick(event, item);
+                        closeMenu();
+                      }}
+                      role="menuitem"
+                    >
+                      <span>{item.label}</span>
+                      {item.countKey && liveCounts[item.countKey] > 0 ? <span className="control-panel-link-count">{liveCounts[item.countKey]}</span> : null}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        }
 
         return (
           <Link

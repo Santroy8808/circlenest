@@ -27,9 +27,9 @@ const communicationsSection: NavSection = {
   href: "/comm-center",
   label: "Comm Center",
   items: [
-    { label: "Comms", href: "/messages", countKey: "messages" },
-    { label: "Contacts", href: "/comm-center/contacts" },
-    { label: "Groups", href: "/comm-center/groups" }
+    { label: "Chat", href: "/messages", countKey: "messages" },
+    { label: "People", href: "/people" },
+    { label: "Groups", href: "/groups" }
   ]
 };
 
@@ -109,7 +109,7 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     if (item.href === "/messages" || item.countKey === "messages") {
       return input.platformFeatures["communication.direct_messages"] !== false;
     }
-    if (item.href === "/comm-center/groups") {
+    if (item.href === "/groups") {
       return input.platformFeatures["community.groups"] !== false;
     }
     return true;

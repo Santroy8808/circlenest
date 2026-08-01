@@ -52,7 +52,7 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/jobs"), true);
 });
 
-test("Comm Center opens a hub with Comms, Contacts, and Groups while Jobs is linked from Market", () => {
+test("Comm Center keeps Chat, People, and Groups as submenu items while Jobs is linked from Market", () => {
   for (const tier of [MembershipTier.FREE, MembershipTier.CONTRIBUTOR]) {
     const sections = navigation(tier);
     const commCenter = sections.find((section) => section.label === "Comm Center");
@@ -62,9 +62,9 @@ test("Comm Center opens a hub with Comms, Contacts, and Groups while Jobs is lin
     assert.deepEqual(
       commCenter?.items.map((item) => [item.label, item.href]),
       [
-        ["Comms", "/messages"],
-        ["Contacts", "/comm-center/contacts"],
-        ["Groups", "/comm-center/groups"]
+        ["Chat", "/messages"],
+        ["People", "/people"],
+        ["Groups", "/groups"]
       ]
     );
     assert.equal(sections.some((section) => section.label === "People"), false);
