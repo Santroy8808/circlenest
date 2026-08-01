@@ -848,12 +848,13 @@ a {
   color: var(--text);
   display: grid;
   gap: 7px;
-  max-width: 760px;
-  min-height: 104px;
+  margin-inline: auto;
+  max-width: 860px;
+  min-height: clamp(136px, 18vh, 174px);
   padding: 17px 20px 18px;
   position: relative;
   text-decoration: none;
-  width: min(100%, 760px);
+  width: 100%;
   z-index: 1;
 }
 
