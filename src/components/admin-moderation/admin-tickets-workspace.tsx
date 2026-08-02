@@ -71,7 +71,7 @@ type AdminTicketDetail = {
 const DEFAULT_FILTERS: Filters = {
   search: "",
   kind: "",
-  status: "OPEN",
+  status: "ALL",
   assignment: "ALL",
   sort: "updatedAt",
   direction: "desc"

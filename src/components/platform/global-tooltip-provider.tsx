@@ -201,6 +201,7 @@ export function GlobalTooltipProvider() {
     }
 
     function handleFocusIn(event: FocusEvent) {
+      if (!hoverCapable) return;
       const element = closestTooltipTarget(event.target);
       if (!element) return;
       const rect = element.getBoundingClientRect();

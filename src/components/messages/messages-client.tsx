@@ -933,18 +933,23 @@ export function MessagesClient({
               </button>
             ))}
           </div>
-          <div className="mt-2 flex flex-wrap gap-2" aria-label="Member search filters">
-            {contactFilters.map((filter) => (
-              <button
-                className={contactFilter === filter.key ? "btn-primary px-3 py-2 text-xs" : "btn-secondary px-3 py-2 text-xs"}
-                key={filter.key}
-                onClick={() => setContactFilter(filter.key)}
-                type="button"
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+          {isSearching ? (
+            <div className="mt-3 grid gap-2" aria-label="People search scope">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Find people in</span>
+              <div className="flex flex-wrap gap-2">
+                {contactFilters.map((filter) => (
+                  <button
+                    className={contactFilter === filter.key ? "btn-primary px-3 py-2 text-xs" : "btn-secondary px-3 py-2 text-xs"}
+                    key={filter.key}
+                    onClick={() => setContactFilter(filter.key)}
+                    type="button"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="chat-thread-list">

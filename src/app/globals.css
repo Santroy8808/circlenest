@@ -11216,7 +11216,7 @@ html.theta-theme-light .admin-hat-figure {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 860px), (pointer: coarse) and (max-width: 1180px) {
   .app-shell,
   .app-shell.no-ad-rail {
     grid-template-areas:
@@ -12232,7 +12232,7 @@ html.theta-theme-light .pill-alert {
   }
 }
 
-@media (min-width: 861px) and (max-width: 1180px) {
+@media (min-width: 861px) and (max-width: 1180px) and (hover: hover) and (pointer: fine) {
   .app-shell {
     grid-template-areas:
       "top top top"
@@ -13049,7 +13049,7 @@ body,
 }
 
 /* Compact signed-in navigation on phones so the page task is visible immediately. */
-@media (max-width: 860px) {
+@media (max-width: 860px), (pointer: coarse) and (max-width: 1180px) {
   .side-nav {
     align-items: center;
     background: rgba(8, 12, 19, 0.97);

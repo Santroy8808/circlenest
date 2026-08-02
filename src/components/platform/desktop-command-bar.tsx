@@ -130,6 +130,15 @@ function AlertIcon() {
   );
 }
 
+function AdminShieldIcon() {
+  return (
+    <svg aria-hidden="true" className="desktop-command-svg" viewBox="0 0 24 24">
+      <path d="M12 3 19 6v5c0 4.4-2.7 7.8-7 10-4.3-2.2-7-5.6-7-10V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
 function AndroidDownloadIcon() {
   return (
     <svg aria-hidden="true" className="desktop-command-nav-glyph" viewBox="0 0 24 24">
@@ -348,7 +357,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeH
             </Link>
             {isAdmin ? (
               <Link className="desktop-command-icon" href="/admin" data-tooltip="Admin portal.">
-                <span aria-hidden="true">A</span>
+                <AdminShieldIcon />
                 <span className="sr-only">Admin</span>
               </Link>
             ) : null}

@@ -45,7 +45,7 @@ export const feedbackScreenshotIntentSchema = z.object({
 export const feedbackTicketListQuerySchema = z.object({
   search: z.string().trim().max(160).optional(),
   kind: z.nativeEnum(FeedbackTicketKind).optional(),
-  status: z.enum(["OPEN", "RESOLVED", "ALL"]).default("OPEN"),
+  status: z.enum(["OPEN", "RESOLVED", "ALL"]).default("ALL"),
   assignment: z.enum(["ALL", "UNASSIGNED", "ME", "OTHER"]).default("ALL"),
   sort: z.enum(["createdAt", "updatedAt", "status", "assignedTo", "kind", "openDuration"]).default("updatedAt"),
   direction: z.enum(["asc", "desc"]).default("desc"),
