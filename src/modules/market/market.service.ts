@@ -343,8 +343,36 @@ function toMarketCardView(listing: MarketListingPayload): MarketListingCardView 
     thumbnailUrl: mediaAssetUrl(thumbnail?.mediaAsset),
     allowMessages: listing.allowMessages,
     carouselEnabled: listing.carouselEnabled,
+    rentalPropertyType: listing.rentalPropertyType,
+    rentalBedrooms: listing.rentalBedrooms,
+    rentalBathrooms: listing.rentalBathrooms,
+    rentalSquareFeet: listing.rentalSquareFeet,
+    rentalDepositCents: listing.rentalDepositCents,
+    rentalAvailableAt: listing.rentalAvailableAt?.toISOString() ?? null,
+    rentalLeaseTerm: listing.rentalLeaseTerm,
+    rentalPetsAllowed: listing.rentalPetsAllowed,
+    rentalFurnished: listing.rentalFurnished,
     seller: sellerView(listing.seller)
   };
+}
+
+export function validateRentalListing(input: {
+  category: MarketListingCategory;
+  location?: string | null;
+  priceCents?: number | null;
+  rentalPropertyType?: string | null;
+  rentalBedrooms?: number | null;
+  rentalBathrooms?: number | null;
+  rentalAvailableAt?: string | null;
+}) {
+  if (input.category !== MarketListingCategory.RENTALS) return null;
+  if (!input.rentalPropertyType?.trim()) return "Choose a rental property type.";
+  if (!input.location?.trim()) return "Add the city where the rental is located.";
+  if (input.priceCents === null || input.priceCents === undefined) return "Add the monthly rent.";
+  if (input.rentalBedrooms === null || input.rentalBedrooms === undefined) return "Add the number of bedrooms.";
+  if (input.rentalBathrooms === null || input.rentalBathrooms === undefined) return "Add the number of bathrooms.";
+  if (!input.rentalAvailableAt) return "Add the rental availability date.";
+  return null;
 }
 
 export async function listMarketListings(input?: { query?: string | null; category?: string | null }) {
@@ -558,6 +586,9 @@ export async function createMarketListing(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid listing." };
   }
 
+  const rentalError = validateRentalListing(parsed.data);
+  if (rentalError) return { ok: false as const, error: rentalError };
+
   const state = await getMarketCreateState(userId);
 
   if (!state.viewerCanCreate) {
@@ -622,6 +653,15 @@ export async function createMarketListing(userId: string, input: unknown) {
         allowMessages: parsed.data.allowMessages,
         carouselEnabled: parsed.data.carouselEnabled && parsed.data.photoMediaAssetIds.length > 1,
         priceCents: parsed.data.priceCents ?? null,
+        rentalPropertyType: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalPropertyType || null : null,
+        rentalBedrooms: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalBedrooms ?? null : null,
+        rentalBathrooms: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalBathrooms ?? null : null,
+        rentalSquareFeet: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalSquareFeet ?? null : null,
+        rentalDepositCents: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalDepositCents ?? null : null,
+        rentalAvailableAt: parsed.data.category === MarketListingCategory.RENTALS && parsed.data.rentalAvailableAt ? new Date(parsed.data.rentalAvailableAt) : null,
+        rentalLeaseTerm: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalLeaseTerm || null : null,
+        rentalPetsAllowed: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalPetsAllowed ?? null : null,
+        rentalFurnished: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalFurnished ?? null : null,
         expiresAt: limits.marketListingsPer14Days !== null ? futureDate(CONTRIBUTOR_LISTING_DAYS) : null,
         photos: {
           create: parsed.data.photoMediaAssetIds.map((mediaAssetId, index) => ({
@@ -679,6 +719,9 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid listing." };
   }
+
+  const rentalError = validateRentalListing(parsed.data);
+  if (rentalError) return { ok: false as const, error: rentalError };
 
   const listingOwner = await prisma.marketListing.findFirst({
     where: {
@@ -757,6 +800,15 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
         carouselEnabled:
           (parsed.data.carouselEnabled ?? listing.carouselEnabled) && photoPlan.finalPhotoCount > 1,
         priceCents: parsed.data.priceCents ?? null,
+        rentalPropertyType: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalPropertyType || null : null,
+        rentalBedrooms: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalBedrooms ?? null : null,
+        rentalBathrooms: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalBathrooms ?? null : null,
+        rentalSquareFeet: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalSquareFeet ?? null : null,
+        rentalDepositCents: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalDepositCents ?? null : null,
+        rentalAvailableAt: parsed.data.category === MarketListingCategory.RENTALS && parsed.data.rentalAvailableAt ? new Date(parsed.data.rentalAvailableAt) : null,
+        rentalLeaseTerm: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalLeaseTerm || null : null,
+        rentalPetsAllowed: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalPetsAllowed ?? null : null,
+        rentalFurnished: parsed.data.category === MarketListingCategory.RENTALS ? parsed.data.rentalFurnished ?? null : null,
         photos: newPhotoIds.length
           ? {
               create: newPhotoIds.map((mediaAssetId, index) => ({
