@@ -351,9 +351,8 @@ export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarUrl, canCr
               <ShellSummaryPanel count={liveCounts.alerts} kind="alerts" summary={summaries.alerts} />
             </Link>
             {isAdmin ? (
-              <Link className="desktop-command-icon" href="/admin" data-tooltip="Admin portal.">
+              <Link aria-label="Admin" className="desktop-command-icon" href="/admin" data-tooltip="Admin portal.">
                 <AdminShieldIcon />
-                <span className="sr-only">Admin</span>
               </Link>
             ) : null}
             <Link className="desktop-command-avatar" data-tutorial-target="top-nav-profile" href="/profile" data-tooltip="Open your profile.">
