@@ -1,4 +1,4 @@
-import { AdDestinationKind, InterestCategory } from "@prisma/client";
+import { AdDestinationKind, InterestCategory, MarketListingCategory } from "@prisma/client";
 import Link from "next/link";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
@@ -16,6 +16,7 @@ function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "curre
 }
 
 export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: boolean; listing: MarketListingDetailView }) {
+  const isRental = listing.category === MarketListingCategory.RENTALS;
   return (
     <div className="grid gap-5">
       <section className="surface overflow-hidden rounded-md">
@@ -56,7 +57,7 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
                 <div className="mt-3">
                   <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
                 </div>
-                <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}</p>
+                <p className="mt-3 text-3xl font-black text-[var(--gold)]">{priceLabel(listing)}{isRental && listing.priceCents != null ? " / month" : ""}</p>
                 <p className="mt-3 text-[var(--muted)]">{listing.location || "City TBD"}</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -65,11 +66,26 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
                     Edit listing
                   </Link>
                 ) : null}
-                <Link className="btn-secondary" href="/market">
-                  Back to Market
+                <Link className="btn-secondary" href={isRental ? "/market/rentals" : "/market"}>
+                  {isRental ? "Back to Rentals" : "Back to Market"}
                 </Link>
               </div>
             </div>
+            {isRental ? (
+              <section className="mt-6 grid gap-3 rounded-md border border-[var(--line)] p-4">
+                <h2 className="text-xl font-semibold text-[var(--gold)]">Rental details</h2>
+                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div><dt className="text-sm text-[var(--muted)]">Property type</dt><dd className="font-semibold">{listing.rentalPropertyType}</dd></div>
+                  <div><dt className="text-sm text-[var(--muted)]">Bedrooms / Bathrooms</dt><dd className="font-semibold">{listing.rentalBedrooms} / {listing.rentalBathrooms}</dd></div>
+                  {listing.rentalSquareFeet ? <div><dt className="text-sm text-[var(--muted)]">Size</dt><dd className="font-semibold">{listing.rentalSquareFeet.toLocaleString()} sq ft</dd></div> : null}
+                  <div><dt className="text-sm text-[var(--muted)]">Available</dt><dd className="font-semibold">{listing.rentalAvailableAt ? new Date(listing.rentalAvailableAt).toLocaleDateString() : "Ask lister"}</dd></div>
+                  {listing.rentalDepositCents != null ? <div><dt className="text-sm text-[var(--muted)]">Security deposit</dt><dd className="font-semibold">{new Intl.NumberFormat("en-US", { style: "currency", currency: listing.currency }).format(listing.rentalDepositCents / 100)}</dd></div> : null}
+                  {listing.rentalLeaseTerm ? <div><dt className="text-sm text-[var(--muted)]">Lease term</dt><dd className="font-semibold">{listing.rentalLeaseTerm}</dd></div> : null}
+                  {listing.rentalPetsAllowed != null ? <div><dt className="text-sm text-[var(--muted)]">Pets</dt><dd className="font-semibold">{listing.rentalPetsAllowed ? "Allowed" : "Not allowed"}</dd></div> : null}
+                  {listing.rentalFurnished != null ? <div><dt className="text-sm text-[var(--muted)]">Furnishing</dt><dd className="font-semibold">{listing.rentalFurnished ? "Furnished" : "Unfurnished"}</dd></div> : null}
+                </dl>
+              </section>
+            ) : null}
             <MarkdownRichText className="market-listing-description mt-6" value={listing.description} />
           </div>
           <aside className="market-listing-owner-contact">

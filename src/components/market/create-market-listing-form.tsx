@@ -27,22 +27,40 @@ function parsePriceCents(value: string) {
   return Math.round(amount * 100);
 }
 
+function parseOptionalNumber(value: string) {
+  const clean = value.trim();
+  if (!clean) return null;
+  const amount = Number(clean);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
 export function CreateMarketListingForm({
   createState,
   initialListing,
+  listingKind = "general",
   mode = "create"
 }: {
   createState: MarketCreateState;
   initialListing?: MarketListingDetailView;
+  listingKind?: "general" | "rental";
   mode?: "create" | "edit";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const existingPhotoCount = initialListing?.photos.length ?? 0;
   const [title, setTitle] = useState(initialListing?.title ?? "");
   const [description, setDescription] = useState(initialListing?.description ?? "");
-  const [category, setCategory] = useState<MarketListingCategory>(initialListing?.category ?? marketCategoryOptions[0]?.value ?? MarketListingCategory.OTHER);
+  const [category, setCategory] = useState<MarketListingCategory>(initialListing?.category ?? (listingKind === "rental" ? MarketListingCategory.RENTALS : marketCategoryOptions[0]?.value) ?? MarketListingCategory.OTHER);
   const [location, setLocation] = useState(initialListing?.location ?? "");
   const [price, setPrice] = useState(initialListing?.priceCents ? (initialListing.priceCents / 100).toFixed(2) : "");
+  const [rentalPropertyType, setRentalPropertyType] = useState(initialListing?.rentalPropertyType ?? "");
+  const [rentalBedrooms, setRentalBedrooms] = useState(initialListing?.rentalBedrooms?.toString() ?? "");
+  const [rentalBathrooms, setRentalBathrooms] = useState(initialListing?.rentalBathrooms?.toString() ?? "");
+  const [rentalSquareFeet, setRentalSquareFeet] = useState(initialListing?.rentalSquareFeet?.toString() ?? "");
+  const [rentalDeposit, setRentalDeposit] = useState(initialListing?.rentalDepositCents ? (initialListing.rentalDepositCents / 100).toFixed(2) : "");
+  const [rentalAvailableAt, setRentalAvailableAt] = useState(initialListing?.rentalAvailableAt?.slice(0, 10) ?? "");
+  const [rentalLeaseTerm, setRentalLeaseTerm] = useState(initialListing?.rentalLeaseTerm ?? "");
+  const [rentalPetsAllowed, setRentalPetsAllowed] = useState<boolean | null>(initialListing?.rentalPetsAllowed ?? null);
+  const [rentalFurnished, setRentalFurnished] = useState<boolean | null>(initialListing?.rentalFurnished ?? null);
   const [contactEmail, setContactEmail] = useState(initialListing?.contactEmail ?? "");
   const [contactPhone, setContactPhone] = useState(initialListing?.contactPhone ?? "");
   const [contactNotes, setContactNotes] = useState(initialListing?.contactNotes ?? "");
@@ -51,6 +69,7 @@ export function CreateMarketListingForm({
   const [items, setItems] = useState<UploadItem[]>([]);
   const [error, setError] = useState(createState.viewerCanCreate ? "" : createState.reason ?? "This tier cannot create Market listings.");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isRental = category === MarketListingCategory.RENTALS;
 
   function addFiles(files: FileList | File[]) {
     const remaining = Math.max(0, createState.photoCap - existingPhotoCount - items.length);
@@ -163,6 +182,15 @@ export function CreateMarketListingForm({
           allowMessages,
           carouselEnabled,
           priceCents: parsePriceCents(price),
+          rentalPropertyType,
+          rentalBedrooms: parseOptionalNumber(rentalBedrooms),
+          rentalBathrooms: parseOptionalNumber(rentalBathrooms),
+          rentalSquareFeet: parseOptionalNumber(rentalSquareFeet),
+          rentalDepositCents: parsePriceCents(rentalDeposit),
+          rentalAvailableAt: rentalAvailableAt ? new Date(`${rentalAvailableAt}T00:00:00`).toISOString() : "",
+          rentalLeaseTerm,
+          rentalPetsAllowed,
+          rentalFurnished,
           photoMediaAssetIds
         })
       });
@@ -195,7 +223,7 @@ export function CreateMarketListingForm({
     <form className="surface market-listing-form grid gap-4 rounded-md p-5" onSubmit={submitListing}>
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">The Market</p>
-        <h1 className="mt-2 text-3xl font-semibold">{mode === "edit" ? "Edit listing" : "Create a listing"}</h1>
+        <h1 className="mt-2 text-3xl font-semibold">{mode === "edit" ? "Edit listing" : isRental ? "List a home or apartment for rent" : "Create a listing"}</h1>
         <p className="mt-2 max-w-3xl leading-6 text-[var(--muted)]">
           Add clear details, photos, and seller contact options. Buyers can message you inside Theta-Space or use the contact info you choose to show.
         </p>
@@ -214,13 +242,15 @@ export function CreateMarketListingForm({
           <input className="form-field" onChange={(event) => setTitle(event.target.value)} value={title} />
         </label>
         <label className="grid gap-2">
-          <span className="form-label">Price</span>
+          <span className="form-label">{isRental ? "Monthly rent" : "Price"}</span>
           <input className="form-field" inputMode="decimal" onChange={(event) => setPrice(event.target.value)} placeholder="25.00" value={price} />
         </label>
       </div>
 
       <div className="market-listing-fields grid gap-3 md:grid-cols-2">
-        <label className="grid gap-2">
+        {listingKind === "rental" ? (
+          <input name="category" type="hidden" value={MarketListingCategory.RENTALS} />
+        ) : <label className="grid gap-2">
           <span className="form-label">Category</span>
           <select className="form-field" onChange={(event) => setCategory(event.target.value as MarketListingCategory)} value={category}>
             {marketCategoryOptions.map((option) => (
@@ -229,7 +259,7 @@ export function CreateMarketListingForm({
               </option>
             ))}
           </select>
-        </label>
+        </label>}
         <CityLocationAutocomplete
           helperText="Use the city for pickup/service area. Do not enter a street address."
           label="City"
@@ -238,6 +268,36 @@ export function CreateMarketListingForm({
           value={location}
         />
       </div>
+
+      {isRental ? (
+        <section className="grid gap-4 rounded-md border border-[var(--line)] p-4">
+          <div>
+            <h2 className="text-xl font-semibold text-[var(--gold)]">Rental details</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Provide enough information for members to understand the property before contacting you.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-2">
+              <span className="form-label">Property type</span>
+              <select className="form-field" onChange={(event) => setRentalPropertyType(event.target.value)} required value={rentalPropertyType}>
+                <option value="">Choose type</option>
+                <option>House</option><option>Apartment</option><option>Condo</option><option>Townhome</option><option>Room</option><option>Guesthouse</option><option>Other</option>
+              </select>
+            </label>
+            <label className="grid gap-2"><span className="form-label">Bedrooms</span><input className="form-field" min="0" onChange={(event) => setRentalBedrooms(event.target.value)} required step="1" type="number" value={rentalBedrooms} /></label>
+            <label className="grid gap-2"><span className="form-label">Bathrooms</span><input className="form-field" min="0" onChange={(event) => setRentalBathrooms(event.target.value)} required step="0.5" type="number" value={rentalBathrooms} /></label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-2"><span className="form-label">Square feet</span><input className="form-field" min="0" onChange={(event) => setRentalSquareFeet(event.target.value)} step="1" type="number" value={rentalSquareFeet} /></label>
+            <label className="grid gap-2"><span className="form-label">Security deposit</span><input className="form-field" inputMode="decimal" onChange={(event) => setRentalDeposit(event.target.value)} placeholder="1500.00" value={rentalDeposit} /></label>
+            <label className="grid gap-2"><span className="form-label">Available date</span><input className="form-field" onChange={(event) => setRentalAvailableAt(event.target.value)} required type="date" value={rentalAvailableAt} /></label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-2"><span className="form-label">Lease term</span><input className="form-field" onChange={(event) => setRentalLeaseTerm(event.target.value)} placeholder="12 months, month-to-month..." value={rentalLeaseTerm} /></label>
+            <label className="grid gap-2"><span className="form-label">Pets</span><select className="form-field" onChange={(event) => setRentalPetsAllowed(event.target.value === "" ? null : event.target.value === "yes")} value={rentalPetsAllowed === null ? "" : rentalPetsAllowed ? "yes" : "no"}><option value="">Not specified</option><option value="yes">Allowed</option><option value="no">Not allowed</option></select></label>
+            <label className="grid gap-2"><span className="form-label">Furnished</span><select className="form-field" onChange={(event) => setRentalFurnished(event.target.value === "" ? null : event.target.value === "yes")} value={rentalFurnished === null ? "" : rentalFurnished ? "yes" : "no"}><option value="">Not specified</option><option value="yes">Furnished</option><option value="no">Unfurnished</option></select></label>
+          </div>
+        </section>
+      ) : null}
 
       <div className="market-listing-fields grid gap-3 md:grid-cols-3">
         <label className="grid gap-2">

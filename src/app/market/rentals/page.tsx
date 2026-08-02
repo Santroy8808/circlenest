@@ -21,7 +21,7 @@ export default async function MarketRentalsPage() {
 
   return (
     <AppShell>
-      <MarketDirectoryClient createState={createState} initialListings={listings} initialView={initialView} isAdmin={isAdminRole(session.user.role)} />
+      <MarketDirectoryClient createState={createState} initialListings={listings} initialView={initialView} isAdmin={isAdminRole(session.user.role)} rentalMode />
     </AppShell>
   );
 }

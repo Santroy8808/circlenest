@@ -14,7 +14,7 @@ export default async function CreateMarketRentalPage() {
 
   return (
     <AppShell>
-      <CreateMarketListingForm createState={createState} />
+      <CreateMarketListingForm createState={createState} listingKind="rental" />
     </AppShell>
   );
 }

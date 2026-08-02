@@ -21,16 +21,18 @@ export function MarketDirectoryClient({
   initialListings,
   createState,
   initialView,
+  rentalMode = false,
   isAdmin = false
 }: {
   initialListings: MarketListingCardView[];
   createState: MarketCreateState;
   initialView: ListingViewMode;
+  rentalMode?: boolean;
   isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(rentalMode ? "RENTALS" : "");
   const [view, setView] = useState<ListingViewMode>(initialView);
   const listings = initialListings.filter((listing) => {
     const matchesQuery = [listing.title, listing.categoryLabel, listing.location, listing.seller.displayName]
@@ -55,32 +57,33 @@ export function MarketDirectoryClient({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Member Marketplace</p>
-            <h1 className="mt-3 text-3xl font-semibold">The Market</h1>
+            <h1 className="mt-3 text-3xl font-semibold">{rentalMode ? "Homes & Apartments for Rent" : "The Market"}</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Find member listings, then open one for details and seller contact options.
+              {rentalMode ? "Browse member-submitted housing rentals and contact the person who listed the property." : "Find member listings, then open one for details and seller contact options."}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            {!rentalMode ? <Link className="btn-secondary" href="/market/rentals">Rentals</Link> : <Link className="btn-secondary" href="/market">All Market Listings</Link>}
             <Link className="btn-secondary" href="/market/my-listings">
               My Listings
             </Link>
             {createState.viewerCanCreate ? (
-              <Link className="btn-primary" href="/market/create">
-                Create Listing
+              <Link className="btn-primary" href={rentalMode ? "/market/rentals/create" : "/market/create"}>
+                {rentalMode ? "List a Rental" : "Create Listing"}
               </Link>
             ) : null}
           </div>
         </div>
         <div className="market-directory-controls mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
           <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search The Market..." value={query} />
-          <select className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
+          {!rentalMode ? <select className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
             <option value="">All categories</option>
             {marketCategoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
+          </select> : <div className="form-field flex items-center">Rental properties</div>}
           <ListingViewSwitcher onChange={setView} surface="market" value={view} />
         </div>
       </section>
@@ -117,7 +120,7 @@ export function MarketDirectoryClient({
                   <span className="listing-square-fallback">{listing.categoryLabel}</span>
                 )}
               </div>
-              <span className="listing-square-top-badge">{priceLabel(listing)}</span>
+              <span className="listing-square-top-badge">{priceLabel(listing)}{listing.category === "RENTALS" && listing.priceCents != null ? "/mo" : ""}</span>
               {listing.allowMessages ? (
                 <div className="market-card-quick-action" onClick={(event) => event.stopPropagation()}>
                   <MarketSellerMessageButton compact sellerUserId={listing.seller.id} />
@@ -137,8 +140,8 @@ export function MarketDirectoryClient({
                   </Link>
                 </p>
                 <div className="listing-square-facts">
-                  <span>{listing.location || "City TBD"}</span>
-                  <strong>{priceLabel(listing)}</strong>
+                  <span>{listing.category === "RENTALS" ? `${listing.rentalBedrooms ?? "?"} bd / ${listing.rentalBathrooms ?? "?"} ba` : listing.location || "City TBD"}</span>
+                  <strong>{listing.category === "RENTALS" ? listing.location || "City TBD" : priceLabel(listing)}</strong>
                 </div>
                 <AdminObjectId id={listing.id} kind="Listing" visible={isAdmin} />
               </div>
