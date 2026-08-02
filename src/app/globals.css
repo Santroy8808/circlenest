@@ -252,15 +252,22 @@ a {
 }
 
 .desktop-command-nav-glyph {
+  background: linear-gradient(145deg, rgba(255, 216, 95, 0.08), rgba(8, 13, 21, 0.96));
+  border: 1px solid rgba(255, 216, 95, 0.62);
+  border-radius: 13px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 216, 95, 0.08),
+    0 0 7px rgba(255, 216, 95, 0.12);
   color: var(--gold);
   display: block;
   filter: drop-shadow(0 0 4px rgba(255, 216, 95, 0.22));
-  height: 34px;
+  height: 50px;
+  padding: 9px;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.7;
-  width: 34px;
+  width: 50px;
 }
 
 .desktop-command-link:hover,

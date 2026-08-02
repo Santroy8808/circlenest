@@ -72,6 +72,7 @@ const primaryNavItems: PrimaryNavItem[] = [
     tooltip: "Open your gallery."
   },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
+  { href: "/android", key: "android", label: "Android Apps", tooltip: "Download the Theta-Space Android apps." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
   { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Messages", tooltip: "Open chat messages." }
 ];
@@ -125,6 +126,16 @@ function AlertIcon() {
       <path d="M12 3.8 21 19H3z" />
       <path d="M12 8.5v5.2" />
       <path d="M12 16.8h.01" />
+    </svg>
+  );
+}
+
+function AndroidDownloadIcon() {
+  return (
+    <svg aria-hidden="true" className="desktop-command-nav-glyph" viewBox="0 0 24 24">
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
     </svg>
   );
 }
@@ -277,7 +288,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeH
                   src={theme === "light" && item.lightIcon ? item.lightIcon : item.icon}
                   width={50}
                 />
-              ) : null}
+              ) : item.key === "android" ? <AndroidDownloadIcon /> : null}
               <span className="sr-only">{item.label}</span>
               {item.key === "messages" && commCount > 0 ? <strong>{commCount}</strong> : null}
             </Link>
