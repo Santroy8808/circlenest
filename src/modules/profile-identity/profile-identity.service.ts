@@ -17,6 +17,7 @@ export function profileMediaAssetSelectionWhere(userId: string, mediaAssetId: st
     id: mediaAssetId,
     ownerUserId: userId,
     status: MediaAssetStatus.READY,
+    feedbackTicketScreenshot: { is: null },
     mimeType: { startsWith: "image/", mode: "insensitive" as const }
   } satisfies Prisma.MediaAssetWhereInput;
 }
@@ -67,16 +68,20 @@ export async function selectProfileMediaWithinTransaction(
   const mediaUrl = mediaAssetDeliveryPath(asset.id);
   const profile = await transaction.profile.upsert({
     where: { userId },
-    update: input.target === "avatar" ? { avatarUrl: mediaUrl } : { bannerUrl: mediaUrl },
+    update: input.target === "avatar" ? { avatarUrl: mediaUrl, avatarFocalX: 50, avatarFocalY: 50 } : { bannerUrl: mediaUrl },
     create: {
       userId,
       displayName: user.profile?.displayName ?? user.username,
       avatarUrl: input.target === "avatar" ? mediaUrl : null,
+      avatarFocalX: 50,
+      avatarFocalY: 50,
       bannerUrl: input.target === "banner" ? mediaUrl : null
     },
     select: {
       userId: true,
       avatarUrl: true,
+      avatarFocalX: true,
+      avatarFocalY: true,
       bannerUrl: true,
       updatedAt: true
     }
@@ -103,6 +108,8 @@ function toProfileCard(user: {
     tagline: string | null;
     bio: string | null;
     avatarUrl: string | null;
+    avatarFocalX: number;
+    avatarFocalY: number;
     bannerUrl: string | null;
     location: string | null;
     visibility: ProfileVisibility;
@@ -119,6 +126,8 @@ function toProfileCard(user: {
     tagline: user.profile?.tagline,
     bio: user.profile?.bio,
     avatarUrl: user.profile?.avatarUrl,
+    avatarFocalX: user.profile?.avatarFocalX ?? 50,
+    avatarFocalY: user.profile?.avatarFocalY ?? 50,
     bannerUrl: user.profile?.bannerUrl,
     location: user.profile?.location,
     visibility: user.profile?.visibility ?? ProfileVisibility.MEMBERS,
@@ -300,6 +309,8 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       tagline: parsed.data.tagline || null,
       bio: parsed.data.bio || null,
       location: parsed.data.location || null,
+      avatarFocalX: parsed.data.avatarFocalX,
+      avatarFocalY: parsed.data.avatarFocalY,
       visibility: parsed.data.visibility,
       allowProfilePosts: parsed.data.allowProfilePosts
     },
@@ -309,6 +320,8 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       tagline: parsed.data.tagline || null,
       bio: parsed.data.bio || null,
       location: parsed.data.location || null,
+      avatarFocalX: parsed.data.avatarFocalX,
+      avatarFocalY: parsed.data.avatarFocalY,
       visibility: parsed.data.visibility,
       allowProfilePosts: parsed.data.allowProfilePosts
     }

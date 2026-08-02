@@ -58,13 +58,6 @@ export const settingsCards: SettingsCard[] = [
     badge: "Roadmap"
   },
   {
-    title: "Android Apps",
-    description: "Download Theta-Space or Theta-Comm and follow the Android installation guide.",
-    href: "/android",
-    sensitive: false,
-    badge: "Apps"
-  },
-  {
     title: "Subscription",
     description: "Your currently enabled membership, billing status, storage, and available credits.",
     href: "/secure-area?next=/settings/subscription",

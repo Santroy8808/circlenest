@@ -9,6 +9,8 @@ export const updateProfileSchema = z.object({
   tagline: z.string().max(140).optional().or(z.literal("")),
   bio: z.string().max(2000).optional().or(z.literal("")),
   location: z.string().max(120).optional().or(z.literal("")),
+  avatarFocalX: z.number().int().min(0).max(100).default(50),
+  avatarFocalY: z.number().int().min(0).max(100).default(50),
   visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS),
   allowProfilePosts: z.boolean().default(true)
 });
@@ -26,6 +28,8 @@ export type ProfileCardView = {
   bio?: string | null;
   location?: string | null;
   avatarUrl?: string | null;
+  avatarFocalX: number;
+  avatarFocalY: number;
   bannerUrl?: string | null;
   visibility: ProfileVisibility;
   allowProfilePosts: boolean;

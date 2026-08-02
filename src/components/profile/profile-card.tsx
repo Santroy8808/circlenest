@@ -12,6 +12,10 @@ function initials(displayName: string) {
     .join("");
 }
 
+function avatarObjectPosition(x?: number | null, y?: number | null) {
+  return `${x ?? 50}% ${y ?? 50}%`;
+}
+
 export function ProfileCard({ profile, ownerControls = false }: { profile: ProfileCardView; ownerControls?: boolean }) {
   return (
     <article className="profile-card rounded-md">
@@ -25,7 +29,7 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
             <div className="profile-avatar">
               {profile.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" src={profile.avatarUrl} />
+                <img alt="" src={profile.avatarUrl} style={{ objectPosition: avatarObjectPosition(profile.avatarFocalX, profile.avatarFocalY) }} />
               ) : (
                 <span>{initials(profile.displayName) || "TS"}</span>
               )}

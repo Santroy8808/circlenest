@@ -72,14 +72,6 @@ const settingShortcuts: SettingsSearchEntry[] = [
     keywords: ["progression", "path", "roadmap", "features", "future", "planned", "free", "contributor"]
   },
   {
-    title: "Android Apps",
-    description: "Download and install Theta-Space or the Theta-Comm messenger on Android.",
-    href: "/android",
-    badge: "Apps",
-    sensitive: false,
-    keywords: ["android", "app", "apk", "download", "install", "theta comm", "mobile", "phone"]
-  },
-  {
     title: "Default Home Page",
     description: "Choose where Theta-Space opens after login.",
     href: "/settings/default-home",
@@ -101,7 +93,7 @@ const settingShortcuts: SettingsSearchEntry[] = [
     href: "/secure-area?next=/settings/notifications",
     badge: "secure",
     sensitive: true,
-    keywords: ["notifications", "alerts", "mobile app"]
+    keywords: ["notifications", "alerts"]
   },
   {
     title: "Invite Someone!",

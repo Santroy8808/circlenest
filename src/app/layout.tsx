@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { GlobalFeedbackLinkGate } from "@/components/feedback/global-feedback-link-gate";
 import { BackgroundGalleryUploadProvider } from "@/components/gallery/background-gallery-upload-provider";
 import { GlobalTooltipProvider } from "@/components/platform/global-tooltip-provider";
+import { NavigationProgress } from "@/components/platform/navigation-progress";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -52,6 +53,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={appClassName}>
         <BackgroundGalleryUploadProvider>
           {children}
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
           <Suspense fallback={null}>
             <GlobalFeedbackLinkGate />
           </Suspense>

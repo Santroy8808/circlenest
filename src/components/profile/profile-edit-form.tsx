@@ -15,6 +15,10 @@ type UploadState = {
   error?: string;
 };
 
+function avatarObjectPosition(x: number, y: number) {
+  return `${x}% ${y}%`;
+}
+
 async function uploadAvatarOrBanner(
   file: File,
   options: { fileNamePrefix: string; onProgress: (progress: number) => void }
@@ -96,6 +100,8 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
   const [avatarUpload, setAvatarUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
   const [bannerUpload, setBannerUpload] = useState<UploadState>({ fileName: "", progress: 0, status: "idle" });
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
+  const [avatarFocalX, setAvatarFocalX] = useState(profile.avatarFocalX);
+  const [avatarFocalY, setAvatarFocalY] = useState(profile.avatarFocalY);
   const [bannerUrl, setBannerUrl] = useState(profile.bannerUrl ?? "");
   const [location, setLocation] = useState(profile.location ?? "");
 
@@ -137,6 +143,8 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
 
       if (type === "avatar") {
         setAvatarUrl(uploadedAsset.mediaUrl);
+        setAvatarFocalX(50);
+        setAvatarFocalY(50);
         setAvatarUpload({ fileName: file.name, progress: 100, status: "done" });
         setMessage("Avatar updated.");
       } else {
@@ -176,6 +184,8 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           tagline: formData.get("tagline"),
           bio: formData.get("bio"),
           location,
+          avatarFocalX,
+          avatarFocalY,
           visibility: formData.get("visibility"),
           allowProfilePosts: formData.get("allowProfilePosts") === "on"
         })
@@ -279,8 +289,32 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           ) : null}
           {avatarUpload.error ? <p className="text-sm text-red-100">{avatarUpload.error}</p> : null}
           {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt="Avatar preview" className="h-20 w-20 rounded-full object-cover" src={avatarUrl} />
+            <div className="profile-avatar-reframe">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="Avatar preview" className="h-20 w-20 rounded-full object-cover" src={avatarUrl} style={{ objectPosition: avatarObjectPosition(avatarFocalX, avatarFocalY) }} />
+              <label className="grid gap-2">
+                <span className="form-label">Reframe left/right</span>
+                <input
+                  aria-label="Reframe avatar left or right"
+                  max={100}
+                  min={0}
+                  onChange={(event) => setAvatarFocalX(Number(event.target.value))}
+                  type="range"
+                  value={avatarFocalX}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="form-label">Reframe up/down</span>
+                <input
+                  aria-label="Reframe avatar up or down"
+                  max={100}
+                  min={0}
+                  onChange={(event) => setAvatarFocalY(Number(event.target.value))}
+                  type="range"
+                  value={avatarFocalY}
+                />
+              </label>
+            </div>
           ) : null}
         </div>
 

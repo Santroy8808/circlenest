@@ -29,6 +29,8 @@ type SummaryState = {
 };
 
 type DesktopCommandBarProps = {
+  avatarFocalX?: number | null;
+  avatarFocalY?: number | null;
   avatarUrl?: string | null;
   canCreateAd: boolean;
   counts: Counts;
@@ -46,6 +48,10 @@ function initials(value: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function avatarObjectPosition(x?: number | null, y?: number | null) {
+  return `${x ?? 50}% ${y ?? 50}%`;
 }
 
 function totalCommCount(counts: Counts) {
@@ -72,7 +78,6 @@ const primaryNavItems: PrimaryNavItem[] = [
     tooltip: "Open your gallery."
   },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
-  { href: "/android", key: "android", label: "Android Apps", tooltip: "Download the Theta-Space Android apps." },
   { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
   { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Messages", tooltip: "Open chat messages." }
 ];
@@ -139,16 +144,6 @@ function AdminShieldIcon() {
   );
 }
 
-function AndroidDownloadIcon() {
-  return (
-    <svg aria-hidden="true" className="desktop-command-nav-glyph" viewBox="0 0 24 24">
-      <path d="M12 3v12" />
-      <path d="m7 10 5 5 5-5" />
-      <path d="M5 21h14" />
-    </svg>
-  );
-}
-
 function LightCommandImage({ alt, src }: { alt: string; src: string }) {
   return <Image alt={alt} aria-hidden="true" className="desktop-command-action-image" height={52} src={src} width={52} />;
 }
@@ -177,7 +172,7 @@ function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
   );
 }
 
-export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeHref, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
+export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarUrl, canCreateAd, counts, defaultHomeHref, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
@@ -297,7 +292,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeH
                   src={theme === "light" && item.lightIcon ? item.lightIcon : item.icon}
                   width={50}
                 />
-              ) : item.key === "android" ? <AndroidDownloadIcon /> : null}
+              ) : null}
               <span className="sr-only">{item.label}</span>
               {item.key === "messages" && commCount > 0 ? <strong>{commCount}</strong> : null}
             </Link>
@@ -364,7 +359,7 @@ export function DesktopCommandBar({ avatarUrl, canCreateAd, counts, defaultHomeH
             <Link className="desktop-command-avatar" data-tutorial-target="top-nav-profile" href="/profile" data-tooltip="Open your profile.">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" src={avatarUrl} />
+                <img alt="" src={avatarUrl} style={{ objectPosition: avatarObjectPosition(avatarFocalX, avatarFocalY) }} />
               ) : (
                 <span>{initials(displayName)}</span>
               )}

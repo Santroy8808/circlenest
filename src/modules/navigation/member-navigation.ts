@@ -63,7 +63,6 @@ const settingsSection: NavSection = {
     { label: "Membership", href: "/membership" },
     { label: "Default Home", href: "/settings/default-home" },
     { label: "Progression Path", href: "/settings/progression-path" },
-    { label: "Android Apps", href: "/android" },
     { label: "Invite Someone!", href: "/settings/invite" },
     { label: "Settings", href: "/settings" }
   ]

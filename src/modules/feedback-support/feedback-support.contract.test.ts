@@ -91,6 +91,12 @@ test("ticket screenshots are administrator-only after submission", () => {
   assert.equal(canAccessFeedbackScreenshot(UserRole.ADMIN), true);
 });
 
+test("feedback screenshots are excluded from personal gallery reads", () => {
+  const service = readFileSync(resolve("src/modules/gallery-media-storage/gallery-media-storage.service.ts"), "utf8");
+
+  assert.match(service, /feedbackTicketScreenshot:\s*\{\s*is:\s*null\s*\}/);
+});
+
 test("bulk ticket updates require a current version for every selected ticket", () => {
   assert.equal(
     feedbackTicketBulkActionSchema.safeParse({

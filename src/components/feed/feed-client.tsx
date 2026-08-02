@@ -658,6 +658,65 @@ function ReactionButtons({
   );
 }
 
+function FeedReactionSummary({
+  counts,
+  reactors = {}
+}: {
+  counts: Partial<Record<FeedReactionType, number>>;
+  reactors?: FeedReactionReactorsView;
+}) {
+  const visibleReactionCounts = publicQuickReactions.filter((reaction) => (counts[reaction.type] ?? 0) > 0);
+  const [detailsType, setDetailsType] = useState<FeedReactionType | null>(null);
+  const detailReactors = detailsType
+    ? (reactors[detailsType] ?? []).map((reactor) => ({ reaction: reactionMeta(detailsType), reactor }))
+    : [];
+
+  if (visibleReactionCounts.length === 0) {
+    return <span className="feed-engagement-empty" aria-hidden="true" />;
+  }
+
+  return (
+    <div className="feed-engagement-reactions" aria-label="Reaction summary" onClick={(event) => event.stopPropagation()}>
+      {visibleReactionCounts.map((reaction) => (
+        <button
+          aria-expanded={detailsType === reaction.type}
+          aria-label={`See ${reaction.label} reactions`}
+          className="feed-engagement-reaction-chip"
+          key={reaction.type}
+          onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
+          title={`See ${reaction.label} reactions`}
+          type="button"
+        >
+          <ReactionIcon reaction={reaction} />
+          <span>{counts[reaction.type]}</span>
+        </button>
+      ))}
+      {detailsType ? (
+        <div className="feed-reaction-details-popover" role="dialog" aria-label="People who reacted">
+          <strong>{reactionMeta(detailsType).label}</strong>
+          {detailReactors.length > 0 ? (
+            <ul>
+              {detailReactors.map(({ reaction, reactor }) => (
+                <li key={`${reaction.type}-${reactor.id}`}>
+                  <ReactionIcon reaction={reaction} />
+                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
+                    {reactor.displayName}
+                  </Link>
+                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
+                    <small>@{reactor.username}</small>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No reactions yet.</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const FeedRichTextInput = forwardRef<
   FeedRichTextHandle,
   {
@@ -1772,7 +1831,6 @@ export function FeedClient({
           const hiddenPreviewCount = showThreadLinks ? Math.max(0, post.comments.length - previewComments.length) : 0;
           const replyCount = post.comments.reduce((total, comment) => total + comment.replyCount, 0);
           const commentSummary = post.comments.length + replyCount;
-          const visibleReactionCounts = publicQuickReactions.filter((reaction) => (post.reactions[reaction.type] ?? 0) > 0);
           const commentSummaryLabel = `${commentSummary} ${commentSummary === 1 ? "comment" : "comments"}`;
           const reservedStreamAd = showThreadLinks && feedMode === "public" && index === RESERVED_STREAM_SLOT_INDEX ? reservedStreamAds[0] : undefined;
           const postLevelReplyInThread = Boolean(replyTarget && !replyTarget.parentCommentId && !showThreadLinks);
@@ -1901,18 +1959,7 @@ export function FeedClient({
               ) : null}
               <FeedMedia media={post.media} />
               <div className="feed-engagement-summary" aria-label="Post engagement">
-                <div className="feed-engagement-reactions" aria-label="Reaction summary">
-                  {visibleReactionCounts.length > 0 ? (
-                    visibleReactionCounts.map((reaction) => (
-                      <span className="feed-engagement-reaction-chip" key={reaction.type} title={`${reaction.label}: ${post.reactions[reaction.type]}`}>
-                        <ReactionIcon reaction={reaction} />
-                        <span>{post.reactions[reaction.type]}</span>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="feed-engagement-empty" aria-hidden="true" />
-                  )}
-                </div>
+                <FeedReactionSummary counts={post.reactions} reactors={post.reactionReactors} />
                 {showThreadLinks ? (
                   <Link className="feed-engagement-comment-count" href={`/posts/${post.id}`}>
                     {commentSummaryLabel}

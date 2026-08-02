@@ -1055,6 +1055,8 @@ model Profile {
   tagline           String?
   bio               String?
   avatarUrl         String?
+  avatarFocalX      Int               @default(50)
+  avatarFocalY      Int               @default(50)
   bannerUrl         String?
   location          String?
   visibility        ProfileVisibility @default(MEMBERS)

@@ -568,6 +568,7 @@ export async function listMyPics(userId: string, take = 24, options: { includeSy
     prisma.mediaAsset.findMany({
       where: {
         ownerUserId: userId,
+        feedbackTicketScreenshot: { is: null },
         status: MediaAssetStatus.READY,
         mimeType: {
           startsWith: "image/"
@@ -601,6 +602,7 @@ export async function getMyPic(userId: string, mediaAssetId: string): Promise<Ga
     where: {
       id: mediaAssetId,
       ownerUserId: userId,
+      feedbackTicketScreenshot: { is: null },
       status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"
@@ -616,6 +618,7 @@ export async function getGalleryAssetViewer(viewerUserId: string, mediaAssetId: 
   const asset = await prisma.mediaAsset.findFirst({
     where: {
       id: mediaAssetId,
+      feedbackTicketScreenshot: { is: null },
       status: MediaAssetStatus.READY,
       mimeType: {
         startsWith: "image/"

@@ -22,9 +22,6 @@ export function AuthCard({
           <Link className="text-[var(--gold)]" href="/">
             Back to Theta-Space
           </Link>
-          <Link className="text-[var(--gold)]" href="/android">
-            Get the Android apps
-          </Link>
         </div>
       </section>
     </main>

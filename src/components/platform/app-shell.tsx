@@ -47,7 +47,9 @@ async function getShellProfile(userId?: string) {
       profile: {
         select: {
           displayName: true,
-          avatarUrl: true
+          avatarUrl: true,
+          avatarFocalX: true,
+          avatarFocalY: true
         }
       }
     }
@@ -71,6 +73,10 @@ function initials(value: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function avatarObjectPosition(x?: number | null, y?: number | null) {
+  return `${x ?? 50}% ${y ?? 50}%`;
 }
 
 async function isAndroidAppRequest() {
@@ -154,6 +160,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <ShellCountsProvider enabled={isSignedIn} initialCounts={counts}>
       {isSignedIn ? <ActivityTracker /> : null}
       <DesktopCommandBar
+        avatarFocalX={shellProfile?.profile?.avatarFocalX}
+        avatarFocalY={shellProfile?.profile?.avatarFocalY}
         avatarUrl={shellProfile?.profile?.avatarUrl}
         canCreateAd={canCreateAd}
         counts={counts}
@@ -165,10 +173,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       />
       <aside className="side-nav">
         <div className="side-nav-profile" data-tutorial-target="shell-profile">
-          <Link className="side-nav-avatar" data-tooltip={platformFeatures["media.personal_gallery"] === false ? "Open your profile." : "Open your gallery."} href={platformFeatures["media.personal_gallery"] === false ? "/profile" : "/profile/gallery"}>
+          <Link className="side-nav-avatar" data-tooltip="Open your profile." href="/profile">
             {shellProfile?.profile?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" src={shellProfile.profile.avatarUrl} />
+              <img alt="" src={shellProfile.profile.avatarUrl} style={{ objectPosition: avatarObjectPosition(shellProfile.profile.avatarFocalX, shellProfile.profile.avatarFocalY) }} />
             ) : (
               <span>{initials(displayName)}</span>
             )}
