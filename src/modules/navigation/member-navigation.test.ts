@@ -91,6 +91,11 @@ test("gifted Free invite permission adds Invite Someone under Settings", () => {
   assert.equal(settings?.items.some((item) => item.label === "Invite Someone!" && item.href === "/settings/invite"), true);
 });
 
+test("signed-in members can open the Android downloads page from Settings", () => {
+  const settings = navigation(MembershipTier.FREE).find((section) => section.label === "Settings");
+  assert.equal(settings?.items.some((item) => item.label === "Android Apps" && item.href === "/android"), true);
+});
+
 test("Home section can point to the selected default while keeping My Stream", () => {
   const home = navigation(MembershipTier.FREE, false, {}, "/jobs").find((section) => section.label === "Home");
 
