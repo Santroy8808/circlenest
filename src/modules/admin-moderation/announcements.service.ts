@@ -26,6 +26,7 @@ const publicAnnouncementSchema = z.object({
   channels: z.array(z.enum(announcementDeliveryChannels)).min(1).max(5),
   title: z.string().trim().min(3).max(160),
   body: z.string().trim().min(10).max(4000),
+  scheduledFor: z.string().datetime({ offset: true }).optional().or(z.literal("")),
   reason: z.string().trim().max(500).optional().or(z.literal(""))
 });
 
@@ -39,6 +40,9 @@ function toAnnouncementResult(announcement: {
   globalPostDeliveryCount: number;
   personalEmailQueuedCount: number;
   feedPostId: string | null;
+  scheduledFor: Date;
+  cancelledAt: Date | null;
+  cancelledByUserId: string | null;
   dismissedAt: Date | null;
   dismissedByUserId: string | null;
   createdAt: Date;
@@ -53,6 +57,9 @@ function toAnnouncementResult(announcement: {
     globalPostDeliveryCount: announcement.globalPostDeliveryCount,
     personalEmailQueuedCount: announcement.personalEmailQueuedCount,
     feedPostId: announcement.feedPostId,
+    scheduledFor: announcement.scheduledFor.toISOString(),
+    cancelledAt: announcement.cancelledAt?.toISOString() ?? null,
+    cancelledByUserId: announcement.cancelledByUserId,
     dismissedAt: announcement.dismissedAt?.toISOString() ?? null,
     dismissedByUserId: announcement.dismissedByUserId,
     createdAt: announcement.createdAt.toISOString()
@@ -154,7 +161,8 @@ export function buildAnnouncementOutboxEntries(
   title: string,
   body: string,
   channels: readonly AnnouncementChannel[],
-  recipients: readonly AnnouncementRecipient[]
+  recipients: readonly AnnouncementRecipient[],
+  availableAt = new Date()
 ) {
   const payload = (channel: AnnouncementChannel) =>
     ({
@@ -172,6 +180,7 @@ export function buildAnnouncementOutboxEntries(
     channel: DeliveryChannel;
     idempotencyKey: string;
     payload: Prisma.InputJsonObject;
+    availableAt: Date;
   }> = [];
 
   for (const channel of channels) {
@@ -182,7 +191,8 @@ export function buildAnnouncementOutboxEntries(
         recipientAddress: null,
         channel: DeliveryChannel.GLOBAL_POST,
         idempotencyKey: `announcement:${announcementId}:GLOBAL_POST:global`,
-        payload: payload(channel)
+        payload: payload(channel),
+        availableAt
       });
       continue;
     }
@@ -204,7 +214,8 @@ export function buildAnnouncementOutboxEntries(
         recipientAddress: channel === "PERSONAL_EMAIL" ? recipient.email : null,
         channel: deliveryChannel,
         idempotencyKey: `announcement:${announcementId}:${deliveryChannel}:${recipient.id}`,
-        payload: payload(channel)
+        payload: payload(channel),
+        availableAt
       });
     }
   }
@@ -258,6 +269,13 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
     return { ok: false as const, error: "That audience has no active recipients." };
   }
 
+  const now = new Date();
+  const scheduledFor = parsed.data.scheduledFor ? new Date(parsed.data.scheduledFor) : now;
+  if (scheduledFor.getTime() > now.getTime() + 366 * 24 * 60 * 60 * 1000) {
+    return { ok: false as const, error: "Announcements cannot be scheduled more than one year ahead." };
+  }
+  const effectiveScheduledFor = scheduledFor.getTime() <= now.getTime() ? now : scheduledFor;
+
   let completed;
   try {
     completed = await prisma.$transaction(async (transaction) => {
@@ -269,6 +287,7 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
           audienceKind: parsed.data.audienceKind,
           audienceValue: parsed.data.audienceValue || null,
           channels: parsed.data.channels,
+          scheduledFor: effectiveScheduledFor,
           recipientCount: uniqueRecipients.length,
           metadata: { commandId, reason: parsed.data.reason || null } as Prisma.InputJsonObject
         }
@@ -279,7 +298,8 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
         parsed.data.title,
         parsed.data.body,
         parsed.data.channels,
-        uniqueRecipients
+        uniqueRecipients,
+        effectiveScheduledFor
       );
       if (outboxEntries.length > 0) {
         await transaction.deliveryOutbox.createMany({ data: outboxEntries });
@@ -297,10 +317,11 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
         channels: updated.channels,
         recipientCount: updated.recipientCount,
         outboxCount: outboxEntries.length,
-        personalEmailQueuedCount
+        personalEmailQueuedCount,
+        scheduledFor: effectiveScheduledFor.toISOString()
       } satisfies Prisma.InputJsonObject;
       await transaction.adminAction.create({
-        data: { actorUserId, actionKey: "announcements", module: MODULE_KEY, status: "queued", metadata }
+        data: { actorUserId, actionKey: "announcements", module: MODULE_KEY, status: effectiveScheduledFor > now ? "scheduled" : "queued", metadata }
       });
       const audit = await transaction.auditLog.create({
         data: {
@@ -354,6 +375,59 @@ export async function listRecentPublicAnnouncements(actorUserId?: string) {
   return announcements.map(toAnnouncementResult);
 }
 
+export async function cancelPublicAnnouncement(actorUserId: string, announcementId: string) {
+  if (!(await isAdminUser(actorUserId))) return { ok: false as const, error: "Admin access required." };
+
+  const announcement = await prisma.publicAnnouncement.findUnique({ where: { id: announcementId } });
+  if (!announcement) return { ok: false as const, error: "Announcement not found." };
+  if (announcement.cancelledAt) {
+    return { ok: true as const, announcement: toAnnouncementResult(announcement), alreadyCancelled: true };
+  }
+  if (announcement.scheduledFor <= new Date()) {
+    return { ok: false as const, error: "This announcement is already active. Dismiss it instead." };
+  }
+
+  const cancelledAt = new Date();
+  const commandId = `announcement-cancel:${announcement.id}`;
+  const completed = await prisma.$transaction(async (transaction) => {
+    const claimed = await transaction.publicAnnouncement.updateMany({
+      where: { id: announcement.id, cancelledAt: null, scheduledFor: { gt: cancelledAt } },
+      data: { cancelledAt, cancelledByUserId: actorUserId }
+    });
+    if (claimed.count !== 1) throw new Error("This announcement is no longer available to cancel.");
+
+    await transaction.deliveryOutbox.updateMany({
+      where: { announcementId: announcement.id, status: DeliveryOutboxStatus.PENDING },
+      data: { status: DeliveryOutboxStatus.CANCELLED, error: "Scheduled announcement cancelled by an administrator." }
+    });
+    const nextAnnouncement = await transaction.publicAnnouncement.findUniqueOrThrow({ where: { id: announcement.id } });
+    const metadata = { announcementId: announcement.id, scheduledFor: announcement.scheduledFor.toISOString() } satisfies Prisma.InputJsonObject;
+    await transaction.adminAction.create({
+      data: { actorUserId, actionKey: "announcements", module: MODULE_KEY, status: "cancelled", metadata }
+    });
+    await transaction.auditLog.create({
+      data: {
+        operationId: commandId,
+        requestId: commandId,
+        actorUserId,
+        module: MODULE_KEY,
+        action: "announcement.cancelled",
+        targetType: "PublicAnnouncement",
+        targetId: announcement.id,
+        severity: "warning",
+        outcome: "SUCCESS",
+        before: toAnnouncementResult(announcement) as unknown as Prisma.InputJsonObject,
+        after: toAnnouncementResult(nextAnnouncement) as unknown as Prisma.InputJsonObject,
+        metadata
+      }
+    });
+    return nextAnnouncement;
+  });
+
+  await diagnostics.info(MODULE_KEY, "Scheduled announcement cancelled.", { actorUserId, announcementId });
+  return { ok: true as const, announcement: toAnnouncementResult(completed), alreadyCancelled: false };
+}
+
 export async function dismissPublicAnnouncement(actorUserId: string, announcementId: string) {
   if (!(await isAdminUser(actorUserId))) {
     return { ok: false as const, error: "Admin access required." };
@@ -369,6 +443,12 @@ export async function dismissPublicAnnouncement(actorUserId: string, announcemen
 
   if (announcement.dismissedAt) {
     return { ok: true as const, announcement: toAnnouncementResult(announcement), alreadyDismissed: true };
+  }
+  if (announcement.cancelledAt) {
+    return { ok: false as const, error: "This announcement was cancelled before publishing." };
+  }
+  if (announcement.scheduledFor > new Date()) {
+    return { ok: false as const, error: "This announcement is scheduled. Cancel it instead." };
   }
 
   const dismissedAt = new Date();

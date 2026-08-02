@@ -49,7 +49,7 @@ export async function claimNextAnnouncementDelivery(workerId: string, now = new 
           { status: DeliveryOutboxStatus.PENDING, availableAt: { lte: now } },
           { status: DeliveryOutboxStatus.PROCESSING, lockedAt: { lte: staleBefore } }
         ],
-        announcement: { dismissedAt: null }
+        announcement: { dismissedAt: null, cancelledAt: null }
       },
       orderBy: [{ availableAt: "asc" }, { createdAt: "asc" }]
     });
@@ -97,10 +97,10 @@ async function lockActiveAnnouncement(
   transaction: Prisma.TransactionClient,
   outbox: NonNullable<Awaited<ReturnType<typeof claimNextAnnouncementDelivery>>>
 ) {
-  const rows = await transaction.$queryRaw<Array<{ dismissedAt: Date | null }>>(
-    Prisma.sql`SELECT "dismissedAt" FROM "PublicAnnouncement" WHERE "id" = ${outbox.announcementId} FOR UPDATE`
+  const rows = await transaction.$queryRaw<Array<{ dismissedAt: Date | null; cancelledAt: Date | null }>>(
+    Prisma.sql`SELECT "dismissedAt", "cancelledAt" FROM "PublicAnnouncement" WHERE "id" = ${outbox.announcementId} FOR UPDATE`
   );
-  return rows[0]?.dismissedAt == null;
+  return rows[0]?.dismissedAt == null && rows[0]?.cancelledAt == null;
 }
 
 async function cancelClaim(
@@ -117,7 +117,7 @@ async function cancelClaim(
       status: DeliveryOutboxStatus.CANCELLED,
       lockedAt: null,
       lockedBy: null,
-      error: "Announcement dismissed before delivery."
+      error: "Announcement dismissed or cancelled before delivery."
     }
   });
 }

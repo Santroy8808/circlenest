@@ -53,3 +53,19 @@ test("targeted audiences cannot leak into the public Stream", () => {
 test("personal email retries use a stable RFC message id", () => {
   assert.equal(announcementEmailMessageId("delivery-123"), "<announcement-delivery-123@theta-space.net>");
 });
+
+test("scheduled announcement entries remain unavailable until their scheduled time", () => {
+  const scheduledFor = new Date("2026-09-01T18:30:00.000Z");
+  const entries = buildAnnouncementOutboxEntries(
+    "announcement-scheduled",
+    "admin-user",
+    "Scheduled update",
+    "This update will be published later.",
+    ["LOGIN_POPUP", "GLOBAL_POST"],
+    recipients,
+    scheduledFor
+  );
+
+  assert.ok(entries.length > 0);
+  assert.ok(entries.every((entry) => entry.availableAt.getTime() === scheduledFor.getTime()));
+});
