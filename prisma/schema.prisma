@@ -941,6 +941,7 @@ model User {
   confirmedDestructiveActions      DestructiveActionRequest[]         @relation("DestructiveActionConfirmer")
   deliveryOutboxRecipients         DeliveryOutbox[]                   @relation("DeliveryOutboxRecipient")
   createdPublicAnnouncements       PublicAnnouncement[]               @relation("PublicAnnouncementCreator")
+  cancelledPublicAnnouncements     PublicAnnouncement[]               @relation("PublicAnnouncementCanceller")
   dismissedPublicAnnouncements     PublicAnnouncement[]               @relation("PublicAnnouncementDismisser")
   updatedPlatformCostRules         PlatformCostRule[]                 @relation("PlatformCostRuleUpdater")
   updatedFeatureFlags              FeatureFlag[]                      @relation("FeatureFlagUpdater")
@@ -1650,14 +1651,19 @@ model PublicAnnouncement {
   feedPostId               String?
   metadata                 Json?
   retentionClass           RecordRetentionClass @default(VITAL)
+  scheduledFor             DateTime             @default(now())
+  cancelledAt              DateTime?
+  cancelledByUserId        String?
   dismissedAt              DateTime?
   dismissedByUserId        String?
   createdAt                DateTime             @default(now())
   createdBy                User?                @relation("PublicAnnouncementCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cancelledBy              User?                @relation("PublicAnnouncementCanceller", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
   dismissedBy              User?                @relation("PublicAnnouncementDismisser", fields: [dismissedByUserId], references: [id], onDelete: SetNull)
   deliveryOutboxItems      DeliveryOutbox[]
 
   @@index([dismissedAt, createdAt])
+  @@index([cancelledAt, scheduledFor])
   @@index([createdByUserId, createdAt])
   @@index([audienceKind, createdAt])
 }

@@ -72,6 +72,9 @@ export type AdminAnnouncementResult = {
   globalPostDeliveryCount: number;
   personalEmailQueuedCount: number;
   feedPostId: string | null;
+  scheduledFor: string;
+  cancelledAt: string | null;
+  cancelledByUserId: string | null;
   dismissedAt: string | null;
   dismissedByUserId: string | null;
   createdAt: string;
