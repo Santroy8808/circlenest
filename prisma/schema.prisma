@@ -531,6 +531,7 @@ enum MarketListingCategory {
   SERVICES
   BUSINESS_SERVICES
   EVENTS_SUPPLIES
+  RENTALS
   OTHER
 }
 
@@ -2796,6 +2797,15 @@ model MarketListing {
   allowMessages   Boolean               @default(true)
   carouselEnabled Boolean               @default(false)
   priceCents      Int?
+  rentalPropertyType String?
+  rentalBedrooms     Int?
+  rentalBathrooms    Float?
+  rentalSquareFeet   Int?
+  rentalDepositCents Int?
+  rentalAvailableAt  DateTime?
+  rentalLeaseTerm    String?
+  rentalPetsAllowed  Boolean?
+  rentalFurnished    Boolean?
   currency        String                @default("USD")
   status          MarketListingStatus   @default(ACTIVE)
   expiresAt       DateTime?
@@ -2806,6 +2816,7 @@ model MarketListing {
   adCampaigns     AdCampaign[]
 
   @@index([status, category, createdAt])
+  @@index([category, rentalAvailableAt])
   @@index([sellerUserId, createdAt])
   @@index([expiresAt])
 }

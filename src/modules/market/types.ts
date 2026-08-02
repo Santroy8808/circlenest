@@ -13,6 +13,7 @@ export const marketCategoryLabels: Record<MarketListingCategory, string> = {
   [MarketListingCategory.SERVICES]: "Services",
   [MarketListingCategory.BUSINESS_SERVICES]: "Business Services",
   [MarketListingCategory.EVENTS_SUPPLIES]: "Event Supplies",
+  [MarketListingCategory.RENTALS]: "Homes & Apartments for Rent",
   [MarketListingCategory.OTHER]: "Other"
 };
 
@@ -43,6 +44,15 @@ export const createMarketListingSchema = z.object({
   allowMessages: z.boolean().default(true),
   carouselEnabled: z.boolean().default(false),
   priceCents: z.number().int().min(0).max(100000000).optional().nullable(),
+  rentalPropertyType: z.string().trim().max(80).optional().or(z.literal("")),
+  rentalBedrooms: z.number().int().min(0).max(50).optional().nullable(),
+  rentalBathrooms: z.number().min(0).max(50).optional().nullable(),
+  rentalSquareFeet: z.number().int().min(0).max(1000000).optional().nullable(),
+  rentalDepositCents: z.number().int().min(0).max(100000000).optional().nullable(),
+  rentalAvailableAt: z.string().datetime().optional().or(z.literal("")),
+  rentalLeaseTerm: z.string().trim().max(180).optional().or(z.literal("")),
+  rentalPetsAllowed: z.boolean().optional().nullable(),
+  rentalFurnished: z.boolean().optional().nullable(),
   photoMediaAssetIds: z.array(z.string().min(1)).max(PROFESSIONAL_MARKET_PHOTO_CAP).default([])
 });
 
@@ -67,6 +77,15 @@ export type MarketListingCardView = {
   thumbnailUrl?: string | null;
   allowMessages: boolean;
   carouselEnabled: boolean;
+  rentalPropertyType?: string | null;
+  rentalBedrooms?: number | null;
+  rentalBathrooms?: number | null;
+  rentalSquareFeet?: number | null;
+  rentalDepositCents?: number | null;
+  rentalAvailableAt?: string | null;
+  rentalLeaseTerm?: string | null;
+  rentalPetsAllowed?: boolean | null;
+  rentalFurnished?: boolean | null;
   seller: {
     id: string;
     username: string;
