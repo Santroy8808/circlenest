@@ -6899,6 +6899,70 @@ html.theta-theme-light .home-login-alert span:last-child {
   color: var(--text);
 }
 
+.android-mobile-required {
+  background: rgba(179, 54, 54, 0.16);
+  border: 2px solid rgba(255, 111, 111, 0.68);
+  border-radius: 6px;
+  display: grid;
+  gap: 7px;
+  margin-top: 20px;
+  padding: 16px 18px;
+}
+
+.android-mobile-required.is-ready {
+  background: rgba(62, 157, 105, 0.14);
+  border-color: rgba(91, 211, 145, 0.58);
+}
+
+.android-mobile-required strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.android-mobile-required span {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.android-download-choice {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.android-download-choice > .android-simple-heading {
+  grid-column: 1 / -1;
+}
+
+.android-simple-heading {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+}
+
+.android-simple-heading > span {
+  align-items: center;
+  background: var(--gold);
+  border-radius: 50%;
+  color: #090d14;
+  display: inline-flex;
+  flex: 0 0 38px;
+  font-size: 1.1rem;
+  font-weight: 950;
+  height: 38px;
+  justify-content: center;
+}
+
+.android-simple-heading h2,
+.android-simple-heading p {
+  margin: 0;
+}
+
+.android-simple-heading p {
+  color: var(--muted);
+  margin-top: 3px;
+}
+
 .android-download-grid {
   display: grid;
   gap: 18px;
@@ -10105,6 +10169,9 @@ html.theta-theme-light .listing-square-facts {
 }
 
 @media (max-width: 760px) {
+  .android-download-choice {
+    grid-template-columns: 1fr;
+  }
   .listing-grid,
   .market-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

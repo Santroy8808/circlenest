@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 
 export const metadata: Metadata = {
   title: "Android Apps",
@@ -53,7 +56,13 @@ const installationSteps = [
   }
 ] as const;
 
-export default function AndroidDownloadsPage() {
+export default async function AndroidDownloadsPage() {
+  const session = await auth();
+  if (!session?.user || session.user.revoked) redirect("/login?callbackUrl=/android");
+
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const isAndroid = /android/i.test(userAgent);
+
   return (
     <main className="android-download-page">
       <header className="android-download-topbar">
@@ -61,22 +70,27 @@ export default function AndroidDownloadsPage() {
           <Image alt="" aria-hidden="true" height={42} src="/assets/theta-space-theta.svg" width={42} />
           <span>Theta-Space</span>
         </Link>
-        <Link className="btn-secondary" href="/login">
-          Member login
+        <Link className="btn-secondary" href="/home">
+          Back to Theta-Space
         </Link>
       </header>
 
       <div className="android-download-content">
         <section className="android-download-intro" aria-labelledby="android-download-title">
-          <p className="android-download-kicker">Official Android beta</p>
-          <h1 id="android-download-title">Choose your Theta-Space app</h1>
-          <p>
-            These apps are distributed directly by Theta-Space while Play Store publishing is being prepared. Download only from
-            <strong> theta-space.net</strong>.
-          </p>
+          <p className="android-download-kicker">Android apps</p>
+          <h1 id="android-download-title">Open this page on your Android phone</h1>
+          <p>You must download the app directly onto the Android phone or tablet where you want to use it.</p>
+          <div className={isAndroid ? "android-mobile-required is-ready" : "android-mobile-required"} role="status">
+            <strong>{isAndroid ? "You are on an Android device. You can download now." : "You are not viewing this page on an Android device."}</strong>
+            <span>{isAndroid ? "Choose one of the two apps below." : "On your Android phone, open Chrome and go to theta-space.net/android. Then log in again."}</span>
+          </div>
         </section>
 
-        <section aria-label="Available Android apps" className="android-download-grid">
+        <section aria-label="Choose an Android app" className="android-download-choice">
+          <div className="android-simple-heading">
+            <span>2</span>
+            <div><h2>Choose your app</h2><p>Most people should install the full Theta-Space app.</p></div>
+          </div>
           {apps.map((app) => (
             <article className="android-app-card" key={app.id}>
               <div className="android-app-card-heading">
@@ -84,36 +98,20 @@ export default function AndroidDownloadsPage() {
                   <Image alt={app.logoAlt} height={72} src={app.logo} width={72} />
                 </span>
                 <div>
-                  <span className="android-beta-badge">Internal beta</span>
+                  <span className="android-beta-badge">{app.id === "theta-space" ? "Recommended" : "Chat only"}</span>
                   <h2>{app.name}</h2>
-                  <p>Version {app.version}</p>
                 </div>
               </div>
               <strong className="android-app-summary">{app.summary}</strong>
-              <p className="android-app-details">{app.details}</p>
-              <dl className="android-app-facts">
-                <div>
-                  <dt>Works on</dt>
-                  <dd>{app.compatibility}</dd>
-                </div>
-                <div>
-                  <dt>Download</dt>
-                  <dd>{app.size}</dd>
-                </div>
-              </dl>
-              <a className="btn-primary android-download-button" download href={`/api/android/download/${app.id}`}>
-                Download {app.name}
-              </a>
-              <p className="android-download-filename">Downloads as {app.filename}</p>
+              <p className="android-app-details">{app.id === "theta-space" ? "Use the Stream, photos, contacts, groups, Market, Jobs, messages, and all of your membership features." : "Install this only if you want a separate app just for Theta-Space messages."}</p>
+              {isAndroid ? <a className="btn-primary android-download-button" download href={`/api/android/download/${app.id}`}>Download {app.name}</a> : <button className="btn-primary android-download-button" disabled type="button">Open this page on Android to download</button>}
             </article>
           ))}
         </section>
 
         <section className="android-install-section" aria-labelledby="install-android-title">
           <div className="android-section-heading">
-            <p className="android-download-kicker">Installation</p>
-            <h2 id="install-android-title">Install an app downloaded outside Play Store</h2>
-            <p>Android may call this installing an unknown app. The permission applies only to the browser or Downloads app you choose.</p>
+            <div className="android-simple-heading"><span>3</span><div><h2 id="install-android-title">Install it</h2><p>After the download finishes, follow these steps on your phone.</p></div></div>
           </div>
           <ol className="android-install-steps">
             {installationSteps.map((step, index) => (
@@ -128,25 +126,9 @@ export default function AndroidDownloadsPage() {
           </ol>
         </section>
 
-        <section className="android-download-notes" aria-label="Beta app guidance">
-          <div>
-            <h2>Updates</h2>
-            <p>
-              Updates are not automatic yet. Return to this page for a newer version and install it over the current app. Do not uninstall first unless support asks you to do so.
-            </p>
-          </div>
-          <div>
-            <h2>Android security warning</h2>
-            <p>
-              Android or Play Protect may warn that the app did not come from Play Store. Confirm that the download came from theta-space.net before continuing. Never install a copy sent through an unrelated website or file-sharing service.
-            </p>
-          </div>
-          <div>
-            <h2>Need both?</h2>
-            <p>
-              You can install Theta-Space and Theta-Comm on the same phone. They are separate apps and use the same Theta-Space member account.
-            </p>
-          </div>
+        <section className="android-download-notes" aria-label="Important information">
+          <div><h2>Only install files from this page</h2><p>Android may warn that the app did not come from Play Store. That is expected during beta testing. Do not install a copy sent by email or another website.</p></div>
+          <div><h2>Getting updates</h2><p>Return to this page on your Android phone and download the newest version. Install it over the current app.</p></div>
         </section>
 
         <footer className="android-download-footer">

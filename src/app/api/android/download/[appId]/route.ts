@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
+import { auth } from "@/auth";
 import { getAndroidDownload, isAndroidDownloadId } from "@/modules/android-downloads/catalog";
 
 export const runtime = "nodejs";
@@ -8,6 +9,15 @@ export const dynamic = "force-dynamic";
 
 function unavailableResponse() {
   return Response.json({ error: "This Android build is not available right now." }, { status: 404 });
+}
+
+async function authorizeAndroidDownload(request: Request) {
+  const session = await auth();
+  if (!session?.user || session.user.revoked) return Response.json({ error: "Member login required." }, { status: 401 });
+  if (!/android/i.test(request.headers.get("user-agent") ?? "")) {
+    return Response.json({ error: "Open theta-space.net/android on your Android phone or tablet to download this app." }, { status: 400 });
+  }
+  return null;
 }
 
 async function resolveDownload(appId: string) {
@@ -33,7 +43,9 @@ function downloadHeaders(downloadName: string, size: number) {
   };
 }
 
-export async function GET(_request: Request, props: { params: Promise<{ appId: string }> }) {
+export async function GET(request: Request, props: { params: Promise<{ appId: string }> }) {
+  const unauthorized = await authorizeAndroidDownload(request);
+  if (unauthorized) return unauthorized;
   const { appId } = await props.params;
   const resolved = await resolveDownload(appId);
   if (!resolved) return unavailableResponse();
@@ -44,7 +56,9 @@ export async function GET(_request: Request, props: { params: Promise<{ appId: s
   });
 }
 
-export async function HEAD(_request: Request, props: { params: Promise<{ appId: string }> }) {
+export async function HEAD(request: Request, props: { params: Promise<{ appId: string }> }) {
+  const unauthorized = await authorizeAndroidDownload(request);
+  if (unauthorized) return unauthorized;
   const { appId } = await props.params;
   const resolved = await resolveDownload(appId);
   if (!resolved) return unavailableResponse();
