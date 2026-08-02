@@ -271,6 +271,9 @@ export async function publishPublicAnnouncement(actorUserId: string, input: unkn
 
   const now = new Date();
   const scheduledFor = parsed.data.scheduledFor ? new Date(parsed.data.scheduledFor) : now;
+  if (parsed.data.scheduledFor && scheduledFor <= now) {
+    return { ok: false as const, error: "Choose a future date and time for a scheduled announcement." };
+  }
   if (scheduledFor.getTime() > now.getTime() + 366 * 24 * 60 * 60 * 1000) {
     return { ok: false as const, error: "Announcements cannot be scheduled more than one year ahead." };
   }

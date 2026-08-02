@@ -41,6 +41,11 @@ function resultLine(label: string, value: number) {
   );
 }
 
+function localDateTimeInputValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 export function AdminAnnouncementWizard({
   internalMailEnabled,
   recentAnnouncements
@@ -55,11 +60,14 @@ export function AdminAnnouncementWizard({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [reason, setReason] = useState("");
+  const [publishTiming, setPublishTiming] = useState<"NOW" | "SCHEDULED">("NOW");
+  const [scheduledFor, setScheduledFor] = useState("");
   const [announcements, setAnnouncements] = useState(recentAnnouncements);
   const [published, setPublished] = useState<AdminAnnouncementResult | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const selectedChannelText = useMemo(() => channels.map((channel) => channelLabels[channel]).join(", "), [channels]);
   const availableChannels = useMemo(
@@ -84,7 +92,10 @@ export function AdminAnnouncementWizard({
   function canContinue() {
     if (step === 0) return audienceKind === "ALL_ACTIVE" || audienceValue.trim().length > 0;
     if (step === 1) return channels.length > 0;
-    if (step === 2) return title.trim().length >= 3 && body.trim().length >= 10;
+    if (step === 2) {
+      const validSchedule = publishTiming === "NOW" || (Boolean(scheduledFor) && new Date(scheduledFor).getTime() > Date.now());
+      return title.trim().length >= 3 && body.trim().length >= 10 && validSchedule;
+    }
     return true;
   }
 
@@ -102,6 +113,7 @@ export function AdminAnnouncementWizard({
           channels,
           title,
           body,
+          scheduledFor: publishTiming === "SCHEDULED" ? new Date(scheduledFor).toISOString() : "",
           reason
         })
       });
@@ -114,7 +126,30 @@ export function AdminAnnouncementWizard({
 
       setPublished(payload.announcement);
       setAnnouncements((current) => [payload.announcement!, ...current].slice(0, 10));
-      setMessage("Announcement published and audited.");
+      setMessage(publishTiming === "SCHEDULED" ? "Announcement scheduled and audited." : "Announcement published and audited.");
+    });
+  }
+
+  function cancelAnnouncement(announcementId: string) {
+    setMessage("");
+    setError("");
+    setCancellingId(announcementId);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/admin/announcements/${announcementId}/cancel`, { method: "POST" });
+        const payload = (await response.json()) as { announcement?: AdminAnnouncementResult; error?: string };
+        if (!response.ok || !payload.announcement) {
+          setError(payload.error ?? "Could not cancel announcement.");
+          return;
+        }
+        setAnnouncements((current) => current.map((announcement) => (announcement.id === announcementId ? payload.announcement! : announcement)));
+        setMessage("Scheduled announcement cancelled. No queued deliveries will be sent.");
+      } catch {
+        setError("Could not cancel announcement.");
+      } finally {
+        setCancellingId(null);
+      }
     });
   }
 
@@ -261,6 +296,32 @@ export function AdminAnnouncementWizard({
               <span className="form-label">Title</span>
               <input className="form-field" onChange={(event) => setTitle(event.target.value)} placeholder="Platform update" value={title} />
             </label>
+            <fieldset className="grid gap-3">
+              <legend className="form-label">Publishing time</legend>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="module-card flex cursor-pointer items-center gap-3 rounded-md p-4">
+                  <input checked={publishTiming === "NOW"} name="publishTiming" onChange={() => setPublishTiming("NOW")} type="radio" />
+                  <span><strong className="block">Publish now</strong><span className="text-sm text-[var(--muted)]">Queue delivery immediately.</span></span>
+                </label>
+                <label className="module-card flex cursor-pointer items-center gap-3 rounded-md p-4">
+                  <input checked={publishTiming === "SCHEDULED"} name="publishTiming" onChange={() => setPublishTiming("SCHEDULED")} type="radio" />
+                  <span><strong className="block">Schedule</strong><span className="text-sm text-[var(--muted)]">Choose a future date and time.</span></span>
+                </label>
+              </div>
+              {publishTiming === "SCHEDULED" ? (
+                <label className="grid gap-2">
+                  <span className="form-label">Publish on</span>
+                  <input
+                    className="form-field"
+                    min={localDateTimeInputValue(new Date(Date.now() + 60_000))}
+                    onChange={(event) => setScheduledFor(event.target.value)}
+                    type="datetime-local"
+                    value={scheduledFor}
+                  />
+                  <span className="text-sm text-[var(--muted)]">Uses your device&apos;s local time zone.</span>
+                </label>
+              ) : null}
+            </fieldset>
             <label className="grid gap-2">
               <span className="form-label">Announcement body</span>
               <textarea className="form-field min-h-40 resize-y" onChange={(event) => setBody(event.target.value)} value={body} />
@@ -283,11 +344,12 @@ export function AdminAnnouncementWizard({
               <p><strong>Channels:</strong> {selectedChannelText || "None selected"}</p>
               <p><strong>Title:</strong> {title || "Untitled"}</p>
               <p className="whitespace-pre-wrap"><strong>Body:</strong> {body || "No body yet."}</p>
+              <p><strong>Publishing:</strong> {publishTiming === "SCHEDULED" && scheduledFor ? new Date(scheduledFor).toLocaleString() : "Immediately"}</p>
               {reason ? <p><strong>Audit reason:</strong> {reason}</p> : null}
             </div>
             {published ? (
               <div className="grid gap-3 rounded-md border border-emerald-400/40 bg-emerald-950/30 p-4 text-emerald-100">
-                <strong>{published.title} published.</strong>
+                <strong>{published.title} {new Date(published.scheduledFor) > new Date() ? "scheduled" : "published"}.</strong>
                 <div className="flex flex-wrap gap-2">
                   {resultLine("Recipients", published.recipientCount)}
                   {resultLine("Chat", published.chatDeliveryCount)}
@@ -314,7 +376,7 @@ export function AdminAnnouncementWizard({
             </button>
           ) : (
             <button className="btn-primary" disabled={!canContinue() || isPending} onClick={publish} type="button">
-              {isPending ? "Publishing..." : "Publish announcement"}
+              {isPending ? (publishTiming === "SCHEDULED" ? "Scheduling..." : "Publishing...") : (publishTiming === "SCHEDULED" ? "Schedule announcement" : "Publish announcement")}
             </button>
           )}
         </div>
@@ -329,7 +391,11 @@ export function AdminAnnouncementWizard({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <strong>{announcement.title}</strong>
-                    {announcement.dismissedAt ? (
+                    {announcement.cancelledAt ? (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                        Cancelled {new Date(announcement.cancelledAt).toLocaleString()}
+                      </p>
+                    ) : announcement.dismissedAt ? (
                       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                         Dismissed {new Date(announcement.dismissedAt).toLocaleString()}
                       </p>
@@ -337,7 +403,21 @@ export function AdminAnnouncementWizard({
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm text-[var(--muted)]">{new Date(announcement.createdAt).toLocaleString()}</span>
-                    {announcement.dismissedAt ? (
+                    {announcement.cancelledAt ? (
+                      <span className="pill rounded-full px-3 py-1 text-xs">Cancelled</span>
+                    ) : new Date(announcement.scheduledFor) > new Date() ? (
+                      <>
+                        <span className="text-sm text-[var(--muted)]">Scheduled for {new Date(announcement.scheduledFor).toLocaleString()}</span>
+                        <button
+                          className="btn-secondary px-3 py-2 text-xs"
+                          disabled={isPending || cancellingId === announcement.id}
+                          onClick={() => cancelAnnouncement(announcement.id)}
+                          type="button"
+                        >
+                          {cancellingId === announcement.id ? "Cancelling..." : "Cancel"}
+                        </button>
+                      </>
+                    ) : announcement.dismissedAt ? (
                       <span className="pill rounded-full px-3 py-1 text-xs">Dismissed</span>
                     ) : (
                       <button
