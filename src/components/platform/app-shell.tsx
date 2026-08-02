@@ -79,14 +79,13 @@ async function isAndroidAppRequest() {
   const platformCookie = cookieStore.get("theta_platform")?.value ?? "";
   const platformHeader = requestHeaders.get("x-theta-platform") ?? "";
 
-  return [
-    userAgent,
+  const explicitAppMarker = [
     platformCookie,
     platformHeader,
-    requestHeaders.get("x-requested-with") ?? "",
-    requestHeaders.get("sec-ch-ua-platform") ?? "",
-    requestHeaders.get("sec-ch-ua-model") ?? ""
-  ].some((value) => /android|theta-space|thetaspace|webview|wv/i.test(value));
+    requestHeaders.get("x-requested-with") ?? ""
+  ].some((value) => /android|theta-space|thetaspace/i.test(value));
+
+  return explicitAppMarker || /theta-space|thetaspace|webview|\bwv\b/i.test(userAgent);
 }
 
 async function isMobileBrowserRequest() {

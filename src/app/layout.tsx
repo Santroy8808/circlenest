@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 import { GlobalFeedbackLinkGate } from "@/components/feedback/global-feedback-link-gate";
@@ -20,20 +20,25 @@ export const metadata: Metadata = {
   }
 };
 
+export const viewport: Viewport = {
+  initialScale: 1,
+  viewportFit: "cover",
+  width: "device-width"
+};
+
 async function isAndroidAppRequest() {
   const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const userAgent = requestHeaders.get("user-agent") ?? "";
   const platformCookie = cookieStore.get("theta_platform")?.value ?? "";
   const platformHeader = requestHeaders.get("x-theta-platform") ?? "";
 
-  return [
-    userAgent,
+  const explicitAppMarker = [
     platformCookie,
     platformHeader,
-    requestHeaders.get("x-requested-with") ?? "",
-    requestHeaders.get("sec-ch-ua-platform") ?? "",
-    requestHeaders.get("sec-ch-ua-model") ?? ""
-  ].some((value) => /android|theta-space|thetaspace|webview|wv/i.test(value));
+    requestHeaders.get("x-requested-with") ?? ""
+  ].some((value) => /android|theta-space|thetaspace/i.test(value));
+
+  return explicitAppMarker || /theta-space|thetaspace|webview|\bwv\b/i.test(userAgent);
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
