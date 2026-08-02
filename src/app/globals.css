@@ -6118,12 +6118,11 @@ html.theta-theme-light .gallery-feedback--error {
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.36);
   display: grid;
   gap: 6px;
-  left: calc(100% + 12px);
   min-width: min(280px, calc(100vw - 48px));
   padding: 8px;
-  position: absolute;
-  top: 0;
-  z-index: 80;
+  position: fixed;
+  width: min(280px, calc(100vw - 24px));
+  z-index: 1000;
 }
 
 .control-panel-popup-link {

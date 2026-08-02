@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
 
@@ -54,7 +55,9 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const pathname = usePathname();
   const liveCounts = useShellCounts(counts);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ left: 12, top: 12 });
   const [tutorialShimmering, setTutorialShimmering] = useState(false);
+  const commCenterButtonRef = useRef<HTMLButtonElement>(null);
   const navRows = useMemo(
     () =>
       sections.map((section) => {
@@ -89,6 +92,31 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    if (openMenu !== "Comm Center") return;
+
+    function positionMenu() {
+      const button = commCenterButtonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const menuWidth = Math.min(280, window.innerWidth - 24);
+      const preferredLeft = rect.right + 12;
+      const left = preferredLeft + menuWidth <= window.innerWidth - 12
+        ? preferredLeft
+        : Math.max(12, Math.min(rect.left, window.innerWidth - menuWidth - 12));
+      const top = Math.max(12, Math.min(rect.top, window.innerHeight - 190));
+      setMenuPosition({ left, top });
+    }
+
+    positionMenu();
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    return () => {
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
+    };
+  }, [openMenu]);
+
   function handleItemClick(event: MouseEvent<HTMLAnchorElement>, item: NavItem) {
     if (pathname !== "/home" || item.href !== "/messages" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
       return;
@@ -122,6 +150,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                 data-tooltip="Open Comm Center menu."
                 data-tutorial-target="control-comm-center"
                 onClick={() => setOpenMenu((current) => current === section.label ? null : section.label)}
+                ref={commCenterButtonRef}
                 type="button"
               >
                 <span>{section.label}</span>
@@ -130,8 +159,8 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                   <span aria-hidden="true" className="control-panel-menu-caret">›</span>
                 </span>
               </button>
-              {isOpen ? (
-                <div className="control-panel-popup-menu" role="menu">
+              {isOpen ? createPortal(
+                <div className="control-panel-popup-menu" role="menu" style={menuPosition}>
                   {section.items.filter((item) => item.href).map((item) => (
                     <Link
                       className={itemMatchesPath(pathname, item) ? "control-panel-popup-link is-active" : "control-panel-popup-link"}
@@ -147,7 +176,8 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                       {item.countKey && liveCounts[item.countKey] > 0 ? <span className="control-panel-link-count">{liveCounts[item.countKey]}</span> : null}
                     </Link>
                   ))}
-                </div>
+                </div>,
+                document.body
               ) : null}
             </div>
           );
