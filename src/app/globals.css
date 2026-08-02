@@ -651,12 +651,15 @@ a {
 }
 
 .main-surface {
+  --panel-gutter: clamp(18px, 1.4vw, 28px);
+  container-name: theta-main-panel;
+  container-type: inline-size;
   grid-area: main;
   height: 100%;
   min-width: 0;
   overscroll-behavior: contain;
   overflow: hidden auto;
-  padding: clamp(20px, 1.45vw, 28px);
+  padding: var(--panel-gutter);
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -667,7 +670,7 @@ a {
 
 .main-content-frame {
   display: grid;
-  gap: clamp(16px, 1.2vw, 22px);
+  gap: var(--panel-gutter);
   margin-inline: auto;
   max-width: var(--theta-content-width);
   width: 100%;
@@ -921,9 +924,9 @@ a {
 }
 
 .home-comm-workspace.is-comm-open {
-  gap: clamp(18px, 1.4vw, 28px);
-  grid-template-columns: minmax(0, 780px) minmax(300px, 348px);
-  max-width: min(100%, 1156px);
+  gap: var(--panel-gutter);
+  grid-template-columns: minmax(520px, 1fr) minmax(360px, 380px);
+  max-width: min(100%, calc(860px + 380px + var(--panel-gutter)));
 }
 
 .home-comm-main {
@@ -961,6 +964,22 @@ a {
   transform: translateX(0) scale(1);
 }
 
+@container theta-main-panel (max-width: 980px) {
+  .home-comm-workspace.is-comm-open {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(100%, 860px);
+  }
+
+  .home-comm-dock {
+    margin-top: 0;
+    max-height: 620px;
+    min-height: 520px;
+    position: relative;
+    top: auto;
+    width: 100%;
+  }
+}
+
 .home-comm-dock-header {
   align-items: start;
   border-bottom: 1px solid rgba(214, 178, 74, 0.18);
@@ -968,6 +987,16 @@ a {
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   padding: 16px;
+}
+
+.home-comm-dock-header > * {
+  min-width: 0;
+}
+
+.home-comm-dock-header h2,
+.home-comm-dock-header p,
+.home-comm-dock-header span {
+  overflow-wrap: anywhere;
 }
 
 .home-comm-dock-header.is-announcement-chat {
@@ -13440,6 +13469,26 @@ body,
   color: var(--muted);
   font-size: 0.84rem;
   line-height: 1.45;
+}
+
+/* Keep stream controls inside the measured center panel, independent of browser width. */
+@container theta-main-panel (max-width: 620px) {
+  .feed-post-actions {
+    column-gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .feed-post-actions > .feed-reaction-menu { grid-column: 1; }
+  .feed-post-actions > .feed-reply-button { grid-column: 2; }
+  .feed-post-actions > .feed-share-menu { grid-column: 3; }
+
+  .feed-reply-button,
+  .feed-share-button,
+  .feed-reaction-trigger {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 .tutorial-icon-definitions {
