@@ -2,10 +2,17 @@
 
 import { MediaVisibility, ProfileVisibility } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { FormEvent, useRef, useState, useTransition } from "react";
+import { type FormEvent, type PointerEvent, useRef, useState, useTransition } from "react";
 import { requestProfileMedia } from "@/components/gallery/profile-media-request";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
+import {
+  avatarFrameDefaults,
+  avatarFrameLimits,
+  avatarImageStyle,
+  clampAvatarFrameCenter,
+  getAvatarFrameZone
+} from "@/modules/profile-identity/avatar-frame";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
 type UploadState = {
@@ -14,10 +21,6 @@ type UploadState = {
   progress: number;
   error?: string;
 };
-
-function avatarObjectPosition(x: number, y: number) {
-  return `${x}% ${y}%`;
-}
 
 async function uploadAvatarOrBanner(
   file: File,
@@ -102,8 +105,13 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
   const [avatarFocalX, setAvatarFocalX] = useState(profile.avatarFocalX);
   const [avatarFocalY, setAvatarFocalY] = useState(profile.avatarFocalY);
+  const [avatarZoom, setAvatarZoom] = useState(profile.avatarZoom);
+  const [avatarFrameShape, setAvatarFrameShape] = useState(profile.avatarFrameShape);
+  const [isDraggingAvatarFrame, setIsDraggingAvatarFrame] = useState(false);
   const [bannerUrl, setBannerUrl] = useState(profile.bannerUrl ?? "");
   const [location, setLocation] = useState(profile.location ?? "");
+  const avatarZone = getAvatarFrameZone({ avatarFocalX, avatarFocalY, avatarFrameShape, avatarZoom });
+  const avatarPreviewStyle = avatarImageStyle({ avatarFocalX, avatarFocalY, avatarFrameShape, avatarZoom });
 
   function resetInput(ref: { current: HTMLInputElement | null }) {
     if (ref.current) {
@@ -143,8 +151,10 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
 
       if (type === "avatar") {
         setAvatarUrl(uploadedAsset.mediaUrl);
-        setAvatarFocalX(50);
-        setAvatarFocalY(50);
+        setAvatarFocalX(avatarFrameDefaults.focalX);
+        setAvatarFocalY(avatarFrameDefaults.focalY);
+        setAvatarZoom(avatarFrameDefaults.zoom);
+        setAvatarFrameShape(avatarFrameDefaults.frameShape);
         setAvatarUpload({ fileName: file.name, progress: 100, status: "done" });
         setMessage("Avatar updated.");
       } else {
@@ -169,6 +179,43 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
     }
   }
 
+  function setAvatarFrameCenter(x: number, y: number, nextZoom = avatarZoom, nextFrameShape = avatarFrameShape) {
+    const center = clampAvatarFrameCenter(x, y, {
+      avatarFrameShape: nextFrameShape,
+      avatarZoom: nextZoom
+    });
+    setAvatarFocalX(center.x);
+    setAvatarFocalY(center.y);
+  }
+
+  function setAvatarFrameZoom(nextZoom: number) {
+    setAvatarZoom(nextZoom);
+    setAvatarFrameCenter(avatarFocalX, avatarFocalY, nextZoom, avatarFrameShape);
+  }
+
+  function setAvatarFrameShapeValue(nextFrameShape: number) {
+    setAvatarFrameShape(nextFrameShape);
+    setAvatarFrameCenter(avatarFocalX, avatarFocalY, avatarZoom, nextFrameShape);
+  }
+
+  function updateAvatarFrameFromPointer(event: PointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    setAvatarFrameCenter(x, y);
+  }
+
+  function nudgeAvatarFrame(deltaX: number, deltaY: number) {
+    setAvatarFrameCenter(avatarFocalX + deltaX, avatarFocalY + deltaY);
+  }
+
+  function resetAvatarFrame() {
+    setAvatarFocalX(avatarFrameDefaults.focalX);
+    setAvatarFocalY(avatarFrameDefaults.focalY);
+    setAvatarZoom(avatarFrameDefaults.zoom);
+    setAvatarFrameShape(avatarFrameDefaults.frameShape);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -186,6 +233,8 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           location,
           avatarFocalX,
           avatarFocalY,
+          avatarZoom,
+          avatarFrameShape,
           visibility: formData.get("visibility"),
           allowProfilePosts: formData.get("allowProfilePosts") === "on"
         })
@@ -290,30 +339,93 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           {avatarUpload.error ? <p className="text-sm text-red-100">{avatarUpload.error}</p> : null}
           {avatarUrl ? (
             <div className="profile-avatar-reframe">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt="Avatar preview" className="h-20 w-20 rounded-full object-cover" src={avatarUrl} style={{ objectPosition: avatarObjectPosition(avatarFocalX, avatarFocalY) }} />
-              <label className="grid gap-2">
-                <span className="form-label">Reframe left/right</span>
-                <input
-                  aria-label="Reframe avatar left or right"
-                  max={100}
-                  min={0}
-                  onChange={(event) => setAvatarFocalX(Number(event.target.value))}
-                  type="range"
-                  value={avatarFocalX}
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="form-label">Reframe up/down</span>
-                <input
-                  aria-label="Reframe avatar up or down"
-                  max={100}
-                  min={0}
-                  onChange={(event) => setAvatarFocalY(Number(event.target.value))}
-                  type="range"
-                  value={avatarFocalY}
-                />
-              </label>
+              <div className="profile-avatar-crop-workspace">
+                <div
+                  aria-label="Avatar framing zone"
+                  className={isDraggingAvatarFrame ? "profile-avatar-crop-stage is-dragging" : "profile-avatar-crop-stage"}
+                  onPointerCancel={() => setIsDraggingAvatarFrame(false)}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    setIsDraggingAvatarFrame(true);
+                    updateAvatarFrameFromPointer(event);
+                  }}
+                  onPointerMove={(event) => {
+                    if (isDraggingAvatarFrame) {
+                      updateAvatarFrameFromPointer(event);
+                    }
+                  }}
+                  onPointerUp={(event) => {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                    setIsDraggingAvatarFrame(false);
+                  }}
+                  role="application"
+                  tabIndex={0}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="" className="profile-avatar-crop-source" draggable={false} src={avatarUrl} />
+                  <div
+                    aria-hidden="true"
+                    className="profile-avatar-crop-zone"
+                    style={{
+                      height: `${avatarZone.height}%`,
+                      left: `${avatarZone.left}%`,
+                      top: `${avatarZone.top}%`,
+                      width: `${avatarZone.width}%`
+                    }}
+                  >
+                    <span className="profile-avatar-crop-crosshair" />
+                    <span className="profile-avatar-crop-handle profile-avatar-crop-handle--nw" />
+                    <span className="profile-avatar-crop-handle profile-avatar-crop-handle--ne" />
+                    <span className="profile-avatar-crop-handle profile-avatar-crop-handle--sw" />
+                    <span className="profile-avatar-crop-handle profile-avatar-crop-handle--se" />
+                  </div>
+                </div>
+                <div className="profile-avatar-preview-panel">
+                  <span className="form-label">Preview</span>
+                  <span className="profile-avatar-preview-frame">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt="" draggable={false} src={avatarUrl} style={avatarPreviewStyle} />
+                  </span>
+                </div>
+              </div>
+              <div className="profile-avatar-frame-controls">
+                <label className="grid gap-2">
+                  <span className="form-label">Frame size</span>
+                  <input
+                    aria-label="Avatar selected zone size"
+                    max={avatarFrameLimits.zoomMax}
+                    min={avatarFrameLimits.zoomMin}
+                    onChange={(event) => setAvatarFrameZoom(Number(event.target.value))}
+                    type="range"
+                    value={avatarZoom}
+                  />
+                  <span className="profile-avatar-frame-value">{avatarZone.selectedPercent}% selected</span>
+                </label>
+                <label className="grid gap-2">
+                  <span className="form-label">Frame shape</span>
+                  <input
+                    aria-label="Avatar frame shape"
+                    max={avatarFrameLimits.frameShapeMax}
+                    min={avatarFrameLimits.frameShapeMin}
+                    onChange={(event) => setAvatarFrameShapeValue(Number(event.target.value))}
+                    type="range"
+                    value={avatarFrameShape}
+                  />
+                  <span className="profile-avatar-frame-value">
+                    {avatarFrameShape === 100 ? "Square" : avatarFrameShape > 100 ? "Slightly wide" : "Slightly tall"}
+                  </span>
+                </label>
+                <div className="profile-avatar-nudge-grid" aria-label="Move avatar frame">
+                  <button aria-label="Move frame up" onClick={() => nudgeAvatarFrame(0, -3)} type="button">^</button>
+                  <button aria-label="Move frame left" onClick={() => nudgeAvatarFrame(-3, 0)} type="button">&lt;</button>
+                  <button aria-label="Move frame right" onClick={() => nudgeAvatarFrame(3, 0)} type="button">&gt;</button>
+                  <button aria-label="Move frame down" onClick={() => nudgeAvatarFrame(0, 3)} type="button">v</button>
+                </div>
+                <button className="btn-secondary" onClick={resetAvatarFrame} type="button">
+                  Reset frame
+                </button>
+              </div>
             </div>
           ) : null}
         </div>

@@ -22,6 +22,7 @@ test("profile media selection is owner-bound and accepts every ready image MIME 
     id: "asset-1",
     ownerUserId: "owner-1",
     status: MediaAssetStatus.READY,
+    feedbackTicketScreenshot: { is: null },
     mimeType: { startsWith: "image/", mode: "insensitive" }
   });
   assert.equal(isProfileMediaMimeType("image/webp"), true);
@@ -56,6 +57,10 @@ test("profile media selection locks the owner before the asset and validates bef
         return {
           userId: "owner-1",
           avatarUrl: "/api/media/assets/asset-1",
+          avatarFocalX: 50,
+          avatarFocalY: 50,
+          avatarZoom: 100,
+          avatarFrameShape: 100,
           bannerUrl: null,
           updatedAt: new Date("2026-01-01T00:00:00.000Z")
         };

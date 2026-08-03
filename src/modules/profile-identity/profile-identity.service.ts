@@ -66,15 +66,15 @@ export async function selectProfileMediaWithinTransaction(
   }
 
   const mediaUrl = mediaAssetDeliveryPath(asset.id);
+  const avatarDefaults = { avatarFocalX: 50, avatarFocalY: 50, avatarZoom: 100, avatarFrameShape: 100 };
   const profile = await transaction.profile.upsert({
     where: { userId },
-    update: input.target === "avatar" ? { avatarUrl: mediaUrl, avatarFocalX: 50, avatarFocalY: 50 } : { bannerUrl: mediaUrl },
+    update: input.target === "avatar" ? { avatarUrl: mediaUrl, ...avatarDefaults } : { bannerUrl: mediaUrl },
     create: {
       userId,
       displayName: user.profile?.displayName ?? user.username,
       avatarUrl: input.target === "avatar" ? mediaUrl : null,
-      avatarFocalX: 50,
-      avatarFocalY: 50,
+      ...avatarDefaults,
       bannerUrl: input.target === "banner" ? mediaUrl : null
     },
     select: {
@@ -82,6 +82,8 @@ export async function selectProfileMediaWithinTransaction(
       avatarUrl: true,
       avatarFocalX: true,
       avatarFocalY: true,
+      avatarZoom: true,
+      avatarFrameShape: true,
       bannerUrl: true,
       updatedAt: true
     }
@@ -110,6 +112,8 @@ function toProfileCard(user: {
     avatarUrl: string | null;
     avatarFocalX: number;
     avatarFocalY: number;
+    avatarZoom: number;
+    avatarFrameShape: number;
     bannerUrl: string | null;
     location: string | null;
     visibility: ProfileVisibility;
@@ -128,6 +132,8 @@ function toProfileCard(user: {
     avatarUrl: user.profile?.avatarUrl,
     avatarFocalX: user.profile?.avatarFocalX ?? 50,
     avatarFocalY: user.profile?.avatarFocalY ?? 50,
+    avatarZoom: user.profile?.avatarZoom ?? 100,
+    avatarFrameShape: user.profile?.avatarFrameShape ?? 100,
     bannerUrl: user.profile?.bannerUrl,
     location: user.profile?.location,
     visibility: user.profile?.visibility ?? ProfileVisibility.MEMBERS,
@@ -311,6 +317,8 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       location: parsed.data.location || null,
       avatarFocalX: parsed.data.avatarFocalX,
       avatarFocalY: parsed.data.avatarFocalY,
+      avatarZoom: parsed.data.avatarZoom,
+      avatarFrameShape: parsed.data.avatarFrameShape,
       visibility: parsed.data.visibility,
       allowProfilePosts: parsed.data.allowProfilePosts
     },
@@ -322,6 +330,8 @@ export async function updateProfileIdentity(userId: string, input: unknown) {
       location: parsed.data.location || null,
       avatarFocalX: parsed.data.avatarFocalX,
       avatarFocalY: parsed.data.avatarFocalY,
+      avatarZoom: parsed.data.avatarZoom,
+      avatarFrameShape: parsed.data.avatarFrameShape,
       visibility: parsed.data.visibility,
       allowProfilePosts: parsed.data.allowProfilePosts
     }

@@ -19,6 +19,7 @@ import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-al
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav } from "@/components/platform/control-panel-nav";
+import { avatarImageStyle } from "@/modules/profile-identity/avatar-frame";
 import { getWelcomeTutorialState } from "@/modules/tutorial/tutorial.service";
 import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
 import { buildMemberNavigation } from "@/modules/navigation/member-navigation";
@@ -49,7 +50,9 @@ async function getShellProfile(userId?: string) {
           displayName: true,
           avatarUrl: true,
           avatarFocalX: true,
-          avatarFocalY: true
+          avatarFocalY: true,
+          avatarZoom: true,
+          avatarFrameShape: true
         }
       }
     }
@@ -73,10 +76,6 @@ function initials(value: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function avatarObjectPosition(x?: number | null, y?: number | null) {
-  return `${x ?? 50}% ${y ?? 50}%`;
 }
 
 async function isAndroidAppRequest() {
@@ -162,6 +161,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <DesktopCommandBar
         avatarFocalX={shellProfile?.profile?.avatarFocalX}
         avatarFocalY={shellProfile?.profile?.avatarFocalY}
+        avatarFrameShape={shellProfile?.profile?.avatarFrameShape}
+        avatarZoom={shellProfile?.profile?.avatarZoom}
         avatarUrl={shellProfile?.profile?.avatarUrl}
         canCreateAd={canCreateAd}
         counts={counts}
@@ -176,7 +177,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <Link className="side-nav-avatar" data-tooltip="Open your profile." href="/profile">
             {shellProfile?.profile?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" src={shellProfile.profile.avatarUrl} style={{ objectPosition: avatarObjectPosition(shellProfile.profile.avatarFocalX, shellProfile.profile.avatarFocalY) }} />
+              <img alt="" src={shellProfile.profile.avatarUrl} style={avatarImageStyle(shellProfile.profile)} />
             ) : (
               <span>{initials(displayName)}</span>
             )}

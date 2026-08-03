@@ -11,6 +11,8 @@ export const updateProfileSchema = z.object({
   location: z.string().max(120).optional().or(z.literal("")),
   avatarFocalX: z.number().int().min(0).max(100).default(50),
   avatarFocalY: z.number().int().min(0).max(100).default(50),
+  avatarZoom: z.number().int().min(100).max(240).default(100),
+  avatarFrameShape: z.number().int().min(88).max(112).default(100),
   visibility: z.nativeEnum(ProfileVisibility).default(ProfileVisibility.MEMBERS),
   allowProfilePosts: z.boolean().default(true)
 });
@@ -30,6 +32,8 @@ export type ProfileCardView = {
   avatarUrl?: string | null;
   avatarFocalX: number;
   avatarFocalY: number;
+  avatarZoom: number;
+  avatarFrameShape: number;
   bannerUrl?: string | null;
   visibility: ProfileVisibility;
   allowProfilePosts: boolean;

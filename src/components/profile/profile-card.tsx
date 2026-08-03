@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProfileRelationshipActions } from "@/components/profile/profile-relationship-actions";
 import { myScientologyVisible } from "@/modules/my-scientology/visibility";
+import { avatarImageStyle } from "@/modules/profile-identity/avatar-frame";
 import type { ProfileCardView } from "@/modules/profile-identity/types";
 
 function initials(displayName: string) {
@@ -10,10 +11,6 @@ function initials(displayName: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
-}
-
-function avatarObjectPosition(x?: number | null, y?: number | null) {
-  return `${x ?? 50}% ${y ?? 50}%`;
 }
 
 export function ProfileCard({ profile, ownerControls = false }: { profile: ProfileCardView; ownerControls?: boolean }) {
@@ -29,7 +26,7 @@ export function ProfileCard({ profile, ownerControls = false }: { profile: Profi
             <div className="profile-avatar">
               {profile.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" src={profile.avatarUrl} style={{ objectPosition: avatarObjectPosition(profile.avatarFocalX, profile.avatarFocalY) }} />
+                <img alt="" src={profile.avatarUrl} style={avatarImageStyle(profile)} />
               ) : (
                 <span>{initials(profile.displayName) || "TS"}</span>
               )}

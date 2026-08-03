@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useState } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
+import { avatarImageStyle } from "@/modules/profile-identity/avatar-frame";
 
 type Counts = {
   alerts: number;
@@ -31,6 +32,8 @@ type SummaryState = {
 type DesktopCommandBarProps = {
   avatarFocalX?: number | null;
   avatarFocalY?: number | null;
+  avatarFrameShape?: number | null;
+  avatarZoom?: number | null;
   avatarUrl?: string | null;
   canCreateAd: boolean;
   counts: Counts;
@@ -48,10 +51,6 @@ function initials(value: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function avatarObjectPosition(x?: number | null, y?: number | null) {
-  return `${x ?? 50}% ${y ?? 50}%`;
 }
 
 function totalCommCount(counts: Counts) {
@@ -172,7 +171,7 @@ function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
   );
 }
 
-export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarUrl, canCreateAd, counts, defaultHomeHref, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
+export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarFrameShape, avatarUrl, avatarZoom, canCreateAd, counts, defaultHomeHref, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
@@ -358,7 +357,7 @@ export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarUrl, canCr
             <Link className="desktop-command-avatar" data-tutorial-target="top-nav-profile" href="/profile" data-tooltip="Open your profile.">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" src={avatarUrl} style={{ objectPosition: avatarObjectPosition(avatarFocalX, avatarFocalY) }} />
+                <img alt="" src={avatarUrl} style={avatarImageStyle({ avatarFocalX, avatarFocalY, avatarFrameShape, avatarZoom })} />
               ) : (
                 <span>{initials(displayName)}</span>
               )}

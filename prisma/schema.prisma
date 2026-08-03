@@ -1057,6 +1057,8 @@ model Profile {
   avatarUrl         String?
   avatarFocalX      Int               @default(50)
   avatarFocalY      Int               @default(50)
+  avatarZoom        Int               @default(100)
+  avatarFrameShape  Int               @default(100)
   bannerUrl         String?
   location          String?
   visibility        ProfileVisibility @default(MEMBERS)
