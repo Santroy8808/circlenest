@@ -42,7 +42,8 @@ export function normalizeAvatarFrame(frame: AvatarFrameInput) {
 
 export function avatarImageStyle(frame: AvatarFrameInput) {
   const normalized = normalizeAvatarFrame(frame);
-  const scale = normalized.zoom / 100;
+  const zone = getAvatarFrameZone(frame);
+  const scale = Math.round((100 / Math.min(zone.width, zone.height)) * 1000) / 1000;
 
   return {
     objectPosition: `${normalized.focalX}% ${normalized.focalY}%`,

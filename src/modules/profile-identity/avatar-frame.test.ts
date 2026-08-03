@@ -44,6 +44,19 @@ test("avatar display style preserves the selected focus and zoom", () => {
   });
 });
 
+test("avatar display style applies minor frame-shape scaling", () => {
+  assert.deepEqual(avatarImageStyle({
+    avatarFocalX: 50,
+    avatarFocalY: 50,
+    avatarFrameShape: 112,
+    avatarZoom: 100
+  }), {
+    objectPosition: "50% 50%",
+    transform: "scale(1.058)",
+    transformOrigin: "50% 50%"
+  });
+});
+
 test("default frame zone starts as a full image selection", () => {
   const zone = getAvatarFrameZone({
     avatarFocalX: 50,
