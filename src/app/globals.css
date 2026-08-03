@@ -266,18 +266,79 @@ a {
 
 .theta-loading-page {
   align-items: center;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 216, 95, 0.12), transparent 18rem),
+    radial-gradient(circle at 50% 55%, rgba(63, 115, 255, 0.1), transparent 24rem);
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
-  min-height: min(52vh, 30rem);
-  padding: 3rem 1rem;
+  min-height: min(68vh, 42rem);
+  overflow: hidden;
+  padding: 5rem 1rem;
+  position: relative;
+  width: 100%;
+}
+
+.theta-loading-page::before {
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 216, 95, 0.22), transparent),
+    linear-gradient(180deg, transparent, rgba(109, 145, 255, 0.08), transparent);
+  content: "";
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  position: absolute;
+  transform: translateY(18%);
 }
 
 .theta-loading-panel {
-  background: rgba(17, 24, 36, 0.78);
-  border: 1px solid rgba(255, 216, 95, 0.28);
-  border-radius: 8px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  gap: 1.45rem;
   padding: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.theta-loading-page .theta-loading.is-lg .theta-loading-mark {
+  --theta-ring-one: 1.05rem;
+  --theta-ring-two: 2.2rem;
+  --theta-ring-three: 3.35rem;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 242, 185, 0.52) 0 16%, rgba(255, 216, 95, 0.3) 17% 28%, transparent 29%),
+    radial-gradient(circle at 50% 50%, rgba(109, 145, 255, 0.18), transparent 58%),
+    rgba(8, 13, 22, 0.48);
+  border-color: rgba(255, 216, 95, 0.72);
+  box-shadow:
+    0 0 0 1px rgba(255, 216, 95, 0.16),
+    0 0 34px rgba(255, 216, 95, 0.38),
+    0 0 86px rgba(109, 145, 255, 0.2);
+  overflow: visible;
+  width: clamp(7.25rem, 17vw, 11rem);
+}
+
+.theta-loading-page .theta-loading.is-lg .theta-loading-symbol {
+  font-size: clamp(4.65rem, 10vw, 7.2rem);
+  text-shadow:
+    0 0 12px rgba(255, 242, 185, 0.92),
+    0 0 34px rgba(255, 216, 95, 0.58),
+    0 0 62px rgba(109, 145, 255, 0.22);
+}
+
+.theta-loading-page .theta-loading-mark::before {
+  animation: theta-page-ripple 2600ms cubic-bezier(0.12, 0.72, 0.18, 1) infinite;
+}
+
+.theta-loading-page .theta-loading-mark::after {
+  animation: theta-page-ripple 2600ms cubic-bezier(0.12, 0.72, 0.18, 1) 900ms infinite;
+}
+
+.theta-loading-page .theta-loading.is-lg .theta-loading-label {
+  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+  letter-spacing: 0;
+  text-shadow: 0 0 22px rgba(255, 216, 95, 0.34);
+  text-transform: uppercase;
 }
 
 .web-session-guard {
@@ -329,6 +390,48 @@ a {
       0 0 0 calc(var(--theta-ring-one) * 1.7) rgba(255, 236, 168, 0),
       0 0 0 calc(var(--theta-ring-two) * 1.45) rgba(255, 216, 95, 0),
       0 0 0 calc(var(--theta-ring-three) * 1.25) rgba(255, 216, 95, 0);
+  }
+}
+
+@keyframes theta-page-ripple {
+  0% {
+    opacity: 0;
+    transform: scale(0.42);
+    box-shadow:
+      0 0 0 0 rgba(255, 246, 201, 0),
+      0 0 0 0 rgba(255, 216, 95, 0),
+      0 0 0 0 rgba(109, 145, 255, 0),
+      inset 0 0 0 1px rgba(255, 216, 95, 0.24);
+  }
+
+  12% {
+    opacity: 0.96;
+    transform: scale(0.66);
+    box-shadow:
+      0 0 0 0.42rem rgba(255, 246, 201, 0.62),
+      0 0 0 1.15rem rgba(255, 216, 95, 0.34),
+      0 0 0 2.05rem rgba(109, 145, 255, 0.16),
+      inset 0 0 0 1px rgba(255, 216, 95, 0.3);
+  }
+
+  52% {
+    opacity: 0.78;
+    transform: scale(1);
+    box-shadow:
+      0 0 0 var(--theta-ring-one) rgba(255, 246, 201, 0.48),
+      0 0 0 var(--theta-ring-two) rgba(255, 216, 95, 0.22),
+      0 0 0 var(--theta-ring-three) rgba(109, 145, 255, 0.12),
+      inset 0 0 0 1px rgba(255, 216, 95, 0.22);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.32);
+    box-shadow:
+      0 0 0 calc(var(--theta-ring-one) * 2.7) rgba(255, 246, 201, 0),
+      0 0 0 calc(var(--theta-ring-two) * 2.1) rgba(255, 216, 95, 0),
+      0 0 0 calc(var(--theta-ring-three) * 1.65) rgba(109, 145, 255, 0),
+      inset 0 0 0 1px rgba(255, 216, 95, 0);
   }
 }
 
