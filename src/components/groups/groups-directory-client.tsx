@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { GroupCardView, GroupDirectoryMode } from "@/modules/groups/types";
 
 function initials(name: string) {
@@ -201,7 +202,7 @@ export function GroupsDirectoryClient({
       {nextCursor ? (
         <div className="flex justify-center">
           <button className="btn-secondary min-w-40" disabled={isPending} onClick={loadMore} type="button">
-            {isPending ? "Loading…" : "Load more groups"}
+            {isPending ? <ThetaLoading inline label="Loading groups" size="sm" /> : "Load more groups"}
           </button>
         </div>
       ) : null}

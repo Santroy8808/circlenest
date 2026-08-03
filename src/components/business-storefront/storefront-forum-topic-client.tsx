@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import type { StorefrontForumPostView, StorefrontForumTopicDetailView, StorefrontForumView } from "@/modules/storefront-forum/types";
@@ -288,7 +289,7 @@ export function StorefrontForumTopicClient({ profile, topic, viewerCanManage }: 
           {message ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
           {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           <button className="btn-primary" disabled={isPending || (!body.trim() && !imageUrl.trim())} type="submit">
-            {isPending ? "Posting..." : "Post reply"}
+            {isPending ? <ThetaLoading inline label="Posting" size="sm" /> : "Post reply"}
           </button>
         </form>
       </div>

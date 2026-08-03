@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function LoginForm({ callbackUrl = "/home/default" }: { callbackUrl?: string }) {
   const router = useRouter();
@@ -63,7 +64,7 @@ export function LoginForm({ callbackUrl = "/home/default" }: { callbackUrl?: str
       </label>
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
-        {isPending ? "Checking..." : "Log in"}
+        {isPending ? <ThetaLoading inline label="Checking" size="sm" /> : "Log in"}
       </button>
       <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
         <Link className="text-[var(--gold)]" href="/reset-password">

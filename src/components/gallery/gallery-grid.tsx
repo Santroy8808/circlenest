@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword } from "@/lib/client/delete-password";
 import type { GalleryAssetView } from "@/modules/gallery-media-storage/types";
 import {
@@ -244,7 +245,7 @@ export function GalleryGrid({
           onClick={() => quickUploadInputRef.current?.click()}
           type="button"
         >
-          Upload
+          {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : "Upload"}
         </button>
       </section>
     );
@@ -276,7 +277,7 @@ export function GalleryGrid({
             onClick={() => quickUploadInputRef.current?.click()}
             type="button"
           >
-            Upload
+            {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : "Upload"}
           </button>
         </div>
 
@@ -312,7 +313,7 @@ export function GalleryGrid({
                 title="Delete selected photos"
                 type="button"
               >
-                {pendingDeletion?.source === "selection" ? "Queueing..." : "Delete"}
+                {pendingDeletion?.source === "selection" ? <ThetaLoading inline label="Queueing" size="sm" /> : "Delete"}
               </button>
             </div>
 
@@ -456,7 +457,7 @@ export function GalleryGrid({
                   onClick={() => void deleteAssets([asset.id], "tile")}
                   type="button"
                 >
-                  {pendingDeletion?.source === "tile" && pendingDeletion.mediaAssetIds.includes(asset.id) ? "Queueing..." : "Delete"}
+                  {pendingDeletion?.source === "tile" && pendingDeletion.mediaAssetIds.includes(asset.id) ? <ThetaLoading inline label="Queueing" size="sm" /> : "Delete"}
                 </button>
                 <Link className="gallery-tile-link" data-tooltip="Open this photo." href={`/profile/gallery/${asset.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}

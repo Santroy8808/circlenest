@@ -2,6 +2,7 @@
 
 import type { MembershipTier } from "@prisma/client";
 import { useRef, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function SubscriptionCheckoutButton({
   disabled,
@@ -46,7 +47,7 @@ export function SubscriptionCheckoutButton({
   return (
     <div className="grid gap-2">
       <button className="btn-primary" disabled={disabled || isPending} onClick={startCheckout} type="button">
-        {isPending ? "Opening secure checkout..." : planName ? `Upgrade to ${planName}` : "Upgrade with Stripe"}
+        {isPending ? <ThetaLoading inline label="Opening checkout" size="sm" /> : planName ? `Upgrade to ${planName}` : "Upgrade with Stripe"}
       </button>
       {error ? <p className="text-sm text-red-100" role="alert">{error}</p> : null}
     </div>

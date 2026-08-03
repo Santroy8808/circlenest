@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 function isPlainPrimaryClick(event: MouseEvent) {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -66,7 +67,7 @@ export function NavigationProgress() {
   return (
     <div aria-live="polite" className={visible ? "navigation-progress is-visible" : "navigation-progress"} role="status">
       <span className="navigation-progress-bar" />
-      <span className="navigation-progress-spinner" />
+      <ThetaLoading className="navigation-progress-theta" inline label="Loading" size="sm" />
       <span className="sr-only">Loading page</span>
     </div>
   );

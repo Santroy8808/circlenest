@@ -2,6 +2,7 @@
 
 import { SocialRelationshipType } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { quickFamilyRelationshipLabels } from "@/modules/social-graph/types";
 
 export function ProfileRelationshipActions({
@@ -121,10 +122,10 @@ export function ProfileRelationshipActions({
       )}
       <div className="profile-secondary-actions">
         <button className="profile-relationship-link" disabled={isPending || isFriend || friendPending} onClick={requestFriend} type="button">
-          {isFriend ? "Friend" : friendPending ? "Friend pending" : isPending ? "Sending..." : "Friend me"}
+          {isFriend ? "Friend" : friendPending ? "Friend pending" : isPending ? <ThetaLoading inline label="Sending" size="sm" /> : "Friend me"}
         </button>
         <button className="profile-relationship-link" disabled={isPending || isAcquaintance} onClick={markAcquaintance} type="button">
-          {isAcquaintance ? "Acquaintance" : isPending ? "Saving..." : "Acquaintance"}
+          {isAcquaintance ? "Acquaintance" : isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Acquaintance"}
         </button>
       </div>
       {message ? <p className="profile-relationship-message">{message}</p> : null}

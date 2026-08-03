@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { AdScheduleAdminView } from "@/modules/ads-credits/types";
 
 function formatDateTime(value: string) {
@@ -58,7 +59,7 @@ export function AdminAdScheduleWizard({ initialView }: { initialView: AdSchedule
             </p>
           </div>
           <button className="btn-primary" disabled={isPending} onClick={recalculate} type="button">
-            {isPending ? "Recalculating..." : "Recalculate rest of today"}
+            {isPending ? <ThetaLoading inline label="Recalculating" size="sm" /> : "Recalculate rest of today"}
           </button>
         </div>
         {message ? <p className="mt-4 rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}

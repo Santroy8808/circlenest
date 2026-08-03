@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword } from "@/lib/client/delete-password";
 import { requestGalleryAssetDeletion } from "./gallery-deletion-request";
 
@@ -101,7 +102,7 @@ export function GalleryDeletionQueue({ requests }: { requests: GalleryDeletionQu
                   onClick={() => void retry(request)}
                   type="button"
                 >
-                  {pendingRequestId === request.id ? "Queueing..." : "Retry"}
+                  {pendingRequestId === request.id ? <ThetaLoading inline label="Queueing" size="sm" /> : "Retry"}
                 </button>
               ) : null}
             </div>

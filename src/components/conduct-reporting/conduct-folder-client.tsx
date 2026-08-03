@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type ReportItem = {
   reference: string;
@@ -94,7 +95,7 @@ export function ConductFolderClient({ initialView }: { initialView: FolderView }
                   {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
                   <div className="flex flex-wrap justify-end gap-2">
                     <button className="btn-secondary" onClick={() => setOpeningReport(null)} type="button">Cancel</button>
-                    <button className="btn-primary" disabled={isPending} onClick={() => openDispute(report.reference)} type="button">{isPending ? "Opening..." : "Open dispute"}</button>
+                    <button className="btn-primary" disabled={isPending} onClick={() => openDispute(report.reference)} type="button">{isPending ? <ThetaLoading inline label="Opening" size="sm" /> : "Open dispute"}</button>
                   </div>
                 </div>
               ) : (

@@ -3,6 +3,7 @@
 import { MembershipTier, PromotionAccessScope } from "@prisma/client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import {
   buildExistingUserGrantPayload,
   buildInviteNewUserPayload,
@@ -497,7 +498,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button className="btn-primary" disabled={isPending} onClick={createGrant} type="button">
-                {isPending ? "Creating..." : "Create access grant"}
+                {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create access grant"}
               </button>
               {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
             </div>
@@ -580,7 +581,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                   <span>Send invitation email immediately</span>
                 </label>
                 <button className="btn-primary w-fit disabled:cursor-not-allowed disabled:opacity-60" disabled={isPending} onClick={generateInviteCode} type="button">
-                  {isPending ? "Working..." : inviteNewUserButtonLabel(sendInviteEmailImmediately)}
+                  {isPending ? <ThetaLoading inline label="Working" size="sm" /> : inviteNewUserButtonLabel(sendInviteEmailImmediately)}
                 </button>
               </div>
             ) : (
@@ -629,7 +630,9 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                     ))}
                   </div>
                 ) : existingAccountSearchMessage ? (
-                  <p className="text-sm text-[var(--muted)]">{existingAccountSearchMessage}</p>
+                  <p className="text-sm text-[var(--muted)]">
+                    {existingAccountSearchMessage === "Searching accounts..." ? <ThetaLoading inline label="Searching accounts" size="sm" /> : existingAccountSearchMessage}
+                  </p>
                 ) : null}
                 {selectedExistingAccount ? (
                   <div className="rounded-md border border-[var(--line)] bg-black/20 p-4">
@@ -660,7 +663,7 @@ export function AdminLaunchAccessWizard({ initialView, mode }: { initialView: La
                   onClick={grantExistingUserFreeAccess}
                   type="button"
                 >
-                  {isPending ? "Working..." : "Grant Free Access"}
+                  {isPending ? <ThetaLoading inline label="Working" size="sm" /> : "Grant Free Access"}
                 </button>
               </div>
             )}

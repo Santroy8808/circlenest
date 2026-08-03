@@ -2,6 +2,7 @@
 
 import { MediaVisibility } from "@prisma/client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 
 type GalleryAccessSettings = {
@@ -413,7 +414,7 @@ export function BackgroundGalleryUploadProvider({ children }: { children: React.
       {children}
       {isUploading ? (
         <div className="background-upload-status" role="status">
-          Uploading gallery photos...
+          <ThetaLoading inline label="Uploading gallery photos" size="sm" />
         </div>
       ) : null}
       {notice ? (

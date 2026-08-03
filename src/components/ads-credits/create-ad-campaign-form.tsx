@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
-import { ImageCarousel } from "@/components/media/image-carousel";
 import { CarouselGuidance } from "@/components/media/carousel-guidance";
+import { ImageCarousel } from "@/components/media/image-carousel";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   adAgeRangeOptions,
@@ -786,7 +787,12 @@ export function CreateAdCampaignForm({
                 <div key={`${image.file.name}-${index}`}>
                   <strong>{image.file.name}</strong>
                   <small>{Math.max(1, Math.round(image.file.size / 1024))} KB</small>
-                  {image.status === "uploading" ? <div className="feed-upload-meter"><span style={{ width: `${image.progress}%` }} /></div> : null}
+                  {image.status === "uploading" ? (
+                    <>
+                      <ThetaLoading inline label={`${image.progress}%`} size="sm" />
+                      <div className="feed-upload-meter"><span style={{ width: `${image.progress}%` }} /></div>
+                    </>
+                  ) : null}
                   <button className="btn-secondary px-3 py-1 text-xs" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))} type="button">Remove</button>
                 </div>
               ))}
@@ -1200,7 +1206,7 @@ export function CreateAdCampaignForm({
           ) : null}
           {currentStep.key === "preview" ? (
             <button className="btn-primary" disabled={isPending || publishBlockers.length > 0} type="submit">
-              {isPending ? "Publishing..." : "Publish Ad"}
+              {isPending ? <ThetaLoading inline label="Publishing" size="sm" /> : "Publish Ad"}
             </button>
           ) : (
             <button className="btn-primary" disabled={isPending} onClick={goNext} type="button">

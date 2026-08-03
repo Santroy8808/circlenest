@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { quickFamilyRelationshipLabels } from "@/modules/social-graph/types";
 
 export function FamilyTagButton({
@@ -55,7 +56,7 @@ export function FamilyTagButton({
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
-        {disabled || sent ? "Family request sent" : isPending ? "Sending..." : "Add family"}
+        {disabled || sent ? "Family request sent" : isPending ? <ThetaLoading inline label="Sending" size="sm" /> : "Add family"}
       </button>
       {isOpen && !disabled && !sent ? (
         <div className="family-choice-popover" role="menu">

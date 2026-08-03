@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { inlineImageToken, StorefrontDescriptionContent } from "@/components/business-storefront/storefront-description-content";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { BusinessCenterView, BusinessProfileView } from "@/modules/business-storefront/types";
 
@@ -356,7 +357,7 @@ export function BusinessCenterClient({ businessCenter, canUseWriters }: { busine
                 <div className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <span className="truncate">{bannerUpload.fileName}</span>
-                    <span>{bannerUpload.status === "uploading" ? `${bannerUpload.progress}%` : bannerUpload.status}</span>
+                    <span>{bannerUpload.status === "uploading" ? <ThetaLoading inline label={`${bannerUpload.progress}%`} size="sm" /> : bannerUpload.status}</span>
                   </div>
                   {bannerUpload.status === "uploading" ? (
                     <div
@@ -429,7 +430,7 @@ export function BusinessCenterClient({ businessCenter, canUseWriters }: { busine
             <div className="rounded-md border border-[var(--line)] bg-black/10 p-3 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate">{bodyUpload.fileName}</span>
-                <span>{bodyUpload.status === "uploading" ? `${bodyUpload.progress}%` : bodyUpload.status}</span>
+                <span>{bodyUpload.status === "uploading" ? <ThetaLoading inline label={`${bodyUpload.progress}%`} size="sm" /> : bodyUpload.status}</span>
               </div>
               {bodyUpload.status === "uploading" ? (
                 <div
@@ -600,7 +601,7 @@ export function BusinessCenterClient({ businessCenter, canUseWriters }: { busine
             Cancel
           </Link>
           <button className="btn-primary" disabled={isPending || form.businessName.trim().length < 2} type="submit">
-            {isPending ? "Saving..." : "Save business profile"}
+            {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save business profile"}
           </button>
         </div>
       </form>

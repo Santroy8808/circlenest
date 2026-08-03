@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function FriendRequestActions({ onResolved, requestId }: { onResolved?: () => void; requestId: string }) {
   const [message, setMessage] = useState("");
@@ -33,7 +34,7 @@ export function FriendRequestActions({ onResolved, requestId }: { onResolved?: (
       {!resolved ? (
         <>
           <button className="btn-primary min-h-11" disabled={isPending} onClick={() => respond("approve")} type="button">
-            {isPending ? "Saving..." : "Approve friend"}
+            {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Approve friend"}
           </button>
           <button className="btn-secondary min-h-11" disabled={isPending} onClick={() => respond("deny")} type="button">
             Deny

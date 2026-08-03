@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import {
   MAX_MAIL_ATTACHMENT_BYTES,
@@ -574,7 +575,7 @@ export function MailClient({
           <div className="mt-3 grid gap-2">
             {isSearchingContacts ? (
               <p className="rounded-md border border-[var(--line)] p-3 text-sm text-[var(--muted)]" role="status">
-                Searching contacts...
+                <ThetaLoading inline label="Searching contacts" size="sm" />
               </p>
             ) : null}
             {!isSearchingContacts && contactQuery.trim().length >= 2 && contacts.length === 0 ? (
@@ -633,7 +634,7 @@ export function MailClient({
           ) : null}
           {isLoadingFolder && threads.length === 0 ? (
             <p className="rounded-md border border-[var(--line)] p-4 text-sm text-[var(--muted)]" role="status">
-              Loading mail...
+              <ThetaLoading inline label="Loading mail" size="sm" />
             </p>
           ) : null}
           {!isLoadingFolder && threads.length === 0 ? (
@@ -671,7 +672,7 @@ export function MailClient({
               onClick={() => void loadMoreThreads()}
               type="button"
             >
-              {isLoadingFolder ? "Loading more mail..." : "Load more mail"}
+              {isLoadingFolder ? <ThetaLoading inline label="Loading mail" size="sm" /> : "Load more mail"}
             </button>
           ) : null}
         </div>
@@ -716,7 +717,7 @@ export function MailClient({
                   />
                   {isSearchingContacts ? (
                     <div className="mail-recipient-search-results p-3 text-sm text-[var(--muted)]" role="status">
-                      Searching contacts...
+                      <ThetaLoading inline label="Searching contacts" size="sm" />
                     </div>
                   ) : contacts.length > 0 ? (
                     <div className="mail-recipient-search-results">
@@ -793,7 +794,9 @@ export function MailClient({
                         <span className="mail-file-icon">File</span>
                       )}
                       <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
-                      <span className="text-xs text-[var(--muted)]">{item.progress}%</span>
+                      <span className="text-xs text-[var(--muted)]">
+                        {item.status === "uploading" ? <ThetaLoading inline label={`${item.progress}%`} size="sm" /> : `${item.progress}%`}
+                      </span>
                       <button
                         className="btn-secondary px-3 py-1 text-xs"
                         onClick={() => removeAttachment(item.id)}
@@ -819,8 +822,8 @@ export function MailClient({
                 Cancel
               </button>
               <button className="btn-primary send-logo-button is-compact" disabled={isPending || recipients.length === 0 || !subject.trim() || !bodyText.trim()} type="submit">
-                <span aria-hidden="true" className="send-logo-icon" />
-                <span className="sr-only">{isPending ? "Sending..." : "Send mail"}</span>
+                {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
+                <span className="sr-only">{isPending ? "Sending" : "Send mail"}</span>
               </button>
             </div>
           </form>
@@ -871,12 +874,12 @@ export function MailClient({
                   onClick={() => void loadOlderMessages()}
                   type="button"
                 >
-                  {isLoadingOlder ? "Loading earlier mail..." : "Load earlier mail"}
+                  {isLoadingOlder ? <ThetaLoading inline label="Loading mail" size="sm" /> : "Load earlier mail"}
                 </button>
               ) : null}
               {isLoadingThread ? (
                 <p className="text-center text-sm text-[var(--muted)]" role="status">
-                  Opening mail...
+                  <ThetaLoading inline label="Opening mail" size="sm" />
                 </p>
               ) : null}
               {selectedThread.messages.map((message: MailMessageView) => (

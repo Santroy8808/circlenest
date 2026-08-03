@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, type PointerEvent, useRef, useState, useTransition } from "react";
 import { requestProfileMedia } from "@/components/gallery/profile-media-request";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   avatarFrameDefaults,
@@ -333,7 +334,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           />
           {avatarUpload.status !== "idle" ? (
             <p className="text-sm text-[var(--muted)]">
-              Avatar {avatarUpload.status === "uploading" ? `${avatarUpload.progress}%` : avatarUpload.status}
+              {avatarUpload.status === "uploading" ? <ThetaLoading inline label={`Avatar ${avatarUpload.progress}%`} size="sm" /> : `Avatar ${avatarUpload.status}`}
             </p>
           ) : null}
           {avatarUpload.error ? <p className="text-sm text-red-100">{avatarUpload.error}</p> : null}
@@ -456,7 +457,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
           />
           {bannerUpload.status !== "idle" ? (
             <p className="text-sm text-[var(--muted)]">
-              Banner {bannerUpload.status === "uploading" ? `${bannerUpload.progress}%` : bannerUpload.status}
+              {bannerUpload.status === "uploading" ? <ThetaLoading inline label={`Banner ${bannerUpload.progress}%`} size="sm" /> : `Banner ${bannerUpload.status}`}
             </p>
           ) : null}
           {bannerUpload.error ? <p className="text-sm text-red-100">{bannerUpload.error}</p> : null}
@@ -470,7 +471,7 @@ export function ProfileEditForm({ profile, nextPath }: { profile: ProfileCardVie
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       {message ? <p className="rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
-        {isPending ? "Saving..." : "Save profile"}
+        {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save profile"}
       </button>
     </form>
   );

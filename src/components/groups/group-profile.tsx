@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import type { GroupMemberView, GroupProfileView } from "@/modules/groups/types";
 
@@ -284,7 +285,7 @@ export function GroupProfile({ group }: { group: GroupProfileView }) {
               />
             </label>
             <button className="btn-primary self-end" disabled={isPending || !memberIdentifier.trim()} type="submit">
-              {isPending ? "Working…" : "Add member"}
+              {isPending ? <ThetaLoading inline label="Working" size="sm" /> : "Add member"}
             </button>
           </form>
 

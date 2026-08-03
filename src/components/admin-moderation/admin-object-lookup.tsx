@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { AdminObjectLookupResult } from "@/modules/admin-moderation/object-lookup.service";
 
 export function AdminObjectLookup() {
@@ -63,7 +64,7 @@ export function AdminObjectLookup() {
           />
         </label>
         <button className="btn-primary" disabled={status === "loading"} type="submit">
-          {status === "loading" ? "Searching" : "Search"}
+          {status === "loading" ? <ThetaLoading inline label="Searching" size="sm" /> : "Search"}
         </button>
       </form>
 

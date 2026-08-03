@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function AdCreditCheckoutButton({ disabled, packageKey }: { disabled?: boolean; packageKey: string }) {
   const [error, setError] = useState("");
@@ -37,7 +38,7 @@ export function AdCreditCheckoutButton({ disabled, packageKey }: { disabled?: bo
   return (
     <div className="grid gap-2">
       <button className="btn-primary" disabled={disabled || isPending} onClick={startCheckout} type="button">
-        {isPending ? "Opening Stripe..." : "Buy credits"}
+        {isPending ? <ThetaLoading inline label="Opening Stripe" size="sm" /> : "Buy credits"}
       </button>
       {error ? <p className="text-sm text-red-100" role="alert">{error}</p> : null}
     </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function PasswordResetForm({ initialToken = "" }: { initialToken?: string }) {
   const [requestMessage, setRequestMessage] = useState("");
@@ -108,7 +109,7 @@ export function PasswordResetForm({ initialToken = "" }: { initialToken?: string
           </p>
         ) : null}
         <button className="btn-primary" disabled={isPending} type="submit">
-          {isPending ? "Updating..." : "Update password"}
+          {isPending ? <ThetaLoading inline label="Updating" size="sm" /> : "Update password"}
         </button>
         <Link className="btn-secondary text-center" href="/reset-password">
           Request a new link
@@ -137,7 +138,7 @@ export function PasswordResetForm({ initialToken = "" }: { initialToken?: string
         </p>
       ) : null}
       <button className="btn-primary" disabled={isPending} type="submit">
-        {isPending ? "Sending..." : "Email reset link"}
+        {isPending ? <ThetaLoading inline label="Sending" size="sm" /> : "Email reset link"}
       </button>
       <Link className="btn-secondary text-center" href="/login">
         Back to login

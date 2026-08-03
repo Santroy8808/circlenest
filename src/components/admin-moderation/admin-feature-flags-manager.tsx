@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type {
   FeatureFlagCategoryDefinition,
   RegisteredFeatureFlagView
@@ -399,7 +400,7 @@ export function AdminFeatureFlagsManager({
             <div className="mt-5 flex flex-wrap justify-end gap-3">
               <button className="btn-secondary" disabled={isPending} onClick={closeConfirmation} type="button">Cancel</button>
               <button className={pendingChange.action !== "reset" && pendingChange.enabled === false ? "btn-danger" : "btn-primary"} disabled={isPending || reason.trim().length < 10} onClick={() => void save()} type="button">
-                {isPending ? "Saving..." : "Confirm change"}
+                {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Confirm change"}
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { GroupForumThreadCardView } from "@/modules/group-forum/types";
 
 export function GroupForumClient({
@@ -118,7 +119,7 @@ export function GroupForumClient({
               Cancel
             </button>
             <button className="btn-primary" disabled={isPending || !title.trim() || !body.trim()} type="submit">
-              {isPending ? "Creating..." : "Start thread"}
+              {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Start thread"}
             </button>
           </div>
         </form>

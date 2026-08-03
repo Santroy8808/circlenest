@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
 import { CarouselGuidance } from "@/components/media/carousel-guidance";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
@@ -399,7 +400,7 @@ export function CreateMarketListingForm({
           Cancel
         </Link>
         <button className="btn-primary" disabled={isSubmitting || title.trim().length < 2 || description.trim().length < 5} type="submit">
-          {isSubmitting ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save listing" : "Create listing"}
+          {isSubmitting ? <ThetaLoading inline label={mode === "edit" ? "Saving" : "Creating"} size="sm" /> : mode === "edit" ? "Save listing" : "Create listing"}
         </button>
       </div>
     </form>

@@ -8,6 +8,7 @@ import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { CarouselGuidance } from "@/components/media/carousel-guidance";
 import { ImageCarousel } from "@/components/media/image-carousel";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { GroupAssetView } from "@/modules/group-media-docs/types";
 
 type UploadItem = {
@@ -507,7 +508,7 @@ export function GroupMediaClient({
               Cancel
             </button>
             <button className="btn-primary" disabled={items.length === 0 || isUploading} onClick={uploadAll} type="button">
-              {isUploading ? "Uploading..." : `Upload ${kindLabel(selectedKind).toLowerCase()}`}
+              {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : `Upload ${kindLabel(selectedKind).toLowerCase()}`}
             </button>
           </div>
         </section>

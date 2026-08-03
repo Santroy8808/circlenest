@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function EndAdCampaignButton({ campaignId }: { campaignId: string }) {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function EndAdCampaignButton({ campaignId }: { campaignId: string }) {
   return (
     <div className="grid gap-2">
       <button className="btn-secondary w-fit px-4 py-2 text-sm" disabled={isPending} onClick={endCampaign} type="button">
-        {isPending ? "Ending..." : "End campaign"}
+        {isPending ? <ThetaLoading inline label="Ending" size="sm" /> : "End campaign"}
       </button>
       {error ? <p className="text-sm text-red-200">{error}</p> : null}
     </div>

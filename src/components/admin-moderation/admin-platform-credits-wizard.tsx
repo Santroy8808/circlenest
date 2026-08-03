@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type CreditAccount = {
   id: string;
@@ -92,7 +93,7 @@ export function AdminPlatformCreditsWizard({ recentLedger }: { recentLedger: Rec
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input className="form-field" onChange={(event) => setIdentifier(event.target.value)} placeholder="email or username" value={identifier} />
           <button className="btn-secondary" disabled={isPending || identifier.trim().length === 0} onClick={findAccount} type="button">
-            Search
+            {isPending ? <ThetaLoading inline label="Searching" size="sm" /> : "Search"}
           </button>
         </div>
         {account ? (
@@ -127,7 +128,7 @@ export function AdminPlatformCreditsWizard({ recentLedger }: { recentLedger: Rec
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <button className="btn-primary" disabled={isPending || !account || amount === 0 || reason.trim().length < 5} onClick={adjustCredits} type="button">
-            {isPending ? "Updating..." : "Update platform credits"}
+            {isPending ? <ThetaLoading inline label="Updating" size="sm" /> : "Update platform credits"}
           </button>
           {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
         </div>

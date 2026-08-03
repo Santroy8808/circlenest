@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 
 export function ManuscriptSubscribeButton({
@@ -44,7 +45,7 @@ export function ManuscriptSubscribeButton({
   return (
     <div className="writer-subscribe-action">
       <button className={subscribed ? "btn-secondary" : "btn-primary"} disabled={isPending} onClick={toggle} type="button">
-        {subscribed ? "Subscribed" : isPending ? "Subscribing..." : "Subscribe"}
+        {isPending ? <ThetaLoading inline label={subscribed ? "Unsubscribing" : "Subscribing"} size="sm" /> : subscribed ? "Subscribed" : "Subscribe"}
       </button>
       {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { PlatformCostRuleView } from "@/modules/platform-pricing/types";
 
 function durationLabel(days: number | null) {
@@ -177,7 +178,7 @@ export function AdminPricingWizard({ initialRules }: { initialRules: PlatformCos
           {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
 
           <button className="btn-primary justify-self-end" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Save global price"}
+            {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save global price"}
           </button>
         </form>
       ) : null}

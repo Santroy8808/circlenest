@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 
 type OwnInvite = {
@@ -180,7 +181,7 @@ export function InviteSettingsClient({
               />
             </label>
             <button className="btn-primary w-fit" disabled={isPending || inviteAddressCount === 0} type="submit">
-              {isPending ? "Sending..." : "Send invite"}
+              {isPending ? <ThetaLoading inline label="Sending" size="sm" /> : "Send invite"}
             </button>
           </form>
         ) : null}
@@ -205,7 +206,7 @@ export function InviteSettingsClient({
               <input className="form-field" max={90} min={1} onChange={(event) => setBulkExpiresInDays(Number(event.target.value))} type="number" value={bulkExpiresInDays} />
             </label>
             <button className="btn-primary w-fit" disabled={isPending || bulkAddressCount === 0} type="submit">
-              {isPending ? "Queueing..." : "Queue invitations"}
+              {isPending ? <ThetaLoading inline label="Queueing" size="sm" /> : "Queue invitations"}
             </button>
           </form>
           <div className="mt-5 grid gap-3">

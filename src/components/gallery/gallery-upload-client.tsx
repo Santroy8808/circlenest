@@ -4,6 +4,7 @@ import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type GalleryAccess = "PRIVATE" | "MEMBERS_NO_COMMENTS" | "MEMBERS_COMMENTS" | "PUBLIC_NO_COMMENTS" | "PUBLIC_COMMENTS";
 
@@ -66,7 +67,7 @@ export function GalleryUploadClient() {
             onClick={() => uploadAll(selectedSettings)}
             type="button"
           >
-            {isUploading ? "Uploading..." : "Upload photos"}
+            {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : "Upload photos"}
           </button>
         </div>
       </div>
@@ -87,7 +88,9 @@ export function GalleryUploadClient() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <p className="truncate font-semibold">{item.file.name}</p>
-                  <span className="text-sm text-[var(--muted)]">{item.progress}%</span>
+                  <span className="text-sm text-[var(--muted)]">
+                    {item.status === "uploading" ? <ThetaLoading inline label={`${item.progress}%`} size="sm" /> : `${item.progress}%`}
+                  </span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30">
                   <div className="h-full rounded-full bg-[var(--blue)]" style={{ width: `${item.progress}%` }} />

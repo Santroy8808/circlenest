@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function EmailVerificationForm({ initialToken = "" }: { initialToken?: string }) {
   const [message, setMessage] = useState("");
@@ -70,7 +71,7 @@ export function EmailVerificationForm({ initialToken = "" }: { initialToken?: st
       )}
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
-        {isPending ? "Verifying..." : "Verify my email"}
+        {isPending ? <ThetaLoading inline label="Verifying" size="sm" /> : "Verify my email"}
       </button>
     </form>
   );

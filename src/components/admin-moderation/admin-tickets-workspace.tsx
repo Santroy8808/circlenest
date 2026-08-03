@@ -5,6 +5,7 @@ import {
   FEEDBACK_TYPE_OPTIONS,
   type ConfiguredFeedbackKind
 } from "@/modules/feedback-support/config";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { AdminFeedbackTicketListView } from "@/modules/feedback-support/feedback-support.service";
 
 type TicketRow = AdminFeedbackTicketListView["tickets"][number];
@@ -740,7 +741,7 @@ export function AdminTicketsWorkspace({
             <header className="ticket-drawer-header">
               <div>
                 <p>{detail?.publicId ?? "Ticket"}</p>
-                <h2>{detail?.subject ?? (detailLoading ? "Loading..." : "Could not open ticket")}</h2>
+                <h2>{detail?.subject ?? (detailLoading ? <ThetaLoading inline label="Loading" size="sm" /> : "Could not open ticket")}</h2>
               </div>
               <button aria-label="Close ticket" onClick={closeTicket} type="button">Close</button>
             </header>
@@ -898,7 +899,7 @@ export function AdminTicketsWorkspace({
                       onClick={() => void sendMessage()}
                       type="button"
                     >
-                      {messageState === "sending" ? "Sending..." : messageState === "failed" ? "Retry" : messageType === "INTERNAL" ? "Add Internal Note" : "Send Message"}
+                      {messageState === "sending" ? <ThetaLoading inline label="Sending" size="sm" /> : messageState === "failed" ? "Retry" : messageType === "INTERNAL" ? "Add Internal Note" : "Send Message"}
                     </button>
                   </div>
                 </section>

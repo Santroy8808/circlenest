@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { MyAuditorProfileView } from "@/modules/auditors/types";
 
 export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
@@ -114,7 +115,7 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
             Cancel
           </Link>
           <button className="btn-primary" disabled={isPending || practiceName.trim().length < 2} type="submit">
-            {isPending ? "Saving..." : "Save auditor profile"}
+            {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save auditor profile"}
           </button>
         </div>
       </form>

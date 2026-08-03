@@ -2,6 +2,7 @@
 
 import { InterestCategory } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { interestCategoryOptions } from "@/modules/ads-credits/types";
 
 export function ProfileInterestsForm({ initialCategories }: { initialCategories: InterestCategory[] }) {
@@ -53,7 +54,7 @@ export function ProfileInterestsForm({ initialCategories }: { initialCategories:
       </div>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button className="btn-primary" disabled={isPending} onClick={save} type="button">
-          {isPending ? "Saving..." : "Save interests"}
+          {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save interests"}
         </button>
         <button className="btn-secondary" disabled={isPending || categories.length === 0} onClick={() => setCategories([])} type="button">
           Clear all

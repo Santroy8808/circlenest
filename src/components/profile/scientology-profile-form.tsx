@@ -3,6 +3,7 @@
 import { ScientologyClassification, ScientologyVisibility, type MediaAsset, type ScientologyCommendation, type ScientologyProfile } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import {
   scientologyAdditionalProcessingServices,
@@ -299,7 +300,7 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
         {message ? <p className="rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{message}</p> : null}
         <button className="btn-primary" disabled={isPending} type="submit">
-          {isPending ? "Saving..." : "Save My Scientology"}
+          {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save My Scientology"}
         </button>
       </form>
 
@@ -319,10 +320,10 @@ export function ScientologyProfileForm({ profile }: { profile: ScientologyProfil
             <input accept="image/jpeg,image/png,image/webp,application/pdf" className="form-field" name="commendationFile" type="file" />
           </label>
           <button className="btn-primary self-end" disabled={isUploading} type="submit">
-            {isUploading ? "Uploading..." : "Upload"}
+            {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : "Upload"}
           </button>
         </form>
-        {isUploading ? <p aria-live="polite" className="mt-3 text-sm text-[var(--muted)]">Uploading: {uploadProgress}%</p> : null}
+        {isUploading ? <p aria-live="polite" className="mt-3 text-sm text-[var(--muted)]"><ThetaLoading inline label={`Uploading ${uploadProgress}%`} size="sm" /></p> : null}
         {uploadError ? <p className="mt-4 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{uploadError}</p> : null}
         {uploadMessage ? <p aria-live="polite" className="mt-4 rounded-md border border-green-400/40 bg-green-950/30 p-3 text-sm text-green-100">{uploadMessage}</p> : null}
         <div className="mt-5 grid gap-3 md:grid-cols-2">

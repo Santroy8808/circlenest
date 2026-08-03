@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { FundraiserDetailView } from "@/modules/fundraisers-funds/types";
 
 function dollarsToCents(value: string) {
@@ -87,7 +88,7 @@ export function FundraiserDetail({ campaign }: { campaign: FundraiserDetailView 
         {status ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{status}</p> : null}
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
         <button className="btn-primary justify-self-end" disabled={isPending} type="submit">
-          {isPending ? "Recording..." : "Record intent"}
+          {isPending ? <ThetaLoading inline label="Recording" size="sm" /> : "Record intent"}
         </button>
       </form>
     </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { FamilyRequestActions } from "@/components/notifications/family-request-actions";
 import { FriendRequestActions } from "@/components/notifications/friend-request-actions";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export type NoticeCenterKind = "alert" | "notification";
 type NoticeFilter = "all" | NoticeCenterKind;
@@ -418,7 +419,7 @@ export function NoticeCenterClient({
       )}
       {canLoadMore ? (
         <button className="btn-secondary min-h-11 w-full" disabled={isLoadingMore} onClick={() => void loadMore()} type="button">
-          {isLoadingMore ? "Loading more..." : `Load more ${filterLabel(filter).toLowerCase()}`}
+          {isLoadingMore ? <ThetaLoading inline label="Loading more" size="sm" /> : `Load more ${filterLabel(filter).toLowerCase()}`}
         </button>
       ) : null}
     </section>

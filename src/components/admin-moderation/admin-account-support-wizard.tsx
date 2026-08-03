@@ -2,6 +2,7 @@
 
 import { MembershipTier } from "@prisma/client";
 import { useEffect, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type AccountSupportMode = "choose" | "create-user" | "reset-password";
 
@@ -183,7 +184,7 @@ export function AdminAccountSupportWizard({ mode, inviteCode }: { mode?: string;
               onClick={createUser}
               type="button"
             >
-              {isPending ? "Creating..." : "Create User"}
+              {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create User"}
             </button>
             {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
           </div>
@@ -226,7 +227,7 @@ export function AdminAccountSupportWizard({ mode, inviteCode }: { mode?: string;
             onClick={resetUserPassword}
             type="button"
           >
-            {isPending ? "Resetting..." : "Reset Password"}
+            {isPending ? <ThetaLoading inline label="Resetting" size="sm" /> : "Reset Password"}
           </button>
           {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
         </div>

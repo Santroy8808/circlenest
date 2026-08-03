@@ -2,6 +2,7 @@
 
 import { MembershipTier, StripeIntegrationMode } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { StripeSetupAdminView } from "@/modules/billing/stripe-admin.service";
 
 function money(cents: number) {
@@ -180,7 +181,7 @@ export function AdminStripeSetupWizard({ initialView }: { initialView: StripeSet
           </label>
         </div>
         <button className="btn-primary mt-5" disabled={isPending} onClick={() => save("connection", connection, "Stripe connection saved.")} type="button">
-          {isPending ? "Saving..." : "Save connection"}
+          {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save connection"}
         </button>
       </section>
 

@@ -3,6 +3,7 @@
 import { ManuscriptVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { WriterAccessState } from "@/modules/writers-corner/types";
 
 export function CreateManuscriptForm({ access }: { access: WriterAccessState }) {
@@ -97,7 +98,7 @@ export function CreateManuscriptForm({ access }: { access: WriterAccessState }) 
           Cancel
         </Link>
         <button className="btn-primary" disabled={isPending || title.trim().length < 2} type="submit">
-          {isPending ? "Creating..." : "Create manuscript"}
+          {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create manuscript"}
         </button>
       </div>
     </form>

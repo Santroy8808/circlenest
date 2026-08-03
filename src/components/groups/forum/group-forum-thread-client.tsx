@@ -6,6 +6,7 @@ import { useRef, useState, useTransition } from "react";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
@@ -421,8 +422,8 @@ export function GroupForumThreadClient({
           ) : null}
           {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           <button className="btn-primary send-logo-button mt-4" disabled={isPending || (!body.trim() && !photo)} type="submit">
-            <span aria-hidden="true" className="send-logo-icon" />
-            <span className="sr-only">{isPending ? "Replying..." : "Post reply"}</span>
+            {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
+            <span className="sr-only">{isPending ? "Replying" : "Post reply"}</span>
           </button>
         </form>
       ) : (

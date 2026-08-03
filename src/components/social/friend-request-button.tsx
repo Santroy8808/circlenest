@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 
 export function FriendRequestButton({
@@ -71,7 +72,7 @@ export function FriendRequestButton({
         onClick={friends ? removeFriend : sendRequest}
         type="button"
       >
-        {friends ? (isPending ? "Removing..." : "Remove friend") : sent ? "Request sent" : isPending ? "Sending..." : "Add friend"}
+        {friends ? (isPending ? <ThetaLoading inline label="Removing" size="sm" /> : "Remove friend") : sent ? "Request sent" : isPending ? <ThetaLoading inline label="Sending" size="sm" /> : "Add friend"}
       </button>
       {message ? <p className="max-w-40 text-xs text-[var(--muted)]" role="status">{message}</p> : null}
       {error ? (

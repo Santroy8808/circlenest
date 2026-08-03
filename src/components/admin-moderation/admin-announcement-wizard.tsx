@@ -2,6 +2,7 @@
 
 import { MembershipTier, UserRole } from "@prisma/client";
 import { useMemo, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type {
   AdminAnnouncementResult,
   AnnouncementAudienceKind,
@@ -376,7 +377,7 @@ export function AdminAnnouncementWizard({
             </button>
           ) : (
             <button className="btn-primary" disabled={!canContinue() || isPending} onClick={publish} type="button">
-              {isPending ? (publishTiming === "SCHEDULED" ? "Scheduling..." : "Publishing...") : (publishTiming === "SCHEDULED" ? "Schedule announcement" : "Publish announcement")}
+              {isPending ? <ThetaLoading inline label={publishTiming === "SCHEDULED" ? "Scheduling" : "Publishing"} size="sm" /> : (publishTiming === "SCHEDULED" ? "Schedule announcement" : "Publish announcement")}
             </button>
           )}
         </div>

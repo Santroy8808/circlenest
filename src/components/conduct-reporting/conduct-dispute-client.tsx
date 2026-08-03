@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type DisputeView = {
   reference: string;
@@ -71,8 +72,8 @@ export function ConductDisputeClient({ initialView }: { initialView: DisputeView
           <input className="form-field mt-3" onChange={(event) => setLinkedContentUrl(event.target.value)} placeholder="Optional internal link to public/group content" value={linkedContentUrl} />
           {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           <div className="mt-4 flex flex-wrap justify-end gap-3">
-            <button className="btn-secondary" disabled={isPending} onClick={() => act("resolved")} type="button">I consider this resolved</button>
-            <button className="btn-primary" disabled={isPending || body.trim().length < 2} onClick={() => act("statement")} type="button">Add statement</button>
+            <button className="btn-secondary" disabled={isPending} onClick={() => act("resolved")} type="button">{isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "I consider this resolved"}</button>
+            <button className="btn-primary" disabled={isPending || body.trim().length < 2} onClick={() => act("statement")} type="button">{isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Add statement"}</button>
           </div>
           <p className="mt-3 text-sm text-[var(--muted)]">The dispute closes only after every required participant selects resolved, or a moderator records an explicit override.</p>
         </section>

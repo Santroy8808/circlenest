@@ -3,6 +3,7 @@
 import { GroupJoinPolicy, GroupVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function CreateGroupForm() {
   const [name, setName] = useState("");
@@ -114,7 +115,7 @@ export function CreateGroupForm() {
           Cancel
         </Link>
         <button className="btn-primary" disabled={isPending || name.trim().length < 2} type="submit">
-          {isPending ? "Creating..." : "Create group"}
+          {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create group"}
         </button>
       </div>
     </form>

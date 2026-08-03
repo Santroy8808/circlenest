@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ConductLocationType } from "@prisma/client";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import {
   CONDUCT_COMMENDATION_CATEGORIES,
   CONDUCT_REPORT_REASONS
@@ -100,7 +101,7 @@ export function ConductContentActions({ locationType, contentId }: { locationTyp
             <div className="mt-5 flex justify-end gap-3">
               <button className="btn-secondary" onClick={() => setMode(null)} type="button">Cancel</button>
               <button className={mode === "report" ? "btn-danger" : "btn-primary"} disabled={isPending || !selection || Boolean(message)} type="submit">
-                {isPending ? "Submitting..." : mode === "report" ? "Submit report" : "Send commendation"}
+                {isPending ? <ThetaLoading inline label="Submitting" size="sm" /> : mode === "report" ? "Submit report" : "Send commendation"}
               </button>
             </div>
           </form>

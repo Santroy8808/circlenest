@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import {
   CONDUCT_REPORT_STATUSES,
   buildConductAssignmentIntent,
@@ -180,7 +181,7 @@ function ReportCard({
                 <textarea className="form-field min-h-24 resize-y" disabled={busy} id={`conduct-transition-note-${report.id}`} maxLength={4000} onChange={(event) => setTransitionNote(event.target.value)} placeholder="What the reviewer found or decided" value={transitionNote} />
               </label>
               <button className={toStatus === "DISMISSED" ? "btn-danger" : "btn-primary"} disabled={busy || transitionReason.trim().length < 10 || transitionNote.trim().length < 2} type="submit">
-                {pendingAction === "transition" ? "Applying status…" : "Apply status change"}
+                {pendingAction === "transition" ? <ThetaLoading inline label="Applying status" size="sm" /> : "Apply status change"}
               </button>
             </div>
           )}
@@ -210,7 +211,7 @@ function ReportCard({
               <textarea className="form-field min-h-24 resize-y" disabled={busy} id={`conduct-assignment-note-${report.id}`} maxLength={4000} onChange={(event) => setAssignmentNote(event.target.value)} placeholder="Handoff details for the reviewer" value={assignmentNote} />
             </label>
             <button className="btn-primary" disabled={busy || (assigneeUserId || null) === report.incident.assignedModeratorUserId || assignmentReason.trim().length < 10 || assignmentNote.trim().length < 2} type="submit">
-              {pendingAction === "assignment" ? "Saving assignment…" : assigneeUserId ? "Assign reviewer" : "Remove assignment"}
+              {pendingAction === "assignment" ? <ThetaLoading inline label="Saving assignment" size="sm" /> : assigneeUserId ? "Assign reviewer" : "Remove assignment"}
             </button>
           </div>
         </form>
@@ -407,7 +408,7 @@ export function AdminConductReview({ initialView }: { initialView: ConductAdminV
             </p>
           </div>
           <button className="btn-secondary shrink-0" disabled={pendingOperation !== null} onClick={() => void refresh()} type="button">
-            {pendingOperation?.kind === "refresh" ? "Refreshing…" : "Refresh reports"}
+            {pendingOperation?.kind === "refresh" ? <ThetaLoading inline label="Refreshing" size="sm" /> : "Refresh reports"}
           </button>
         </div>
       </section>
@@ -442,7 +443,7 @@ export function AdminConductReview({ initialView }: { initialView: ConductAdminV
             Showing {view.reports.length} matching reports. Loaded {stableDate(view.generatedAt)}.
           </p>
           <button className="btn-primary" disabled={pendingOperation !== null} type="submit">
-            {pendingOperation?.kind === "refresh" ? "Searching…" : "Search reports"}
+            {pendingOperation?.kind === "refresh" ? <ThetaLoading inline label="Searching" size="sm" /> : "Search reports"}
           </button>
         </div>
       </form>

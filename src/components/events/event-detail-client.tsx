@@ -4,6 +4,7 @@ import { AdDestinationKind, EventRsvpStatus, EventStatus, InterestCategory } fro
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { ReactNode } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { EventDetailView, EventPersonView } from "@/modules/events/types";
 
 function eventTimeLabel(startsAt: string, endsAt?: string | null) {
@@ -195,7 +196,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
             <div className="mt-4 flex flex-wrap gap-2">
               {[EventRsvpStatus.GOING, EventRsvpStatus.MAYBE, EventRsvpStatus.DECLINED].map((status) => (
                 <button className="btn-secondary px-3 py-2 text-sm" disabled={isPending} key={status} onClick={() => updateRsvp(status)} type="button">
-                  {rsvpLabel(status)}
+                  {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : rsvpLabel(status)}
                 </button>
               ))}
             </div>
@@ -226,7 +227,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
               />
             </label>
             <button className="btn-primary justify-self-end" disabled={isPending || externalName.trim().length < 2 || externalEmail.trim().length < 5} type="submit">
-              Record RSVP
+              {isPending ? <ThetaLoading inline label="Recording" size="sm" /> : "Record RSVP"}
             </button>
           </form>
         ) : null}
@@ -272,7 +273,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
               />
             </label>
             <button className="btn-primary send-logo-button justify-self-end" disabled={isPending || inviteIdentifier.trim().length < 2} type="submit">
-              <span aria-hidden="true" className="send-logo-icon" />
+              {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
               <span className="sr-only">Send invite</span>
             </button>
           </form>
@@ -291,7 +292,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
               />
             </label>
             <button className="btn-primary justify-self-end" disabled={isPending || moderatorIdentifier.trim().length < 2} type="submit">
-              Add moderator
+              {isPending ? <ThetaLoading inline label="Adding" size="sm" /> : "Add moderator"}
             </button>
           </form>
         </section>
@@ -338,7 +339,7 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
               <p className="mt-2 text-sm text-[var(--muted)]">Canceling preserves the record and prevents normal RSVP changes.</p>
             </div>
             <button className="btn-secondary" disabled={isPending} onClick={cancelEvent} type="button">
-              Cancel event
+              {isPending ? <ThetaLoading inline label="Canceling" size="sm" /> : "Cancel event"}
             </button>
           </div>
         </section>

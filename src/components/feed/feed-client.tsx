@@ -15,6 +15,7 @@ import { ConductContentActions } from "@/components/conduct-reporting/conduct-co
 import type { AdPlacementCardView } from "@/modules/ads-credits/types";
 import type { FeedCursor } from "@/modules/feed-stream/feed-pagination";
 import type { FeedAuthorView, FeedCommentView, FeedPostView, FeedReactionReactorsView } from "@/modules/feed-stream/types";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type FeedImageAttachment = {
   file: File;
@@ -899,7 +900,7 @@ function ImagePreview({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{image.file.name}</p>
         <p className="text-xs text-[var(--muted)]">
-          {image.status === "uploading" ? `Uploading ${image.progress}%` : image.status === "done" ? "Ready" : "Attached"}
+          {image.status === "uploading" ? <ThetaLoading inline label={`Uploading ${image.progress}%`} size="sm" /> : image.status === "done" ? "Ready" : "Attached"}
         </p>
         {image.status === "uploading" ? (
           <div className="feed-upload-meter">
@@ -1799,12 +1800,16 @@ export function FeedClient({
               onFormat={formatPostText}
               trailingAction={
                 <button className="btn-primary send-logo-button" data-tooltip="Send Post" disabled={isPending || (!body.trim() && !postImage)} type="submit">
-                  <span aria-hidden="true" className="send-logo-icon" />
-                  <span className="sr-only">{isPending ? "Posting..." : "Post"}</span>
+                  {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
+                  <span className="sr-only">{isPending ? "Posting" : "Post"}</span>
                 </button>
               }
             />
-            {postImage?.status === "uploading" ? <p className="mt-2 text-xs text-[var(--muted)]">Uploading image...</p> : null}
+            {postImage?.status === "uploading" ? (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                <ThetaLoading inline label="Uploading image" size="sm" />
+              </p>
+            ) : null}
             {postImage ? <ImagePreview image={postImage} onRemove={() => setPostImage(null)} /> : null}
             {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           </form>
@@ -2070,7 +2075,7 @@ export function FeedClient({
               onClick={() => void loadMorePosts()}
               type="button"
             >
-              {isLoadingMore ? "Loading more posts..." : loadMoreError ? "Try loading more" : "Load more posts"}
+              {isLoadingMore ? <ThetaLoading inline label="Loading posts" size="sm" /> : loadMoreError ? "Try loading more" : "Load more posts"}
             </button>
           ) : (
             <p className="text-sm text-[var(--muted)]" role="status">

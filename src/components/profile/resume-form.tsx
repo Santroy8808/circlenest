@@ -2,6 +2,7 @@
 
 import { ProfileVisibility } from "@prisma/client";
 import { useState, useTransition, type FormEvent } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { myScientologyVisible } from "@/modules/my-scientology/visibility";
 import type { ResumeEducation, ResumeExperience, ResumeView } from "@/modules/profile-resume/types";
@@ -305,7 +306,7 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
             ) : (
               <span className="text-sm text-[var(--muted)]">No file uploaded.</span>
             )}
-            {isUploading ? <span className="text-sm text-[var(--gold)]">Uploading {uploadProgress}%</span> : null}
+            {isUploading ? <ThetaLoading inline label={`Uploading ${uploadProgress}%`} size="sm" /> : null}
           </div>
         </div>
         <input name="uploadedResumeUrl" type="hidden" value={resumeUrl} />
@@ -327,7 +328,7 @@ export function ResumeForm({ initialResume }: { initialResume: ResumeView | null
 
       <div className="flex flex-wrap items-center gap-3">
         <button className="btn-primary" disabled={isPending} type="submit">
-          {isPending ? "Saving..." : "Save resume"}
+          {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save resume"}
         </button>
         {message ? <span className="text-sm text-[var(--gold)]">{message}</span> : null}
         {error ? <span className="text-sm text-red-200">{error}</span> : null}

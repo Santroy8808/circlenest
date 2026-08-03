@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { RichTextEditor } from "@/components/writers-corner/rich-text-editor";
 import type { ChapterDetailView } from "@/modules/writers-corner/types";
 
@@ -92,7 +93,7 @@ export function ChapterReaderEditor({ chapter }: { chapter: ChapterDetailView })
               Autosave now
             </button>
             <button className="btn-primary" disabled={isPending || title.trim().length < 2} onClick={() => save(false)} type="button">
-              {isPending ? "Saving..." : "Save chapter"}
+              {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save chapter"}
             </button>
           </div>
         </section>

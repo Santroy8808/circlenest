@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function CreateEventForm() {
   const [title, setTitle] = useState("");
@@ -111,7 +112,7 @@ export function CreateEventForm() {
           Cancel
         </Link>
         <button className="btn-primary" disabled={isPending || title.trim().length < 2 || !startsAt} type="submit">
-          {isPending ? "Creating..." : "Create event"}
+          {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create event"}
         </button>
       </div>
     </form>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type AccountResult = {
   id: string;
@@ -170,7 +171,7 @@ export function AdminInvestigationWorkspace() {
         {accountQuery.trim().length >= 2 && !selected ? (
           <div className="mt-2 rounded-md border border-[var(--line)] p-2" role="listbox">
             <p aria-live="polite" className="px-2 py-1 text-sm text-[var(--muted)]">
-              {searchingAccounts ? "Searching..." : `${accountResults.length} ${accountResults.length === 1 ? "account" : "accounts"} found`}
+              {searchingAccounts ? <ThetaLoading inline label="Searching" size="sm" /> : `${accountResults.length} ${accountResults.length === 1 ? "account" : "accounts"} found`}
             </p>
             {!searchingAccounts && accountResults.length === 0 ? <p className="px-2 py-3 text-sm">No matching accounts.</p> : null}
             {accountResults.map((account) => (
@@ -188,7 +189,7 @@ export function AdminInvestigationWorkspace() {
           <section className="surface rounded-md p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div><h2 className="text-2xl font-semibold">{selected.displayName}</h2><p className="mt-1 text-[var(--muted)]">@{selected.username} · {selected.email}</p></div>
-              <button className="btn-secondary" disabled={isPending} onClick={runInvestigation} type="button">{isPending ? "Queuing..." : "Run investigation"}</button>
+              <button className="btn-secondary" disabled={isPending} onClick={runInvestigation} type="button">{isPending ? <ThetaLoading inline label="Queuing" size="sm" /> : "Run investigation"}</button>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-4">
               <label className="grid gap-2 md:col-span-2"><span className="form-label">Post text or tag</span><input className="form-field" onChange={(event) => { setContentQuery(event.target.value); setPage(1); }} placeholder="Search automatically" value={contentQuery} /></label>
@@ -201,7 +202,7 @@ export function AdminInvestigationWorkspace() {
 
           <section className="surface rounded-md p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><h2 className="text-2xl font-semibold text-[var(--gold)]">Post stream</h2><p className="mt-1 text-sm text-[var(--muted)]">{loadingPosts ? "Searching..." : `${workspace?.pagination.total ?? 0} matching posts · ${workspace?.activeFlagCount ?? 0} active flags`}</p></div>
+              <div><h2 className="text-2xl font-semibold text-[var(--gold)]">Post stream</h2><p className="mt-1 text-sm text-[var(--muted)]">{loadingPosts ? <ThetaLoading inline label="Searching" size="sm" /> : `${workspace?.pagination.total ?? 0} matching posts Â· ${workspace?.activeFlagCount ?? 0} active flags`}</p></div>
             </div>
             <div className="mt-4 grid gap-4">
               {!loadingPosts && workspace?.posts.length === 0 ? <p className="rounded-md border border-[var(--line)] p-5">No posts match these filters.</p> : null}

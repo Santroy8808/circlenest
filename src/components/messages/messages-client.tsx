@@ -8,6 +8,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import {
@@ -994,7 +995,7 @@ export function MessagesClient({
                 </p>
                 {isSearchingContacts ? (
                   <p className="rounded-md border border-[var(--line)] p-4 text-sm text-[var(--muted)]" role="status">
-                    Searching members...
+                    <ThetaLoading inline label="Searching members" size="sm" />
                   </p>
                 ) : visibleContacts.length > 0 ? (
                   visibleContacts.map(renderContactCard)
@@ -1102,13 +1103,13 @@ export function MessagesClient({
                     onClick={() => void loadOlderMessages()}
                     type="button"
                   >
-                    {isLoadingOlder ? "Loading earlier messages..." : "Load earlier messages"}
+                    {isLoadingOlder ? <ThetaLoading inline label="Loading messages" size="sm" /> : "Load earlier messages"}
                   </button>
                 </div>
               ) : null}
               {isLoadingThread ? (
                 <p className="py-3 text-center text-sm text-[var(--muted)]" role="status">
-                  Opening chat...
+                  <ThetaLoading inline label="Opening chat" size="sm" />
                 </p>
               ) : null}
               {selectedThread.messages.length === 0 ? (
@@ -1329,8 +1330,8 @@ export function MessagesClient({
                   disabled={isPending || (!body.trim() && attachments.length === 0)}
                   type="submit"
                 >
-                  <span aria-hidden="true" className="send-logo-icon" />
-                  <span className="sr-only">{isPending ? "Sending..." : "Send"}</span>
+                  {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
+                  <span className="sr-only">{isPending ? "Sending" : "Send"}</span>
                 </button>
               </div>
               {attachments.length > 0 ? (
@@ -1344,7 +1345,9 @@ export function MessagesClient({
                         <span className="chat-file-icon">File</span>
                       )}
                       <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
-                      <span className="text-xs text-[var(--muted)]">{item.progress}%</span>
+                      <span className="text-xs text-[var(--muted)]">
+                        {item.status === "uploading" ? <ThetaLoading inline label={`${item.progress}%`} size="sm" /> : `${item.progress}%`}
+                      </span>
                       {item.error ? <span className="text-xs text-red-300">{item.error}</span> : null}
                       <button
                         className="btn-secondary px-3 py-1 text-xs"

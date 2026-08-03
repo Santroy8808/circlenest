@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import type { FeedbackPageContext } from "@/lib/client/recent-activity";
 import {
@@ -458,7 +459,7 @@ export function FeedbackTicketForm({
                   onClick={handleCapture}
                   type="button"
                 >
-                  {isCapturing ? "Waiting for permission..." : screenshot ? "Capture again" : "Capture screenshot"}
+                  {isCapturing ? <ThetaLoading inline label="Waiting" size="sm" /> : screenshot ? "Capture again" : "Capture screenshot"}
                 </button>
                 <input
                   accept={FEEDBACK_SCREENSHOT_MIME_TYPES.join(",")}
@@ -474,7 +475,7 @@ export function FeedbackTicketForm({
                   onClick={() => imageInputRef.current?.click()}
                   type="button"
                 >
-                  {isPreparingImage ? "Preparing image..." : "Upload image"}
+                  {isPreparingImage ? <ThetaLoading inline label="Preparing" size="sm" /> : "Upload image"}
                 </button>
               </div>
             </div>
@@ -500,7 +501,7 @@ export function FeedbackTicketForm({
               </button>
             ) : null}
             <button className="btn-primary" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Submitting..." : "Submit Feedback"}
+              {isSubmitting ? <ThetaLoading inline label="Submitting" size="sm" /> : "Submit Feedback"}
             </button>
           </div>
         </>

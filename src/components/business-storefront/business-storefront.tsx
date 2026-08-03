@@ -4,6 +4,7 @@ import { BusinessProfileKind } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { StorefrontDescriptionContent } from "@/components/business-storefront/storefront-description-content";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { BusinessProfileView } from "@/modules/business-storefront/types";
 
 function priceLabel(listing: BusinessProfileView["marketListings"][number]) {
@@ -252,8 +253,8 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
           {status ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{status}</p> : null}
           {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           <button className="btn-primary send-logo-button" disabled={isPending || senderName.trim().length < 2 || message.trim().length < 10} type="submit">
-            <span aria-hidden="true" className="send-logo-icon" />
-            <span className="sr-only">{isPending ? "Sending..." : "Send inquiry"}</span>
+            {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
+            <span className="sr-only">{isPending ? "Sending" : "Send inquiry"}</span>
           </button>
         </form>
       </div>

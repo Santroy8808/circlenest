@@ -3,6 +3,7 @@
 import { MembershipTier } from "@prisma/client";
 import { useEffect, useState, useTransition } from "react";
 import { AdminContributorOfferControls } from "@/components/admin-moderation/admin-contributor-offer-controls";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type StatusChangeAccount = {
   id: string;
@@ -248,7 +249,7 @@ export function AdminStatusChangeWizard() {
           {identifier.trim().length >= 2 && !account ? (
             <div className="mt-2 rounded-md border border-[var(--line)] bg-[var(--panel)] p-2" id="status-account-results" role="listbox">
               <p aria-live="polite" className="px-2 py-1 text-sm text-[var(--muted)]">
-                {isSearching ? "Searching..." : `${results.length} ${results.length === 1 ? "account" : "accounts"} found`}
+                {isSearching ? <ThetaLoading inline label="Searching" size="sm" /> : `${results.length} ${results.length === 1 ? "account" : "accounts"} found`}
               </p>
               {!isSearching && results.length === 0 ? <p className="px-2 py-3 text-sm">No matching accounts.</p> : null}
               {results.map((result) => (
@@ -352,7 +353,7 @@ export function AdminStatusChangeWizard() {
         </label>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <button className="btn-primary" disabled={isPending || !account || account.tier === targetTier || reason.trim().length < 5} onClick={applyStatusChange} type="button">
-            {isPending ? "Changing..." : "Apply Status Change"}
+            {isPending ? <ThetaLoading inline label="Changing" size="sm" /> : "Apply Status Change"}
           </button>
           {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
         </div>
@@ -366,15 +367,15 @@ export function AdminStatusChangeWizard() {
         <div className="mt-5 flex flex-wrap gap-3">
           {account?.suspended ? (
             <button className="rounded-full border border-red-300/70 px-5 py-3 font-semibold text-red-100 transition hover:bg-red-900/40 disabled:opacity-60" disabled={isPending || !account} onClick={() => runLifecycleAction("restore")} type="button">
-              {isPending ? "Working..." : "Restore account"}
+              {isPending ? <ThetaLoading inline label="Working" size="sm" /> : "Restore account"}
             </button>
           ) : (
             <button className="rounded-full border border-red-300/70 px-5 py-3 font-semibold text-red-100 transition hover:bg-red-900/40 disabled:opacity-60" disabled={isPending || !account} onClick={() => runLifecycleAction("suspend")} type="button">
-              {isPending ? "Working..." : "Suspend account"}
+              {isPending ? <ThetaLoading inline label="Working" size="sm" /> : "Suspend account"}
             </button>
           )}
           <button className="rounded-full border border-red-300 bg-red-700/80 px-5 py-3 font-semibold text-white transition hover:bg-red-600 disabled:opacity-60" disabled={isPending || !account} onClick={() => runLifecycleAction("delete")} type="button">
-            {isPending ? "Working..." : "Delete account permanently"}
+            {isPending ? <ThetaLoading inline label="Working" size="sm" /> : "Delete account permanently"}
           </button>
         </div>
         <p className="mt-4 text-xs leading-5 text-red-100/70">

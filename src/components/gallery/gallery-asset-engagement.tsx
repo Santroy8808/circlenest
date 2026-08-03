@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import type { FormEvent } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import type {
@@ -492,8 +493,8 @@ export function GalleryAssetEngagement({
               disabled={isPending || !body.trim()}
               type="submit"
             >
-              <span aria-hidden="true" className="send-logo-icon" />
-              <span className="sr-only">{isPending ? "Sending..." : "Send comment"}</span>
+              {isPending ? <ThetaLoading inline label={null} size="sm" /> : <span aria-hidden="true" className="send-logo-icon" />}
+              <span className="sr-only">{isPending ? "Sending" : "Send comment"}</span>
             </button>
           </form>
         ) : (

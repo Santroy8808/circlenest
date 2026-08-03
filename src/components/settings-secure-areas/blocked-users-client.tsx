@@ -3,6 +3,7 @@
 import { SocialRelationshipType } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import type { BlockedUserView } from "@/modules/social-graph/blocked-users.service";
 
@@ -89,7 +90,7 @@ export function BlockedUsersClient({ initialBlockedUsers }: { initialBlockedUser
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Blocked {new Date(user.blockedAt).toLocaleDateString()}</p>
             </div>
             <button className="btn-secondary" disabled={isPending && pendingUserId === user.id} onClick={() => unblock(user.id)} type="button">
-              {isPending && pendingUserId === user.id ? "Removing..." : "Unblock"}
+              {isPending && pendingUserId === user.id ? <ThetaLoading inline label="Removing" size="sm" /> : "Unblock"}
             </button>
           </article>
         ))

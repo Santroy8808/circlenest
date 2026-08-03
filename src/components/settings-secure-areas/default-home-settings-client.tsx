@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type {
   DefaultHomeKey,
   DefaultHomeOption
@@ -72,7 +73,7 @@ export function DefaultHomeSettingsClient({
       {message ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
       <button className="btn-primary w-fit" disabled={isPending || selectedKey === savedKey} type="submit">
-        {isPending ? "Saving..." : "Save default home"}
+        {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save default home"}
       </button>
     </form>
   );

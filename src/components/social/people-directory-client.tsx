@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { ListingViewMode } from "@/modules/listing-preferences/types";
 import type { PeopleCardView } from "@/modules/social-graph/types";
 import { PeopleGrid } from "@/components/social/people-grid";
@@ -69,7 +70,7 @@ export function PeopleDirectoryClient({
             </p>
           </div>
           <div className="rounded-md border border-[var(--line)] bg-black/20 px-4 py-3 text-sm">
-            <p className="text-[var(--muted)]">{loading ? "Searching" : "Visible"}</p>
+            <p className="text-[var(--muted)]">{loading ? <ThetaLoading inline label="Searching" size="sm" /> : "Visible"}</p>
             <p className="mt-1 font-semibold text-[var(--gold)]">{people.length} people</p>
           </div>
         </div>
@@ -86,8 +87,7 @@ export function PeopleDirectoryClient({
 
       {loading ? (
         <section className="surface rounded-md p-8 text-center" role="status">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">Searching people...</h2>
-          <p className="mt-2 text-[var(--muted)]">Checking visible member profiles.</p>
+          <ThetaLoading detail="Checking visible member profiles." label="Searching people" size="lg" />
         </section>
       ) : people.length > 0 ? (
         <PeopleGrid initialView={initialView} people={people} surface="people" />

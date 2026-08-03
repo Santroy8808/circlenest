@@ -2,6 +2,7 @@
 
 import { MembershipTier } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { TierPolicy } from "@/modules/membership-policy/policy";
 
 type TierPolicyEditorView = {
@@ -235,7 +236,7 @@ export function AdminTierPolicyEditor({ initialView }: { initialView: TierPolicy
               Cancel
             </button>
             <button className="btn-primary" disabled={isPending || password.length === 0 || reason.trim().length < 5} type="submit">
-              {isPending ? "Saving..." : "Confirm And Save"}
+              {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Confirm And Save"}
             </button>
           </div>
         </form>

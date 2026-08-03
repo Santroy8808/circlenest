@@ -3,6 +3,7 @@
 import { FundraiserCategory } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { fundraiserCategoryOptions, type FundraiserCreateState } from "@/modules/fundraisers-funds/types";
 
 function dollarsToCents(value: string) {
@@ -102,7 +103,7 @@ export function CreateFundraiserForm({ createState }: { createState: FundraiserC
           Cancel
         </Link>
         <button className="btn-primary" disabled={isPending || title.trim().length < 2 || description.trim().length < 10} type="submit">
-          {isPending ? "Creating..." : "Create fundraiser"}
+          {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create fundraiser"}
         </button>
       </div>
     </form>

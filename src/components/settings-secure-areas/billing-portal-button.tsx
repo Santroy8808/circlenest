@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 export function BillingPortalButton({ disabled }: { disabled?: boolean }) {
   const [error, setError] = useState("");
@@ -33,7 +34,7 @@ export function BillingPortalButton({ disabled }: { disabled?: boolean }) {
   return (
     <div className="grid gap-2">
       <button className="btn-secondary" disabled={disabled || isPending} onClick={openPortal} type="button">
-        {isPending ? "Opening billing..." : "Manage billing"}
+        {isPending ? <ThetaLoading inline label="Opening billing" size="sm" /> : "Manage billing"}
       </button>
       {error ? <p className="text-sm text-red-100" role="alert">{error}</p> : null}
     </div>

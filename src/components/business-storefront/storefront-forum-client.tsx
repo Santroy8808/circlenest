@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { StorefrontForumTopicListItemView, StorefrontForumView } from "@/modules/storefront-forum/types";
 
 type StorefrontForumClientProps = {
@@ -168,7 +169,7 @@ export function StorefrontForumClient({ initialForum }: StorefrontForumClientPro
           {message ? <p className="rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
           {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
           <button className="btn-primary" disabled={isPending || title.trim().length < 2 || body.trim().length < 1} type="submit">
-            {isPending ? "Posting..." : "Create topic"}
+            {isPending ? <ThetaLoading inline label="Posting" size="sm" /> : "Create topic"}
           </button>
         </form>
       </div>

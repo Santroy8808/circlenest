@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type CreatedCredentials = {
   username: string;
@@ -144,7 +145,7 @@ export function AuditorHelpClient() {
             </label>
             {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
             <button className="btn-primary" disabled={isPending} type="submit">
-              {isPending ? "Creating..." : "Create invited account"}
+              {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create invited account"}
             </button>
           </form>
         )}

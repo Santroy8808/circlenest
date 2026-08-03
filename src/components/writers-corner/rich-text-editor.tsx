@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { RichTextToolbarIcon } from "@/components/writers-corner/rich-text-toolbar-icon";
 
@@ -682,7 +683,13 @@ export function RichTextEditor({ html, onChange, placeholder = "Write here..." }
       <div className="rich-text-help">
         Format selected text with the toolbar. Paste, drop, or choose images; drag an inserted image to move it, or click it for image alignment controls.
       </div>
-      {uploadStatus ? <div className="rich-text-upload-status">{uploadStatus}</div> : null}
+      {uploadStatus ? (
+        <div className="rich-text-upload-status">
+          {uploadStatus.startsWith("Uploading ") ? (
+            <ThetaLoading inline detail={uploadStatus.replace(/^Uploading\s+/, "")} label="Uploading" size="sm" />
+          ) : uploadStatus}
+        </div>
+      ) : null}
     </section>
   );
 }

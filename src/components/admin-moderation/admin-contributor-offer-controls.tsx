@@ -2,6 +2,7 @@
 
 import { MembershipTier } from "@prisma/client";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { ContributorUpgradeOfferView } from "@/modules/membership-policy/contributor-upgrade";
 
 type ManagedAccount = {
@@ -223,7 +224,7 @@ export function AdminContributorOfferControls({ account }: { account: ManagedAcc
 
       <div className="mt-4 rounded-md border border-[var(--line)] bg-black/10 p-4" aria-live="polite">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Status</p>
-        {loadState === "loading" ? <p className="mt-2 font-semibold">Loading eligibility...</p> : null}
+        {loadState === "loading" ? <p className="mt-2 font-semibold"><ThetaLoading inline label="Loading eligibility" size="sm" /></p> : null}
         {loadState === "error" ? (
           <div className="mt-2 rounded-md border border-[var(--red)] bg-[var(--panel-soft)] p-3 text-sm text-[var(--text)]" role="alert">
             <p>{loadError}</p>
@@ -258,11 +259,11 @@ export function AdminContributorOfferControls({ account }: { account: ManagedAcc
           <div className="mt-4 flex flex-wrap gap-3">
             {!offer ? (
               <button className="btn-primary" disabled={isPending || reason.trim().length < 5} onClick={grantOffer} type="button">
-                {isPending ? "Granting..." : "Grant Contributor beta offer"}
+                {isPending ? <ThetaLoading inline label="Granting" size="sm" /> : "Grant Contributor beta offer"}
               </button>
             ) : offer.status === "OFFERED" ? (
               <button className="btn-secondary" disabled={isPending || reason.trim().length < 5} onClick={revokeOffer} type="button">
-                {isPending ? "Revoking..." : "Revoke Contributor beta offer"}
+                {isPending ? <ThetaLoading inline label="Revoking" size="sm" /> : "Revoke Contributor beta offer"}
               </button>
             ) : null}
           </div>

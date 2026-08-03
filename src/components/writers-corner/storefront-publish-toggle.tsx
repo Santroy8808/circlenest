@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { ManuscriptDetailView } from "@/modules/writers-corner/types";
 
 export function StorefrontPublishToggle({ manuscript }: { manuscript: ManuscriptDetailView }) {
@@ -54,6 +55,7 @@ export function StorefrontPublishToggle({ manuscript }: { manuscript: Manuscript
           </span>
         </span>
       </label>
+      {isPending ? <p className="mt-3 text-sm font-semibold text-[var(--gold)]"><ThetaLoading inline label="Saving" size="sm" /></p> : null}
       {message ? <p className="mt-3 rounded-md border border-emerald-400/40 bg-emerald-950/30 p-3 text-sm text-emerald-100">{message}</p> : null}
       {error ? <p className="mt-3 rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100">{error}</p> : null}
     </section>

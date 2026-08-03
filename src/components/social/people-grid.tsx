@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { SocialRelationshipType } from "@prisma/client";
 import { ListingViewSwitcher } from "@/components/listings/listing-view-switcher";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import type { ListingPreferenceSurface, ListingViewMode } from "@/modules/listing-preferences/types";
 import { FamilyTagButton } from "@/components/social/family-tag-button";
@@ -75,7 +76,7 @@ function AcquaintanceButton({ person }: { person: PeopleCardView }) {
         onClick={toggleAcquaintance}
         type="button"
       >
-        {isSaving ? "Saving..." : isAcquaintance ? "Remove acquaintance" : "Mark acquaintance"}
+        {isSaving ? <ThetaLoading inline label="Saving" size="sm" /> : isAcquaintance ? "Remove acquaintance" : "Mark acquaintance"}
       </button>
       {error ? <p className="max-w-40 text-xs text-red-300" role="alert">{error}</p> : null}
     </div>

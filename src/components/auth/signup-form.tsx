@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type SignupResult = {
   error?: string;
@@ -149,7 +150,7 @@ export function SignupForm() {
       </label>
       {error && !errorField ? <FieldError message={error} /> : null}
       <button className="btn-primary" disabled={isPending} type="submit">
-        {isPending ? "Creating..." : "Create invited account"}
+        {isPending ? <ThetaLoading inline label="Creating" size="sm" /> : "Create invited account"}
       </button>
       <Link className="btn-secondary text-center" href="/login">
         Back to login

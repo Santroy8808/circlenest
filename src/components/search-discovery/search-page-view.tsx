@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import type { SearchView } from "@/modules/search-discovery/types";
 
 function initialFor(title: string) {
@@ -46,7 +47,7 @@ export function SearchPageView({ search }: { search: SearchView }) {
           </div>
           {search.query ? (
             <div className="rounded-md border border-[var(--line)] bg-black/20 px-4 py-3 text-sm">
-              <p className="text-[var(--muted)]">{isPending ? "Searching" : "Results"}</p>
+              <p className="text-[var(--muted)]">{isPending ? <ThetaLoading inline label="Searching" size="sm" /> : "Results"}</p>
               <p className="mt-1 font-semibold text-[var(--gold)]">{search.total} found</p>
             </div>
           ) : null}

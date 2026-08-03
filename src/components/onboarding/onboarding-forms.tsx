@@ -6,6 +6,7 @@ import { FormEvent, useState, useTransition } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ScientologyReferenceNotice } from "@/components/legal/scientology-reference-notice";
 import { CityLocationAutocomplete } from "@/components/location/city-location-autocomplete";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { ScientologyOrgSearchField } from "@/components/profile/scientology-org-search-field";
 import { scientologyProcessingStatuses, scientologyTrainingLevels } from "@/modules/my-scientology/types";
 
@@ -150,7 +151,7 @@ export function OnboardingProfileForm({ defaults }: { defaults: ProfileDefaults 
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Save and continue"}
+            {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save and continue"}
           </button>
           <button className="btn-secondary" disabled={isPending} onClick={skipStep} type="button">
             Skip this optional step
@@ -266,7 +267,7 @@ export function OnboardingScientologyForm({ defaults }: { defaults: ScientologyD
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Save and continue"}
+            {isPending ? <ThetaLoading inline label="Saving" size="sm" /> : "Save and continue"}
           </button>
           <button className="btn-secondary" disabled={isPending} onClick={skipStep} type="button">
             Skip this optional step
@@ -350,7 +351,7 @@ export function OnboardingGoodStandingForm() {
         ) : null}
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <button className="btn-primary" disabled={isPending || answer === null} type="submit">
-          {isPending ? "Submitting..." : answer === false ? "Submit No and end activation" : "Continue to terms"}
+          {isPending ? <ThetaLoading inline label="Submitting" size="sm" /> : answer === false ? "Submit No and end activation" : "Continue to terms"}
         </button>
       </form>
     </OnboardingShell>
@@ -439,7 +440,7 @@ export function OnboardingTermsForm({
         </p>
         {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
         <button className="btn-primary" disabled={isPending || !accepted} type="submit">
-          {isPending ? "Activating..." : "Agree and enter Theta-Space"}
+          {isPending ? <ThetaLoading inline label="Activating" size="sm" /> : "Agree and enter Theta-Space"}
         </button>
       </form>
     </OnboardingShell>

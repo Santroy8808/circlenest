@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type CitySuggestion = {
   city: string;
@@ -128,7 +129,7 @@ export function CityLocationAutocomplete({
           role="combobox"
           value={value}
         />
-        {isSearching ? <span className="city-location-status">Searching...</span> : null}
+        {isSearching ? <span className="city-location-status"><ThetaLoading inline label="Searching" size="sm" /></span> : null}
         {isOpen ? (
           <div className="city-location-suggestions" id={listId} role="listbox">
             {suggestions.map((suggestion, index) => (

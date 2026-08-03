@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword } from "@/lib/client/delete-password";
 import { requestGalleryAssetDeletion } from "./gallery-deletion-request";
 import { requestProfileMedia, type ProfileMediaTarget } from "./profile-media-request";
@@ -81,15 +82,15 @@ export function GalleryAssetActions({ mediaAssetId }: { mediaAssetId: string }) 
       <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">Use this photo</p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button className="btn-primary" disabled={isPending} onClick={() => void setProfileMedia("avatar")} type="button">
-          {activeTarget === "avatar" && message ? "Avatar pic" : pendingTarget === "avatar" ? "Setting..." : "Set as avatar"}
+          {activeTarget === "avatar" && message ? "Avatar pic" : pendingTarget === "avatar" ? <ThetaLoading inline label="Setting" size="sm" /> : "Set as avatar"}
         </button>
         <button className="btn-secondary" disabled={isPending} onClick={() => void setProfileMedia("banner")} type="button">
-          {activeTarget === "banner" && message ? "Banner pic" : pendingTarget === "banner" ? "Setting..." : "Set as banner"}
+          {activeTarget === "banner" && message ? "Banner pic" : pendingTarget === "banner" ? <ThetaLoading inline label="Setting" size="sm" /> : "Set as banner"}
         </button>
       </div>
       <div className="mt-4 border-t border-[var(--line)] pt-4">
         <button className="btn-secondary" disabled={isPending} onClick={() => void deletePhoto()} type="button">
-          {pendingTarget === "delete" ? "Queueing..." : "Delete photo"}
+          {pendingTarget === "delete" ? <ThetaLoading inline label="Queueing" size="sm" /> : "Delete photo"}
         </button>
       </div>
       {message ? <p aria-live="polite" className="gallery-feedback gallery-feedback--success mt-4" role="status">{message}</p> : null}
