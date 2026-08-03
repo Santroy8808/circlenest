@@ -29,6 +29,8 @@ type ControlPanelNavProps = {
   sections: NavSection[];
 };
 
+const popupMenuSectionLabels = new Set(["Comm Center", "Market"]);
+
 function hrefPath(href: string) {
   return href.split("?")[0] ?? href;
 }
@@ -59,7 +61,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 12, top: 12 });
   const [tutorialShimmering, setTutorialShimmering] = useState(false);
-  const commCenterButtonRef = useRef<HTMLButtonElement>(null);
+  const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const navRows = useMemo(
     () =>
       sections.map((section) => {
@@ -95,10 +97,11 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
   }, []);
 
   useLayoutEffect(() => {
-    if (openMenu !== "Comm Center") return;
+    const activeMenu = openMenu ?? "";
+    if (!activeMenu) return;
 
     function positionMenu() {
-      const button = commCenterButtonRef.current;
+      const button = menuButtonRefs.current[activeMenu];
       if (!button) return;
       const rect = button.getBoundingClientRect();
       const menuWidth = Math.min(280, window.innerWidth - 24);
@@ -136,10 +139,11 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
     <nav aria-label="Control panel" className="mt-8 control-panel-nav">
       {navRows.map((section) => {
         if (!section.targetHref) return null;
-        const isCommCenter = section.label === "Comm Center";
+        const hasPopupMenu = popupMenuSectionLabels.has(section.label) && section.items.some((item) => item.href);
 
-        if (isCommCenter) {
+        if (hasPopupMenu) {
           const isOpen = openMenu === section.label;
+          const tutorialTarget = `control-${section.label.toLowerCase().replace(/\s+/g, "-")}`;
           return (
             <div className="control-panel-menu-wrap" key={section.label}>
               <button
@@ -149,10 +153,12 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                   "control-panel-main-link",
                   section.isActive ? "is-active" : ""
                 ].filter(Boolean).join(" ")}
-                data-tooltip="Open Comm Center menu."
-                data-tutorial-target="control-comm-center"
+                data-tooltip={`Open ${section.label} menu.`}
+                data-tutorial-target={tutorialTarget}
                 onClick={() => setOpenMenu((current) => current === section.label ? null : section.label)}
-                ref={commCenterButtonRef}
+                ref={(button) => {
+                  menuButtonRefs.current[section.label] = button;
+                }}
                 type="button"
               >
                 <span>{section.label}</span>

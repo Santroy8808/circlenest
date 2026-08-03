@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { MembershipTier } from "@prisma/client";
 import { buildMemberNavigation } from "@/modules/navigation/member-navigation";
@@ -71,6 +73,13 @@ test("Comm Center keeps Chat, People, and Groups as submenu items while Jobs is 
     assert.equal(sections.some((section) => section.label === "Groups"), false);
     assert.equal(market?.items.some((item) => item.href === "/jobs"), true);
   }
+});
+
+test("control panel exposes Market submenu items including Jobs", () => {
+  const controlPanel = readFileSync(resolve("src/components/platform/control-panel-nav.tsx"), "utf8");
+
+  assert.match(controlPanel, /popupMenuSectionLabels = new Set\(\["Comm Center", "Market"\]\)/);
+  assert.match(controlPanel, /Open \$\{section\.label\} menu\./);
 });
 
 test("every signed-in member tier receives a top-level Tutorial section with the Users Manual", () => {
