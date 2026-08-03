@@ -339,7 +339,10 @@ export async function createMemberAccount(
           lastPasswordChangedAt: new Date(),
           profile: {
             create: {
-              displayName: parsed.data.displayName
+              displayName: parsed.data.displayName,
+              theme: {
+                defaultMode: parsed.data.themeMode
+              }
             }
           },
           membership: {

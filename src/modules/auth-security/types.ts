@@ -49,7 +49,8 @@ export const signupSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/, "Use letters, numbers, and underscores only."),
   displayName: z.string().trim().min(1, "Enter a display name.").max(80),
   password: newPasswordSchema,
-  inviteCode: z.string().trim().max(128).optional()
+  inviteCode: z.string().trim().max(128).optional(),
+  themeMode: z.enum(["dark", "light"], { invalid_type_error: "Choose light mode or dark mode." }).default("dark")
 });
 
 export const passwordResetRequestSchema = z.object({

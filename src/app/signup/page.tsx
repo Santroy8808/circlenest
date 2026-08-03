@@ -7,6 +7,7 @@ export default function SignupPage() {
       eyebrow="Invite-only access"
       title="Create your invited account"
       subtitle="You need a valid one-time invitation code. Account creation is not open to the public."
+      size="wide"
     >
       <SignupForm />
     </AuthCard>

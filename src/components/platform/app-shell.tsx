@@ -27,6 +27,7 @@ import { buildMemberNavigation } from "@/modules/navigation/member-navigation";
 import { getDefaultHomeHref } from "@/modules/home-preferences/default-home-preferences.service";
 
 const zeroCounts = { alerts: 0, mail: 0, messages: 0, notifications: 0 };
+type ThemeMode = "dark" | "light";
 
 function shouldShowAdRail(isSignedIn: boolean, isMobileAdRailRequest: boolean) {
   if (!isSignedIn || isMobileAdRailRequest) return false;
@@ -53,11 +54,18 @@ async function getShellProfile(userId?: string) {
           avatarFocalX: true,
           avatarFocalY: true,
           avatarZoom: true,
-          avatarFrameShape: true
+          avatarFrameShape: true,
+          theme: true
         }
       }
     }
   });
+}
+
+function getPreferredThemeMode(theme: unknown): ThemeMode {
+  if (!theme || typeof theme !== "object" || Array.isArray(theme)) return "dark";
+  const value = (theme as { defaultMode?: unknown }).defaultMode;
+  return value === "light" ? "light" : "dark";
 }
 
 function formatMemberSince(createdAt?: Date) {
@@ -154,6 +162,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const navSections = buildMemberNavigation({ accountPurpose: session?.user?.accountPurpose, defaultHomeHref, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
+  const preferredThemeMode = getPreferredThemeMode(shellProfile?.profile?.theme);
 
   return (
     <div className={["app-shell", isAndroidApp ? "is-android-app" : "", showAdRail ? "" : "no-ad-rail"].filter(Boolean).join(" ")}>
@@ -170,6 +179,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         counts={counts}
         displayName={displayName}
         defaultHomeHref={defaultHomeHref}
+        initialThemeMode={preferredThemeMode}
         isAdmin={isAdmin}
         isSignedIn={isSignedIn}
         platformFeatures={platformFeatures}

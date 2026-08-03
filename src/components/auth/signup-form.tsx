@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ThetaLoading } from "@/components/platform/theta-loading";
 
+type ThemeMode = "dark" | "light";
+
 type SignupResult = {
   error?: string;
-  errorField?: "inviteCode" | "displayName" | "username" | "email" | "password";
+  errorField?: "inviteCode" | "displayName" | "username" | "email" | "password" | "themeMode";
   user?: {
     email: string;
   };
@@ -18,7 +20,22 @@ export function SignupForm() {
   const [createdAccount, setCreatedAccount] = useState<SignupResult | null>(null);
   const [error, setError] = useState("");
   const [errorField, setErrorField] = useState<SignupResult["errorField"]>();
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   const [isPending, startTransition] = useTransition();
+
+  function applyThemeModePreference(nextThemeMode: ThemeMode) {
+    try {
+      window.localStorage.setItem("theta-theme", nextThemeMode);
+    } catch {
+      // The signup should still complete when browser storage is unavailable.
+    }
+    document.documentElement.classList.toggle("theta-theme-light", nextThemeMode === "light");
+  }
+
+  function chooseThemeMode(nextThemeMode: ThemeMode) {
+    setThemeMode(nextThemeMode);
+    applyThemeModePreference(nextThemeMode);
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,6 +49,7 @@ export function SignupForm() {
     const username = formData.get("username");
     const displayName = formData.get("displayName");
     const password = formData.get("password");
+    const selectedThemeMode = formData.get("themeMode");
 
     startTransition(async () => {
       try {
@@ -43,7 +61,8 @@ export function SignupForm() {
             username,
             displayName,
             password,
-            inviteCode
+            inviteCode,
+            themeMode: selectedThemeMode
           })
         });
         const payload = (await response.json()) as SignupResult;
@@ -55,6 +74,9 @@ export function SignupForm() {
         }
 
         setCreatedAccount(payload);
+        if (selectedThemeMode === "light" || selectedThemeMode === "dark") {
+          chooseThemeMode(selectedThemeMode);
+        }
         form.reset();
       } catch (apiError) {
         setError(apiError instanceof Error ? apiError.message : "Could not create account.");
@@ -92,6 +114,24 @@ export function SignupForm() {
       <p className="text-sm leading-6 text-[var(--muted)]">
         Have your invitation ready. All fields are required, and your password must be at least 12 characters.
       </p>
+      <fieldset className="signup-theme-fieldset">
+        <legend className="form-label">Which mode do you want?</legend>
+        <div className="signup-theme-options">
+          <ThemeChoiceCard
+            checked={themeMode === "dark"}
+            mode="dark"
+            onChange={chooseThemeMode}
+            title="Dark mode"
+          />
+          <ThemeChoiceCard
+            checked={themeMode === "light"}
+            mode="light"
+            onChange={chooseThemeMode}
+            title="Light mode"
+          />
+        </div>
+        {errorField === "themeMode" ? <FieldError message={error} /> : null}
+      </fieldset>
       <label className="grid gap-2">
         <span className="form-label">Invite code</span>
         <input
@@ -156,6 +196,68 @@ export function SignupForm() {
         Back to login
       </Link>
     </form>
+  );
+}
+
+function ThemeChoiceCard({
+  checked,
+  mode,
+  onChange,
+  title
+}: {
+  checked: boolean;
+  mode: ThemeMode;
+  onChange: (mode: ThemeMode) => void;
+  title: string;
+}) {
+  return (
+    <label className={checked ? "signup-theme-option is-selected" : "signup-theme-option"}>
+      <input
+        checked={checked}
+        name="themeMode"
+        onChange={() => onChange(mode)}
+        type="radio"
+        value={mode}
+      />
+      <span className="signup-theme-option-head">
+        <strong>{title}</strong>
+        <span>{checked ? "Selected" : "Choose"}</span>
+      </span>
+      <span aria-hidden="true" className="signup-theme-preview" data-theme-mode={mode}>
+        <span className="signup-theme-preview-top">
+          <span className="signup-theme-preview-brand">θ</span>
+          <span className="signup-theme-preview-search" />
+          <span className="signup-theme-preview-icon" />
+          <span className="signup-theme-preview-icon" />
+          <span className="signup-theme-preview-avatar" />
+        </span>
+        <span className="signup-theme-preview-body">
+          <span className="signup-theme-preview-nav">
+            <span className="signup-theme-preview-photo" />
+            <span className="signup-theme-preview-name" />
+            <span className="signup-theme-preview-nav-line is-active" />
+            <span className="signup-theme-preview-nav-line" />
+            <span className="signup-theme-preview-nav-line" />
+          </span>
+          <span className="signup-theme-preview-stream">
+            <span className="signup-theme-preview-compose" />
+            <span className="signup-theme-preview-post">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span className="signup-theme-preview-post is-short">
+              <span />
+              <span />
+            </span>
+          </span>
+          <span className="signup-theme-preview-ads">
+            <span />
+            <span />
+          </span>
+        </span>
+      </span>
+    </label>
   );
 }
 

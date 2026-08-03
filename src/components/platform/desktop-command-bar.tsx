@@ -40,6 +40,7 @@ type DesktopCommandBarProps = {
   counts: Counts;
   defaultHomeHref: string;
   displayName: string;
+  initialThemeMode?: "dark" | "light";
   isAdmin: boolean;
   isSignedIn: boolean;
   platformFeatures: Record<string, boolean>;
@@ -168,7 +169,21 @@ function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
   );
 }
 
-export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarFrameShape, avatarUrl, avatarZoom, canCreateAd, counts, defaultHomeHref, displayName, isAdmin, isSignedIn, platformFeatures }: DesktopCommandBarProps) {
+export function DesktopCommandBar({
+  avatarFocalX,
+  avatarFocalY,
+  avatarFrameShape,
+  avatarUrl,
+  avatarZoom,
+  canCreateAd,
+  counts,
+  defaultHomeHref,
+  displayName,
+  initialThemeMode = "dark",
+  isAdmin,
+  isSignedIn,
+  platformFeatures
+}: DesktopCommandBarProps) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
@@ -185,10 +200,13 @@ export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarFrameShape
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("theta-theme");
-    const nextTheme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "dark";
+    const nextTheme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : initialThemeMode;
     setTheme(nextTheme);
+    if (storedTheme !== "light" && storedTheme !== "dark") {
+      window.localStorage.setItem("theta-theme", nextTheme);
+    }
     document.documentElement.classList.toggle("theta-theme-light", nextTheme === "light");
-  }, []);
+  }, [initialThemeMode]);
 
   function runSearch() {
     const trimmed = query.trim();

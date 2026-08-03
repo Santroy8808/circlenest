@@ -4,16 +4,22 @@ export function AuthCard({
   eyebrow,
   title,
   subtitle,
-  children
+  children,
+  size = "default"
 }: {
   eyebrow: string;
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  size?: "default" | "wide";
 }) {
   return (
     <main className="auth-layout">
-      <section className="surface auth-card rounded-md p-6">
+      <section
+        className={["surface auth-card rounded-md p-6", size === "wide" ? "auth-card--wide" : ""]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{eyebrow}</p>
         <h1 className="mt-3 text-3xl font-semibold">{title}</h1>
         <p className="mt-3 leading-7 text-[var(--muted)]">{subtitle}</p>
