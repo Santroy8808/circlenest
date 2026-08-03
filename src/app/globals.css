@@ -5719,6 +5719,7 @@ html.theta-theme-light .gallery-feedback--error {
   font-weight: 900;
   height: 70px;
   justify-content: center;
+  line-height: 1;
   min-height: 70px;
   min-width: 70px;
   padding: 0;
@@ -5729,6 +5730,24 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reaction-choice:hover {
   background: rgba(255, 216, 95, 0.1);
   transform: translateY(-1px);
+}
+
+.feed-reaction-choice > span[aria-hidden="true"] {
+  align-items: center;
+  display: inline-flex;
+  font-size: 2.04rem;
+  justify-content: center;
+  line-height: 1;
+}
+
+.feed-reaction-trigger .theta-like-triangle {
+  height: 2rem;
+  width: 2rem;
+}
+
+.feed-reaction-choice .theta-like-triangle {
+  height: 1.9rem;
+  width: 1.9rem;
 }
 
 .action-glyph {
@@ -5795,11 +5814,11 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-reaction-popover::before {
   content: "";
-  height: 12px;
+  height: 24px;
   left: 0;
   position: absolute;
   right: 0;
-  top: -12px;
+  top: -24px;
 }
 
 .feed-reaction-trigger.has-user-reaction {
@@ -5965,7 +5984,6 @@ html.theta-theme-light .gallery-feedback--error {
   padding: 3px 6px;
 }
 
-.feed-reaction-choice span:last-child,
 .feed-reaction-trigger span:last-child,
 .feed-reply-button span:last-child,
 .feed-share-button span:last-child {

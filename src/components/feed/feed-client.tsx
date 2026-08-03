@@ -136,6 +136,10 @@ function reactionTooltip(reaction: QuickReaction) {
   return reaction.type === FeedReactionType.LIKE ? "Like it!" : reaction.label;
 }
 
+function hasFineHoverPointer() {
+  return typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
 function createImageAttachment(file: File): FeedImageAttachment {
   return {
     file,
@@ -571,7 +575,7 @@ function ReactionButtons({
 
   function scheduleCloseChoices() {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 220);
+    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 700);
   }
 
   function chooseReaction(type: FeedReactionType) {
@@ -611,8 +615,15 @@ function ReactionButtons({
           aria-expanded={choicesOpen}
           aria-label="Choose a reaction"
           className={myReactionType ? "feed-reaction-trigger has-user-reaction" : "feed-reaction-trigger"}
-          data-tooltip="Choose a reaction for this item."
-          onClick={() => setChoicesOpen((open) => !open)}
+          data-tooltip="Like it. Hover for more reactions."
+          onClick={() => {
+            if (hasFineHoverPointer()) {
+              chooseReaction(FeedReactionType.LIKE);
+              return;
+            }
+
+            setChoicesOpen((open) => !open);
+          }}
           type="button"
         >
           <ThetaLikeTriangle />
