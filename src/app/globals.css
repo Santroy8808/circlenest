@@ -5168,6 +5168,18 @@ html.theta-theme-light .gallery-feedback--error {
   justify-content: space-between;
 }
 
+.feed-composer-header-actions {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.feed-composer-visibility-chip {
+  border-color: rgba(255, 216, 95, 0.28);
+  color: var(--gold);
+}
+
 .feed-post-header-actions {
   align-items: center;
   display: flex;

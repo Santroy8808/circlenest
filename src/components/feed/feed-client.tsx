@@ -136,6 +136,20 @@ function reactionTooltip(reaction: QuickReaction) {
   return reaction.type === FeedReactionType.LIKE ? "Like it!" : reaction.label;
 }
 
+function feedVisibilityLabel(visibility: FeedVisibility) {
+  if (visibility === FeedVisibility.PUBLIC) return "public";
+  if (visibility === FeedVisibility.FRIENDS) return "friends";
+  if (visibility === FeedVisibility.PRIVATE) return "private";
+  return "members";
+}
+
+function feedVisibilityTooltip(visibility: FeedVisibility) {
+  if (visibility === FeedVisibility.PUBLIC) return "Visible to the public Stream.";
+  if (visibility === FeedVisibility.FRIENDS) return "Visible to friends.";
+  if (visibility === FeedVisibility.PRIVATE) return "Private post.";
+  return "Visible to Theta-Space members.";
+}
+
 function hasFineHoverPointer() {
   return typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
@@ -1786,9 +1800,18 @@ export function FeedClient({
                   </Link>
                 </div>
               </div>
-              <button className="feed-composer-close" onClick={() => setComposerOpen(false)} type="button">
-                Close
-              </button>
+              <div className="feed-composer-header-actions">
+                <span
+                  className="feed-visibility-chip feed-composer-visibility-chip"
+                  data-tooltip="Posts from Communicate publish to the public Stream."
+                  title="Posts from Communicate publish to the public Stream."
+                >
+                  Public
+                </span>
+                <button className="feed-composer-close" onClick={() => setComposerOpen(false)} type="button">
+                  Close
+                </button>
+              </div>
             </div>
             <label className="grid gap-2">
               <span className="sr-only">Post to stream</span>
@@ -1919,10 +1942,10 @@ export function FeedClient({
                   ) : null}
                   <span
                     className="feed-visibility-chip"
-                    data-tooltip={post.visibility === FeedVisibility.FRIENDS ? "Visible to friends." : "Visible to Theta-Space members."}
-                    title={post.visibility === FeedVisibility.FRIENDS ? "Visible to friends." : "Visible to Theta-Space members."}
+                    data-tooltip={feedVisibilityTooltip(post.visibility)}
+                    title={feedVisibilityTooltip(post.visibility)}
                   >
-                    {post.visibility === FeedVisibility.FRIENDS ? "friends" : "members"}
+                    {feedVisibilityLabel(post.visibility)}
                   </span>
                   <details className="feed-trust-menu">
                     <summary aria-label="Post options" data-tooltip="Open additional options for this post.">•••</summary>

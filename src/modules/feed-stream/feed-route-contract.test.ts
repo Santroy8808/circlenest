@@ -11,6 +11,15 @@ test("Stream route defaults to public and accepts only implemented filters", () 
   assert.deepEqual(parseFeedStreamMode("groups"), { ok: false, error: "Unknown Stream filter." });
 });
 
+test("Communicate posts default to the public Stream", () => {
+  const client = readFileSync(resolve("src/components/feed/feed-client.tsx"), "utf8");
+  const service = readFileSync(resolve("src/modules/feed-stream/feed-stream.service.ts"), "utf8");
+
+  assert.match(client, /body: JSON\.stringify\(\{ body, visibility: FeedVisibility\.PUBLIC,/);
+  assert.match(client, /feed-composer-visibility-chip/);
+  assert.match(service, /visibility: FeedVisibility\.PUBLIC/);
+});
+
 test("feed post deletion uses authenticated admin authority instead of active display actor", () => {
   const route = readFileSync(resolve("src/app/api/feed/posts/[postId]/route.ts"), "utf8");
 
