@@ -145,29 +145,42 @@ a {
 }
 
 .theta-loading-mark {
+  --theta-ring-one: 0.26rem;
+  --theta-ring-two: 0.58rem;
+  --theta-ring-three: 0.92rem;
   align-items: center;
   aspect-ratio: 1;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255, 216, 95, 0.2), transparent 58%),
+    radial-gradient(circle at 50% 50%, rgba(255, 236, 168, 0.25) 0 34%, rgba(255, 216, 95, 0.14) 35% 57%, transparent 58%),
     rgba(8, 13, 22, 0.84);
   border: 1px solid rgba(255, 216, 95, 0.5);
   border-radius: 999px;
   box-shadow: 0 0 18px rgba(255, 216, 95, 0.22);
   display: inline-flex;
   flex: 0 0 auto;
+  isolation: isolate;
   justify-content: center;
   position: relative;
 }
 
 .theta-loading.is-sm .theta-loading-mark {
+  --theta-ring-one: 0.18rem;
+  --theta-ring-two: 0.38rem;
+  --theta-ring-three: 0.58rem;
   width: 1.35rem;
 }
 
 .theta-loading.is-md .theta-loading-mark {
+  --theta-ring-one: 0.26rem;
+  --theta-ring-two: 0.58rem;
+  --theta-ring-three: 0.92rem;
   width: 2.35rem;
 }
 
 .theta-loading.is-lg .theta-loading-mark {
+  --theta-ring-one: 0.42rem;
+  --theta-ring-two: 0.86rem;
+  --theta-ring-three: 1.32rem;
   width: 3.75rem;
 }
 
@@ -179,7 +192,7 @@ a {
   position: relative;
   text-shadow: 0 0 10px rgba(255, 216, 95, 0.68);
   transform: translateY(-0.03em);
-  z-index: 2;
+  z-index: 3;
 }
 
 .theta-loading.is-sm .theta-loading-symbol {
@@ -198,26 +211,27 @@ a {
 .theta-loading-mark::after {
   border-radius: inherit;
   content: "";
-  inset: -0.38rem;
+  inset: 0;
   pointer-events: none;
   position: absolute;
+  z-index: 1;
 }
 
 .theta-loading-mark::before {
-  animation: theta-sparkle-burst 1500ms ease-in-out infinite;
-  background:
-    radial-gradient(circle, rgba(255, 216, 95, 0.95) 0 2px, transparent 3px) 50% 0 / 5px 5px no-repeat,
-    radial-gradient(circle, rgba(255, 236, 168, 0.95) 0 1.5px, transparent 3px) 100% 50% / 5px 5px no-repeat,
-    radial-gradient(circle, rgba(255, 216, 95, 0.9) 0 1.5px, transparent 3px) 50% 100% / 5px 5px no-repeat,
-    radial-gradient(circle, rgba(255, 236, 168, 0.9) 0 1.5px, transparent 3px) 0 50% / 5px 5px no-repeat;
-  filter: drop-shadow(0 0 5px rgba(255, 216, 95, 0.8));
+  animation: theta-ring-wave 1650ms ease-out infinite;
+  box-shadow:
+    0 0 0 0 rgba(255, 236, 168, 0),
+    0 0 0 0 rgba(255, 216, 95, 0),
+    0 0 0 0 rgba(255, 216, 95, 0);
 }
 
 .theta-loading-mark::after {
-  animation: theta-gold-orbit 1100ms linear infinite;
-  border: 1px solid transparent;
-  border-top-color: rgba(255, 216, 95, 0.82);
-  border-right-color: rgba(255, 236, 168, 0.42);
+  animation: theta-ring-wave 1650ms ease-out 550ms infinite;
+  box-shadow:
+    0 0 0 0 rgba(255, 236, 168, 0),
+    0 0 0 0 rgba(255, 216, 95, 0),
+    0 0 0 0 rgba(255, 216, 95, 0);
+  opacity: 0;
 }
 
 .theta-loading-copy {
@@ -266,27 +280,41 @@ a {
   padding: 2rem;
 }
 
-@keyframes theta-gold-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes theta-sparkle-burst {
-  0%,
-  100% {
-    opacity: 0.34;
-    transform: scale(0.74) rotate(0deg);
+@keyframes theta-ring-wave {
+  0% {
+    opacity: 0;
+    transform: scale(0.88);
+    box-shadow:
+      0 0 0 0 rgba(255, 236, 168, 0),
+      0 0 0 0 rgba(255, 216, 95, 0),
+      0 0 0 0 rgba(255, 216, 95, 0);
   }
 
-  45% {
-    opacity: 1;
-    transform: scale(1.08) rotate(24deg);
+  16% {
+    opacity: 0.95;
+    transform: scale(0.96);
+    box-shadow:
+      0 0 0 calc(var(--theta-ring-one) * 0.32) rgba(255, 236, 168, 0.58),
+      0 0 0 calc(var(--theta-ring-two) * 0.28) rgba(255, 216, 95, 0.28),
+      0 0 0 calc(var(--theta-ring-three) * 0.22) rgba(255, 216, 95, 0.12);
   }
 
-  70% {
+  58% {
     opacity: 0.72;
-    transform: scale(0.92) rotate(42deg);
+    transform: scale(1.03);
+    box-shadow:
+      0 0 0 var(--theta-ring-one) rgba(255, 236, 168, 0.46),
+      0 0 0 var(--theta-ring-two) rgba(255, 216, 95, 0.22),
+      0 0 0 var(--theta-ring-three) rgba(255, 216, 95, 0.1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+    box-shadow:
+      0 0 0 calc(var(--theta-ring-one) * 1.7) rgba(255, 236, 168, 0),
+      0 0 0 calc(var(--theta-ring-two) * 1.45) rgba(255, 216, 95, 0),
+      0 0 0 calc(var(--theta-ring-three) * 1.25) rgba(255, 216, 95, 0);
   }
 }
 
