@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { FormEvent, MouseEvent } from "react";
 import { useEffect, useState } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
+import { chatBadgeCount } from "@/modules/navigation/shell-badges";
 import { avatarImageStyle } from "@/modules/profile-identity/avatar-frame";
 
 type Counts = {
@@ -51,10 +52,6 @@ function initials(value: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function totalCommCount(counts: Counts) {
-  return counts.messages + counts.mail + counts.notifications + counts.alerts;
 }
 
 type PrimaryNavItem = {
@@ -177,7 +174,7 @@ export function DesktopCommandBar({ avatarFocalX, avatarFocalY, avatarFrameShape
   const [summaries, setSummaries] = useState<Record<SummaryKind, SummaryState>>(initialSummaryState);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const liveCounts = useShellCounts(counts);
-  const commCount = totalCommCount(liveCounts);
+  const commCount = chatBadgeCount(liveCounts);
   const navItems = primaryNavItems.map((item) => item.key === "home"
     ? {
         ...item,
