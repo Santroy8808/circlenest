@@ -1,6 +1,7 @@
 "use client";
 
 import { GroupAssetKind } from "@prisma/client";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { deletePasswordHeaders, promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
@@ -47,6 +48,14 @@ function fileAccept(kind: GroupAssetKind) {
 
 function kindLabel(kind: GroupAssetKind) {
   return kind === GroupAssetKind.PHOTO ? "Photos" : "Documents";
+}
+
+function ProfileTextLink({ displayName, username }: { displayName: string; username: string }) {
+  return (
+    <Link className="profile-inline-link" href={`/profile/${username}`}>
+      {displayName}
+    </Link>
+  );
 }
 
 export function GroupMediaClient({
@@ -548,7 +557,7 @@ export function GroupMediaClient({
                 <div className="min-w-0">
                   <h2 className="truncate text-xl font-semibold text-[var(--gold)]">{asset.headline || asset.originalName || "Untitled"}</h2>
                   <p className="mt-1 text-sm text-[var(--muted)]">
-                    by {asset.uploader.displayName} - {new Date(asset.createdAt).toLocaleDateString()} - {bytesLabel(asset.sizeBytes)}
+                    by <ProfileTextLink displayName={asset.uploader.displayName} username={asset.uploader.username} /> - {new Date(asset.createdAt).toLocaleDateString()} - {bytesLabel(asset.sizeBytes)}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -573,7 +582,9 @@ export function GroupMediaClient({
               <div className="mt-4 grid gap-2">
                 {asset.comments.map((comment) => (
                   <div className="comment-bubble" key={comment.id}>
-                    <p className="text-sm font-semibold text-[var(--gold)]">{comment.author.displayName}</p>
+                    <p className="text-sm font-semibold text-[var(--gold)]">
+                      <ProfileTextLink displayName={comment.author.displayName} username={comment.author.username} />
+                    </p>
                     <p className="mt-1 text-sm text-[var(--muted)]">{comment.body}</p>
                   </div>
                 ))}

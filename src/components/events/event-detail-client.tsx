@@ -3,7 +3,8 @@
 import { AdDestinationKind, EventRsvpStatus, EventStatus, InterestCategory } from "@prisma/client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { EventDetailView } from "@/modules/events/types";
+import type { ReactNode } from "react";
+import type { EventDetailView, EventPersonView } from "@/modules/events/types";
 
 function eventTimeLabel(startsAt: string, endsAt?: string | null) {
   const startLabel = new Date(startsAt).toLocaleString();
@@ -15,6 +16,27 @@ function rsvpLabel(status: EventRsvpStatus) {
   if (status === EventRsvpStatus.GOING) return "Going";
   if (status === EventRsvpStatus.MAYBE) return "Maybe";
   return "Can't go";
+}
+
+function PersonAvatarLink({ person }: { person: EventPersonView }) {
+  return (
+    <Link aria-label={`View ${person.displayName}'s profile`} className="group-member-avatar" href={`/profile/${person.username}`}>
+      {person.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" src={person.avatarUrl} />
+      ) : (
+        person.displayName.slice(0, 2).toUpperCase()
+      )}
+    </Link>
+  );
+}
+
+function PersonNameLink({ children, person }: { children?: ReactNode; person: EventPersonView }) {
+  return (
+    <Link className="profile-inline-link" href={`/profile/${person.username}`}>
+      {children ?? person.displayName}
+    </Link>
+  );
 }
 
 export function EventDetailClient({ event: initialEvent }: { event: EventDetailView }) {
@@ -224,7 +246,9 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
 
         <article className="surface rounded-md p-5">
           <h2 className="text-xl font-semibold text-[var(--gold)]">Host</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">{event.creator?.displayName ?? "Unknown creator"}</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            {event.creator ? <PersonNameLink person={event.creator} /> : "Unknown creator"}
+          </p>
           <p className="mt-2 text-sm text-[var(--muted)]">{event.attendeeCount} RSVP records</p>
         </article>
       </section>
@@ -279,9 +303,9 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
           <div className="mt-4 grid gap-3">
             {event.moderators.map((moderator) => (
               <div className="group-member-row" key={`${moderator.id}-${moderator.role}`}>
-                <span className="group-member-avatar">{moderator.displayName.slice(0, 2).toUpperCase()}</span>
+                <PersonAvatarLink person={moderator} />
                 <span>
-                  <span className="block font-semibold">{moderator.displayName}</span>
+                  <span className="block font-semibold"><PersonNameLink person={moderator} /></span>
                   <span className="text-sm text-[var(--muted)]">{moderator.role}</span>
                 </span>
               </div>
@@ -295,9 +319,9 @@ export function EventDetailClient({ event: initialEvent }: { event: EventDetailV
             {event.invitees.length === 0 ? <p className="text-sm text-[var(--muted)]">No invitees yet.</p> : null}
             {event.invitees.map((invitee) => (
               <div className="group-member-row" key={invitee.id}>
-                <span className="group-member-avatar">{invitee.displayName.slice(0, 2).toUpperCase()}</span>
+                <PersonAvatarLink person={invitee} />
                 <span>
-                  <span className="block font-semibold">{invitee.displayName}</span>
+                  <span className="block font-semibold"><PersonNameLink person={invitee} /></span>
                   <span className="text-sm text-[var(--muted)]">{invitee.status}</span>
                 </span>
               </div>

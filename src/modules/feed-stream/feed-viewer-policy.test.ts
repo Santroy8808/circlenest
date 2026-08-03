@@ -2,11 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { feedPostWhereForAction, friendAuthoredPostWhere, profileFeedPrincipalWhere, streamModeWhere } from "./feed-viewer-policy";
 
-test("profile Stream identity includes authored public posts and direct profile posts", () => {
+test("profile Stream identity includes authored posts, direct profile posts, and replied posts", () => {
   assert.deepEqual(profileFeedPrincipalWhere("member-1"), {
     OR: [
       { authorUserId: "member-1", targetProfileUserId: null },
-      { targetProfileUserId: "member-1" }
+      { targetProfileUserId: "member-1" },
+      {
+        comments: {
+          some: {
+            authorUserId: "member-1",
+            deletedAt: null
+          }
+        }
+      }
     ]
   });
 });

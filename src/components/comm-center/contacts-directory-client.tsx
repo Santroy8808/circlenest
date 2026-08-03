@@ -38,6 +38,19 @@ function relationshipText(contact: PeopleCardView) {
   return labels.length ? labels.join(" / ") : "Contact";
 }
 
+function ContactAvatarLink({ contact }: { contact: PeopleCardView }) {
+  return (
+    <Link aria-label={`View ${contact.displayName}'s profile`} className="people-avatar h-14 w-14 flex-none" href={`/profile/${contact.username}`}>
+      {contact.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" decoding="async" loading="lazy" src={contact.avatarUrl} />
+      ) : (
+        <span>{initials(contact.displayName) || "TS"}</span>
+      )}
+    </Link>
+  );
+}
+
 export function ContactsDirectoryClient({ contacts }: { contacts: PeopleCardView[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ContactFilter>("all");
@@ -126,17 +139,18 @@ export function ContactsDirectoryClient({ contacts }: { contacts: PeopleCardView
           {visibleContacts.map((contact) => (
             <article className="surface rounded-md p-4" key={contact.id}>
               <div className="flex items-start gap-3">
-                <span className="people-avatar h-14 w-14 flex-none">
-                  {contact.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="" decoding="async" loading="lazy" src={contact.avatarUrl} />
-                  ) : (
-                    <span>{initials(contact.displayName) || "TS"}</span>
-                  )}
-                </span>
+                <ContactAvatarLink contact={contact} />
                 <div className="min-w-0">
-                  <h2 className="truncate text-lg font-semibold text-[var(--gold)]">{contact.displayName}</h2>
-                  <p className="text-sm text-[var(--muted)]">@{contact.username}</p>
+                  <h2 className="truncate text-lg font-semibold text-[var(--gold)]">
+                    <Link className="profile-inline-link" href={`/profile/${contact.username}`}>
+                      {contact.displayName}
+                    </Link>
+                  </h2>
+                  <p className="text-sm text-[var(--muted)]">
+                    <Link className="profile-inline-link" href={`/profile/${contact.username}`}>
+                      @{contact.username}
+                    </Link>
+                  </p>
                   {contact.location ? <p className="mt-1 text-sm text-[var(--muted)]">{contact.location}</p> : null}
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--gold)]">{relationshipText(contact)}</p>
                 </div>

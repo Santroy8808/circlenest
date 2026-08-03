@@ -99,6 +99,7 @@ function ChatReactionGlyph({ type }: { type: FeedReactionType }) {
 }
 
 function activateKeyboard(event: KeyboardEvent<HTMLElement>, action: () => void) {
+  if (event.target instanceof HTMLElement && event.target.closest("a, button, input, textarea, select")) return;
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();
   action();
@@ -868,13 +869,17 @@ export function MessagesClient({
         tabIndex={0}
       >
         {profile ? (
-          <ChatAvatar person={profile} />
+          <ProfileNameLink person={profile}>
+            <ChatAvatar person={profile} />
+          </ProfileNameLink>
         ) : (
           <span className="chat-avatar">{initials(thread.title)}</span>
         )}
         <span className="min-w-0 flex-1 text-left">
           {profile ? (
-            <span className="block truncate font-semibold">{thread.title}</span>
+            <ProfileNameLink person={profile}>
+              <span className="block truncate font-semibold">{thread.title}</span>
+            </ProfileNameLink>
           ) : (
             <span className="block truncate font-semibold">{thread.title}</span>
           )}
@@ -898,10 +903,16 @@ export function MessagesClient({
         role="button"
         tabIndex={0}
       >
-        <ChatAvatar person={person} />
+        <ProfileNameLink person={person}>
+          <ChatAvatar person={person} />
+        </ProfileNameLink>
         <span className="min-w-0 text-left">
-          <span className="block truncate font-semibold">{person.displayName}</span>
-          <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
+          <ProfileNameLink person={person}>
+            <span className="block truncate font-semibold">{person.displayName}</span>
+          </ProfileNameLink>
+          <ProfileNameLink person={person}>
+            <span className="block truncate text-sm text-[var(--muted)]">@{person.username}</span>
+          </ProfileNameLink>
         </span>
       </div>
     );

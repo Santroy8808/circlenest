@@ -184,7 +184,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Theta-Space</p>
-            <h1 className="mt-1 truncate text-xl font-semibold leading-tight">{displayName}</h1>
+            <h1 className="mt-1 truncate text-xl font-semibold leading-tight">
+              <Link className="profile-inline-link" data-tooltip="Open your profile." href="/profile">
+                {displayName}
+              </Link>
+            </h1>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{memberSinceLabel}</p>
           </div>
         </div>

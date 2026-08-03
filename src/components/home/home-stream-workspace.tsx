@@ -1,7 +1,8 @@
 "use client";
 
 import { ChatThreadType } from "@prisma/client";
-import type { FormEvent } from "react";
+import Link from "next/link";
+import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { FeedClient } from "@/components/feed/feed-client";
 import {
@@ -61,6 +62,34 @@ function isImageAttachment(message: ChatMessageView) {
   return message.attachments.some((attachment) => attachment.kind === "IMAGE" && (attachment.thumbnailUrl || attachment.publicUrl));
 }
 
+function activateKeyboard(event: KeyboardEvent<HTMLElement>, action: () => void) {
+  if (event.target instanceof HTMLElement && event.target.closest("a, button, input, textarea, select")) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  action();
+}
+
+function ProfilePersonLink({ children, person }: { children: ReactNode; person: ChatPersonView }) {
+  return (
+    <Link className="profile-inline-link" href={`/profile/${person.username}`} onClick={(event) => event.stopPropagation()}>
+      {children}
+    </Link>
+  );
+}
+
+function ChatPersonAvatar({ person }: { person: ChatPersonView }) {
+  return (
+    <span className="chat-avatar">
+      {person.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" src={person.avatarUrl} />
+      ) : (
+        initials(person.displayName)
+      )}
+    </span>
+  );
+}
+
 function CompactMessage({
   currentUserId,
   isAdmin,
@@ -78,7 +107,15 @@ function CompactMessage({
 
   return (
     <article className={messageClassName}>
-      {!isMine ? <span className="home-comm-message-author">{isNotice ? "System notice" : message.sender.displayName}</span> : null}
+      {!isMine ? (
+        isNotice ? (
+          <span className="home-comm-message-author">System notice</span>
+        ) : (
+          <ProfilePersonLink person={message.sender}>
+            <span className="home-comm-message-author">{message.sender.displayName}</span>
+          </ProfilePersonLink>
+        )
+      ) : null}
       {imageAttachment ? (
         <InAppImageViewer
           alt={imageAttachment.fileName}
@@ -238,6 +275,11 @@ function HomeCommDock({
     });
   }
 
+  function directThreadProfile(thread: ChatThreadView | ChatThreadDetailView) {
+    if (thread.type !== ChatThreadType.DIRECT) return null;
+    return thread.participants.find((participant) => participant.id !== currentUserId) ?? null;
+  }
+
   function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const bodyToSend = body.trim();
@@ -291,7 +333,13 @@ function HomeCommDock({
             </button>
             <div className="home-comm-title-block min-w-0">
               <p className="home-comm-kicker">{selectedThreadIsNotice ? "System Notice" : "Comm"}</p>
-              <h2>{selectedThreadTitle}</h2>
+              <h2>
+                {selectedThread && directThreadProfile(selectedThread) && !selectedThreadIsNotice ? (
+                  <ProfilePersonLink person={directThreadProfile(selectedThread)!}>{selectedThreadTitle}</ProfilePersonLink>
+                ) : (
+                  selectedThreadTitle
+                )}
+              </h2>
               {selectedThread ? <span>{selectedThreadIsNotice ? "Pinned platform announcement" : `${selectedThread.participants.length} participants`}</span> : <span>Chat while browsing the stream.</span>}
               {isAdmin && selectedThread ? <code className="admin-object-id">Chat thread ID: {selectedThread.id}</code> : null}
             </div>
@@ -362,19 +410,39 @@ function HomeCommDock({
                   <section className="home-comm-result-section">
                     {searchQuery.trim() ? <p className="home-comm-result-heading">Chats and messages</p> : null}
                     <div className="home-comm-thread-list">
-                      {filteredThreads.map((thread) => (
-                        <button className="home-comm-thread" key={thread.id} onClick={() => loadThread(thread.id)} type="button">
-                          <span className="chat-avatar">{initials(thread.title)}</span>
-                          <span className="min-w-0 flex-1 text-left">
-                            <span className="home-comm-thread-title">
-                              {thread.title}
-                              {thread.type === ChatThreadType.GROUP ? <small>Group</small> : null}
+                      {filteredThreads.map((thread) => {
+                        const profile = directThreadProfile(thread);
+                        return (
+                          <div
+                            className="home-comm-thread"
+                            key={thread.id}
+                            onClick={() => loadThread(thread.id)}
+                            onKeyDown={(event) => activateKeyboard(event, () => loadThread(thread.id))}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            {profile ? (
+                              <ProfilePersonLink person={profile}>
+                                <ChatPersonAvatar person={profile} />
+                              </ProfilePersonLink>
+                            ) : (
+                              <span className="chat-avatar">{initials(thread.title)}</span>
+                            )}
+                            <span className="min-w-0 flex-1 text-left">
+                              <span className="home-comm-thread-title">
+                                {profile ? (
+                                  <ProfilePersonLink person={profile}>{thread.title}</ProfilePersonLink>
+                                ) : (
+                                  thread.title
+                                )}
+                                {thread.type === ChatThreadType.GROUP ? <small>Group</small> : null}
+                              </span>
+                              <span className="home-comm-thread-preview">{messagePreview(thread.lastMessage)}</span>
                             </span>
-                            <span className="home-comm-thread-preview">{messagePreview(thread.lastMessage)}</span>
-                          </span>
-                          {thread.unread ? <span className="home-comm-unread" /> : null}
-                        </button>
-                      ))}
+                            {thread.unread ? <span className="home-comm-unread" /> : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
                 ) : null}
@@ -383,13 +451,26 @@ function HomeCommDock({
                     <p className="home-comm-result-heading">People</p>
                     <div className="home-comm-contact-list">
                       {availableContacts.map((person) => (
-                        <button className="home-comm-thread" key={person.id} onClick={() => startDirectChat(person)} type="button">
-                          <span className="chat-avatar">{initials(person.displayName)}</span>
+                        <div
+                          className="home-comm-thread"
+                          key={person.id}
+                          onClick={() => startDirectChat(person)}
+                          onKeyDown={(event) => activateKeyboard(event, () => startDirectChat(person))}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <ProfilePersonLink person={person}>
+                            <ChatPersonAvatar person={person} />
+                          </ProfilePersonLink>
                           <span className="min-w-0 flex-1 text-left">
-                            <span className="home-comm-thread-title">{person.displayName}</span>
-                            <span className="home-comm-thread-preview">@{person.username}</span>
+                            <span className="home-comm-thread-title">
+                              <ProfilePersonLink person={person}>{person.displayName}</ProfilePersonLink>
+                            </span>
+                            <span className="home-comm-thread-preview">
+                              <ProfilePersonLink person={person}>@{person.username}</ProfilePersonLink>
+                            </span>
                           </span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </section>

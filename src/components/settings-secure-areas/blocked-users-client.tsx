@@ -1,6 +1,7 @@
 "use client";
 
 import { SocialRelationshipType } from "@prisma/client";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { promptForDeletePassword, withDeletePassword } from "@/lib/client/delete-password";
 import type { BlockedUserView } from "@/modules/social-graph/blocked-users.service";
@@ -62,17 +63,29 @@ export function BlockedUsersClient({ initialBlockedUsers }: { initialBlockedUser
       {blockedUsers.length > 0 ? (
         blockedUsers.map((user) => (
           <article className="module-card flex flex-wrap items-center gap-4 rounded-md p-4" key={user.id}>
-            <div className="people-avatar h-14 w-14">
+            <Link
+              aria-label={`View ${user.displayName}'s profile`}
+              className="people-avatar h-14 w-14"
+              href={`/profile/${user.username}`}
+            >
               {user.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img alt="" src={user.avatarUrl} />
               ) : (
                 <span>{initials(user.displayName) || "TS"}</span>
               )}
-            </div>
+            </Link>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-lg font-semibold text-[var(--gold)]">{user.displayName}</h2>
-              <p className="text-sm text-[var(--muted)]">@{user.username}</p>
+              <h2 className="truncate text-lg font-semibold text-[var(--gold)]">
+                <Link className="profile-inline-link" href={`/profile/${user.username}`}>
+                  {user.displayName}
+                </Link>
+              </h2>
+              <p className="text-sm text-[var(--muted)]">
+                <Link className="profile-inline-link" href={`/profile/${user.username}`}>
+                  @{user.username}
+                </Link>
+              </p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Blocked {new Date(user.blockedAt).toLocaleDateString()}</p>
             </div>
             <button className="btn-secondary" disabled={isPending && pendingUserId === user.id} onClick={() => unblock(user.id)} type="button">

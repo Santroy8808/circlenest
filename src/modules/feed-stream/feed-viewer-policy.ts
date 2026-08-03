@@ -26,9 +26,9 @@ const MODERATOR_ACTIVE_STREAM_POSTS: Prisma.FeedPostWhereInput = {
 
 /**
  * A profile Stream is keyed by the owning user, never by a display identity.
- * This shared predicate keeps Home and profile queries on the same author/target
- * identity contract so a newly-created personal post is immediately visible on
- * its author's profile.
+ * This shared predicate keeps Home and profile queries on the same identity
+ * contract so a member's profile stream shows their own posts, posts directed
+ * to their profile, and discussions where they have replied.
  */
 export function profileFeedPrincipalWhere(profileUserId: string): Prisma.FeedPostWhereInput {
   return {
@@ -39,6 +39,14 @@ export function profileFeedPrincipalWhere(profileUserId: string): Prisma.FeedPos
       },
       {
         targetProfileUserId: profileUserId
+      },
+      {
+        comments: {
+          some: {
+            authorUserId: profileUserId,
+            deletedAt: null
+          }
+        }
       }
     ]
   };

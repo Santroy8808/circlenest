@@ -363,7 +363,12 @@ export function GroupForumThreadClient({
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Reply</p>
           {replyTarget ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--line)] p-3 text-sm">
-              <span>Replying to {replyTarget.author.displayName}</span>
+              <span>
+                Replying to{" "}
+                <Link className="profile-inline-link" href={`/profile/${replyTarget.author.username}`}>
+                  {replyTarget.author.displayName}
+                </Link>
+              </span>
               <button className="btn-secondary px-3 py-1 text-xs" onClick={() => setReplyTarget(null)} type="button">Cancel reply</button>
             </div>
           ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import type { GroupMemberView, GroupProfileView } from "@/modules/groups/types";
@@ -11,6 +12,28 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function MemberAvatarLink({ member }: { member: GroupMemberView }) {
+  return (
+    <Link aria-label={`View ${member.displayName}'s profile`} className="group-member-avatar" href={`/profile/${member.username}`}>
+      {member.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" src={member.avatarUrl} />
+      ) : (
+        initials(member.displayName)
+      )}
+    </Link>
+  );
+}
+
+function MemberNameLink({ detail, member }: { detail: string; member: GroupMemberView }) {
+  return (
+    <Link className="profile-inline-link min-w-0" href={`/profile/${member.username}`}>
+      <span className="block truncate font-semibold">{member.displayName}</span>
+      <span className="text-sm text-[var(--muted)]">{detail}</span>
+    </Link>
+  );
 }
 
 export function GroupProfile({ group }: { group: GroupProfileView }) {
@@ -275,10 +298,9 @@ export function GroupProfile({ group }: { group: GroupProfileView }) {
                   (group.viewerRole === "MODERATOR" && member.role === "MEMBER"));
               return (
                 <div className="group-member-row flex-wrap" key={member.id}>
-                  <span className="group-member-avatar">{initials(member.displayName)}</span>
+                  <MemberAvatarLink member={member} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{member.displayName}</span>
-                    <span className="text-sm text-[var(--muted)]">@{member.username} · {member.role.toLowerCase()}</span>
+                    <MemberNameLink member={member} detail={`@${member.username} - ${member.role.toLowerCase()}`} />
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {group.viewerRole === "OWNER" && member.role !== "OWNER" ? (
@@ -343,10 +365,9 @@ export function GroupProfile({ group }: { group: GroupProfileView }) {
           <div className="mt-4 grid gap-3">
             {group.moderators.map((moderator) => (
               <div className="group-member-row" key={`${moderator.id}-${moderator.role}`}>
-                <span className="group-member-avatar">{initials(moderator.displayName)}</span>
+                <MemberAvatarLink member={moderator} />
                 <span className="min-w-0">
-                  <span className="block truncate font-semibold">{moderator.displayName}</span>
-                  <span className="text-sm text-[var(--muted)]">{moderator.role}</span>
+                  <MemberNameLink member={moderator} detail={moderator.role} />
                 </span>
               </div>
             ))}
@@ -357,10 +378,9 @@ export function GroupProfile({ group }: { group: GroupProfileView }) {
           <div className="mt-4 grid gap-3">
             {group.membersPreview.map((member) => (
               <div className="group-member-row" key={member.id}>
-                <span className="group-member-avatar">{initials(member.displayName)}</span>
+                <MemberAvatarLink member={member} />
                 <span className="min-w-0">
-                  <span className="block truncate font-semibold">{member.displayName}</span>
-                  <span className="text-sm text-[var(--muted)]">{member.isProvider ? "Provider" : member.role}</span>
+                  <MemberNameLink member={member} detail={member.isProvider ? "Provider" : member.role} />
                 </span>
               </div>
             ))}
