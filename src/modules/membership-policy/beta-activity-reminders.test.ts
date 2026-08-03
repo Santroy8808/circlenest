@@ -4,6 +4,7 @@ import "../../../scripts/load-next-env";
 import {
   BETA_REMINDER_DURATION_MS,
   BETA_REMINDER_EXCLUDED_EMAIL,
+  BETA_REMINDER_INTERVAL_MS,
   buildBetaActivityReminderEmail
 } from "@/modules/membership-policy/beta-activity-reminders.service";
 
@@ -20,7 +21,8 @@ test("beta activity reminder contains the required login call to action", () => 
   assert.match(message.html, /\/login/i);
 });
 
-test("beta reminder policy lasts 90 days and excludes Mike", () => {
+test("beta reminder policy waits 48 hours, lasts 90 days, and excludes Mike", () => {
+  assert.equal(BETA_REMINDER_INTERVAL_MS, 48 * 60 * 60 * 1000);
   assert.equal(BETA_REMINDER_DURATION_MS, 90 * 24 * 60 * 60 * 1000);
   assert.equal(BETA_REMINDER_EXCLUDED_EMAIL, "mike@santroy.com");
 });

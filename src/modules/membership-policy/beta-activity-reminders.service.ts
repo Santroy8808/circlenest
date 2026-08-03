@@ -5,7 +5,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 
 const MODULE_KEY = "beta-activity-reminders";
-const REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const BETA_REMINDER_INTERVAL_MS = 48 * 60 * 60 * 1000;
 export const BETA_REMINDER_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
 export const BETA_REMINDER_EXCLUDED_EMAIL = "mike@santroy.com";
 
@@ -69,7 +69,7 @@ async function sendBetaActivityReminder(recipientEmail: string) {
 }
 
 export async function runBetaActivityReminderSweep(now = new Date()) {
-  const inactivityCutoff = new Date(now.getTime() - REMINDER_INTERVAL_MS);
+  const inactivityCutoff = new Date(now.getTime() - BETA_REMINDER_INTERVAL_MS);
   const candidates = await prisma.user.findMany({
     where: {
       isBetaTester: true,
