@@ -1,12 +1,15 @@
 import type { NextRequest } from "next/server";
 import { handlers } from "@/auth";
+import { forceBrowserScopedAuthSessionCookies } from "@/lib/platform/web-session-cookie";
 import {
   consumeRequestRateLimit,
   rateLimitExceededResponse,
   withRateLimitHeaders
 } from "@/lib/platform/request-rate-limit";
 
-export const GET = handlers.GET;
+export async function GET(request: NextRequest) {
+  return forceBrowserScopedAuthSessionCookies(await handlers.GET(request));
+}
 
 export async function POST(request: NextRequest) {
   const rateLimit = await consumeRequestRateLimit(request, {
@@ -16,5 +19,5 @@ export async function POST(request: NextRequest) {
   });
   if (!rateLimit.allowed) return rateLimitExceededResponse(rateLimit);
 
-  return withRateLimitHeaders(await handlers.POST(request), rateLimit);
+  return forceBrowserScopedAuthSessionCookies(withRateLimitHeaders(await handlers.POST(request), rateLimit));
 }

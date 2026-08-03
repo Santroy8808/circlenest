@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
+import { clearWebTabSessionMarker } from "@/lib/client/web-tab-session";
 
 type NavCountKey = "messages" | "mail" | "notifications" | "alerts";
 
@@ -47,6 +48,7 @@ function itemMatchesPath(pathname: string, item: NavItem) {
 
 function confirmLogout() {
   if (window.confirm("Log out of Theta-Space?")) {
+    clearWebTabSessionMarker();
     void signOut({ callbackUrl: "/login" });
   }
 }

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NavSection } from "@/components/platform/control-panel-nav";
 import { useShellCounts } from "@/components/platform/shell-counts-provider";
+import { clearWebTabSessionMarker } from "@/lib/client/web-tab-session";
 
 type CountKey = "messages" | "mail" | "notifications" | "alerts";
 
@@ -218,6 +219,7 @@ export function AndroidAppControls({ counts, defaultHomeHref, mailEnabled, platf
 
   function logout() {
     if (window.confirm("Log out of Theta-Space?")) {
+      clearWebTabSessionMarker();
       void signOut({ callbackUrl: "/login" });
     }
   }

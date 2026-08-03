@@ -280,6 +280,20 @@ a {
   padding: 2rem;
 }
 
+.web-session-guard {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 216, 95, 0.12), transparent 34rem),
+    rgba(3, 7, 13, 0.94);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 2rem;
+  position: fixed;
+  text-align: center;
+  z-index: 2147483000;
+}
+
 @keyframes theta-ring-wave {
   0% {
     opacity: 0;

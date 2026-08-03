@@ -9,6 +9,7 @@ import { AndroidAppControls } from "@/components/platform/android-app-controls";
 import { DesktopCommandBar } from "@/components/platform/desktop-command-bar";
 import { ShellCountsProvider } from "@/components/platform/shell-counts-provider";
 import { TutorialTour } from "@/components/platform/tutorial-tour";
+import { WebSessionGuard } from "@/components/platform/web-session-guard";
 import { getAccountActorPicker } from "@/lib/platform/account-actor";
 import { prisma } from "@/lib/platform/db";
 import { isAdminRole } from "@/lib/platform/roles";
@@ -157,6 +158,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={["app-shell", isAndroidApp ? "is-android-app" : "", showAdRail ? "" : "no-ad-rail"].filter(Boolean).join(" ")}>
       <ShellCountsProvider enabled={isSignedIn} initialCounts={counts}>
+      <WebSessionGuard enabled={isSignedIn && !isAndroidApp} isAdmin={isAdmin} />
       {isSignedIn ? <ActivityTracker /> : null}
       <DesktopCommandBar
         avatarFocalX={shellProfile?.profile?.avatarFocalX}

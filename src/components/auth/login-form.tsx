@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState, useTransition } from "react";
 import { ThetaLoading } from "@/components/platform/theta-loading";
+import { createWebTabSessionMarker } from "@/lib/client/web-tab-session";
 
 export function LoginForm({ callbackUrl = "/home/default" }: { callbackUrl?: string }) {
   const router = useRouter();
@@ -31,6 +32,7 @@ export function LoginForm({ callbackUrl = "/home/default" }: { callbackUrl?: str
           return;
         }
 
+        createWebTabSessionMarker();
         router.push(result?.url ?? callbackUrl);
         router.refresh();
       } catch {
