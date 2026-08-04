@@ -112,6 +112,7 @@ export function JobsBoardClient({
                 <p className="listing-square-kicker">{job.companyName || job.employer.displayName}</p>
                 <h2>{job.title}</h2>
                 <p className="listing-square-subtitle">{job.remote ? "Remote" : job.location || "City TBD"}</p>
+                {view === "compact" && job.summary ? <p className="listing-square-tagline">{job.summary}</p> : null}
                 <div className="listing-square-facts">
                   <span>{job.employmentTypeLabel}</span>
                   <strong>{job.compensation || job.categoryLabel}</strong>

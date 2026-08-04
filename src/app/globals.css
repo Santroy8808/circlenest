@@ -2142,6 +2142,22 @@ a {
   position: relative;
 }
 
+.city-location-label {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.city-location-label small {
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: none;
+}
+
 .city-location-status {
   color: var(--muted);
   font-size: 0.78rem;
@@ -9755,6 +9771,158 @@ html.theta-theme-light .listing-view-switcher {
   text-transform: uppercase;
 }
 
+.market-management-row--rich {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.market-management-row-main {
+  align-items: center;
+  color: var(--text);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-width: 0;
+}
+
+.market-management-thumbnail {
+  align-items: center;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.18), transparent 6rem),
+    #172133;
+  border: 1px solid rgba(214, 178, 74, 0.2);
+  border-radius: 10px;
+  color: var(--gold);
+  display: flex;
+  font-size: 0.68rem;
+  font-weight: 900;
+  justify-content: center;
+  line-height: 1.15;
+  overflow: hidden;
+  padding: 6px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.market-management-thumbnail img,
+.market-management-card-visual img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.market-management-row-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.market-management-row-data {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.8rem;
+  gap: 2px;
+  justify-items: end;
+  line-height: 1.25;
+  min-width: 150px;
+}
+
+.market-management-row-data span:first-child {
+  color: var(--gold);
+  font-weight: 900;
+}
+
+.market-management-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.market-management-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.28);
+  display: grid;
+  overflow: hidden;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.market-management-card:hover,
+.market-management-card:focus-within {
+  background: rgba(214, 178, 74, 0.07);
+  border-color: rgba(214, 178, 74, 0.58);
+  transform: translateY(-1px);
+}
+
+.market-management-card-visual {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.18), transparent 8rem),
+    #172133;
+  color: var(--gold);
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  justify-content: center;
+  line-height: 1.15;
+  overflow: hidden;
+  padding: 10px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.market-management-card-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.market-management-card-heading {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.market-management-card-heading span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.market-management-card-heading strong {
+  color: var(--gold);
+  font-size: 0.84rem;
+}
+
+.market-management-title {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-management-card-body p,
+.market-management-card-body small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.market-management-card-body p,
+.market-management-card-body small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .listing-card--row .listing-square-top-badge {
   top: 16px;
 }
@@ -9798,8 +9966,8 @@ html.theta-theme-light .listing-view-switcher {
   display: grid;
   grid-template-areas:
     "kicker title title facts"
-    "subtitle subtitle subtitle facts";
-  grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1.1fr) minmax(0, 0.9fr) auto;
+    "subtitle tagline tagline facts";
+  grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(130px, auto);
   left: auto;
   padding: 0;
   position: static;
@@ -9845,6 +10013,16 @@ html.theta-theme-light .listing-view-switcher {
 
 .listing-card--compact .listing-square-subtitle {
   grid-area: subtitle;
+}
+
+.listing-square-tagline {
+  color: var(--muted);
+  font-size: 0.78rem;
+  grid-area: tagline;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .listing-square-subtitle {
@@ -10045,6 +10223,49 @@ html.theta-theme-light .listing-square-facts {
 
 .market-photo-panel {
   background: rgba(8, 12, 20, 0.18);
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.market-photo-panel.is-drag-active {
+  background: rgba(214, 178, 74, 0.1);
+  border-color: rgba(214, 178, 74, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(214, 178, 74, 0.35);
+}
+
+.market-photo-dropzone {
+  align-items: center;
+  border: 1px dashed rgba(214, 178, 74, 0.45);
+  border-radius: 14px;
+  background: rgba(8, 11, 16, 0.32);
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  padding: 18px;
+  text-align: center;
+  width: 100%;
+}
+
+.market-photo-dropzone:hover:not(:disabled),
+.market-photo-dropzone:focus-visible {
+  background: rgba(214, 178, 74, 0.08);
+  border-color: rgba(214, 178, 74, 0.72);
+}
+
+.market-photo-dropzone:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.market-photo-dropzone strong {
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.market-photo-dropzone span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .market-listing-description {
@@ -11163,6 +11384,7 @@ html.theta-theme-light .listing-square-facts {
       "kicker"
       "title"
       "subtitle"
+      "tagline"
       "facts";
     grid-template-columns: minmax(0, 1fr);
   }
@@ -11175,6 +11397,15 @@ html.theta-theme-light .listing-square-facts {
     grid-column: 1;
     justify-self: start;
     margin-top: 8px;
+  }
+
+  .market-management-row--rich {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .market-management-row-data {
+    justify-items: start;
+    min-width: 0;
   }
 
   .people-card--row,

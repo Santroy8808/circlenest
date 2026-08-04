@@ -73,13 +73,19 @@ export function CreateMarketListingForm({
   const [allowMessages, setAllowMessages] = useState(initialListing?.allowMessages ?? true);
   const [carouselEnabled, setCarouselEnabled] = useState(initialListing?.carouselEnabled ?? false);
   const [items, setItems] = useState<UploadItem[]>([]);
+  const [isPhotoDropActive, setIsPhotoDropActive] = useState(false);
   const [error, setError] = useState(createState.viewerCanCreate ? "" : createState.reason ?? "This tier cannot create Market listings.");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRental = category === MarketListingCategory.RENTALS;
+  const canAddPhotos = existingPhotoCount + items.length < createState.photoCap;
 
   function addFiles(files: FileList | File[]) {
     const remaining = Math.max(0, createState.photoCap - existingPhotoCount - items.length);
     const candidates = Array.from(files);
+    if (remaining <= 0) {
+      setError(`This listing already has the maximum of ${createState.photoCap} photos.`);
+      return;
+    }
     const validFiles = candidates.filter(
       (file) => /^image\/(jpeg|png|webp)$/.test(file.type) && file.size > 0 && file.size <= 10 * 1024 * 1024
     );
@@ -98,6 +104,18 @@ export function CreateMarketListingForm({
       }));
 
     setItems((current) => [...current, ...next]);
+  }
+
+  function handlePhotoDrop(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setIsPhotoDropActive(false);
+    if (!canAddPhotos) {
+      setError(`This listing already has the maximum of ${createState.photoCap} photos.`);
+      return;
+    }
+    if (event.dataTransfer.files.length > 0) {
+      addFiles(event.dataTransfer.files);
+    }
   }
 
   function updateItem(id: string, patch: Partial<UploadItem>) {
@@ -268,6 +286,7 @@ export function CreateMarketListingForm({
         </label>}
         <CityLocationAutocomplete
           helperText="Use the city for pickup/service area. Do not enter a street address."
+          helperTextPlacement="label"
           label="City"
           onChange={setLocation}
           placeholder="Start typing a city..."
@@ -335,7 +354,21 @@ export function CreateMarketListingForm({
         />
       </div>
 
-      <section className="market-photo-panel rounded-md border border-[var(--line)] p-4">
+      <section
+        className={isPhotoDropActive ? "market-photo-panel is-drag-active rounded-md border border-[var(--line)] p-4" : "market-photo-panel rounded-md border border-[var(--line)] p-4"}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          if (canAddPhotos) setIsPhotoDropActive(true);
+        }}
+        onDragLeave={(event) => {
+          if (event.currentTarget === event.target) setIsPhotoDropActive(false);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (canAddPhotos) event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={handlePhotoDrop}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-[var(--gold)]">Photos</h2>
@@ -353,10 +386,21 @@ export function CreateMarketListingForm({
             multiple
             onChange={(event) => {
               if (event.target.files) addFiles(event.target.files);
+              event.target.value = "";
             }}
             type="file"
           />
         </div>
+
+        <button
+          className="market-photo-dropzone mt-4"
+          disabled={!canAddPhotos}
+          onClick={() => inputRef.current?.click()}
+          type="button"
+        >
+          <strong>{canAddPhotos ? "Drag photos here" : "Photo limit reached"}</strong>
+          <span>{canAddPhotos ? "or choose JPG, PNG, or WEBP files from your device." : `This listing has ${createState.photoCap} photos.`}</span>
+        </button>
 
         <CarouselGuidance
           firstImageText="It becomes the Market thumbnail and is the first carousel image visitors see."

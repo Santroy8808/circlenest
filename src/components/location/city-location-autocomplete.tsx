@@ -13,6 +13,7 @@ type CitySuggestion = {
 type CityLocationAutocompleteProps = {
   disabled?: boolean;
   helperText?: string;
+  helperTextPlacement?: "below" | "label";
   label?: string;
   name?: string;
   onChange: (value: string) => void;
@@ -24,6 +25,7 @@ type CityLocationAutocompleteProps = {
 export function CityLocationAutocomplete({
   disabled = false,
   helperText = "Start typing a city. Suggestions are city-level only, not street addresses.",
+  helperTextPlacement = "below",
   label = "City",
   name,
   onChange,
@@ -91,15 +93,18 @@ export function CityLocationAutocomplete({
 
   return (
     <div className="city-location-field grid gap-2">
-      <label className="form-label" htmlFor={inputId}>
-        {label}
+      <label className="city-location-label form-label" htmlFor={inputId}>
+        <span>{label}</span>
+        {helperText && helperTextPlacement === "label" ? (
+          <small>({helperText})</small>
+        ) : null}
       </label>
       <div className="city-location-autocomplete">
         <input
           aria-autocomplete="list"
           aria-controls={isOpen ? listId : undefined}
           aria-expanded={isOpen}
-          aria-describedby={`${inputId}-help`}
+          aria-describedby={helperText && helperTextPlacement === "below" ? `${inputId}-help` : undefined}
           className="form-field"
           disabled={disabled}
           id={inputId}
@@ -153,7 +158,7 @@ export function CityLocationAutocomplete({
           </div>
         ) : null}
       </div>
-      {helperText ? (
+      {helperText && helperTextPlacement === "below" ? (
         <small className="text-[var(--muted)]" id={`${inputId}-help`}>
           {helperText}
         </small>
