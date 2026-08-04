@@ -119,7 +119,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   },
   {
     term: "Auditor Directory",
-    definition: "A browsing area for finding auditors. Free Tier members can browse the directory; creating an auditor profile is marked Coming Soon and is not a Free Tier function."
+    definition: "A directory for finding auditors. Members can browse visible auditor profiles, and accounts with auditor-profile access can create or update their own directory profile."
   },
   {
     term: "Storage",
@@ -141,6 +141,7 @@ export const freeTierBasics = [
   "Public Stream posts from Communicate may have images compressed after 48 hours without a view, archived after 1 week, and permanently deleted after 3 months. These limits may change.",
   "Free Tier marketplace creation is limited to 3 listings per 14-day period.",
   "Each Free Tier marketplace listing can have up to 3 photos.",
+  "Free and Contributor accounts can browse and create job listings during beta.",
   "Business profiles, storefronts, business identity switching, ads, Writers Corner, fundraiser creation, and business tools are not Free Tier functions.",
   "Events are not yet available for Free Tier use.",
   "Internal mail is currently hidden/unavailable; use Messages in Comm Center instead.",
@@ -150,8 +151,8 @@ export const freeTierBasics = [
 
 export const contributorTierBasics = [
   "Contributor accounts keep the core social tools: Stream, People, Groups, My Pics, Messages, Market, and Settings.",
-  "Contributor accounts can create and edit personal Market listings, promote their own Market listings with the approved listing-ad flow, and use Writers Corner manuscripts.",
-  "Contributor accounts do not receive Business Center, storefront administration, business identity switching, Jobs, Events, Fundraisers, general ad creation, or auditor-profile creation.",
+  "Contributor accounts can create and edit personal Market listings, browse and create job listings during beta, promote their own Market listings with the approved listing-ad flow, and use Writers Corner manuscripts.",
+  "Contributor accounts do not receive Business Center, storefront administration, business identity switching, Events, Fundraisers, or general ad creation.",
   "When a Contributor capability is unavailable, its menu item, page, upgrade prompt, and direct feature controls are hidden rather than shown as a gate.",
   "Use the current Subscription page and the visible menus as the source of truth for limits; a manual entry never grants access."
 ];
@@ -168,7 +169,8 @@ export const usersManualSections: UsersManualSection[] = [
         purpose: "Use Home as the starting point for the Stream and daily site activity.",
         howToUse: [
           "Open Home to read the latest Stream activity.",
-  "Use the top icon bar for fast access to Home, My Pics, Market, Search, and Comm Center. People and Groups are under Comm Center.",
+          "Use the top icon bar for fast access to Home, My Pics, Market, Search, and Comm Center. People and Groups are under Comm Center.",
+          "Use Jobs & Market on the control panel for The Market and Jobs. Use Find an Auditor as its own control-panel button.",
           "Use the left Control Panel for section menus and related actions.",
           "Use Logout from the Home section when you are done on a shared computer."
         ],
@@ -546,8 +548,8 @@ export const usersManualSections: UsersManualSection[] = [
   },
   {
     key: "market-auditors",
-    title: "Market and Auditor Directory",
-    summary: "Browse marketplace listings, create limited personal listings, and browse auditors when the directory is available.",
+    title: "Jobs, Market, and Auditor Directory",
+    summary: "Browse public listings, create market and job entries, and use the auditor directory or auditor profile flow when it is available to your account.",
     features: [
       {
         title: "The Market",
@@ -601,7 +603,7 @@ export const usersManualSections: UsersManualSection[] = [
         title: "Create Listing",
         href: "/market/create",
         purpose: "Create a personal Free Tier marketplace listing.",
-        howToUse: ["Open Create Listing.", "Choose the correct category.", "Enter a clear title, description, price, city-level location, and contact options.", "Upload up to 3 photos.", "Submit and review the listing."],
+        howToUse: ["Open Jobs & Market, then The Market.", "Choose Create Listing.", "Choose the correct category.", "Enter a clear title, description, price, city-level location, and contact options.", "Upload up to 3 photos.", "Submit and review the listing."],
         limits: ["Free Tier limit: 3 listings per 14-day period.", "Free Tier photo limit: 3 photos per listing.", "This is for personal member listings, not business storefronts."],
         faq: [
           {
@@ -623,7 +625,7 @@ export const usersManualSections: UsersManualSection[] = [
         title: "Find a Job",
         href: "/jobs",
         purpose: "Browse or create available job-related listings under Market.",
-        howToUse: ["Open Market, then Find a Job.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions.", "Use Create Job when your account needs to post an opening."],
+        howToUse: ["Open Jobs & Market, then Jobs.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions.", "Use Create Job when your account needs to post an opening."],
         limits: ["Free and Contributor accounts can browse and create job listings during beta.", "Only active visible opportunities are shown.", "Do not share sensitive personal information until you trust the contact path."],
         faq: [
           {
@@ -642,15 +644,37 @@ export const usersManualSections: UsersManualSection[] = [
         }
       },
       {
+        title: "Create Job",
+        href: "/jobs/create",
+        purpose: "Create a job listing with the same general flow style as a Market listing.",
+        howToUse: ["Open Jobs & Market, then Jobs.", "Choose Create Job.", "Enter the role title, company, salary range, location, contact details, summary, and full description.", "Add the image and brief overlay summary where needed.", "Submit and review the listing card and detail page."],
+        limits: ["Free and Contributor accounts can create job listings during beta.", "Only publish information you are prepared to keep current.", "Use city, state, or region details that help people understand the location clearly."],
+        faq: [
+          {
+            question: "Can I create a job as Free Tier?",
+            answer: "Yes. Free and Contributor accounts can create job listings during beta."
+          },
+          {
+            question: "What should I include before I publish?",
+            answer: "Include the role title, company, summary, salary range, location, contact information, description, and the main needs or wants so the listing is complete."
+          }
+        ],
+        visual: {
+          title: "Create Job reference",
+          caption: "Create Job uses a listing flow that stays close to The Market format.",
+          callouts: ["Enter job basics.", "Add salary and location.", "Review before publishing."]
+        }
+      },
+      {
         title: "Find an Auditor",
         href: "/auditors",
         purpose: "Browse the auditor directory and open auditor profiles.",
         howToUse: ["Open Find an Auditor.", "Search or filter available auditors.", "Open a profile to read details and contact information where shown."],
-        limits: ["Creating an auditor profile is Coming Soon and is not a Free Tier function.", "Only visible auditor information is shown.", "Use judgment before contacting or arranging services."],
+        limits: ["Only visible auditor information is shown.", "Auditor profile creation appears only for accounts that have that membership access.", "Use judgment before contacting or arranging services."],
         faq: [
           {
             question: "Can I create an auditor profile?",
-            answer: "No. Auditor profile creation is Coming Soon and is not currently a Free Tier function."
+            answer: "Only accounts with auditor-profile creation access can do that. When available, use the I'm an Auditor path from the directory."
           },
           {
             question: "Can I browse auditors as Free Tier?",
@@ -661,6 +685,28 @@ export const usersManualSections: UsersManualSection[] = [
           title: "Auditor directory reference",
           caption: "The directory helps users browse auditors and open profiles.",
           callouts: ["Search auditors.", "Open profile.", "Use visible contact details."]
+        }
+      },
+      {
+        title: "Create Auditor Profile",
+        href: "/auditors/im-an-auditor",
+        purpose: "Create or update the directory profile that represents your auditor practice.",
+        howToUse: ["Open Find an Auditor.", "Choose I'm an Auditor when your account shows it.", "Enter your practice name, location, offerings, and bio.", "Add optional phone or website details.", "Choose whether you are willing to travel and whether the profile should stay published."],
+        limits: ["This appears only when your account has auditor-profile creation access.", "Directory profiles describe your practice and are separate from your member profile.", "Only publish contact information you want other members to see."],
+        faq: [
+          {
+            question: "Why do I only see the directory and not the profile form?",
+            answer: "Your current membership or permissions do not include auditor-profile creation, so the directory remains browse-only."
+          },
+          {
+            question: "Can I hide my profile later?",
+            answer: "Yes. Open the profile again and turn off Publish in directory."
+          }
+        ],
+        visual: {
+          title: "Create auditor profile reference",
+          caption: "The auditor profile flow publishes your practice into the directory when your account allows it.",
+          callouts: ["Enter practice details.", "Choose visibility.", "Save the directory profile."]
         }
       }
     ]

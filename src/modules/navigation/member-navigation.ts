@@ -33,12 +33,19 @@ const communicationsSection: NavSection = {
   ]
 };
 
-const marketSection: NavSection = {
+const jobsMarketSection: NavSection = {
   href: "/market",
-  label: "Market",
+  label: "Jobs & Market",
   items: [
     { label: "The Market", href: "/market" },
-    { label: "Jobs", href: "/jobs" },
+    { label: "Jobs", href: "/jobs" }
+  ]
+};
+
+const auditorSection: NavSection = {
+  href: "/auditors",
+  label: "Find an Auditor",
+  items: [
     { label: "Find an Auditor", href: "/auditors" }
   ]
 };
@@ -119,12 +126,12 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     href: "/comm-center",
     items: communicationItems
   };
-  const marketItems = marketSection.items.filter((item) => {
+  const jobsMarketItems = jobsMarketSection.items.filter((item) => {
     if (item.href === "/market") return input.platformFeatures["marketplace.member_market"] !== false;
-    if (item.href === "/auditors") return input.platformFeatures["directory.auditor_directory"] !== false;
     if (item.href === "/jobs") return input.features["jobs.browse"] === true;
     return false;
   });
+  const showAuditorDirectory = input.platformFeatures["directory.auditor_directory"] !== false;
   const toolItems = toolsSection.items.filter((item) => {
     if (item.href === "/business-center") {
       return input.features["market.storefront"] || input.features["org.profile"];
@@ -151,8 +158,11 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
   };
 
   const memberSections: NavSection[] = [home, communications];
-  if (marketItems.length > 0) {
-    memberSections.push({ ...marketSection, href: marketItems[0]?.href ?? "/market", items: marketItems });
+  if (jobsMarketItems.length > 0) {
+    memberSections.push({ ...jobsMarketSection, href: jobsMarketItems[0]?.href ?? "/market", items: jobsMarketItems });
+  }
+  if (showAuditorDirectory) {
+    memberSections.push(auditorSection);
   }
   if (toolItems.length > 0) {
     memberSections.push({ ...toolsSection, href: toolItems[0]?.href, items: toolItems });

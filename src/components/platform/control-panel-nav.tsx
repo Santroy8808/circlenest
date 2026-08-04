@@ -29,10 +29,14 @@ type ControlPanelNavProps = {
   sections: NavSection[];
 };
 
-const popupMenuSectionLabels = new Set(["Comm Center", "Market"]);
+const popupMenuSectionLabels = new Set(["Comm Center", "Jobs & Market"]);
 
 function hrefPath(href: string) {
   return href.split("?")[0] ?? href;
+}
+
+function sectionTutorialTarget(label: string) {
+  return `control-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 
 function sectionCount(section: NavSection, counts: Record<NavCountKey, number>) {
@@ -143,7 +147,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
 
         if (hasPopupMenu) {
           const isOpen = openMenu === section.label;
-          const tutorialTarget = `control-${section.label.toLowerCase().replace(/\s+/g, "-")}`;
+          const tutorialTarget = sectionTutorialTarget(section.label);
           return (
             <div className="control-panel-menu-wrap" key={section.label}>
               <button
@@ -164,7 +168,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                 <span>{section.label}</span>
                 <span className="control-panel-header-meta">
                   {section.totalCount > 0 ? <span className="control-panel-section-count">{section.totalCount}</span> : null}
-                  <span aria-hidden="true" className="control-panel-menu-caret">›</span>
+                  <span aria-hidden="true" className="control-panel-menu-caret">{">"}</span>
                 </span>
               </button>
               {isOpen ? createPortal(
@@ -200,7 +204,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
               section.label === "Tutorial" && tutorialShimmering ? "control-panel-main-link--shimmer" : ""
             ].filter(Boolean).join(" ")}
             data-tooltip={`Open ${section.label}.`}
-            data-tutorial-target={`control-${section.label.toLowerCase().replace(/\s+/g, "-")}`}
+            data-tutorial-target={sectionTutorialTarget(section.label)}
             href={section.targetHref}
             key={section.label}
             onClick={(event) => handleItemClick(event, { href: section.targetHref, label: section.label })}

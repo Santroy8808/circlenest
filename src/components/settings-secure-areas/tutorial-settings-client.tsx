@@ -12,6 +12,27 @@ function startTutorial(detail?: { sectionId?: string; stepId?: string }) {
 }
 
 export function TutorialSettingsClient() {
+  const listingGuides = [
+    {
+      title: "Create a Market listing",
+      description: "Post something for sale or service in The Market, with price, location, and photos.",
+      guideHref: "/settings/users-manual#feature-create-listing",
+      openHref: "/market/create"
+    },
+    {
+      title: "Create a Job",
+      description: "Post a role with company, pay, location, contact details, and the full job description.",
+      guideHref: "/settings/users-manual#feature-create-job",
+      openHref: "/jobs/create"
+    },
+    {
+      title: "Create an auditor profile",
+      description: "Use the auditor directory flow to publish your practice profile when your account includes that access.",
+      guideHref: "/settings/users-manual#feature-create-auditor-profile",
+      openHref: "/auditors"
+    }
+  ] as const;
+
   return (
     <div className="grid gap-5">
       <section className="surface rounded-md p-6">
@@ -27,6 +48,32 @@ export function TutorialSettingsClient() {
           <Link className="btn-secondary" href="/settings/users-manual">
             Open Users Manual
           </Link>
+        </div>
+      </section>
+      <section className="surface rounded-md p-5">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Quick Start Guides</p>
+        <h2 className="mt-2 text-2xl font-semibold">Create listings and profiles</h2>
+        <p className="mt-3 max-w-2xl leading-6 text-[var(--muted)]">
+          These guides cover the three creation flows members ask for most often. Open the walkthrough for orientation, then use the manual for the exact fields and limits.
+        </p>
+        <div className="tutorial-settings-grid mt-5">
+          {listingGuides.map((guide) => (
+            <article className="module-card rounded-md p-5" key={guide.title}>
+              <h3 className="text-xl font-semibold text-[var(--gold)]">{guide.title}</h3>
+              <p className="mt-3 leading-6 text-[var(--muted)]">{guide.description}</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button className="btn-secondary" onClick={() => startTutorial({ sectionId: "market" })} type="button">
+                  Start tutorial
+                </button>
+                <Link className="btn-secondary" href={guide.guideHref}>
+                  Open guide
+                </Link>
+                <Link className="btn-primary" href={guide.openHref}>
+                  Open area
+                </Link>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
       <section className="surface rounded-md p-5">

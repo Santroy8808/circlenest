@@ -6152,8 +6152,8 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-reaction-trigger .theta-like-triangle {
-  height: 1.55rem;
-  width: 1.55rem;
+  height: 1.72rem;
+  width: 1.72rem;
 }
 
 .feed-reaction-choice .theta-like-triangle {
@@ -7143,7 +7143,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-post-actions {
   gap: 14px;
-  grid-template-columns: minmax(120px, 1fr) repeat(3, auto) minmax(120px, 1fr);
+  grid-template-columns: minmax(120px, 1fr) repeat(3, minmax(72px, 82px)) minmax(120px, 1fr);
   padding-top: 10px;
 }
 
@@ -7151,15 +7151,10 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reply-button,
 .feed-share-button {
   font-size: 1.32rem;
-  gap: 7px;
-  min-height: 48px;
-  min-width: 56px;
-  padding: 8px 14px;
-}
-
-.feed-reaction-trigger {
-  min-width: 46px;
-  padding: 6px 10px;
+  gap: 6px;
+  min-height: 46px;
+  min-width: 72px;
+  padding: 6px 12px;
 }
 
 .feed-reaction-choice {
@@ -7184,10 +7179,6 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reaction-count-chip {
   font-size: 1rem;
   min-height: 26px;
-}
-
-.feed-share-button {
-  font-size: 1.5rem;
 }
 
 .notice-center {
@@ -13771,9 +13762,9 @@ body,
 
 .feed-post-actions {
   align-items: center;
-  column-gap: clamp(18px, 3.2vw, 44px);
+  column-gap: clamp(10px, 2vw, 22px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(80px, 118px) minmax(80px, 118px) minmax(80px, 118px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) repeat(3, minmax(72px, 82px)) minmax(0, 1fr);
   justify-items: center;
 }
 
@@ -13795,13 +13786,19 @@ body,
 .feed-reply-button,
 .feed-share-button,
 .feed-reaction-trigger {
-  min-width: clamp(64px, 5.5vw, 86px);
+  min-width: clamp(72px, 5vw, 82px);
+}
+
+.feed-reply-button > .action-glyph,
+.feed-share-button > .action-glyph {
+  height: 1.9rem;
+  width: 1.9rem;
 }
 
 .feed-share-button,
 .comment-reply-icon-link,
 .comment-share-icon-link {
-  font-size: 1.42rem;
+  font-size: 1.32rem;
 }
 
 .comment-bubble-main {

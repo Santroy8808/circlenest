@@ -230,6 +230,23 @@ export function UsersManualClient({ manual }: { manual: UsersManual }) {
     target?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
+  useEffect(() => {
+    if (!open) return;
+
+    function jumpToHashTarget() {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash) return;
+
+      window.requestAnimationFrame(() => {
+        jumpTo(hash);
+      });
+    }
+
+    jumpToHashTarget();
+    window.addEventListener("hashchange", jumpToHashTarget);
+    return () => window.removeEventListener("hashchange", jumpToHashTarget);
+  }, [open]);
+
   function resetWindow() {
     setBox(
       clampBox({

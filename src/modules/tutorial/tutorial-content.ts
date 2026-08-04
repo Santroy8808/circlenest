@@ -43,7 +43,7 @@ export const tutorialIconDefinitions: TutorialIconDefinition[] = [
     id: "market",
     category: "NAVIGATION",
     label: "Market",
-    description: "Opens member listings in The Market.",
+    description: "Opens The Market from the top shortcut bar.",
     iconSrc: "/assets/nav/nav-market.png"
   },
   {
@@ -231,10 +231,26 @@ export const tutorialSteps: TutorialStep[] = [
   {
     id: "market",
     section: "market",
-    title: "Market",
-    description: "Market is where member listings appear. Open a listing to see details, seller information, and contact options.",
+    title: "Jobs And Market",
+    description: "Jobs & Market on the control panel opens The Market and Jobs. Use it when you want to browse or create listings from the left menu.",
     page: "/market",
-    target: "control-market"
+    target: "control-jobs-market"
+  },
+  {
+    id: "listing-guides",
+    section: "market",
+    title: "Create Listings",
+    description: "Use Create Listing for member-market posts, Create Job for openings, and Find an Auditor for the directory. If your account allows auditor profile creation, the Find an Auditor area gives you the path to build it.",
+    page: "/home",
+    target: "control-jobs-market"
+  },
+  {
+    id: "auditors",
+    section: "market",
+    title: "Find An Auditor",
+    description: "Find an Auditor has its own control-panel button so directory browsing stays separate from The Market and Jobs.",
+    page: "/home",
+    target: "control-find-an-auditor"
   },
   {
     id: "gallery",
@@ -289,9 +305,9 @@ export const tutorialSections: TutorialSection[] = [
   },
   {
     id: "market",
-    title: "Market",
-    description: "Member listings, listing details, and seller contact options.",
-    stepIds: ["market"]
+    title: "Jobs, Market, and Auditor Directory",
+    description: "Member listings, job posts, auditor discovery, and the create flows for each.",
+    stepIds: ["market", "listing-guides", "auditors"]
   },
   {
     id: "media",

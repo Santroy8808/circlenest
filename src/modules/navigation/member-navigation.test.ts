@@ -54,11 +54,12 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/jobs"), true);
 });
 
-test("Comm Center keeps Chat, People, and Groups as submenu items while Jobs is linked from Market", () => {
+test("Comm Center keeps Chat, People, and Groups as submenu items while Jobs & Market and Find an Auditor stay separate in the control panel", () => {
   for (const tier of [MembershipTier.FREE, MembershipTier.CONTRIBUTOR]) {
     const sections = navigation(tier);
     const commCenter = sections.find((section) => section.label === "Comm Center");
-    const market = sections.find((section) => section.label === "Market");
+    const jobsMarket = sections.find((section) => section.label === "Jobs & Market");
+    const auditors = sections.find((section) => section.label === "Find an Auditor");
 
     assert.equal(commCenter?.href, "/comm-center");
     assert.deepEqual(
@@ -71,14 +72,19 @@ test("Comm Center keeps Chat, People, and Groups as submenu items while Jobs is 
     );
     assert.equal(sections.some((section) => section.label === "People"), false);
     assert.equal(sections.some((section) => section.label === "Groups"), false);
-    assert.equal(market?.items.some((item) => item.href === "/jobs"), true);
+    assert.equal(jobsMarket?.items.some((item) => item.href === "/market"), true);
+    assert.equal(jobsMarket?.items.some((item) => item.href === "/jobs"), true);
+    assert.deepEqual(
+      auditors?.items.map((item) => [item.label, item.href]),
+      [["Find an Auditor", "/auditors"]]
+    );
   }
 });
 
-test("control panel exposes Market submenu items including Jobs", () => {
+test("control panel exposes Jobs & Market as a submenu and keeps Find an Auditor top-level", () => {
   const controlPanel = readFileSync(resolve("src/components/platform/control-panel-nav.tsx"), "utf8");
 
-  assert.match(controlPanel, /popupMenuSectionLabels = new Set\(\["Comm Center", "Market"\]\)/);
+  assert.match(controlPanel, /popupMenuSectionLabels = new Set\(\["Comm Center", "Jobs & Market"\]\)/);
   assert.match(controlPanel, /Open \$\{section\.label\} menu\./);
 });
 
