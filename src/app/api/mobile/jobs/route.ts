@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     jobs: await safeListJobListings({
       query: request.nextUrl.searchParams.get("q"),
-      category: request.nextUrl.searchParams.get("category")
+      category: request.nextUrl.searchParams.get("category"),
+      location: request.nextUrl.searchParams.get("location")
     })
   });
 }

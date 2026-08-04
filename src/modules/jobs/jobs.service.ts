@@ -26,6 +26,7 @@ import {
   createJobListingSchema,
   createJobImageUploadIntentSchema,
   employmentTypeLabels,
+  isJobSearchCategory,
   jobCategoryLabels,
   updateJobListingSchema,
   type JobListingCardView,
@@ -238,24 +239,61 @@ function toJobCardView(job: JobPayload): JobListingCardView {
   };
 }
 
-export async function listJobListings(input?: { query?: string | null; category?: string | null }) {
-  const query = input?.query?.trim();
-  const category = input?.category && input.category in JobCategory ? (input.category as JobCategory) : null;
+export type JobListingSearchInput = {
+  query?: string | null;
+  category?: string | null;
+  location?: string | null;
+};
+
+function cleanSearchText(value?: string | null) {
+  return value?.trim() || null;
+}
+
+function locationMatchesRemote(value: string) {
+  return /\bremote\b/i.test(value);
+}
+
+export function buildJobListingWhere(input?: JobListingSearchInput): Prisma.JobListingWhereInput {
+  const query = cleanSearchText(input?.query);
+  const location = cleanSearchText(input?.location);
+  const category = isJobSearchCategory(input?.category) ? input.category : null;
+  const andFilters: Prisma.JobListingWhereInput[] = [];
+
+  if (query) {
+    andFilters.push({
+      OR: [
+        { title: { contains: query, mode: "insensitive" } },
+        { companyName: { contains: query, mode: "insensitive" } },
+        { summary: { contains: query, mode: "insensitive" } },
+        { description: { contains: query, mode: "insensitive" } },
+        { needs: { contains: query, mode: "insensitive" } },
+        { wants: { contains: query, mode: "insensitive" } },
+        { location: { contains: query, mode: "insensitive" } },
+        { compensation: { contains: query, mode: "insensitive" } }
+      ]
+    });
+  }
+
+  if (location) {
+    andFilters.push({
+      OR: [
+        { location: { contains: location, mode: "insensitive" } },
+        ...(locationMatchesRemote(location) ? [{ remote: true }] : [])
+      ]
+    });
+  }
+
+  return {
+    status: JobListingStatus.ACTIVE,
+    ...(category ? { category } : {}),
+    ...(andFilters.length ? { AND: andFilters } : {})
+  };
+}
+
+export async function listJobListings(input?: JobListingSearchInput) {
   const jobs = await withJobsDbTimeout(
     prisma.jobListing.findMany({
-      where: {
-        status: JobListingStatus.ACTIVE,
-        ...(category ? { category } : {}),
-        ...(query
-          ? {
-              OR: [
-                { title: { contains: query, mode: "insensitive" } },
-                { companyName: { contains: query, mode: "insensitive" } },
-                { description: { contains: query, mode: "insensitive" } }
-              ]
-            }
-          : {})
-      },
+      where: buildJobListingWhere(input),
       include: {
         employer: {
           include: {
@@ -275,7 +313,7 @@ export async function listJobListings(input?: { query?: string | null; category?
   return jobs.map(toJobCardView);
 }
 
-export async function safeListJobListings(input?: { query?: string | null; category?: string | null }) {
+export async function safeListJobListings(input?: JobListingSearchInput) {
   try {
     return await listJobListings(input);
   } catch (error) {

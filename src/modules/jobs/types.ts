@@ -13,10 +13,21 @@ export const jobCategoryLabels: Record<JobCategory, string> = {
   [JobCategory.OTHER]: "Other"
 };
 
-export const jobCategoryOptions = Object.entries(jobCategoryLabels).map(([value, label]) => ({
-  value: value as JobCategory,
-  label
-}));
+export const hiddenJobSearchCategories = new Set<JobCategory>([
+  JobCategory.AUDITING,
+  JobCategory.TRAINING
+]);
+
+export const jobCategoryOptions = (Object.values(JobCategory) as JobCategory[])
+  .filter((value) => !hiddenJobSearchCategories.has(value))
+  .map((value) => ({
+    value,
+    label: jobCategoryLabels[value]
+  }));
+
+export function isJobSearchCategory(value?: string | null): value is JobCategory {
+  return Boolean(value && value in JobCategory && !hiddenJobSearchCategories.has(value as JobCategory));
+}
 
 export const employmentTypeLabels: Record<JobEmploymentType, string> = {
   [JobEmploymentType.FULL_TIME]: "Full Time",

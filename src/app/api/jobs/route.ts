@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
 
   const listings = await listJobListings({
     query: request.nextUrl.searchParams.get("q"),
-    category: request.nextUrl.searchParams.get("category")
+    category: request.nextUrl.searchParams.get("category"),
+    location: request.nextUrl.searchParams.get("location")
   });
 
   return NextResponse.json({ listings });

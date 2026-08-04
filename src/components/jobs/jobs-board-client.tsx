@@ -17,11 +17,20 @@ export function JobsBoardClient({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
+  const [location, setLocation] = useState("");
   const [view, setView] = useState<ListingViewMode>(initialView);
+  const cleanQuery = query.trim().toLowerCase();
+  const cleanLocation = location.trim().toLowerCase();
   const listings = initialListings.filter((job) => {
     const haystack = [job.title, job.companyName, job.summary, job.categoryLabel, job.location, job.compensation].join(" ").toLowerCase();
-    return haystack.includes(query.trim().toLowerCase()) && (category ? job.category === category : true);
+    const locationHaystack = [job.location, job.remote ? "remote" : ""].join(" ").toLowerCase();
+    return (
+      (!cleanQuery || haystack.includes(cleanQuery)) &&
+      (!cleanLocation || locationHaystack.includes(cleanLocation)) &&
+      (category ? job.category === category : true)
+    );
   });
+  const hasFilters = Boolean(cleanQuery || cleanLocation || category);
 
   return (
     <div className="grid gap-5">
@@ -45,9 +54,10 @@ export function JobsBoardClient({
             ) : null}
           </div>
         </div>
-        <div className="jobs-directory-controls mt-6 grid gap-3 xl:grid-cols-[1fr_260px_auto]">
-          <input className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search jobs..." value={query} />
-          <select className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
+        <div className="jobs-directory-controls mt-6 grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_240px_auto]">
+          <input aria-label="Search jobs by keyword" className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search jobs..." type="search" value={query} />
+          <input aria-label="Search jobs by location" className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Location..." type="search" value={location} />
+          <select aria-label="Filter jobs by category" className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
             <option value="">All categories</option>
             {jobCategoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -61,8 +71,10 @@ export function JobsBoardClient({
 
       {listings.length === 0 ? (
         <section className="surface rounded-md p-8 text-center">
-          <h2 className="text-2xl font-semibold text-[var(--gold)]">No job listings yet</h2>
-          <p className="mt-2 text-[var(--muted)]">Members and business accounts can post opportunities when ready.</p>
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">{hasFilters ? "No jobs match your search" : "No job listings yet"}</h2>
+          <p className="mt-2 text-[var(--muted)]">
+            {hasFilters ? "Try a different keyword, location, or category." : "Members and business accounts can post opportunities when ready."}
+          </p>
         </section>
       ) : (
         <section className={`listing-grid listing-grid--${view}`}>

@@ -7,7 +7,7 @@ import { CityLocationAutocomplete } from "@/components/location/city-location-au
 import { ThetaLoading } from "@/components/platform/theta-loading";
 import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
-import { employmentTypeOptions, jobCategoryOptions, type JobListingDetailView } from "@/modules/jobs/types";
+import { employmentTypeOptions, isJobSearchCategory, jobCategoryOptions, type JobListingDetailView } from "@/modules/jobs/types";
 
 type UploadItem = {
   id: string;
@@ -30,13 +30,16 @@ export function CreateJobListingForm({
   mode?: "create" | "edit";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialCategory = initialJob?.category;
   const [title, setTitle] = useState(initialJob?.title ?? "");
   const [companyName, setCompanyName] = useState(initialJob?.companyName ?? "");
   const [summary, setSummary] = useState(initialJob?.summary ?? "");
   const [description, setDescription] = useState(initialJob?.description ?? "");
   const [needs, setNeeds] = useState(initialJob?.needs ?? "");
   const [wants, setWants] = useState(initialJob?.wants ?? "");
-  const [category, setCategory] = useState<JobCategory>(initialJob?.category ?? JobCategory.ADMINISTRATION);
+  const [category, setCategory] = useState<JobCategory>(
+    isJobSearchCategory(initialCategory) ? initialCategory : JobCategory.ADMINISTRATION
+  );
   const [employmentType, setEmploymentType] = useState<JobEmploymentType>(initialJob?.employmentType ?? JobEmploymentType.FULL_TIME);
   const [location, setLocation] = useState(initialJob?.location ?? "");
   const [remote, setRemote] = useState(initialJob?.remote ?? false);
