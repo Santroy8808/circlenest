@@ -6046,7 +6046,7 @@ html.theta-theme-light .gallery-feedback--error {
   display: inline-flex;
   gap: 10px;
   position: relative;
-  width: 100%;
+  width: auto;
 }
 
 .feed-reaction-counts {
@@ -6067,8 +6067,9 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reaction-control {
   align-items: center;
   display: inline-flex;
+  flex: 0 0 auto;
   position: relative;
-  width: 100%;
+  width: auto;
 }
 
 .feed-share-menu {
@@ -6092,10 +6093,10 @@ html.theta-theme-light .gallery-feedback--error {
   gap: 12px;
   justify-content: center;
   min-height: 44px;
-  min-width: 0;
-  padding: 8px 12px;
+  min-width: 48px;
+  padding: 6px 10px;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
-  width: 100%;
+  width: auto;
 }
 
 .feed-reply-button > .action-glyph,
@@ -6151,8 +6152,8 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-reaction-trigger .theta-like-triangle {
-  height: 2rem;
-  width: 2rem;
+  height: 1.55rem;
+  width: 1.55rem;
 }
 
 .feed-reaction-choice .theta-like-triangle {
@@ -6298,10 +6299,10 @@ html.theta-theme-light .gallery-feedback--error {
   box-shadow: 0 22px 52px rgba(0, 0, 0, 0.38);
   color: var(--text);
   display: grid;
-  gap: 8px;
+  gap: 6px;
   left: 0;
-  min-width: 220px;
-  padding: 12px;
+  min-width: 170px;
+  padding: 10px;
   position: absolute;
   top: calc(100% + 48px);
   z-index: 28;
@@ -6316,30 +6317,28 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-reaction-details-popover ul {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   list-style: none;
   margin: 0;
-  max-height: 220px;
+  max-height: 190px;
   overflow: auto;
   padding: 0;
 }
 
 .feed-reaction-details-popover li {
   align-items: center;
-  display: grid;
-  gap: 2px 8px;
-  grid-template-columns: auto 1fr;
+  display: flex;
+  gap: 7px;
 }
 
-.feed-reaction-details-popover li span:last-of-type {
-  font-size: 0.86rem;
-  font-weight: 800;
-}
-
-.feed-reaction-details-popover small {
+.feed-reaction-reactor-link {
   color: var(--muted);
-  font-size: 0.72rem;
-  grid-column: 2;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .feed-reaction-details-popover p {
@@ -6924,6 +6923,16 @@ html.theta-theme-light .gallery-feedback--error {
   color: var(--gold);
 }
 
+.feed-reaction-count-chip.is-user-reaction {
+  background: rgba(214, 178, 74, 0.14);
+  color: var(--gold);
+}
+
+.feed-reaction-count-chip .theta-like-triangle {
+  height: 0.88em;
+  width: 0.88em;
+}
+
 /* Tester feedback UX pass: keep the primary experience simple and put detail behind pages. */
 .control-panel-nav {
   gap: 9px;
@@ -7146,6 +7155,11 @@ html.theta-theme-light .gallery-feedback--error {
   min-height: 48px;
   min-width: 56px;
   padding: 8px 14px;
+}
+
+.feed-reaction-trigger {
+  min-width: 46px;
+  padding: 6px 10px;
 }
 
 .feed-reaction-choice {

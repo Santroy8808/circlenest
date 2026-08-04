@@ -4,7 +4,7 @@ import { AdPlacement, ConductLocationType, FeedReactionType, FeedVisibility, Med
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react";
-import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type { FocusEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
@@ -134,6 +134,53 @@ function ReactionIcon({ reaction }: { reaction: QuickReaction }) {
 
 function reactionTooltip(reaction: QuickReaction) {
   return reaction.type === FeedReactionType.LIKE ? "Like it!" : reaction.label;
+}
+
+type ReactionDetailEntry = {
+  reaction: QuickReaction;
+  reactor: FeedAuthorView;
+};
+
+function ReactionDetailsPopover({
+  detailReactors,
+  label,
+  onMouseEnter,
+  onMouseLeave
+}: {
+  detailReactors: ReactionDetailEntry[];
+  label: string;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+}) {
+  return (
+    <div
+      aria-label="People who reacted"
+      className="feed-reaction-details-popover"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      role="dialog"
+    >
+      <strong>{label}</strong>
+      {detailReactors.length > 0 ? (
+        <ul>
+          {detailReactors.map(({ reaction, reactor }) => (
+            <li key={`${reaction.type}-${reactor.id}`}>
+              <ReactionIcon reaction={reaction} />
+              <Link
+                className="feed-reaction-reactor-link"
+                href={`/profile/${reactor.username}`}
+                title={reactor.displayName}
+              >
+                @{reactor.username}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No reactions yet.</p>
+      )}
+    </div>
+  );
 }
 
 function feedVisibilityLabel(visibility: FeedVisibility) {
@@ -562,13 +609,16 @@ function ReactionButtons({
   reactors?: FeedReactionReactorsView;
   showCounts?: boolean;
 }) {
-  const visibleReactionCounts = publicQuickReactions.filter((reaction) => (counts[reaction.type] ?? 0) > 0);
   const closeTimerRef = useRef<number | undefined>(undefined);
+  const detailsCloseTimerRef = useRef<number | undefined>(undefined);
   const [choicesOpen, setChoicesOpen] = useState(false);
   const [detailsType, setDetailsType] = useState<FeedReactionType | "ALL" | null>(null);
   const myReactionType = currentUserId
     ? publicQuickReactions.find((reaction) => reactors[reaction.type]?.some((reactor) => reactor.id === currentUserId))?.type
     : undefined;
+  const visibleReactionCounts = publicQuickReactions
+    .filter((reaction) => (counts[reaction.type] ?? 0) > 0)
+    .sort((left, right) => Number(right.type === myReactionType) - Number(left.type === myReactionType));
   const detailReactors =
     detailsType === "ALL"
       ? publicQuickReactions.flatMap((reaction) => (reactors[reaction.type] ?? []).map((reactor) => ({ reaction, reactor })))
@@ -579,17 +629,42 @@ function ReactionButtons({
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+      if (detailsCloseTimerRef.current) window.clearTimeout(detailsCloseTimerRef.current);
     };
   }, []);
 
-  function openChoices() {
+  function clearChoicesCloseTimer() {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+  }
+
+  function clearDetailsCloseTimer() {
+    if (detailsCloseTimerRef.current) window.clearTimeout(detailsCloseTimerRef.current);
+  }
+
+  function openChoices() {
+    clearChoicesCloseTimer();
     setChoicesOpen(true);
   }
 
   function scheduleCloseChoices() {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 700);
+    clearChoicesCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 1600);
+  }
+
+  function openDetails(type: FeedReactionType | "ALL") {
+    clearDetailsCloseTimer();
+    setDetailsType(type);
+  }
+
+  function scheduleCloseDetails() {
+    clearDetailsCloseTimer();
+    detailsCloseTimerRef.current = window.setTimeout(() => setDetailsType(null), 1600);
+  }
+
+  function handleMenuBlur(event: FocusEvent<HTMLDivElement>) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+    scheduleCloseChoices();
+    scheduleCloseDetails();
   }
 
   function chooseReaction(type: FeedReactionType) {
@@ -601,10 +676,13 @@ function ReactionButtons({
   return (
     <div
       className={`${compact ? "feed-reaction-menu is-compact" : "feed-reaction-menu"}${choicesOpen ? " is-open" : ""}`}
-      onBlur={scheduleCloseChoices}
+      onBlur={handleMenuBlur}
       onFocus={openChoices}
       onMouseEnter={openChoices}
-      onMouseLeave={scheduleCloseChoices}
+      onMouseLeave={() => {
+        scheduleCloseChoices();
+        scheduleCloseDetails();
+      }}
     >
       {showCounts ? (
         <div className="feed-reaction-counts" aria-label="Reaction counts">
@@ -612,9 +690,15 @@ function ReactionButtons({
             <button
               aria-expanded={detailsType === reaction.type}
               aria-label={`See ${reaction.label} reactions`}
-              className="feed-reaction-count-chip"
+              className={myReactionType === reaction.type ? "feed-reaction-count-chip is-user-reaction" : "feed-reaction-count-chip"}
               key={reaction.type}
               onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
+              onMouseEnter={() => {
+                if (hasFineHoverPointer()) openDetails(reaction.type);
+              }}
+              onMouseLeave={() => {
+                if (hasFineHoverPointer()) scheduleCloseDetails();
+              }}
               title={`See ${reaction.label} reactions`}
               type="button"
             >
@@ -628,7 +712,7 @@ function ReactionButtons({
         <button
           aria-expanded={choicesOpen}
           aria-label="Choose a reaction"
-          className={myReactionType ? "feed-reaction-trigger has-user-reaction" : "feed-reaction-trigger"}
+          className="feed-reaction-trigger"
           data-tooltip="Like it. Hover for more reactions."
           onClick={() => {
             if (hasFineHoverPointer()) {
@@ -659,26 +743,12 @@ function ReactionButtons({
         </div>
       </div>
       {detailsType ? (
-        <div className="feed-reaction-details-popover" role="dialog" aria-label="People who reacted">
-          <strong>{detailsType === "ALL" ? "Reactions" : reactionMeta(detailsType).label}</strong>
-          {detailReactors.length > 0 ? (
-            <ul>
-              {detailReactors.map(({ reaction, reactor }) => (
-                <li key={`${reaction.type}-${reactor.id}`}>
-                  <ReactionIcon reaction={reaction} />
-                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
-                    {reactor.displayName}
-                  </Link>
-                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
-                    <small>@{reactor.username}</small>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No reactions yet.</p>
-          )}
-        </div>
+        <ReactionDetailsPopover
+          detailReactors={detailReactors}
+          label={detailsType === "ALL" ? "Reactions" : reactionMeta(detailsType).label}
+          onMouseEnter={clearDetailsCloseTimer}
+          onMouseLeave={scheduleCloseDetails}
+        />
       ) : null}
     </div>
   );
@@ -692,10 +762,31 @@ function FeedReactionSummary({
   reactors?: FeedReactionReactorsView;
 }) {
   const visibleReactionCounts = publicQuickReactions.filter((reaction) => (counts[reaction.type] ?? 0) > 0);
+  const detailsCloseTimerRef = useRef<number | undefined>(undefined);
   const [detailsType, setDetailsType] = useState<FeedReactionType | null>(null);
   const detailReactors = detailsType
     ? (reactors[detailsType] ?? []).map((reactor) => ({ reaction: reactionMeta(detailsType), reactor }))
     : [];
+
+  useEffect(() => {
+    return () => {
+      if (detailsCloseTimerRef.current) window.clearTimeout(detailsCloseTimerRef.current);
+    };
+  }, []);
+
+  function clearDetailsCloseTimer() {
+    if (detailsCloseTimerRef.current) window.clearTimeout(detailsCloseTimerRef.current);
+  }
+
+  function openDetails(type: FeedReactionType) {
+    clearDetailsCloseTimer();
+    setDetailsType(type);
+  }
+
+  function scheduleCloseDetails() {
+    clearDetailsCloseTimer();
+    detailsCloseTimerRef.current = window.setTimeout(() => setDetailsType(null), 1600);
+  }
 
   if (visibleReactionCounts.length === 0) {
     return <span className="feed-engagement-empty" aria-hidden="true" />;
@@ -710,6 +801,12 @@ function FeedReactionSummary({
           className="feed-engagement-reaction-chip"
           key={reaction.type}
           onClick={() => setDetailsType((current) => (current === reaction.type ? null : reaction.type))}
+          onMouseEnter={() => {
+            if (hasFineHoverPointer()) openDetails(reaction.type);
+          }}
+          onMouseLeave={() => {
+            if (hasFineHoverPointer()) scheduleCloseDetails();
+          }}
           title={`See ${reaction.label} reactions`}
           type="button"
         >
@@ -718,26 +815,12 @@ function FeedReactionSummary({
         </button>
       ))}
       {detailsType ? (
-        <div className="feed-reaction-details-popover" role="dialog" aria-label="People who reacted">
-          <strong>{reactionMeta(detailsType).label}</strong>
-          {detailReactors.length > 0 ? (
-            <ul>
-              {detailReactors.map(({ reaction, reactor }) => (
-                <li key={`${reaction.type}-${reactor.id}`}>
-                  <ReactionIcon reaction={reaction} />
-                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
-                    {reactor.displayName}
-                  </Link>
-                  <Link className="profile-inline-link" href={`/profile/${reactor.username}`}>
-                    <small>@{reactor.username}</small>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No reactions yet.</p>
-          )}
-        </div>
+        <ReactionDetailsPopover
+          detailReactors={detailReactors}
+          label={reactionMeta(detailsType).label}
+          onMouseEnter={clearDetailsCloseTimer}
+          onMouseLeave={scheduleCloseDetails}
+        />
       ) : null}
     </div>
   );
