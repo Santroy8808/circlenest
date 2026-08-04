@@ -25,6 +25,7 @@ import {
   completeMarketPhotoUploadSchema,
   createMarketListingSchema,
   createMarketPhotoUploadIntentSchema,
+  isMarketSellingCategory,
   marketCategoryLabels,
   PROFESSIONAL_MARKET_PHOTO_CAP,
   updateMarketListingSchema,
@@ -377,7 +378,7 @@ export function validateRentalListing(input: {
 
 export async function listMarketListings(input?: { query?: string | null; category?: string | null }) {
   const query = input?.query?.trim();
-  const category = input?.category && input.category in MarketListingCategory ? (input.category as MarketListingCategory) : null;
+  const category = isMarketSellingCategory(input?.category) ? input.category : null;
   const listings = await withMarketDbTimeout(
     prisma.marketListing.findMany({
       where: {
@@ -586,6 +587,10 @@ export async function createMarketListing(userId: string, input: unknown) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid listing." };
   }
 
+  if (!isMarketSellingCategory(parsed.data.category)) {
+    return { ok: false as const, error: "Choose a valid Market category." };
+  }
+
   const rentalError = validateRentalListing(parsed.data);
   if (rentalError) return { ok: false as const, error: rentalError };
 
@@ -718,6 +723,10 @@ export async function updateMarketListing(viewerUserId: string, listingIdOrSlug:
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid listing." };
+  }
+
+  if (!isMarketSellingCategory(parsed.data.category)) {
+    return { ok: false as const, error: "Choose a valid Market category." };
   }
 
   const rentalError = validateRentalListing(parsed.data);

@@ -17,10 +17,23 @@ export const marketCategoryLabels: Record<MarketListingCategory, string> = {
   [MarketListingCategory.OTHER]: "Other"
 };
 
-export const marketCategoryOptions = Object.entries(marketCategoryLabels).map(([value, label]) => ({
-  value: value as MarketListingCategory,
-  label
-}));
+export const hiddenMarketSellingCategories = new Set<MarketListingCategory>([
+  MarketListingCategory.BOOKS_MATERIALS,
+  MarketListingCategory.COURSE_SUPPLIES,
+  MarketListingCategory.AUDITING_SUPPLIES,
+  MarketListingCategory.E_METERS
+]);
+
+export const marketCategoryOptions = (Object.values(MarketListingCategory) as MarketListingCategory[])
+  .filter((value) => !hiddenMarketSellingCategories.has(value))
+  .map((value) => ({
+    value,
+    label: marketCategoryLabels[value]
+  }));
+
+export function isMarketSellingCategory(value?: string | null): value is MarketListingCategory {
+  return Boolean(value && value in MarketListingCategory && !hiddenMarketSellingCategories.has(value as MarketListingCategory));
+}
 
 export const createMarketPhotoUploadIntentSchema = z.object({
   fileName: z.string().min(1).max(240),

@@ -8,7 +8,7 @@ import { CarouselGuidance } from "@/components/media/carousel-guidance";
 import { ThetaLoading } from "@/components/platform/theta-loading";
 import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
-import { marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
+import { isMarketSellingCategory, marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
 
 type UploadItem = {
   id: string;
@@ -48,9 +48,14 @@ export function CreateMarketListingForm({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const existingPhotoCount = initialListing?.photos.length ?? 0;
+  const initialCategory = initialListing?.category;
   const [title, setTitle] = useState(initialListing?.title ?? "");
   const [description, setDescription] = useState(initialListing?.description ?? "");
-  const [category, setCategory] = useState<MarketListingCategory>(initialListing?.category ?? (listingKind === "rental" ? MarketListingCategory.RENTALS : marketCategoryOptions[0]?.value) ?? MarketListingCategory.OTHER);
+  const [category, setCategory] = useState<MarketListingCategory>(
+    isMarketSellingCategory(initialCategory)
+      ? initialCategory
+      : (listingKind === "rental" ? MarketListingCategory.RENTALS : marketCategoryOptions[0]?.value) ?? MarketListingCategory.OTHER
+  );
   const [location, setLocation] = useState(initialListing?.location ?? "");
   const [price, setPrice] = useState(initialListing?.priceCents ? (initialListing.priceCents / 100).toFixed(2) : "");
   const [rentalPropertyType, setRentalPropertyType] = useState(initialListing?.rentalPropertyType ?? "");

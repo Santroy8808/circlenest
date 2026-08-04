@@ -22,10 +22,6 @@ export async function GET(request: NextRequest) {
     category: request.nextUrl.searchParams.get("category")
   });
   const productCategories = new Set([
-    "BOOKS_MATERIALS",
-    "COURSE_SUPPLIES",
-    "AUDITING_SUPPLIES",
-    "E_METERS",
     "FURNITURE_EQUIPMENT",
     "EVENTS_SUPPLIES",
     "OTHER"

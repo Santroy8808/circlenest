@@ -7,6 +7,7 @@ import {
   validateRentalListing
 } from "@/modules/market/market.service";
 import { MarketListingCategory } from "@prisma/client";
+import { isMarketSellingCategory, marketCategoryOptions } from "@/modules/market/types";
 
 test("rolling Market quota counts every creation, including archived listings", () => {
   const cutoff = new Date("2026-07-07T00:00:00.000Z");
@@ -58,4 +59,21 @@ test("rental listings require the core housing details", () => {
     rentalAvailableAt: "2026-09-01T00:00:00.000Z"
   }), null);
   assert.equal(validateRentalListing({ category: MarketListingCategory.SERVICES }), null);
+});
+
+test("Market selling categories hide restricted item types", () => {
+  const hiddenCategories = [
+    MarketListingCategory.BOOKS_MATERIALS,
+    MarketListingCategory.COURSE_SUPPLIES,
+    MarketListingCategory.AUDITING_SUPPLIES,
+    MarketListingCategory.E_METERS
+  ];
+
+  for (const category of hiddenCategories) {
+    assert.equal(isMarketSellingCategory(category), false);
+    assert.equal(marketCategoryOptions.some((option) => option.value === category), false);
+  }
+
+  assert.equal(isMarketSellingCategory(MarketListingCategory.FURNITURE_EQUIPMENT), true);
+  assert.equal(isMarketSellingCategory(MarketListingCategory.RENTALS), true);
 });
