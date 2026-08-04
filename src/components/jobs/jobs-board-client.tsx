@@ -54,18 +54,36 @@ export function JobsBoardClient({
             ) : null}
           </div>
         </div>
-        <div className="jobs-directory-controls mt-6 grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_240px_auto]">
-          <input aria-label="Search jobs by keyword" className="form-field" onChange={(event) => setQuery(event.target.value)} placeholder="Search jobs..." type="search" value={query} />
-          <input aria-label="Search jobs by location" className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Location..." type="search" value={location} />
-          <select aria-label="Filter jobs by category" className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
-            <option value="">All categories</option>
-            {jobCategoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ListingViewSwitcher onChange={setView} surface="jobs" value={view} />
+        <div className="jobs-directory-controls mt-6 grid gap-3">
+          <input
+            aria-label="Search jobs by keyword"
+            className="form-field"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search jobs by role, company, or keyword..."
+            type="search"
+            value={query}
+          />
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(200px,260px)] xl:grid-cols-[minmax(0,1fr)_minmax(200px,260px)_auto]">
+            <input
+              aria-label="Search jobs by location"
+              className="form-field"
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="Location..."
+              type="search"
+              value={location}
+            />
+            <select aria-label="Filter jobs by category" className="form-field" onChange={(event) => setCategory(event.target.value)} value={category}>
+              <option value="">All categories</option>
+              {jobCategoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="min-w-0 lg:col-span-2 xl:col-span-1 xl:justify-self-end">
+              <ListingViewSwitcher onChange={setView} surface="jobs" value={view} />
+            </div>
+          </div>
         </div>
       </section>
 
