@@ -4,7 +4,7 @@ import "../../../scripts/load-next-env";
 import { buildInviteOrientationEmail } from "@/modules/membership-policy/invite-orientation-email";
 
 test("invite orientation preserves the required Non-E beta guidance", () => {
-  const message = buildInviteOrientationEmail();
+  const message = buildInviteOrientationEmail("member@example.com");
 
   assert.equal(message.subject, "Theta-Space Non-E");
   assert.match(message.text, /private, member-focused social network for Scientologists/i);
@@ -16,4 +16,6 @@ test("invite orientation preserves the required Non-E beta guidance", () => {
   assert.match(message.text, /Visit Theta-Space: https?:\/\//i);
   assert.match(message.html, /theta-send-logo\.png/i);
   assert.match(message.html, /Visit Theta-Space/i);
+  assert.match(message.text, /unsubscribe/i);
+  assert.match(message.html, /Unsubscribe/i);
 });

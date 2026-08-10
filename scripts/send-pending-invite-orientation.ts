@@ -1,6 +1,7 @@
 import "./load-next-env";
 import { prisma } from "@/lib/platform/db";
 import { sendInviteOrientationEmail } from "@/modules/membership-policy/invite-orientation-email";
+import { listOptionalSystemEmailOptOuts } from "@/modules/system-email-preferences/system-email-preferences.service";
 
 async function main() {
   if (!process.argv.includes("--confirm-send")) {
@@ -30,10 +31,24 @@ async function main() {
       .map((invite) => invite.recipientEmail?.trim().toLowerCase())
       .filter((email): email is string => Boolean(email))
   )];
+  const optedOut = await listOptionalSystemEmailOptOuts(recipients);
 
   for (const recipient of recipients) {
-    await sendInviteOrientationEmail(recipient);
     const deliveredAt = new Date();
+    if (optedOut.has(recipient)) {
+      await prisma.freeAccountInviteCode.updateMany({
+        where: {
+          recipientEmail: { equals: recipient, mode: "insensitive" },
+          isBetaTester: true,
+          orientationEmailedAt: null
+        },
+        data: { orientationEmailedAt: deliveredAt }
+      });
+      console.log(`skipped ${recipient} (unsubscribed)`);
+      continue;
+    }
+
+    await sendInviteOrientationEmail(recipient);
     await prisma.freeAccountInviteCode.updateMany({
       where: {
         recipientEmail: { equals: recipient, mode: "insensitive" },

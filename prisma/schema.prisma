@@ -2506,6 +2506,17 @@ model MailPreference {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model SystemEmailPreference {
+  id                                 String   @id @default(cuid())
+  email                              String   @unique
+  allowOptionalSystemEmails          Boolean  @default(true)
+  optionalSystemEmailsUnsubscribedAt DateTime?
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime @updatedAt
+
+  @@index([allowOptionalSystemEmails, createdAt])
+}
+
 model MailSenderOptOut {
   id           String   @id @default(cuid())
   ownerUserId  String

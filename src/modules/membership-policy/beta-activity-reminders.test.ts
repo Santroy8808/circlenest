@@ -9,7 +9,7 @@ import {
 } from "@/modules/membership-policy/beta-activity-reminders.service";
 
 test("beta activity reminder contains the required login call to action", () => {
-  const message = buildBetaActivityReminderEmail();
+  const message = buildBetaActivityReminderEmail("member@example.com");
 
   assert.equal(message.subject, "Have you tested Theta-Space today?");
   assert.match(message.text, /Log in: https?:\/\//i);
@@ -19,6 +19,8 @@ test("beta activity reminder contains the required login call to action", () => 
   assert.match(message.html, /theta-send-logo\.png/i);
   assert.match(message.html, /Log in to Theta-Space/i);
   assert.match(message.html, /\/login/i);
+  assert.match(message.text, /unsubscribe/i);
+  assert.match(message.html, /Unsubscribe/i);
 });
 
 test("beta reminder policy waits 48 hours, lasts 90 days, and excludes Mike", () => {

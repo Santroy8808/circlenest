@@ -1,9 +1,16 @@
 import { platformEmailButton, platformWebsiteUrl, renderPlatformEmail } from "@/lib/platform/email-theme";
 import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
+import {
+  assertOptionalSystemEmailAllowed,
+  buildOptionalSystemEmailUnsubscribeHtml,
+  buildOptionalSystemEmailUnsubscribeText
+} from "@/modules/system-email-preferences/system-email-preferences.service";
 
-export function buildInviteOrientationEmail() {
+export function buildInviteOrientationEmail(recipientEmail?: string | null) {
   const websiteUrl = platformWebsiteUrl("/");
+  const unsubscribeText = recipientEmail ? buildOptionalSystemEmailUnsubscribeText(recipientEmail) : "";
+  const unsubscribeHtml = recipientEmail ? buildOptionalSystemEmailUnsubscribeHtml(recipientEmail) : "";
   const text = [
     "THETA-SPACE NON-E",
     "=================",
@@ -26,7 +33,8 @@ export function buildInviteOrientationEmail() {
     "",
     "Welcome,",
     "Michael De Armon",
-    "Owner / Operator, Theta-Space"
+    "Owner / Operator, Theta-Space",
+    unsubscribeText
   ].join("\n");
 
   const html = renderPlatformEmail({
@@ -51,6 +59,7 @@ export function buildInviteOrientationEmail() {
       <div style="height:1px;background-color:#334159;line-height:1px;">&nbsp;</div>
       <p style="margin:22px 0 0;color:#aab4c3;font-size:13px;line-height:1.65;">This is an invite-only beta. Invitations are being sent to people known personally or who have expressed interest through the community.</p>
       <p style="margin:20px 0 0;color:#dbe2ee;font-size:15px;line-height:1.7;">Welcome,<br><strong>Michael De Armon</strong><br><span style="color:#aab4c3;">Owner / Operator, Theta-Space</span></p>
+      ${unsubscribeHtml}
     `
   });
 
@@ -62,11 +71,12 @@ export function buildInviteOrientationEmail() {
 }
 
 export async function sendInviteOrientationEmail(recipientEmail: string) {
+  await assertOptionalSystemEmailAllowed(recipientEmail);
   const mailboxes = readPlatformMailboxes();
   await sendPlatformMail({
     to: recipientEmail,
     from: mailboxes.invite,
     replyTo: mailboxes.inviteReplyTo,
-    ...buildInviteOrientationEmail()
+    ...buildInviteOrientationEmail(recipientEmail)
   });
 }

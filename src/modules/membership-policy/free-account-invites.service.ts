@@ -12,6 +12,13 @@ import { readPlatformEnv } from "@/lib/platform/env";
 import { tierPolicies } from "@/modules/membership-policy/policy";
 import { sendInviteOrientationEmail } from "@/modules/membership-policy/invite-orientation-email";
 import {
+  assertOptionalSystemEmailAllowed,
+  buildOptionalSystemEmailUnsubscribeHtml,
+  buildOptionalSystemEmailUnsubscribeText,
+  listOptionalSystemEmailOptOuts,
+  OptionalSystemEmailOptOutError
+} from "@/modules/system-email-preferences/system-email-preferences.service";
+import {
   BETA_REMINDER_DURATION_MS,
   BETA_REMINDER_EXCLUDED_EMAIL
 } from "@/modules/membership-policy/beta-activity-reminders.service";
@@ -160,6 +167,7 @@ function inviteEmailDetails(code: string, expiresAt: Date) {
 
 type FreeAccountInviteEmailOptions = {
   personalMessage?: string | null;
+  recipientEmail?: string | null;
 };
 
 function normalizePersonalInviteMessage(value?: string | null) {
@@ -195,6 +203,7 @@ function invitePersonalMessageHtml(value?: string | null) {
 
 function inviteEmailText(code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
   const { normalizedCode, signupUrl, expirationLabel } = inviteEmailDetails(code, expiresAt);
+  const unsubscribeText = options.recipientEmail ? buildOptionalSystemEmailUnsubscribeText(options.recipientEmail) : "";
 
   return [
     "THETA-SPACE — PRIVATE INVITATION",
@@ -220,7 +229,7 @@ function inviteEmailText(code: string, expiresAt: Date, options: FreeAccountInvi
     "If you did not expect this invitation, you can safely ignore this email.",
     "",
     "— The Theta-Space team"
-  ].join("\n");
+  ].concat(unsubscribeText ? [unsubscribeText] : []).join("\n");
 }
 
 function inviteEmailHtml(code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
@@ -229,6 +238,7 @@ function inviteEmailHtml(code: string, expiresAt: Date, options: FreeAccountInvi
   const safeSignupUrl = escapeHtml(signupUrl);
   const safeExpirationLabel = escapeHtml(expirationLabel);
   const personalMessageHtml = invitePersonalMessageHtml(options.personalMessage);
+  const unsubscribeHtml = options.recipientEmail ? buildOptionalSystemEmailUnsubscribeHtml(options.recipientEmail) : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -323,7 +333,7 @@ ${personalMessageHtml}
             </tr>
             <tr>
               <td class="theta-card-cell" style="padding:20px 34px;background-color:#0d131d;border-top:1px solid #334159;color:#7f8da3;font-size:12px;line-height:1.6;">
-                Sent by the Theta-Space team.<br>If you did not expect this invitation, you can safely ignore this email.
+                Sent by the Theta-Space team.<br>If you did not expect this invitation, you can safely ignore this email.${unsubscribeHtml}
               </td>
             </tr>
           </table>
@@ -343,7 +353,8 @@ export function buildFreeAccountInviteEmail(code: string, expiresAt: Date, optio
 }
 
 async function sendInviteEmail(recipientEmail: string, code: string, expiresAt: Date, options: FreeAccountInviteEmailOptions = {}) {
-  const message = buildFreeAccountInviteEmail(code, expiresAt, options);
+  await assertOptionalSystemEmailAllowed(recipientEmail);
+  const message = buildFreeAccountInviteEmail(code, expiresAt, { ...options, recipientEmail });
   const mailboxes = readPlatformMailboxes();
   await sendPlatformMail({
     to: recipientEmail,
@@ -384,6 +395,10 @@ async function sendInviteOrientationOrQueue(inviteId: string, recipientEmail: st
     try {
       await sendTrackedInviteOrientation(inviteId, recipientEmail);
     } catch (sendError) {
+      if (sendError instanceof OptionalSystemEmailOptOutError) {
+        await markInviteOrientationDelivered(inviteId);
+        return;
+      }
       await diagnostics.error(MODULE_KEY, "Invite orientation email could not be queued or sent.", {
         inviteId,
         recipientEmail,
@@ -653,8 +668,10 @@ export async function sendMemberFreeAccountInvites(actorUserId: string, input: u
   });
   const existingEmails = new Set(existing.map((invite) => invite.recipientEmail).filter((email): email is string => Boolean(email)));
   const acceptedEmails = parsedEmails.emails.filter((email) => !existingEmails.has(email));
-  if (acceptedEmails.length === 0) {
-    return { ok: false as const, error: "Every address already has an active invitation or was duplicated." };
+  const optedOutEmails = await listOptionalSystemEmailOptOuts(acceptedEmails);
+  const deliverableEmails = acceptedEmails.filter((email) => !optedOutEmails.has(email));
+  if (deliverableEmails.length === 0) {
+    return { ok: false as const, error: "Every address already has an active invitation, was duplicated, or has unsubscribed from Theta-Space system emails." };
   }
 
   const expiresAt = new Date(now.getTime() + parsed.data.expiresInDays * 24 * 60 * 60 * 1000);
@@ -671,7 +688,7 @@ export async function sendMemberFreeAccountInvites(actorUserId: string, input: u
   }> = [];
   const emailErrors: Array<{ recipientEmail: string; error: string }> = [];
 
-  for (const recipientEmail of acceptedEmails) {
+  for (const recipientEmail of deliverableEmails) {
     const { code, codeHash } = await createUniqueInviteCodePair();
     const invite = await prisma.freeAccountInviteCode.create({
       data: {
@@ -741,7 +758,7 @@ export async function sendMemberFreeAccountInvites(actorUserId: string, input: u
     ok: true as const,
     sentCount: invites.length,
     failedCount: emailErrors.length,
-    skippedCount: parsedEmails.duplicateCount + existingEmails.size,
+    skippedCount: parsedEmails.duplicateCount + existingEmails.size + optedOutEmails.size,
     invites,
     emailErrors
   };
@@ -754,14 +771,6 @@ async function createBulkInviteBatchInTransaction(
   expiresAt: Date
 ) {
   return prisma.$transaction(async (tx) => {
-    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const reservedToday = await tx.freeAccountInviteCode.count({
-      where: { bulkBatchId: { not: null }, createdAt: { gte: dayStart } }
-    });
-    if (reservedToday + parsedEmails.extractedCount > BULK_INVITE_DAILY_CAP) {
-      throw new FreeInviteError(`The daily bulk invitation limit is ${BULK_INVITE_DAILY_CAP} addresses. Try again tomorrow.`);
-    }
-
     const existing = await tx.freeAccountInviteCode.findMany({
       where: {
         recipientEmail: { in: parsedEmails.emails },
@@ -773,8 +782,27 @@ async function createBulkInviteBatchInTransaction(
     });
     const existingEmails = new Set(existing.map((invite) => invite.recipientEmail).filter((email): email is string => Boolean(email)));
     const acceptedEmails = parsedEmails.emails.filter((email) => !existingEmails.has(email));
-    if (acceptedEmails.length === 0) {
-      throw new FreeInviteError("Every address already has an active invitation or was duplicated.");
+    const optedOutRows = acceptedEmails.length === 0
+      ? []
+      : await tx.systemEmailPreference.findMany({
+          where: {
+            email: { in: acceptedEmails },
+            allowOptionalSystemEmails: false
+          },
+          select: { email: true }
+        });
+    const optedOutEmails = new Set(optedOutRows.map((row) => row.email));
+    const deliverableEmails = acceptedEmails.filter((email) => !optedOutEmails.has(email));
+    if (deliverableEmails.length === 0) {
+      throw new FreeInviteError("Every address already has an active invitation, was duplicated, or has unsubscribed from Theta-Space system emails.");
+    }
+
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const reservedToday = await tx.freeAccountInviteCode.count({
+      where: { bulkBatchId: { not: null }, createdAt: { gte: dayStart } }
+    });
+    if (reservedToday + deliverableEmails.length > BULK_INVITE_DAILY_CAP) {
+      throw new FreeInviteError(`The daily bulk invitation limit is ${BULK_INVITE_DAILY_CAP} addresses. Try again tomorrow.`);
     }
 
     const latestJob = await tx.platformJob.findFirst({
@@ -791,13 +819,13 @@ async function createBulkInviteBatchInTransaction(
       data: {
         createdByUserId: actorUserId,
         requestedCount: parsedEmails.extractedCount,
-        acceptedCount: acceptedEmails.length,
-        skippedCount: parsedEmails.duplicateCount + existingEmails.size
+        acceptedCount: deliverableEmails.length,
+        skippedCount: parsedEmails.duplicateCount + existingEmails.size + optedOutEmails.size
       }
     });
 
     const inviteIds: string[] = [];
-    for (const recipientEmail of acceptedEmails) {
+    for (const recipientEmail of deliverableEmails) {
       let code = createInviteCode();
       let codeHash = hashFreeAccountInviteCode(code);
       for (let attempts = 0; attempts < 3; attempts += 1) {
@@ -829,7 +857,7 @@ async function createBulkInviteBatchInTransaction(
       runAfter = new Date(runAfter.getTime() + BULK_INVITE_INTERVAL_MS);
     }
 
-    return { batch, inviteIds, skippedCount: parsedEmails.duplicateCount + existingEmails.size };
+    return { batch, inviteIds, skippedCount: parsedEmails.duplicateCount + existingEmails.size + optedOutEmails.size };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
@@ -851,6 +879,16 @@ export async function createMemberFreeAccountInviteCode(actorUserId: string, inp
 
   if (parsed.data.sendEmail && !recipientEmail) {
     return { ok: false as const, error: "Enter an email address before sending the invite code." };
+  }
+  if (parsed.data.sendEmail && recipientEmail) {
+    try {
+      await assertOptionalSystemEmailAllowed(recipientEmail);
+    } catch (error) {
+      if (error instanceof OptionalSystemEmailOptOutError) {
+        return { ok: false as const, error: error.message };
+      }
+      throw error;
+    }
   }
 
   const expiresAt = new Date(Date.now() + parsed.data.expiresInDays * 24 * 60 * 60 * 1000);
@@ -944,6 +982,16 @@ export async function createFreeAccountInviteCode(actorUserId: string, input: un
 
   if (parsed.data.sendEmail && !recipientEmail) {
     return { ok: false as const, error: "Enter an email address before sending the invite code." };
+  }
+  if (parsed.data.sendEmail && recipientEmail) {
+    try {
+      await assertOptionalSystemEmailAllowed(recipientEmail);
+    } catch (error) {
+      if (error instanceof OptionalSystemEmailOptOutError) {
+        return { ok: false as const, error: error.message };
+      }
+      throw error;
+    }
   }
 
   const assignedUser = await findUserByIdentifier(parsed.data.assignedUserIdentifier);
@@ -1053,6 +1101,14 @@ export async function emailFreeAccountInviteCode(actorUserId: string, input: unk
   }
 
   const recipientEmail = normalizeOptionalEmail(parsed.data.recipientEmail);
+  try {
+    await assertOptionalSystemEmailAllowed(recipientEmail!);
+  } catch (error) {
+    if (error instanceof OptionalSystemEmailOptOutError) {
+      return { ok: false as const, error: error.message };
+    }
+    throw error;
+  }
 
   try {
     await sendInviteEmail(recipientEmail!, parsed.data.inviteCode, invite.expiresAt);
@@ -1164,6 +1220,11 @@ export async function deliverQueuedBulkInvite(job: PlatformJob) {
     await recordBulkDeliveryOutcome(invite.bulkBatchId, "sent");
     return { ok: true as const, result: { sent: true, inviteId: invite.id } };
   } catch (error) {
+    if (error instanceof OptionalSystemEmailOptOutError) {
+      await prisma.freeAccountInviteCode.update({ where: { id: invite.id }, data: { deliveryCodeCiphertext: null } });
+      await recordBulkDeliveryOutcome(invite.bulkBatchId, "failed");
+      return { ok: true as const, result: { skipped: true, reason: error.message } };
+    }
     const message = error instanceof Error ? error.message : "Could not send queued invite email.";
     if (job.attempts + 1 >= job.maxAttempts) {
       await prisma.freeAccountInviteCode.update({ where: { id: invite.id }, data: { deliveryCodeCiphertext: null } });
@@ -1435,6 +1496,10 @@ export async function deliverQueuedInviteOrientation(job: PlatformJob) {
     await sendTrackedInviteOrientation(invite.id, invite.recipientEmail);
     return { ok: true as const, result: { sent: true, inviteId: invite.id } };
   } catch (error) {
+    if (error instanceof OptionalSystemEmailOptOutError) {
+      await markInviteOrientationDelivered(invite.id);
+      return { ok: true as const, result: { skipped: true, reason: error.message } };
+    }
     const message = error instanceof Error ? error.message : "Could not send queued invite orientation email.";
     await diagnostics.warn(MODULE_KEY, "Queued invite orientation SMTP send failed.", {
       inviteId: invite.id,

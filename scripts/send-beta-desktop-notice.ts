@@ -3,11 +3,17 @@ import { prisma } from "@/lib/platform/db";
 import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { escapeHtml, platformEmailButton, platformWebsiteUrl, renderPlatformEmail } from "@/lib/platform/email-theme";
+import {
+  buildOptionalSystemEmailUnsubscribeHtml,
+  buildOptionalSystemEmailUnsubscribeText,
+  listOptionalSystemEmailOptOuts
+} from "@/modules/system-email-preferences/system-email-preferences.service";
 
 const websiteUrl = platformWebsiteUrl("/");
 const subject = "Theta-Space beta testing is best on desktop for now";
 
-function buildText() {
+function buildText(recipientEmail?: string | null) {
+  const unsubscribeText = recipientEmail ? buildOptionalSystemEmailUnsubscribeText(recipientEmail) : "";
   return [
     "Theta-Space beta testing note",
     "",
@@ -21,12 +27,14 @@ function buildText() {
     "",
     "Thank you for being part of the beta.",
     "",
-    "The Theta-Space team"
+    "The Theta-Space team",
+    unsubscribeText
   ].join("\n");
 }
 
-function buildHtml() {
+function buildHtml(recipientEmail?: string | null) {
   const safeWebsiteUrl = escapeHtml(websiteUrl);
+  const unsubscribeHtml = recipientEmail ? buildOptionalSystemEmailUnsubscribeHtml(recipientEmail) : "";
 
   return renderPlatformEmail({
     title: "Beta testing works best on desktop for now.",
@@ -45,6 +53,7 @@ function buildHtml() {
       </table>
       ${platformEmailButton("Open Theta-Space", websiteUrl)}
       <p style="margin:0;color:#7f8da3;font-size:12px;line-height:1.65;">Button not working? Copy and paste this address into your browser:<br><a href="${safeWebsiteUrl}" style="color:#6d91ff;text-decoration:underline;word-break:break-all;">${safeWebsiteUrl}</a></p>
+      ${unsubscribeHtml}
     `,
     footerHtml: "Sent by the Theta-Space team."
   });
@@ -56,8 +65,6 @@ async function main() {
   }
 
   const mailboxes = readPlatformMailboxes();
-  const text = buildText();
-  const html = buildHtml();
   const pendingInvites = await prisma.freeAccountInviteCode.findMany({
     where: {
       isBetaTester: true,
@@ -81,17 +88,31 @@ async function main() {
       .map((invite) => invite.recipientEmail?.trim().toLowerCase())
       .filter((email): email is string => Boolean(email))
   )];
+  const optedOut = await listOptionalSystemEmailOptOuts(recipients);
 
   for (const recipient of recipients) {
+    const deliveredAt = new Date();
+    if (optedOut.has(recipient)) {
+      await prisma.freeAccountInviteCode.updateMany({
+        where: {
+          recipientEmail: { equals: recipient, mode: "insensitive" },
+          isBetaTester: true,
+          betaNoticeEmailedAt: null
+        },
+        data: { betaNoticeEmailedAt: deliveredAt }
+      });
+      console.log(`skipped ${recipient} (unsubscribed)`);
+      continue;
+    }
+
     await sendPlatformMail({
       to: recipient,
       from: mailboxes.invite,
       replyTo: mailboxes.inviteReplyTo,
       subject,
-      text,
-      html
+      text: buildText(recipient),
+      html: buildHtml(recipient)
     });
-    const deliveredAt = new Date();
     await prisma.freeAccountInviteCode.updateMany({
       where: {
         recipientEmail: { equals: recipient, mode: "insensitive" },

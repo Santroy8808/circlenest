@@ -3,15 +3,23 @@ import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
+import {
+  assertOptionalSystemEmailAllowed,
+  buildOptionalSystemEmailUnsubscribeHtml,
+  buildOptionalSystemEmailUnsubscribeText,
+  listOptionalSystemEmailOptOuts
+} from "@/modules/system-email-preferences/system-email-preferences.service";
 
 const MODULE_KEY = "beta-activity-reminders";
 export const BETA_REMINDER_INTERVAL_MS = 48 * 60 * 60 * 1000;
 export const BETA_REMINDER_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
 export const BETA_REMINDER_EXCLUDED_EMAIL = "mike@santroy.com";
 
-export function buildBetaActivityReminderEmail() {
+export function buildBetaActivityReminderEmail(recipientEmail?: string | null) {
   const loginUrl = platformWebsiteUrl("/login");
   const safeLoginUrl = escapeHtml(loginUrl);
+  const unsubscribeText = recipientEmail ? buildOptionalSystemEmailUnsubscribeText(recipientEmail) : "";
+  const unsubscribeHtml = recipientEmail ? buildOptionalSystemEmailUnsubscribeHtml(recipientEmail) : "";
   const text = [
     "HAVE YOU TESTED THETA-SPACE TODAY?",
     "==================================",
@@ -26,7 +34,8 @@ export function buildBetaActivityReminderEmail() {
     "",
     "Thank you for helping us improve Theta-Space.",
     "",
-    "The Theta-Space team"
+    "The Theta-Space team",
+    unsubscribeText
   ].join("\n");
 
   const html = renderPlatformEmail({
@@ -47,6 +56,7 @@ export function buildBetaActivityReminderEmail() {
       ${platformEmailButton("Log in to Theta-Space", loginUrl)}
       <p style="margin:0;color:#7f8da3;font-size:12px;line-height:1.65;">Button not working? Copy and paste this address into your browser:<br><a href="${safeLoginUrl}" style="color:#6d91ff;text-decoration:underline;word-break:break-all;">${safeLoginUrl}</a></p>
       <p style="margin:22px 0 0;color:#aab4c3;font-size:13px;line-height:1.65;">Thank you for helping us improve Theta-Space.</p>
+      ${unsubscribeHtml}
     `,
     footerHtml: "This Beta testing reminder was sent by the Theta-Space team."
   });
@@ -59,12 +69,13 @@ export function buildBetaActivityReminderEmail() {
 }
 
 async function sendBetaActivityReminder(recipientEmail: string) {
+  await assertOptionalSystemEmailAllowed(recipientEmail);
   const mailboxes = readPlatformMailboxes();
   await sendPlatformMail({
     to: recipientEmail,
     from: mailboxes.system,
     replyTo: mailboxes.support,
-    ...buildBetaActivityReminderEmail()
+    ...buildBetaActivityReminderEmail(recipientEmail)
   });
 }
 
@@ -100,11 +111,13 @@ export async function runBetaActivityReminderSweep(now = new Date()) {
     orderBy: { betaReminderStartedAt: "asc" },
     take: 100
   });
+  const optedOut = await listOptionalSystemEmailOptOuts(candidates.map((candidate) => candidate.email));
+  const deliverableCandidates = candidates.filter((candidate) => !optedOut.has(candidate.email.trim().toLowerCase()));
 
   let sent = 0;
   let failed = 0;
 
-  for (const candidate of candidates) {
+  for (const candidate of deliverableCandidates) {
     try {
       await sendBetaActivityReminder(candidate.email);
       await prisma.user.update({
