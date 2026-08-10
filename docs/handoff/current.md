@@ -1,6 +1,15 @@
 # Current Theta-Space Handoff
 
-Updated: 2026-07-21
+Updated: 2026-08-10
+
+## Pending beta reminder unsubscribe release
+
+- Local commit `11d110b` adds signed unsubscribe links to beta reminder and optional beta follow-up emails.
+- Unsubscribe requests persist in `SystemEmailPreference`; reminder candidate selection and final delivery both enforce the opt-out.
+- Required account, login, and security messages remain enabled.
+- Migration `20260810141000_system_email_preferences` must be applied with the approved production deployment procedure before the feature is used live.
+- Verification passed: focused email tests, Prisma validation, typecheck, lint, production build, and local signed/invalid unsubscribe-page states.
+- This commit has not been pushed or deployed. Do not push or update production unless the user explicitly says `push`.
 
 ## First instructions for the next task
 
