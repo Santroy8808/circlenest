@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
+import { GalleryUploadDropTarget, galleryImageFiles } from "@/components/gallery/gallery-upload-drop-target";
 import { ThetaLoading } from "@/components/platform/theta-loading";
 import { promptForDeletePassword } from "@/lib/client/delete-password";
 import type { GalleryAssetView } from "@/modules/gallery-media-storage/types";
@@ -206,7 +207,7 @@ export function GalleryGrid({
     }
   }
 
-  function queuePrivateUploads(files: FileList | null) {
+  function queuePrivateUploads(files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
 
     addFilesAndUpload(files, {
@@ -223,7 +224,7 @@ export function GalleryGrid({
       className="hidden"
       multiple
       onChange={(event) => {
-        queuePrivateUploads(event.target.files);
+        queuePrivateUploads(galleryImageFiles(event.target.files ?? []));
         event.currentTarget.value = "";
       }}
       type="file"
@@ -232,27 +233,30 @@ export function GalleryGrid({
 
   if (manageableAssetCount === 0) {
     return (
-      <section className="surface rounded-md p-6 text-center">
-        {message ? <p aria-live="polite" className="gallery-feedback gallery-feedback--success mb-5 text-left" role="status">{message}</p> : null}
-        {error ? <p className="gallery-feedback gallery-feedback--error mb-5 text-left" role="alert">{error}</p> : null}
-        <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos yet</h2>
-        <p className="mt-2 text-[var(--muted)]">Upload your first photo to start building My Pics.</p>
-        {quickUploadInput}
-        <button
-          className="btn-primary mt-5 inline-block"
-          data-tooltip="Choose photos and upload them in the background."
-          disabled={isUploading}
-          onClick={() => quickUploadInputRef.current?.click()}
-          type="button"
-        >
-          {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : "Upload"}
-        </button>
-      </section>
+      <GalleryUploadDropTarget className="gallery-page-upload-target" onFiles={queuePrivateUploads}>
+        <section className="surface rounded-md p-6 text-center">
+          {message ? <p aria-live="polite" className="gallery-feedback gallery-feedback--success mb-5 text-left" role="status">{message}</p> : null}
+          {error ? <p className="gallery-feedback gallery-feedback--error mb-5 text-left" role="alert">{error}</p> : null}
+          <h2 className="text-2xl font-semibold text-[var(--gold)]">No photos yet</h2>
+          <p className="mt-2 text-[var(--muted)]">Upload your first photo to start building My Pics.</p>
+          {quickUploadInput}
+          <button
+            className="btn-primary mt-5 inline-block"
+            data-tooltip="Choose photos and upload them in the background."
+            disabled={isUploading}
+            onClick={() => quickUploadInputRef.current?.click()}
+            type="button"
+          >
+            {isUploading ? <ThetaLoading inline label="Uploading" size="sm" /> : "Upload"}
+          </button>
+        </section>
+      </GalleryUploadDropTarget>
     );
   }
 
   return (
-    <section className="grid gap-5">
+    <GalleryUploadDropTarget className="gallery-page-upload-target" onFiles={queuePrivateUploads}>
+      <section className="grid gap-5">
       <div className="surface rounded-md p-4 sm:p-5">
         <div className="gallery-toolbar">
           <div className="gallery-toolbar-summary">
@@ -478,6 +482,7 @@ export function GalleryGrid({
           })}
         </section>
       )}
-    </section>
+      </section>
+    </GalleryUploadDropTarget>
   );
 }

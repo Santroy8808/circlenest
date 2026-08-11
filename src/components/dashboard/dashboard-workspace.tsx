@@ -1,8 +1,11 @@
 "use client";
 
+import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type DragEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
+import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
+import { GalleryUploadDropTarget, galleryImageFiles } from "@/components/gallery/gallery-upload-drop-target";
 import type { DashboardWidgetResult } from "@/modules/dashboard/dashboard.service";
 import {
   createDefaultDashboardConfiguration,
@@ -41,6 +44,55 @@ function truncate(value: string, length = 105) {
 function priceLabel(priceCents: number | null | undefined, currency: string) {
   if (priceCents === null || priceCents === undefined) return "Contact";
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(priceCents / 100);
+}
+
+function DashboardGalleryWidget({ assets }: { assets: Extract<DashboardWidgetResult, { widget: "gallery" }>["assets"] }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { addFilesAndUpload, isUploading } = useBackgroundGalleryUploads();
+
+  function queueUploads(files: File[]) {
+    addFilesAndUpload(files, {
+      visibility: MediaVisibility.PRIVATE,
+      commentsEnabled: false
+    });
+  }
+
+  return (
+    <GalleryUploadDropTarget className="dashboard-gallery-upload-target" onFiles={queueUploads} prompt="Drop photos into My Pics">
+      <input
+        ref={inputRef}
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="hidden"
+        multiple
+        onChange={(event) => {
+          queueUploads(galleryImageFiles(event.target.files ?? []));
+          event.currentTarget.value = "";
+        }}
+        type="file"
+      />
+      {assets.length ? (
+        <div className="dashboard-gallery-grid">
+          {assets.map((asset) => (
+            <Link className="dashboard-gallery-item" href={`/profile/gallery/${asset.id}`} key={asset.id}>
+              {asset.thumbnailUrl || asset.publicUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt={asset.caption || asset.originalName || "Gallery item"} src={asset.thumbnailUrl || asset.publicUrl || ""} />
+              ) : <span>Photo</span>}
+            </Link>
+          ))}
+        </div>
+      ) : <p className="dashboard-widget-empty">Drop photos here to start your gallery.</p>}
+      <button
+        className="btn-secondary dashboard-gallery-upload-button"
+        data-tooltip="Choose photos and upload them privately to My Pics."
+        disabled={isUploading}
+        onClick={() => inputRef.current?.click()}
+        type="button"
+      >
+        Upload
+      </button>
+    </GalleryUploadDropTarget>
+  );
 }
 
 function WidgetBody({ result }: { result?: DashboardWidgetResult }) {
@@ -134,18 +186,7 @@ function WidgetBody({ result }: { result?: DashboardWidgetResult }) {
         </div>
       ) : <p className="dashboard-widget-empty">You have not joined any groups yet.</p>;
     case "gallery":
-      return result.assets.length ? (
-        <div className="dashboard-gallery-grid">
-          {result.assets.map((asset) => (
-            <Link className="dashboard-gallery-item" href={`/profile/gallery/${asset.id}`} key={asset.id}>
-              {asset.thumbnailUrl || asset.publicUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img alt={asset.caption || asset.originalName || "Gallery item"} src={asset.thumbnailUrl || asset.publicUrl || ""} />
-              ) : <span>Photo</span>}
-            </Link>
-          ))}
-        </div>
-      ) : <p className="dashboard-widget-empty">Your gallery has no pictures yet.</p>;
+      return <DashboardGalleryWidget assets={result.assets} />;
     case "business": {
       const profile = result.business.profile;
       if (!profile) return <p className="dashboard-widget-empty">Set up a Business Profile to manage a storefront and show your listings.</p>;

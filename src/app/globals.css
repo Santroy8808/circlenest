@@ -4176,6 +4176,30 @@ html.theta-theme-light .gallery-feedback--error {
   padding: clamp(32px, 7vw, 72px);
   text-align: center;
 }
+.gallery-upload-drop-target {
+  position: relative;
+}
+
+.gallery-upload-drop-target.is-dragging {
+  z-index: 12;
+}
+
+.gallery-upload-drop-overlay {
+  align-items: center;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 2px dashed var(--gold);
+  border-radius: 8px;
+  color: var(--gold);
+  display: flex;
+  font-weight: 800;
+  inset: -6px;
+  justify-content: center;
+  letter-spacing: 0;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  z-index: 3;
+}
 
 .upload-item {
   align-items: center;
@@ -13747,6 +13771,21 @@ html.theta-theme-light .pill-alert {
   gap: 6px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   min-height: 0;
+}
+.dashboard-gallery-upload-target {
+  display: grid;
+  gap: 9px;
+  min-height: 0;
+}
+
+.dashboard-gallery-upload-target .gallery-upload-drop-overlay {
+  border-radius: 6px;
+  font-size: 0.78rem;
+  inset: -4px;
+}
+
+.dashboard-gallery-upload-button {
+  justify-self: start;
 }
 
 .dashboard-gallery-item {

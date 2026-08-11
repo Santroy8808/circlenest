@@ -4,6 +4,7 @@ import { MediaVisibility } from "@prisma/client";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useBackgroundGalleryUploads } from "@/components/gallery/background-gallery-upload-provider";
+import { galleryImageFiles } from "@/components/gallery/gallery-upload-drop-target";
 import { ThetaLoading } from "@/components/platform/theta-loading";
 
 type GalleryAccess = "PRIVATE" | "MEMBERS_NO_COMMENTS" | "MEMBERS_COMMENTS" | "PUBLIC_NO_COMMENTS" | "PUBLIC_COMMENTS";
@@ -29,7 +30,7 @@ export function GalleryUploadClient() {
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          addFiles(event.dataTransfer.files);
+          addFiles(galleryImageFiles(event.dataTransfer.files));
         }}
       >
         <h2 className="text-3xl font-semibold text-[var(--gold)]">Drop photos here</h2>
@@ -43,7 +44,7 @@ export function GalleryUploadClient() {
           className="hidden"
           multiple
           onChange={(event) => {
-            if (event.target.files) addFiles(event.target.files);
+            addFiles(galleryImageFiles(event.target.files ?? []));
           }}
           type="file"
         />
