@@ -65,17 +65,18 @@ type PrimaryNavItem = {
 };
 
 const primaryNavItems: PrimaryNavItem[] = [
-  { href: "/home", icon: "/assets/nav/nav-home.png", key: "home", label: "Home", tooltip: "Home stream." },
+  { href: "/home", icon: "/assets/nav/nav-home.png", key: "home", label: "Home", lightIcon: "/assets/nav/light/light-home.png", tooltip: "Home stream." },
   {
     href: "/profile/gallery",
     icon: "/assets/nav/nav-gallery-v2.png",
     key: "gallery",
     label: "My Pics",
+    lightIcon: "/assets/nav/light/light-gallery-v2.png",
     tooltip: "Open your gallery."
   },
-  { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
-  { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", tooltip: "Search the platform." },
-  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Messages", tooltip: "Open chat messages." }
+  { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", lightIcon: "/assets/nav/light/light-market.png", tooltip: "Browse market listings." },
+  { href: "/search", icon: "/assets/nav/nav-search.png", key: "search", label: "Search", lightIcon: "/assets/nav/light/light-search.png", tooltip: "Search the platform." },
+  { href: "/messages", icon: "/assets/nav/nav-comm.png", key: "messages", label: "Messages", lightIcon: "/assets/nav/light/light-comm.png", tooltip: "Open chat messages." }
 ];
 
 const initialSummaryState: Record<SummaryKind, SummaryState> = {
