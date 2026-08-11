@@ -13800,15 +13800,69 @@ html.theta-theme-light .pill-alert {
   margin-top: auto;
 }
 
-.dashboard-widget-replace select {
-  background: transparent;
-  border: 0;
+.dashboard-widget.is-picker-open {
+  position: relative;
+  z-index: 10;
+}
+
+.dashboard-widget-picker {
+  position: relative;
+}
+
+.dashboard-widget-picker-trigger {
+  align-items: center;
+  background: var(--panel-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
   color: var(--gold);
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-weight: 800;
-  min-width: 0;
-  padding: 2px;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 104px;
+  padding: 6px 8px;
+}
+
+.dashboard-widget-picker-trigger:hover,
+.dashboard-widget-picker-trigger:focus-visible {
+  border-color: var(--gold);
+  outline: none;
+}
+
+.dashboard-widget-picker-menu {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  bottom: calc(100% + 6px);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--bg) 75%, transparent);
+  display: grid;
+  gap: 2px;
+  left: 0;
+  min-width: max(11rem, 100%);
+  padding: 4px;
+  position: absolute;
+  z-index: 2;
+}
+
+.dashboard-widget-picker-menu button {
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+.dashboard-widget-picker-menu button:hover,
+.dashboard-widget-picker-menu button:focus-visible,
+.dashboard-widget-picker-menu button.is-selected {
+  background: color-mix(in srgb, var(--gold) 18%, var(--panel-soft));
+  color: var(--gold);
+  outline: none;
 }
 
 .public-jobs-page {

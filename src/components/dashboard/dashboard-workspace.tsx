@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type DragEvent } from "react";
+import { useEffect, useState, useTransition, type DragEvent } from "react";
 import type { DashboardWidgetResult } from "@/modules/dashboard/dashboard.service";
 import {
   createDefaultDashboardConfiguration,
@@ -174,9 +174,30 @@ export function DashboardWorkspace({
   const [configuration, setConfiguration] = useState(initialConfiguration);
   const [draggedSlotId, setDraggedSlotId] = useState<DashboardSlotId | null>(null);
   const [dropTargetSlotId, setDropTargetSlotId] = useState<DashboardSlotId | null>(null);
+  const [pickerSlotId, setPickerSlotId] = useState<DashboardSlotId | null>(null);
   const [error, setError] = useState("");
   const [isSaving, startTransition] = useTransition();
   const visibleSlots = dashboardVisibleSlots(configuration);
+
+  useEffect(() => {
+    if (!pickerSlotId) return;
+
+    function closePickerOnOutsidePress(event: PointerEvent) {
+      if (event.target instanceof Element && event.target.closest("[data-dashboard-widget-picker]")) return;
+      setPickerSlotId(null);
+    }
+
+    function closePickerOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPickerSlotId(null);
+    }
+
+    document.addEventListener("pointerdown", closePickerOnOutsidePress);
+    document.addEventListener("keydown", closePickerOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closePickerOnOutsidePress);
+      document.removeEventListener("keydown", closePickerOnEscape);
+    };
+  }, [pickerSlotId]);
 
   function persist(next: DashboardConfiguration) {
     setConfiguration(next);
@@ -230,6 +251,11 @@ export function DashboardWorkspace({
     persist(swapDashboardWidgets(configuration, sourceSlotId, targetSlotId));
   }
 
+  function selectWidgetForSlot(slotId: DashboardSlotId, widget: DashboardWidgetKey) {
+    setPickerSlotId(null);
+    replaceWidget(slotId, widget);
+  }
+
   function restoreDefault() {
     setError("");
     startTransition(async () => {
@@ -277,9 +303,11 @@ export function DashboardWorkspace({
       <div className={`dashboard-grid dashboard-grid--${configuration.layout}`}>
         {visibleSlots.map((slot) => {
           const detail = widgetDetails[slot.widget];
+          const isPickerOpen = pickerSlotId === slot.id;
+          const pickerId = `dashboard-widget-picker-${slot.id}`;
           return (
             <article
-              className={`dashboard-widget surface${draggedSlotId === slot.id ? " is-drag-source" : ""}${dropTargetSlotId === slot.id && draggedSlotId !== slot.id ? " is-drag-target" : ""}`}
+              className={`dashboard-widget surface${draggedSlotId === slot.id ? " is-drag-source" : ""}${dropTargetSlotId === slot.id && draggedSlotId !== slot.id ? " is-drag-target" : ""}${isPickerOpen ? " is-picker-open" : ""}`}
               data-dashboard-slot={slot.id}
               key={slot.id}
               onDragOver={(event) => {
@@ -316,12 +344,39 @@ export function DashboardWorkspace({
                 </div>
               </header>
               <WidgetBody result={initialWidgetResults[slot.widget]} />
-              <label className="dashboard-widget-replace">
+              <div className="dashboard-widget-replace" data-dashboard-widget-picker>
                 <span>Place here</span>
-                <select disabled={isSaving} onChange={(event) => replaceWidget(slot.id, event.target.value as DashboardWidgetKey)} value={slot.widget}>
-                  {availableWidgets.map((widget) => <option key={widget} value={widget}>{widgetDetails[widget].label}</option>)}
-                </select>
-              </label>
+                <div className="dashboard-widget-picker">
+                  <button
+                    aria-controls={pickerId}
+                    aria-expanded={isPickerOpen}
+                    aria-haspopup="listbox"
+                    className="dashboard-widget-picker-trigger"
+                    disabled={isSaving}
+                    onClick={() => setPickerSlotId(isPickerOpen ? null : slot.id)}
+                    type="button"
+                  >
+                    <span>{detail.label}</span>
+                    <span aria-hidden="true">v</span>
+                  </button>
+                  {isPickerOpen ? (
+                    <div aria-label="Choose dashboard widget" className="dashboard-widget-picker-menu" id={pickerId} role="listbox">
+                      {availableWidgets.map((widget) => (
+                        <button
+                          aria-selected={widget === slot.widget}
+                          className={widget === slot.widget ? "is-selected" : ""}
+                          key={widget}
+                          onClick={() => selectWidgetForSlot(slot.id, widget)}
+                          role="option"
+                          type="button"
+                        >
+                          {widgetDetails[widget].label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </article>
           );
         })}
