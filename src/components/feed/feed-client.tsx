@@ -9,6 +9,7 @@ import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/del
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
+import { ExternalLinkPreview } from "@/components/feed/external-link-preview";
 import { ActionGlyph } from "@/components/reactions/action-glyph";
 import { ThetaLikeTriangle } from "@/components/reactions/theta-like-triangle";
 import { ConductContentActions } from "@/components/conduct-reporting/conduct-content-actions";
@@ -1130,6 +1131,7 @@ function FeedCommentRow({
             <AdminObjectId id={comment.id} kind="Comment" visible={isAdmin} />
           </div>
           <RichText value={comment.body} />
+          <ExternalLinkPreview body={comment.body} />
           <FeedMedia media={comment.media} />
           <div className="comment-action-row">
             <ReactionButtons
