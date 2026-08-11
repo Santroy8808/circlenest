@@ -211,6 +211,44 @@ export function BusinessStorefront({ profile }: { profile: BusinessProfileView }
             </section>
           ) : null}
 
+          {profile.jobListings.length > 0 ? (
+            <section className="surface rounded-md p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-semibold text-[var(--gold)]">Open jobs</h2>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                    Current opportunities published by this storefront.
+                  </p>
+                </div>
+                <Link className="btn-secondary" href="/jobs">
+                  Browse jobs
+                </Link>
+              </div>
+              <div className="listing-grid mt-5">
+                {profile.jobListings.map((job) => (
+                  <Link className="listing-square-card job-card" href={`/jobs/${job.slug}`} key={job.slug}>
+                    <div className="listing-square-visual">
+                      {job.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img alt="" src={job.imageUrl} />
+                      ) : (
+                        <span className="listing-square-fallback">{job.categoryLabel}</span>
+                      )}
+                    </div>
+                    <span className="listing-square-top-badge">{job.compensation || "View detail"}</span>
+                    {job.imageOverlayText ? <span className="listing-square-overlay-text">{job.imageOverlayText}</span> : null}
+                    <div className="listing-square-meta">
+                      <p className="listing-square-kicker">{job.employmentTypeLabel}</p>
+                      <h3>{job.title}</h3>
+                      <p className="listing-square-subtitle">{job.remote ? "Remote" : job.location || "Location to be confirmed"}</p>
+                      {job.summary ? <p className="listing-square-tagline">{job.summary}</p> : null}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {profile.articles.length > 0 ? (
             <section className="surface rounded-md p-6">
               <h2 className="text-2xl font-semibold text-[var(--gold)]">Articles</h2>

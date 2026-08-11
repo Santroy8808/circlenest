@@ -30,6 +30,11 @@ export function JobListingDetail({ job }: { job: JobListingDetailView }) {
                 <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{job.categoryLabel}</p>
                 <h1 className="mt-3 text-4xl font-semibold">{job.title}</h1>
                 <p className="mt-3 text-xl text-[var(--muted)]">{job.companyName || job.employer.displayName}</p>
+                {job.business ? (
+                  <Link className="profile-inline-link mt-2 inline-block" href={job.business.publicUrl}>
+                    View {job.business.businessName}
+                  </Link>
+                ) : null}
                 <p className="mt-2 text-[var(--muted)]">
                   {locationLabel} - {job.employmentTypeLabel}
                 </p>
