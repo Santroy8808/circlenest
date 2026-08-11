@@ -4,8 +4,9 @@ import { AdPlacement, ConductLocationType, FeedReactionType, FeedVisibility, Med
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react";
-import type { FocusEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type { ClipboardEvent, FocusEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { deletePasswordHeaders, promptForDeletePassword } from "@/lib/client/delete-password";
+import { getClipboardImageFile } from "@/lib/client/clipboard-images";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
@@ -850,10 +851,11 @@ const FeedRichTextInput = forwardRef<
     className?: string;
     onChange: (value: string) => void;
     onFormatStateChange?: (state: ComposerFormatState) => void;
+    onImagePaste?: (file: File) => void;
     placeholder: string;
     value: string;
   }
->(function FeedRichTextInput({ ariaLabel, autoFocus, className, onChange, onFormatStateChange, placeholder, value }, ref) {
+>(function FeedRichTextInput({ ariaLabel, autoFocus, className, onChange, onFormatStateChange, onImagePaste, placeholder, value }, ref) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const lastMarkdownRef = useRef("");
 
@@ -925,6 +927,14 @@ const FeedRichTextInput = forwardRef<
     if (autoFocus) window.setTimeout(() => editorRef.current?.focus(), 0);
   }, [autoFocus]);
 
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    const file = getClipboardImageFile(event.clipboardData);
+    if (!file || !onImagePaste) return;
+
+    event.preventDefault();
+    onImagePaste(file);
+  }
+
   return (
     <div
       aria-label={ariaLabel}
@@ -935,6 +945,7 @@ const FeedRichTextInput = forwardRef<
       onInput={emitChange}
       onKeyUp={emitFormatState}
       onMouseUp={emitFormatState}
+      onPaste={handlePaste}
       ref={editorRef}
       role="textbox"
       suppressContentEditableWarning
@@ -1086,6 +1097,7 @@ function CommentComposer({
         className="min-h-16"
         onChange={updateBody}
         onFormatStateChange={onFormatStateChange}
+        onImagePaste={onFile}
         placeholder="Quick reply..."
         ref={setEditorRef}
         value={commentBody}
@@ -1921,6 +1933,7 @@ export function FeedClient({
                 className="min-h-28"
                 onChange={setBody}
                 onFormatStateChange={setPostFormatState}
+                onImagePaste={(file) => setPostImage(createImageAttachment(file))}
                 placeholder="Text, picture, link, survey..."
                 ref={postEditorRef}
                 value={body}

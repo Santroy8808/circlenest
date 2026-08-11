@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createPortal, flushSync } from "react-dom";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { getClipboardImageFile } from "@/lib/client/clipboard-images";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { AdminObjectId } from "@/components/admin/admin-object-id";
 import { InAppImageViewer } from "@/components/media/in-app-image-viewer";
@@ -1320,6 +1321,13 @@ export function MessagesClient({
                   className="form-field chat-composer-input"
                   onChange={(event) => setBody(event.target.value)}
                   onKeyDown={sendOnEnter}
+                  onPaste={(event) => {
+                    const file = getClipboardImageFile(event.clipboardData);
+                    if (!file) return;
+
+                    event.preventDefault();
+                    addFiles([file]);
+                  }}
                   placeholder="Type a message, or drag files here..."
                   ref={composerInputRef}
                   value={body}
