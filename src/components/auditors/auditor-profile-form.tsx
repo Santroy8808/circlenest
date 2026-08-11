@@ -8,10 +8,15 @@ import type { MyAuditorProfileView } from "@/modules/auditors/types";
 
 export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
   const [practiceName, setPracticeName] = useState(data.profile?.practiceName ?? "");
+  const [directoryKind, setDirectoryKind] = useState<"FIELD_AUDITOR" | "FIELD_GROUP">(
+    data.profile?.directoryKind === "FIELD_GROUP" ? "FIELD_GROUP" : "FIELD_AUDITOR"
+  );
   const [location, setLocation] = useState(data.profile?.location ?? "");
+  const [address, setAddress] = useState(data.profile?.address ?? "");
   const [willingToTravel, setWillingToTravel] = useState(data.profile?.willingToTravel ?? false);
   const [bio, setBio] = useState(data.profile?.bio ?? "");
   const [offerings, setOfferings] = useState(data.profile?.offerings ?? "");
+  const [contactEmail, setContactEmail] = useState(data.profile?.contactEmail ?? "");
   const [phone, setPhone] = useState(data.profile?.phone ?? "");
   const [website, setWebsite] = useState(data.profile?.website ?? "");
   const [active, setActive] = useState(data.profile?.active ?? true);
@@ -30,10 +35,13 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           practiceName,
+          directoryKind,
           location,
+          address,
           willingToTravel,
           bio,
           offerings,
+          contactEmail,
           phone,
           website,
           active
@@ -88,11 +96,17 @@ export function AuditorProfileForm({ data }: { data: MyAuditorProfileView }) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <input className="form-field" onChange={(event) => setPracticeName(event.target.value)} placeholder="Practice name" value={practiceName} />
+          <select aria-label="Directory card type" className="form-field" onChange={(event) => setDirectoryKind(event.target.value as "FIELD_AUDITOR" | "FIELD_GROUP")} value={directoryKind}>
+            <option value="FIELD_AUDITOR">Field Auditor</option>
+            <option value="FIELD_GROUP">Field Group</option>
+          </select>
           <input className="form-field" onChange={(event) => setLocation(event.target.value)} placeholder="Location" value={location} />
+          <input className="form-field" onChange={(event) => setAddress(event.target.value)} placeholder="Public service address, optional" value={address} />
         </div>
         <textarea className="form-field min-h-32 resize-y" onChange={(event) => setOfferings(event.target.value)} placeholder="What I offer" value={offerings} />
         <textarea className="form-field min-h-32 resize-y" onChange={(event) => setBio(event.target.value)} placeholder="Who I am" value={bio} />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <input className="form-field" onChange={(event) => setContactEmail(event.target.value)} placeholder="Public email, optional" type="email" value={contactEmail} />
           <input className="form-field" onChange={(event) => setPhone(event.target.value)} placeholder="Phone, optional" value={phone} />
           <input className="form-field" onChange={(event) => setWebsite(event.target.value)} placeholder="Website, optional" value={website} />
         </div>

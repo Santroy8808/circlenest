@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import type { AuditorProfileView } from "@/modules/auditors/types";
 
+const KIND_LABEL = {
+  CLASS_V: "Class V Org",
+  SH_AO: "SH/AO",
+  FLAG: "FLAG",
+  FIELD_AUDITOR: "Field Auditor",
+  FIELD_GROUP: "Field Group"
+} as const;
+
 export function AuditorsDirectoryClient({
   initialAuditors,
   viewerCanCreate
@@ -34,7 +42,7 @@ export function AuditorsDirectoryClient({
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Auditor Directory</p>
             <h1 className="mt-3 text-3xl font-semibold">Find an Auditor</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Search published profiles by name, practice, location, offerings, and training. For personal help choosing an auditor, open the guided help form.
+              Search official organizations, field auditors, and field groups by name, location, or service. Official cards are sourced from published organization contact pages.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -69,7 +77,7 @@ export function AuditorsDirectoryClient({
                 )}
               </span>
               <h2 className="mt-4 text-xl font-semibold text-[var(--gold)]">{auditor.practiceName}</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">{auditor.displayName}</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">{KIND_LABEL[auditor.directoryKind]}{auditor.isOfficial ? " · Official" : ""}</p>
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-[var(--muted)]">{auditor.offerings || "No offerings listed yet."}</p>
               <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[var(--gold)]">
                 {auditor.location || "Location TBD"} {auditor.willingToTravel ? "- travels" : ""}

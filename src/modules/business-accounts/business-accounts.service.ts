@@ -296,6 +296,7 @@ export async function ensureAuditorAccountForOwner(
         where: { id: legacyProfile.id },
         data: {
           userId: auditorUser.id,
+          slug: auditorUser.username,
           practiceName
         }
       });
@@ -305,6 +306,7 @@ export async function ensureAuditorAccountForOwner(
       await tx.auditorProfile.create({
         data: {
           userId: auditorUser.id,
+          slug: auditorUser.username,
           practiceName,
           location: seed.location || null,
           active: true

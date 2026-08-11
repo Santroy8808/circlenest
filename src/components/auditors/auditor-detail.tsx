@@ -3,6 +3,14 @@ import { ScientologyReferenceNotice } from "@/components/legal/scientology-refer
 import type { AuditorProfileView } from "@/modules/auditors/types";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 
+const KIND_LABEL = {
+  CLASS_V: "Class V Org",
+  SH_AO: "SH/AO",
+  FLAG: "FLAG",
+  FIELD_AUDITOR: "Field Auditor",
+  FIELD_GROUP: "Field Group"
+} as const;
+
 export function AuditorDetail({ auditor }: { auditor: AuditorProfileView }) {
   const mailEnabled = isInternalMailEnabled();
 
@@ -20,10 +28,11 @@ export function AuditorDetail({ auditor }: { auditor: AuditorProfileView }) {
               )}
             </span>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Auditor Profile</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">{KIND_LABEL[auditor.directoryKind]}{auditor.isOfficial ? " · Official directory" : ""}</p>
               <h1 className="mt-3 text-4xl font-semibold">{auditor.practiceName}</h1>
-              <p className="mt-2 text-[var(--muted)]">{auditor.displayName}</p>
+              {auditor.isOfficial ? null : <p className="mt-2 text-[var(--muted)]">{auditor.displayName}</p>}
               <p className="mt-2 text-[var(--muted)]">{auditor.location || "Location TBD"}</p>
+              {auditor.address ? <p className="mt-1 text-sm text-[var(--muted)]">{auditor.address}</p> : null}
             </div>
           </div>
           <Link className="btn-secondary" href="/auditors">
@@ -62,7 +71,9 @@ export function AuditorDetail({ auditor }: { auditor: AuditorProfileView }) {
         <h2 className="text-xl font-semibold text-[var(--gold)]">Contact</h2>
         <div className="mt-3 grid gap-2 text-[var(--muted)]">
           {auditor.phone ? <p>{auditor.phone}</p> : null}
-          {auditor.website ? <p>{auditor.website}</p> : null}
+          {auditor.contactEmail ? <a className="underline" href={`mailto:${auditor.contactEmail}`}>{auditor.contactEmail}</a> : null}
+          {auditor.website ? <a className="underline" href={auditor.website} rel="noreferrer" target="_blank">Visit website</a> : null}
+          {auditor.sourceUrl ? <a className="underline" href={auditor.sourceUrl} rel="noreferrer" target="_blank">Official source</a> : null}
           <p>{auditor.willingToTravel ? "Willing to travel" : "Local availability only"}</p>
         </div>
         {mailEnabled ? (

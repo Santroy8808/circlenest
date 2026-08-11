@@ -817,6 +817,14 @@ enum ScientologyClassification {
   AUDITOR
 }
 
+enum AuditorDirectoryKind {
+  CLASS_V
+  SH_AO
+  FLAG
+  FIELD_AUDITOR
+  FIELD_GROUP
+}
+
 model User {
   id                               String                             @id @default(cuid())
   email                            String                             @unique
@@ -2883,21 +2891,28 @@ model JobListing {
 
 model AuditorProfile {
   id              String                @id @default(cuid())
-  userId          String                @unique
+  userId          String?               @unique
+  slug            String                @unique
+  directoryKind   AuditorDirectoryKind  @default(FIELD_AUDITOR)
   practiceName    String
   location        String?
+  address         String?
   willingToTravel Boolean               @default(false)
   bio             String?
   offerings       String?
+  contactEmail    String?
   phone           String?
   website         String?
+  sourceUrl       String?
+  isOfficial      Boolean               @default(false)
   active          Boolean               @default(true)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
-  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   successStories  AuditorSuccessStory[]
 
-  @@index([active, createdAt])
+  @@index([active, directoryKind, updatedAt])
+  @@index([location])
 }
 
 model AuditorSeekerProfile {

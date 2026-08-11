@@ -1195,6 +1195,7 @@ async function seedAuditorProfiles(accounts: CreatedAccount[]) {
     const profile = await prisma.auditorProfile.create({
       data: {
         userId: auditor.id,
+        slug: auditor.username,
         practiceName: practice.practiceName,
         location: practice.location,
         willingToTravel: index % 2 === 0,

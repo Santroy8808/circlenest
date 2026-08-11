@@ -1,4 +1,4 @@
-import { ScientologyClassification } from "@prisma/client";
+import { AuditorDirectoryKind, ScientologyClassification } from "@prisma/client";
 import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { ensureAuditorAccountForOwner, getAuditorAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
@@ -17,7 +17,8 @@ function withAuditorsDbTimeout<T>(promise: Promise<T>, operation: string): Promi
   ]);
 }
 
-function profileName(user: { username: string; profile: { displayName: string | null } | null }) {
+function profileName(user: { username: string; profile: { displayName: string | null } | null } | null, fallback: string) {
+  if (!user) return fallback;
   return user.profile?.displayName ?? user.username;
 }
 
@@ -39,13 +40,19 @@ function scientologySummary(profile?: {
 
 function toAuditorProfileView(input: {
   id: string;
+  slug: string;
+  directoryKind: AuditorDirectoryKind;
+  isOfficial: boolean;
   practiceName: string;
   location: string | null;
+  address: string | null;
   willingToTravel: boolean;
   bio: string | null;
   offerings: string | null;
+  contactEmail: string | null;
   phone: string | null;
   website: string | null;
+  sourceUrl: string | null;
   active: boolean;
   createdAt: Date;
   user: {
@@ -58,24 +65,33 @@ function toAuditorProfileView(input: {
       processingStatus: string | null;
       educationNotes: string | null;
     } | null;
-  };
+  } | null;
 }): AuditorProfileView {
   return {
     id: input.id,
-    username: input.user.username,
-    displayName: profileName(input.user),
-    avatarUrl: input.user.profile?.avatarUrl,
+    username: input.slug,
+    directoryKind: input.directoryKind,
+    isOfficial: input.isOfficial,
+    displayName: profileName(input.user, input.practiceName),
+    avatarUrl: input.user?.profile?.avatarUrl,
     practiceName: input.practiceName,
     location: input.location,
+    address: input.address,
     willingToTravel: input.willingToTravel,
     bio: input.bio,
     offerings: input.offerings,
+    contactEmail: input.contactEmail,
     phone: input.phone,
     website: input.website,
+    sourceUrl: input.sourceUrl,
     active: input.active,
     createdAt: input.createdAt.toISOString(),
-    scientology: scientologySummary(input.user.scientologyProfile)
+    scientology: scientologySummary(input.user?.scientologyProfile)
   };
+}
+
+function auditorSlug(username: string) {
+  return username.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
 export async function viewerCanCreateAuditorProfile(
@@ -96,10 +112,12 @@ export async function listAuditors(input?: { query?: string | null }) {
               OR: [
                 { practiceName: { contains: query, mode: "insensitive" } },
                 { location: { contains: query, mode: "insensitive" } },
+                { address: { contains: query, mode: "insensitive" } },
                 { offerings: { contains: query, mode: "insensitive" } },
-                { user: { username: { contains: query, mode: "insensitive" } } },
-                { user: { profile: { displayName: { contains: query, mode: "insensitive" } } } },
-                { user: { scientologyProfile: { trainingLevel: { contains: query, mode: "insensitive" } } } }
+                { contactEmail: { contains: query, mode: "insensitive" } },
+                { user: { is: { username: { contains: query, mode: "insensitive" } } } },
+                { user: { is: { profile: { displayName: { contains: query, mode: "insensitive" } } } } },
+                { user: { is: { scientologyProfile: { trainingLevel: { contains: query, mode: "insensitive" } } } } }
               ]
             }
           : {})
@@ -194,22 +212,30 @@ export async function updateAuditorProfile(userId: string, input: unknown) {
       userId: auditorUserId
     },
     update: {
+      slug: auditorSlug(account.auditorUser.username),
+      directoryKind: parsed.data.directoryKind,
       practiceName: parsed.data.practiceName,
       location: parsed.data.location || null,
+      address: parsed.data.address || null,
       willingToTravel: parsed.data.willingToTravel,
       bio: parsed.data.bio || null,
       offerings: parsed.data.offerings || null,
+      contactEmail: parsed.data.contactEmail || null,
       phone: parsed.data.phone || null,
       website: parsed.data.website || null,
       active: parsed.data.active
     },
     create: {
       userId: auditorUserId,
+      slug: auditorSlug(account.auditorUser.username),
+      directoryKind: parsed.data.directoryKind,
       practiceName: parsed.data.practiceName,
       location: parsed.data.location || null,
+      address: parsed.data.address || null,
       willingToTravel: parsed.data.willingToTravel,
       bio: parsed.data.bio || null,
       offerings: parsed.data.offerings || null,
+      contactEmail: parsed.data.contactEmail || null,
       phone: parsed.data.phone || null,
       website: parsed.data.website || null,
       active: parsed.data.active
@@ -241,11 +267,9 @@ export async function getAuditorDetail(username: string) {
   const auditor = await prisma.auditorProfile.findFirst({
     where: {
       active: true,
-      user: {
-        username: {
-          equals: username.replace(/^@/, ""),
-          mode: "insensitive"
-        }
+      slug: {
+        equals: username.replace(/^@/, ""),
+        mode: "insensitive"
       }
     },
     include: {

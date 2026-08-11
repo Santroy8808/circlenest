@@ -292,15 +292,21 @@ async function searchAuditors(input: { blockedUserIds: string[]; query: string }
   const auditors = await prisma.auditorProfile.findMany({
     where: {
       active: true,
-      userId: {
-        notIn: input.blockedUserIds
-      },
       OR: [
-        { practiceName: { contains: input.query, mode: "insensitive" } },
-        { location: { contains: input.query, mode: "insensitive" } },
-        { bio: { contains: input.query, mode: "insensitive" } },
-        { offerings: { contains: input.query, mode: "insensitive" } }
-      ]
+        { userId: null },
+        { userId: { notIn: input.blockedUserIds } }
+      ],
+      AND: [
+        {
+          OR: [
+            { practiceName: { contains: input.query, mode: "insensitive" } },
+            { location: { contains: input.query, mode: "insensitive" } },
+            { address: { contains: input.query, mode: "insensitive" } },
+            { bio: { contains: input.query, mode: "insensitive" } },
+            { offerings: { contains: input.query, mode: "insensitive" } }
+          ]
+        }
+      ],
     },
     include: {
       user: {
@@ -318,12 +324,12 @@ async function searchAuditors(input: { blockedUserIds: string[]; query: string }
   return auditors.map<SearchResultItem>((auditor) => ({
     id: auditor.id,
     title: auditor.practiceName,
-    subtitle: displayName(auditor.user),
+    subtitle: auditor.user ? displayName(auditor.user) : auditor.isOfficial ? "Official organization" : "Service directory",
     description: compact(auditor.offerings ?? auditor.bio),
-    href: `/auditors/${auditor.user.username}`,
-    badge: "Auditor",
+    href: `/auditors/${auditor.slug}`,
+    badge: auditor.directoryKind === "CLASS_V" ? "Class V Org" : auditor.directoryKind === "SH_AO" ? "SH/AO" : auditor.directoryKind === "FLAG" ? "FLAG" : "Auditor",
     meta: auditor.willingToTravel ? `${auditor.location ?? "Location flexible"} - travels` : auditor.location,
-    imageUrl: auditor.user.profile?.avatarUrl
+    imageUrl: auditor.user?.profile?.avatarUrl
   }));
 }
 
