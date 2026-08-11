@@ -71,7 +71,6 @@ const primaryNavItems: PrimaryNavItem[] = [
     icon: "/assets/nav/nav-gallery-v2.png",
     key: "gallery",
     label: "My Pics",
-    lightIcon: "/assets/nav/light/light-gallery.png",
     tooltip: "Open your gallery."
   },
   { href: "/market", icon: "/assets/nav/nav-market.png", key: "market", label: "Market", tooltip: "Browse market listings." },
