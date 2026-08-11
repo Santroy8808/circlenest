@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createDefaultDashboardConfiguration,
   dashboardVisibleSlots,
+  isStreamDashboardFocus,
   normalizeDashboardConfiguration
 } from "@/modules/dashboard/types";
 
@@ -51,4 +52,13 @@ test("dashboard visible slots respect the configured layout", () => {
     dashboardVisibleSlots({ ...configuration, layout: "single", primarySlot: "c" }).map((slot) => slot.id),
     ["c"]
   );
+});
+
+test("a single stream widget opens the normal Stream experience", () => {
+  const configuration = createDefaultDashboardConfiguration();
+  const streamSlot = configuration.slots.find((slot) => slot.widget === "stream");
+
+  assert.ok(streamSlot);
+  assert.equal(isStreamDashboardFocus({ ...configuration, layout: "single", primarySlot: streamSlot.id }), true);
+  assert.equal(isStreamDashboardFocus({ ...configuration, layout: "quad", primarySlot: streamSlot.id }), false);
 });

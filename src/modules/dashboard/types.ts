@@ -114,3 +114,8 @@ export function dashboardVisibleSlots(configuration: DashboardConfiguration) {
   }
   return configuration.slots.slice(0, 2);
 }
+
+export function isStreamDashboardFocus(configuration: DashboardConfiguration) {
+  if (configuration.layout !== "single") return false;
+  return configuration.slots.some((slot) => slot.id === configuration.primarySlot && slot.widget === "stream");
+}

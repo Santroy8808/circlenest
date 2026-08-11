@@ -4,7 +4,7 @@ import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 import { AppShell } from "@/components/platform/app-shell";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
 import { loadDashboardWidgetResults, getDashboardSettings } from "@/modules/dashboard/dashboard.service";
-import { dashboardVisibleSlots } from "@/modules/dashboard/types";
+import { dashboardVisibleSlots, isStreamDashboardFocus } from "@/modules/dashboard/types";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -12,6 +12,7 @@ export default async function DashboardPage() {
 
   const activeActor = await getActiveAccountActor(session.user.id);
   const settings = await getDashboardSettings(session.user.id);
+  if (isStreamDashboardFocus(settings.configuration)) redirect("/home");
   const visibleSlots = dashboardVisibleSlots(settings.configuration);
   const widgetResults = await loadDashboardWidgetResults({
     userId: session.user.id,
