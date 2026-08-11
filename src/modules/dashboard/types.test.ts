@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  createDefaultDashboardConfiguration,
+  dashboardVisibleSlots,
+  normalizeDashboardConfiguration
+} from "@/modules/dashboard/types";
+
+test("dashboard default uses four useful starting widgets", () => {
+  const configuration = createDefaultDashboardConfiguration();
+
+  assert.equal(configuration.layout, "quad");
+  assert.deepEqual(configuration.slots.map((slot) => slot.widget), ["market", "jobs", "messages", "stream"]);
+});
+
+test("dashboard configuration rejects malformed persisted data", () => {
+  const configuration = normalizeDashboardConfiguration({ layout: "all" });
+
+  assert.equal(configuration.layout, "quad");
+  assert.equal(configuration.primarySlot, "a");
+});
+
+test("dashboard configuration removes duplicate and unavailable widgets", () => {
+  const configuration = normalizeDashboardConfiguration(
+    {
+      version: 1,
+      layout: "single",
+      primarySlot: "b",
+      slots: [
+        { id: "a", widget: "market" },
+        { id: "b", widget: "market" },
+        { id: "c", widget: "business" },
+        { id: "d", widget: "stream" }
+      ]
+    },
+    ["market", "jobs", "stream"]
+  );
+
+  assert.equal(configuration.layout, "single");
+  assert.equal(configuration.primarySlot, "b");
+  assert.equal(new Set(configuration.slots.map((slot) => slot.widget)).size, 3);
+  assert.equal(configuration.slots.some((slot) => slot.widget === "business"), false);
+});
+
+test("dashboard visible slots respect the configured layout", () => {
+  const configuration = createDefaultDashboardConfiguration();
+
+  assert.equal(dashboardVisibleSlots(configuration).length, 4);
+  assert.equal(dashboardVisibleSlots({ ...configuration, layout: "stacked" }).length, 2);
+  assert.deepEqual(
+    dashboardVisibleSlots({ ...configuration, layout: "single", primarySlot: "c" }).map((slot) => slot.id),
+    ["c"]
+  );
+});
