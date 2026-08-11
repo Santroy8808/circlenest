@@ -612,6 +612,7 @@ function ReactionButtons({
 }) {
   const closeTimerRef = useRef<number | undefined>(undefined);
   const detailsCloseTimerRef = useRef<number | undefined>(undefined);
+  const reactionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [choicesOpen, setChoicesOpen] = useState(false);
   const [detailsType, setDetailsType] = useState<FeedReactionType | "ALL" | null>(null);
   const myReactionType = currentUserId
@@ -649,7 +650,7 @@ function ReactionButtons({
 
   function scheduleCloseChoices() {
     clearChoicesCloseTimer();
-    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 1600);
+    closeTimerRef.current = window.setTimeout(() => setChoicesOpen(false), 1000);
   }
 
   function openDetails(type: FeedReactionType | "ALL") {
@@ -659,7 +660,7 @@ function ReactionButtons({
 
   function scheduleCloseDetails() {
     clearDetailsCloseTimer();
-    detailsCloseTimerRef.current = window.setTimeout(() => setDetailsType(null), 1600);
+    detailsCloseTimerRef.current = window.setTimeout(() => setDetailsType(null), 1000);
   }
 
   function handleMenuBlur(event: FocusEvent<HTMLDivElement>) {
@@ -669,8 +670,10 @@ function ReactionButtons({
   }
 
   function chooseReaction(type: FeedReactionType) {
+    clearChoicesCloseTimer();
     setChoicesOpen(false);
     setDetailsType(null);
+    reactionTriggerRef.current?.blur();
     onReact(type);
   }
 
@@ -678,8 +681,6 @@ function ReactionButtons({
     <div
       className={`${compact ? "feed-reaction-menu is-compact" : "feed-reaction-menu"}${choicesOpen ? " is-open" : ""}`}
       onBlur={handleMenuBlur}
-      onFocus={openChoices}
-      onMouseEnter={openChoices}
       onMouseLeave={() => {
         scheduleCloseChoices();
         scheduleCloseDetails();
@@ -709,12 +710,15 @@ function ReactionButtons({
           ))}
         </div>
       ) : null}
-      <div className="feed-reaction-control">
+      <div className="feed-reaction-control" onMouseEnter={openChoices}>
         <button
           aria-expanded={choicesOpen}
           aria-label="Choose a reaction"
           className="feed-reaction-trigger"
           data-tooltip="Like it. Hover for more reactions."
+          onFocus={() => {
+            if (hasFineHoverPointer()) openChoices();
+          }}
           onClick={() => {
             if (hasFineHoverPointer()) {
               chooseReaction(FeedReactionType.LIKE);
@@ -723,17 +727,28 @@ function ReactionButtons({
 
             setChoicesOpen((open) => !open);
           }}
+          ref={reactionTriggerRef}
           type="button"
         >
           <ThetaLikeTriangle />
         </button>
-        <div className="feed-reaction-popover" role="menu" aria-label="Reaction options">
+        <div
+          className="feed-reaction-popover"
+          onFocus={() => {
+            if (hasFineHoverPointer()) openChoices();
+          }}
+          role="menu"
+          aria-label="Reaction options"
+        >
           {quickReactions.map((reaction) => (
             <button
               aria-label={reactionTooltip(reaction)}
               className={myReactionType === reaction.type ? "feed-reaction-choice is-selected" : "feed-reaction-choice"}
               key={reaction.type}
-              onClick={() => chooseReaction(reaction.type)}
+              onClick={(event) => {
+                event.currentTarget.blur();
+                chooseReaction(reaction.type);
+              }}
               role="menuitem"
               title={reactionTooltip(reaction)}
               type="button"

@@ -6126,16 +6126,16 @@ html.theta-theme-light .gallery-feedback--error {
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
-  font-size: 2.28rem;
+  font-size: 1.7rem;
   font-weight: 900;
-  height: 70px;
+  height: 52px;
   justify-content: center;
   line-height: 1;
-  min-height: 70px;
-  min-width: 70px;
+  min-height: 52px;
+  min-width: 52px;
   padding: 0;
   transition: background 160ms ease, transform 160ms ease;
-  width: 70px;
+  width: 52px;
 }
 
 .feed-reaction-choice:hover {
@@ -6146,19 +6146,19 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reaction-choice > span[aria-hidden="true"] {
   align-items: center;
   display: inline-flex;
-  font-size: 2.04rem;
+  font-size: 1.52rem;
   justify-content: center;
   line-height: 1;
 }
 
 .feed-reaction-trigger .theta-like-triangle {
-  height: 1.72rem;
-  width: 1.72rem;
+  height: 1.3rem;
+  width: 1.3rem;
 }
 
 .feed-reaction-choice .theta-like-triangle {
-  height: 1.9rem;
-  width: 1.9rem;
+  height: 1.43rem;
+  width: 1.43rem;
 }
 
 .action-glyph {
@@ -6209,12 +6209,12 @@ html.theta-theme-light .gallery-feedback--error {
   background: rgba(8, 11, 16, 0.96);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
   display: flex;
-  gap: 8px;
+  gap: 6px;
   left: 0;
   max-width: min(440px, calc(100vw - 32px));
   opacity: 0;
   overflow: hidden;
-  padding: 10px 12px;
+  padding: 7px 9px;
   pointer-events: none;
   position: absolute;
   top: calc(100% + 10px);
@@ -6379,8 +6379,6 @@ html.theta-theme-light .gallery-feedback--error {
   color: var(--gold);
 }
 
-.feed-reaction-menu:hover .feed-reaction-popover,
-.feed-reaction-menu:focus-within .feed-reaction-popover,
 .feed-reaction-menu.is-open .feed-reaction-popover {
   opacity: 1;
   pointer-events: auto;
