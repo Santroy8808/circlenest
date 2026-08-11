@@ -19,6 +19,7 @@ import {
 import { sendPlatformMail } from "@/lib/platform/mail";
 import { readPlatformMailboxes } from "@/lib/platform/mailboxes";
 import { ensureBusinessAccountForOwner, getBusinessAccountForOwner } from "@/modules/business-accounts/business-accounts.service";
+import { listPublicBusinessJobListings } from "@/modules/jobs/jobs.service";
 import { marketCategoryLabels, type MarketListingCardView } from "@/modules/market/types";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
@@ -292,6 +293,7 @@ async function getPublishedStorefrontBlogs(ownerUserId: string, profileSlug: str
 function toBusinessProfileView(
   profile: BusinessProfilePayload,
   marketListings: MarketListingCardView[] = [],
+  jobListings: Awaited<ReturnType<typeof listPublicBusinessJobListings>> = [],
   storefrontBlogs: StorefrontBlogView[] = [],
   forumTopics: StorefrontForumTopicListItemView[] = []
 ): BusinessProfileView {
@@ -319,6 +321,7 @@ function toBusinessProfileView(
     publicUrl: publicUrl(profile.slug),
     updatedAt: profile.updatedAt.toISOString(),
     marketListings,
+    jobListings,
     storefrontBlogs,
     forumTopics,
     articles: profile.articles.map((article) => toBusinessArticleView(article, profile.slug)),
@@ -481,18 +484,19 @@ export async function getBusinessCenterView(userId: string): Promise<BusinessCen
     });
   }
 
-  const [marketListings, storefrontBlogs] = profile
+  const [marketListings, jobListings, storefrontBlogs] = profile
     ? await Promise.all([
         getActiveBusinessMarketListings(profile.ownerUserId),
+        listPublicBusinessJobListings(profile.ownerUserId),
         profile.blogEnabled ? getPublishedStorefrontBlogs(profile.ownerUserId, profile.slug) : Promise.resolve([])
       ])
-    : [[], []];
+    : [[], [], []];
 
   return {
     canManage: access.allowed,
     reason: access.reason,
     profileKind: profile?.profileKind ?? (await getBusinessProfileKind(userId)),
-    profile: profile ? toBusinessProfileView(profile, marketListings, storefrontBlogs) : null,
+    profile: profile ? toBusinessProfileView(profile, marketListings, jobListings, storefrontBlogs) : null,
     inquiries: profile?.inquiries.map(toInquiryView) ?? []
   };
 }
@@ -623,7 +627,7 @@ export async function upsertBusinessProfile(userId: string, input: unknown) {
 
   const storefrontBlogs = profile.blogEnabled ? await getPublishedStorefrontBlogs(profile.ownerUserId, profile.slug) : [];
 
-  return { ok: true as const, profile: toBusinessProfileView(profile, [], storefrontBlogs) };
+  return { ok: true as const, profile: toBusinessProfileView(profile, [], [], storefrontBlogs) };
 }
 
 export async function getPublicBusinessProfile(slug: string) {
@@ -657,15 +661,16 @@ export async function getPublicBusinessProfile(slug: string) {
     return { ok: false as const, error: "Storefront not found." };
   }
 
-  const [marketListings, storefrontBlogs, forumResult] = await Promise.all([
+  const [marketListings, jobListings, storefrontBlogs, forumResult] = await Promise.all([
     getActiveBusinessMarketListings(profile.ownerUserId),
+    listPublicBusinessJobListings(profile.ownerUserId),
     profile.blogEnabled ? getPublishedStorefrontBlogs(profile.ownerUserId, profile.slug) : Promise.resolve([]),
     profile.forumEnabled ? listStorefrontForumTopics(profile.slug, { limit: 8 }) : Promise.resolve(null)
   ]);
 
   return {
     ok: true as const,
-    profile: toBusinessProfileView(profile, marketListings, storefrontBlogs, forumResult?.ok ? forumResult.forum.topics : [])
+    profile: toBusinessProfileView(profile, marketListings, jobListings, storefrontBlogs, forumResult?.ok ? forumResult.forum.topics : [])
   };
 }
 
@@ -880,7 +885,7 @@ export async function getPublicStorefrontBlog(storefrontSlug: string, manuscript
 
   return {
     ok: true as const,
-    profile: toBusinessProfileView(profile, [], storefrontBlogs),
+    profile: toBusinessProfileView(profile, [], [], storefrontBlogs),
     blog: toStorefrontBlogDetailView(blog, profile.slug)
   };
 }

@@ -100,6 +100,12 @@ export type JobListingCardView = {
     displayName: string;
     avatarUrl?: string | null;
   };
+  business?: {
+    businessName: string;
+    location?: string | null;
+    logoUrl?: string | null;
+    publicUrl: string;
+  } | null;
 };
 
 export type JobListingDetailView = JobListingCardView & {
@@ -112,4 +118,20 @@ export type JobListingDetailView = JobListingCardView & {
   imageOriginalName?: string | null;
   viewerCanManage: boolean;
   viewerCanPromote: boolean;
+};
+
+export type PublicJobListingCardView = Omit<JobListingCardView, "id" | "imageMediaAssetId" | "status" | "employer"> & {
+  employer: {
+    displayName: string;
+  };
+};
+
+export type PublicJobListingDetailView = PublicJobListingCardView & {
+  description: string;
+  needs?: string | null;
+  wants?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactInstructions?: string | null;
+  imageOriginalName?: string | null;
 };

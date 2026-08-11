@@ -12,7 +12,7 @@ const platformFeatures = {
   "publishing.writers_corner": true
 };
 
-test("default home options include stream, market, and jobs when available", () => {
+test("default home options include dashboard, stream, market, and jobs when available", () => {
   const options = buildDefaultHomeOptions({
     features: {
       "auditors.browse": true,
@@ -24,8 +24,8 @@ test("default home options include stream, market, and jobs when available", () 
   });
 
   assert.deepEqual(
-    options.slice(0, 3).map((option) => option.key),
-    ["stream", "market", "jobs"]
+    options.slice(0, 4).map((option) => option.key),
+    ["dashboard", "stream", "market", "jobs"]
   );
   assert.equal(options.some((option) => option.key === "writers"), false);
 });

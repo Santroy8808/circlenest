@@ -9,6 +9,7 @@ const MODULE_KEY = "default-home-preferences";
 const PROFILE_PREFS_KEY = "defaultHomePage";
 
 export const defaultHomeKeys = [
+  "dashboard",
   "stream",
   "market",
   "jobs",
@@ -77,6 +78,12 @@ export function buildDefaultHomeOptions(context: DefaultHomeContext): DefaultHom
   }
 
   const options: DefaultHomeOption[] = [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      href: "/dashboard",
+      description: "Open your customizable Theta-Space dashboard."
+    },
     {
       key: "stream",
       label: "Stream",
@@ -203,20 +210,20 @@ export function buildDefaultHomeOptions(context: DefaultHomeContext): DefaultHom
 }
 
 function readDefaultHomeKey(theme: unknown): DefaultHomeKey {
-  if (!isRecord(theme)) return "stream";
+  if (!isRecord(theme)) return "dashboard";
   const value = theme[PROFILE_PREFS_KEY];
 
-  return isDefaultHomeKey(value) ? value : "stream";
+  return isDefaultHomeKey(value) ? value : "dashboard";
 }
 
 function selectDefaultHomeOption(theme: unknown, options: DefaultHomeOption[]) {
   const selectedKey = readDefaultHomeKey(theme);
 
   return options.find((option) => option.key === selectedKey) ?? options[0] ?? {
-    key: "stream" as const,
-    label: "Stream",
-    href: "/home",
-    description: "Open the main Theta-Space stream."
+    key: "dashboard" as const,
+    label: "Dashboard",
+    href: "/dashboard",
+    description: "Open your Theta-Space dashboard."
   };
 }
 

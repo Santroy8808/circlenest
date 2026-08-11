@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { BusinessProfileKind } from "@prisma/client";
+import type { PublicJobListingCardView } from "@/modules/jobs/types";
 import type { MarketListingCardView } from "@/modules/market/types";
 import type { StorefrontForumTopicListItemView } from "@/modules/storefront-forum/types";
 
@@ -73,6 +74,7 @@ export type BusinessProfileView = {
   publicUrl: string;
   updatedAt: string;
   marketListings: MarketListingCardView[];
+  jobListings: PublicJobListingCardView[];
   storefrontBlogs: StorefrontBlogView[];
   forumTopics: StorefrontForumTopicListItemView[];
   articles: BusinessArticleView[];

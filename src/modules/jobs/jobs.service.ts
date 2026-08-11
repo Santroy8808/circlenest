@@ -30,7 +30,9 @@ import {
   jobCategoryLabels,
   updateJobListingSchema,
   type JobListingCardView,
-  type JobListingDetailView
+  type JobListingDetailView,
+  type PublicJobListingCardView,
+  type PublicJobListingDetailView
 } from "@/modules/jobs/types";
 
 const MODULE_KEY = "jobs";
@@ -201,7 +203,7 @@ export async function completeJobImageUpload(userId: string, input: unknown) {
 
 type JobPayload = Prisma.JobListingGetPayload<{
   include: {
-    employer: { include: { profile: true } };
+    employer: { include: { profile: true; businessProfile: true } };
     image: true;
   };
 }>;
@@ -209,6 +211,22 @@ type JobPayload = Prisma.JobListingGetPayload<{
 function mediaAssetUrl(asset?: { publicUrl: string | null; storageKey: string } | null) {
   if (!asset) return null;
   return asset.publicUrl ?? getR2PublicUrl(asset.storageKey);
+}
+
+function publicBusinessView(profile?: {
+  businessName: string;
+  location: string | null;
+  logoUrl: string | null;
+  publicStorefrontEnabled: boolean;
+  slug: string;
+} | null) {
+  if (!profile?.publicStorefrontEnabled) return null;
+  return {
+    businessName: profile.businessName,
+    location: profile.location,
+    logoUrl: profile.logoUrl,
+    publicUrl: `/storefront/${profile.slug}`
+  };
 }
 
 function toJobCardView(job: JobPayload): JobListingCardView {
@@ -235,7 +253,29 @@ function toJobCardView(job: JobPayload): JobListingCardView {
       username: job.employer.username,
       displayName: profileName(job.employer),
       avatarUrl: job.employer.profile?.avatarUrl
-    }
+    },
+    business: publicBusinessView(job.employer.businessProfile)
+  };
+}
+
+export function toPublicJobCardView(job: JobPayload): PublicJobListingCardView {
+  return {
+    slug: job.slug,
+    title: job.title,
+    companyName: job.companyName,
+    summary: job.summary,
+    category: job.category,
+    categoryLabel: jobCategoryLabels[job.category],
+    employmentType: job.employmentType,
+    employmentTypeLabel: employmentTypeLabels[job.employmentType],
+    location: job.location,
+    remote: job.remote,
+    compensation: job.compensation,
+    imageUrl: mediaAssetUrl(job.image),
+    imageOverlayText: job.imageOverlayText,
+    createdAt: job.createdAt.toISOString(),
+    employer: { displayName: profileName(job.employer) },
+    business: publicBusinessView(job.employer.businessProfile)
   };
 }
 
@@ -297,7 +337,8 @@ export async function listJobListings(input?: JobListingSearchInput) {
       include: {
         employer: {
           include: {
-            profile: true
+            profile: true,
+            businessProfile: true
           }
         },
         image: true
@@ -324,6 +365,64 @@ export async function safeListJobListings(input?: JobListingSearchInput) {
   }
 }
 
+export async function listPublicJobListings(input?: JobListingSearchInput) {
+  const jobs = await withJobsDbTimeout(
+    prisma.jobListing.findMany({
+      where: buildJobListingWhere(input),
+      include: {
+        employer: {
+          include: {
+            profile: true,
+            businessProfile: true
+          }
+        },
+        image: true
+      },
+      orderBy: { createdAt: "desc" },
+      take: 80
+    }),
+    "public job listings lookup"
+  );
+
+  return jobs.map(toPublicJobCardView);
+}
+
+export async function safeListPublicJobListings(input?: JobListingSearchInput) {
+  try {
+    return await listPublicJobListings(input);
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not list public jobs.", {
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return [];
+  }
+}
+
+export async function listPublicBusinessJobListings(employerUserId: string) {
+  const jobs = await withJobsDbTimeout(
+    prisma.jobListing.findMany({
+      where: {
+        employerUserId,
+        status: JobListingStatus.ACTIVE
+      },
+      include: {
+        employer: {
+          include: {
+            profile: true,
+            businessProfile: true
+          }
+        },
+        image: true
+      },
+      orderBy: { createdAt: "desc" },
+      take: 24
+    }),
+    "business public job listings lookup"
+  );
+
+  return jobs.map(toPublicJobCardView);
+}
+
 export async function listOwnedJobListings(userId: string) {
   const jobs = await withJobsDbTimeout(
     prisma.jobListing.findMany({
@@ -336,7 +435,8 @@ export async function listOwnedJobListings(userId: string) {
       include: {
         employer: {
           include: {
-            profile: true
+            profile: true,
+            businessProfile: true
           }
         },
         image: true
@@ -545,7 +645,8 @@ export async function getJobListingDetail(viewerUserId: string, listingIdOrSlug:
     include: {
       employer: {
         include: {
-          profile: true
+          profile: true,
+          businessProfile: true
         }
       },
       image: true
@@ -587,6 +688,51 @@ export async function safeGetJobListingDetail(viewerUserId: string, listingIdOrS
   } catch (error) {
     await diagnostics.error(MODULE_KEY, "Could not load job listing detail.", {
       viewerUserId,
+      listingIdOrSlug,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+    return { ok: false as const, error: "Could not load job listing." };
+  }
+}
+
+export async function getPublicJobListingDetail(listingIdOrSlug: string) {
+  const job = await prisma.jobListing.findFirst({
+    where: {
+      OR: [{ id: listingIdOrSlug }, { slug: listingIdOrSlug }],
+      status: JobListingStatus.ACTIVE
+    },
+    include: {
+      employer: {
+        include: {
+          profile: true,
+          businessProfile: true
+        }
+      },
+      image: true
+    }
+  });
+
+  if (!job) return { ok: false as const, error: "Job listing not found." };
+
+  const detail: PublicJobListingDetailView = {
+    ...toPublicJobCardView(job),
+    description: job.description,
+    needs: job.needs,
+    wants: job.wants,
+    contactEmail: job.contactEmail,
+    contactPhone: job.contactPhone,
+    contactInstructions: job.contactInstructions,
+    imageOriginalName: job.image?.originalName
+  };
+
+  return { ok: true as const, job: detail };
+}
+
+export async function safeGetPublicJobListingDetail(listingIdOrSlug: string) {
+  try {
+    return await getPublicJobListingDetail(listingIdOrSlug);
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Could not load public job listing detail.", {
       listingIdOrSlug,
       error: error instanceof Error ? error.message : "unknown"
     });

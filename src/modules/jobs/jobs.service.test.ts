@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { JobCategory, JobListingStatus } from "@prisma/client";
-import { buildJobListingWhere, canViewerPromoteJob } from "@/modules/jobs/jobs.service";
+import { JobCategory, JobEmploymentType, JobListingStatus } from "@prisma/client";
+import { buildJobListingWhere, canViewerPromoteJob, toPublicJobCardView } from "@/modules/jobs/jobs.service";
 import { isJobSearchCategory, jobCategoryOptions } from "@/modules/jobs/types";
 
 test("job promotion requires both listing ownership and an advertising capability", () => {
@@ -69,4 +69,47 @@ test("job listing search ignores hidden category filters and matches remote loca
       }
     ]
   });
+});
+
+test("public job cards exclude member account details and private storefronts", () => {
+  const job = {
+    id: "job-1",
+    slug: "bookkeeper-austin",
+    title: "Bookkeeper - Austin, TX",
+    companyName: "Theta Books",
+    summary: "Keep accounts accurate.",
+    category: JobCategory.ADMINISTRATION,
+    employmentType: JobEmploymentType.FULL_TIME,
+    location: "Austin, Texas, United States",
+    remote: false,
+    compensation: "$60,000 - $75,000",
+    imageMediaAssetId: "asset-1",
+    imageOverlayText: "Experienced bookkeeper",
+    status: JobListingStatus.ACTIVE,
+    createdAt: new Date("2026-08-11T00:00:00.000Z"),
+    employer: {
+      id: "user-1",
+      username: "private-handle",
+      profile: { displayName: "Private Owner" },
+      businessProfile: {
+        businessName: "Theta Books",
+        location: "Austin, Texas, United States",
+        logoUrl: "https://example.com/logo.png",
+        publicStorefrontEnabled: false,
+        slug: "theta-books"
+      }
+    },
+    image: {
+      publicUrl: "https://example.com/job.png",
+      storageKey: "jobs/job.png"
+    }
+  } as unknown as Parameters<typeof toPublicJobCardView>[0];
+
+  const publicJob = toPublicJobCardView(job);
+
+  assert.deepEqual(publicJob.employer, { displayName: "Private Owner" });
+  assert.equal(publicJob.business, null);
+  assert.equal("id" in publicJob, false);
+  assert.equal("status" in publicJob, false);
+  assert.equal("imageMediaAssetId" in publicJob, false);
 });
