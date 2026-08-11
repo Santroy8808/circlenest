@@ -20,6 +20,14 @@ export const createFeedCommentSchema = z.object({
   path: ["body"]
 });
 
+export const updateFeedPostSchema = z.object({
+  body: z.string().max(4000)
+});
+
+export const updateFeedCommentSchema = z.object({
+  body: z.string().max(2000)
+});
+
 export const reactToFeedPostSchema = z.object({
   postId: z.string().min(1),
   type: z.nativeEnum(FeedReactionType)
@@ -52,6 +60,7 @@ export type FeedCommentView = {
   id: string;
   body: string;
   createdAt: string;
+  updatedAt: string;
   author: FeedAuthorView;
   media?: FeedMediaView | null;
   reactions: Partial<Record<FeedReactionType, number>>;
@@ -74,6 +83,7 @@ export type FeedPostView = {
   adminHoldReason?: string | null;
   adminHoldThread?: boolean;
   createdAt: string;
+  updatedAt: string;
   media?: FeedMediaView | null;
   author: FeedAuthorView;
   reactions: Partial<Record<FeedReactionType, number>>;

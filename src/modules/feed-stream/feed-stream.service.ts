@@ -174,6 +174,7 @@ type FeedCommentRecord = {
   id: string;
   body: string;
   createdAt: Date;
+  updatedAt: Date;
   author: {
     id: string;
     username: string;
@@ -200,6 +201,7 @@ type FeedPostRecord = {
   adminHoldReason?: string | null;
   adminHoldThread?: boolean;
   createdAt: Date;
+  updatedAt: Date;
   mediaAsset: FeedMediaAssetRecord | null;
   author: FeedCommentRecord["author"];
   reactions: FeedReactionRecord[];
@@ -296,6 +298,7 @@ function toFeedCommentView(comment: FeedCommentRecord): FeedCommentView {
     id: comment.id,
     body: comment.body,
     createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString(),
     author: toFeedAuthorView(comment.author),
     media: toFeedMediaView(comment.mediaAsset),
     reactions: countReactions(comment.reactions),
@@ -320,6 +323,7 @@ function toFeedPostView(post: FeedPostRecord): FeedPostView {
     adminHoldReason: post.adminHoldReason ?? null,
     adminHoldThread: post.adminHoldThread ?? true,
     createdAt: post.createdAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
     media: toFeedMediaView(post.mediaAsset),
     author: toFeedAuthorView(post.author),
     reactions: countReactions(post.reactions),
