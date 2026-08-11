@@ -143,6 +143,9 @@ type ReactionDetailEntry = {
   reactor: FeedAuthorView;
 };
 
+type FeedPostEditView = Pick<FeedPostView, "id" | "body" | "updatedAt">;
+type FeedCommentEditView = Pick<FeedCommentView, "id" | "body" | "updatedAt">;
+
 function ReactionDetailsPopover({
   detailReactors,
   label,
@@ -1122,12 +1125,71 @@ function CommentComposer({
   );
 }
 
+function FeedEditForm({
+  ariaLabel,
+  body,
+  hasMedia,
+  onCancel,
+  onSave,
+  placeholder
+}: {
+  ariaLabel: string;
+  body: string;
+  hasMedia: boolean;
+  onCancel: () => void;
+  onSave: (body: string) => Promise<string | null>;
+  placeholder: string;
+}) {
+  const [value, setValue] = useState(body);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setValue(body), [body]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+    const nextError = await onSave(value);
+    if (nextError) {
+      setSaving(false);
+      setError(nextError);
+      return;
+    }
+
+    onCancel();
+  }
+
+  return (
+    <form className="mt-3 space-y-2" onClick={(event) => event.stopPropagation()} onSubmit={(event) => void submit(event)}>
+      <FeedRichTextInput
+        ariaLabel={ariaLabel}
+        autoFocus
+        className="min-h-24"
+        onChange={setValue}
+        placeholder={placeholder}
+        value={value}
+      />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button className="btn-secondary px-3 py-2 text-sm" disabled={saving} onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button className="btn-primary px-3 py-2 text-sm" disabled={saving || (!value.trim() && !hasMedia)} type="submit">
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      </div>
+      {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-2 text-sm text-red-100">{error}</p> : null}
+    </form>
+  );
+}
+
 function FeedCommentRow({
   comment,
   currentUserId,
   depth = 0,
   defaultExpanded = false,
   isAdmin = false,
+  onEdit,
   onReact,
   onReply,
   onShare
@@ -1137,6 +1199,7 @@ function FeedCommentRow({
   depth?: number;
   defaultExpanded?: boolean;
   isAdmin?: boolean;
+  onEdit: (commentId: string, body: string) => Promise<string | null>;
   onReact: (commentId: string, type: FeedReactionType) => void;
   onReply: (comment: FeedCommentView) => void;
   onShare: (commentId: string) => void;
@@ -1145,6 +1208,8 @@ function FeedCommentRow({
   const hasLoadedReplies = loadedReplies.length > 0;
   const hasHiddenReplies = comment.replyCount > 0 && !hasLoadedReplies;
   const [expanded, setExpanded] = useState(defaultExpanded || depth === 0);
+  const [editing, setEditing] = useState(false);
+  const wasEdited = Date.parse(comment.updatedAt) - Date.parse(comment.createdAt) > 500;
 
   return (
     <div className={depth > 0 ? "comment-bubble is-reply" : "comment-bubble"} id={`comment-${comment.id}`}>
@@ -1154,10 +1219,22 @@ function FeedCommentRow({
           <div className="comment-inline-meta">
             <ProfileNameLink author={comment.author} compact />
             <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
+            {wasEdited ? <span>edited</span> : null}
             {hasHiddenReplies ? <span>{comment.replyCount} replies</span> : null}
             <AdminObjectId id={comment.id} kind="Comment" visible={isAdmin} />
           </div>
-          <RichText value={comment.body} />
+          {editing ? (
+            <FeedEditForm
+              ariaLabel="Edit comment"
+              body={comment.body}
+              hasMedia={Boolean(comment.media)}
+              onCancel={() => setEditing(false)}
+              onSave={(body) => onEdit(comment.id, body)}
+              placeholder="Update your comment..."
+            />
+          ) : (
+            <RichText value={comment.body} />
+          )}
           <ExternalLinkPreview body={comment.body} />
           <FeedMedia media={comment.media} />
           <div className="comment-action-row">
@@ -1171,6 +1248,11 @@ function FeedCommentRow({
             {hasLoadedReplies ? (
               <button className="comment-reply-link comment-collapse-link" onClick={() => setExpanded((value) => !value)} type="button">
                 {expanded ? "Collapse" : `Expand ${loadedReplies.length}`}
+              </button>
+            ) : null}
+            {currentUserId === comment.author.id ? (
+              <button className="comment-reply-link" onClick={() => setEditing(true)} type="button">
+                Edit
               </button>
             ) : null}
             <button aria-label="Reply to comment" className="comment-reply-link comment-reply-icon-link" onClick={() => onReply(comment)} title="Reply" type="button">
@@ -1193,6 +1275,7 @@ function FeedCommentRow({
               depth={depth + 1}
               isAdmin={isAdmin}
               key={reply.id}
+              onEdit={onEdit}
               onReact={onReact}
               onReply={onReply}
               onShare={onShare}
@@ -1270,6 +1353,7 @@ export function FeedClient({
   const [postFormatState, setPostFormatState] = useState<ComposerFormatState>({});
   const [composerOpen, setComposerOpen] = useState(false);
   const [postImage, setPostImage] = useState<FeedImageAttachment | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [commentBodies, setCommentBodies] = useState<Record<string, string>>({});
   const [commentFormatStates, setCommentFormatStates] = useState<Record<string, ComposerFormatState>>({});
   const [commentImages, setCommentImages] = useState<Record<string, FeedImageAttachment | undefined>>({});
@@ -1536,6 +1620,18 @@ export function FeedClient({
     });
   }
 
+  function updateCommentBodyTree(comments: FeedCommentView[], editedComment: FeedCommentEditView): FeedCommentView[] {
+    return comments.map((comment) => {
+      if (comment.id === editedComment.id) {
+        return { ...comment, body: editedComment.body, updatedAt: editedComment.updatedAt };
+      }
+
+      return comment.replies?.length
+        ? { ...comment, replies: updateCommentBodyTree(comment.replies, editedComment) }
+        : comment;
+    });
+  }
+
   function applyOptimisticPostReaction(postId: string, type: FeedReactionType) {
     setPosts((current) =>
       current.map((post) => {
@@ -1632,6 +1728,60 @@ export function FeedClient({
         if (image) updateCommentImage(key, { status: "error", error: message });
       }
     });
+  }
+
+  async function savePostEdit(postId: string, body: string) {
+    try {
+      const response = await fetch(`/api/feed/posts/${postId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; post?: FeedPostEditView };
+      if (!response.ok || !payload.post) {
+        return payload.error ?? "That post could not be updated.";
+      }
+
+      setPosts((current) => current.map((post) => (
+        post.id === payload.post!.id
+          ? { ...post, body: payload.post!.body, updatedAt: payload.post!.updatedAt }
+          : post
+      )));
+      syncCachedFeedPosts((current) => current.map((post) => (
+        post.id === payload.post!.id
+          ? { ...post, body: payload.post!.body, updatedAt: payload.post!.updatedAt }
+          : post
+      )));
+      return null;
+    } catch {
+      return "That post could not be updated because the request failed. Check the connection and try again.";
+    }
+  }
+
+  async function saveCommentEdit(commentId: string, body: string) {
+    try {
+      const response = await fetch(`/api/feed/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; comment?: FeedCommentEditView };
+      if (!response.ok || !payload.comment) {
+        return payload.error ?? "That comment could not be updated.";
+      }
+
+      setPosts((current) => current.map((post) => ({
+        ...post,
+        comments: updateCommentBodyTree(post.comments, payload.comment!)
+      })));
+      syncCachedFeedPosts((current) => current.map((post) => ({
+        ...post,
+        comments: updateCommentBodyTree(post.comments, payload.comment!)
+      })));
+      return null;
+    } catch {
+      return "That comment could not be updated because the request failed. Check the connection and try again.";
+    }
   }
 
   function reactToPost(postId: string, type: FeedReactionType) {
@@ -2033,6 +2183,7 @@ export function FeedClient({
                   <div>
                     <ProfileNameLink author={post.author} />
                     <span>{new Date(post.createdAt).toLocaleString()}</span>
+                    {Date.parse(post.updatedAt) - Date.parse(post.createdAt) > 500 ? <span>edited</span> : null}
                     <AdminObjectId id={post.id} kind="Post" visible={isAdmin} />
                   </div>
                 </div>
@@ -2076,16 +2227,31 @@ export function FeedClient({
                         </button>
                       ) : null}
                       {composerIdentity.id === post.author.id ? (
-                        <button
-                          className="text-red-300"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void deletePost(post.id);
-                          }}
-                          type="button"
-                        >
-                          Delete post
-                        </button>
+                        <>
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              event.currentTarget.closest("details")?.removeAttribute("open");
+                              setEditingPostId(post.id);
+                              window.setTimeout(() => {
+                                document.getElementById(`post-${post.id}-edit`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                              }, 0);
+                            }}
+                            type="button"
+                          >
+                            Edit post
+                          </button>
+                          <button
+                            className="text-red-300"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void deletePost(post.id);
+                            }}
+                            type="button"
+                          >
+                            Delete post
+                          </button>
+                        </>
                       ) : null}
                       {composerIdentity.id && post.author.id !== composerIdentity.id ? (
                         <>
@@ -2102,7 +2268,18 @@ export function FeedClient({
                 </div>
               </div>
               <div className="feed-post-body-preview">
-                <RichText value={post.body} />
+                <div id={`post-${post.id}-edit`}>
+                  {editingPostId === post.id ? (
+                    <FeedEditForm
+                      ariaLabel="Edit post"
+                      body={post.body}
+                      hasMedia={Boolean(post.media)}
+                      onCancel={() => setEditingPostId(null)}
+                      onSave={(body) => savePostEdit(post.id, body)}
+                      placeholder="Update your post..."
+                    />
+                  ) : <RichText value={post.body} />}
+                </div>
               </div>
               {isLongBody ? (
                 <button className="feed-read-more-button" onClick={() => openThread(post.id)} type="button">
@@ -2180,6 +2357,7 @@ export function FeedClient({
                     defaultExpanded={defaultExpanded}
                     isAdmin={isAdmin}
                     key={comment.id}
+                    onEdit={saveCommentEdit}
                     onReact={reactToComment}
                     onReply={(target) => activateReply(post.id, target)}
                     onShare={(commentId) => void shareStreamUrl(post.id, commentId)}
