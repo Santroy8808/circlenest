@@ -12,7 +12,16 @@ async function createLightIcon(filename: string) {
 
   for (let index = 0; index < data.length; index += info.channels) {
     const [red, green, blue] = [data[index], data[index + 1], data[index + 2]];
-    if (data[index + 3] === 0 || red > 130 || green > 140 || blue > 180) continue;
+    if (data[index + 3] === 0) continue;
+
+    if (red > 130 && green > 95 && blue < 160) {
+      data[index] = 171;
+      data[index + 1] = 113;
+      data[index + 2] = 16;
+      continue;
+    }
+
+    if (red > 130 || green > 140 || blue > 180) continue;
 
     data[index] = Math.round(red * 0.12 + 249 * 0.88);
     data[index + 1] = Math.round(green * 0.12 + 244 * 0.88);
