@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
+import { readJsonRequest } from "@/lib/platform/api-request";
 import { requireDeletePasswordFromRequest } from "@/lib/platform/delete-protection";
 import { isAdminRole } from "@/lib/platform/roles";
-import { deleteFeedPost, getFeedPostThreadPage } from "@/modules/feed-stream/feed-stream.service";
+import { deleteFeedPost, getFeedPostThreadPage, updateFeedPost } from "@/modules/feed-stream/feed-stream.service";
 
 export async function GET(request: NextRequest, props: { params: Promise<{ postId: string }> }) {
   const params = await props.params;
@@ -61,4 +62,25 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ po
 
   const status = result.error?.toLowerCase().includes("not authorized") ? 403 : 404;
   return NextResponse.json({ error: result.error, postId: params.postId }, { status });
+}
+
+export async function PUT(request: NextRequest, props: { params: Promise<{ postId: string }> }) {
+  const params = await props.params;
+  const session = await auth();
+
+  if (!session?.user || session.user.revoked) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const body = await readJsonRequest(request, 8 * 1024);
+  if (!body.ok) return body.response;
+
+  const actor = await getActiveAccountActor(session.user.id);
+  const result = await updateFeedPost(actor.actorUserId, params.postId, body.value);
+  if (!result.ok) {
+    const status = result.error.toLowerCase().includes("cannot edit") || result.error.toLowerCase().includes("not authorized") ? 403 : 400;
+    return NextResponse.json({ error: result.error, postId: params.postId }, { status });
+  }
+
+  return NextResponse.json({ post: result.post });
 }

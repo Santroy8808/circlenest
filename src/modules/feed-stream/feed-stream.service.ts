@@ -43,7 +43,9 @@ import {
   type FeedReactionReactorsView,
   type FeedPostView,
   reactToFeedCommentSchema,
-  reactToFeedPostSchema
+  reactToFeedPostSchema,
+  updateFeedCommentSchema,
+  updateFeedPostSchema
 } from "@/modules/feed-stream/types";
 import {
   notifyFeedCommentCreated,
@@ -1103,6 +1105,222 @@ export async function createFeedComment(authorUserId: string, input: unknown) {
     commentId: comment.id
   });
   return { ok: true as const, comment, post: postView ? toFeedPostView(postView as unknown as FeedPostRecord) : null };
+}
+
+export async function updateFeedPost(authorUserId: string, postId: string, input: unknown) {
+  const parsed = updateFeedPostSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid post." };
+  }
+
+  const policy = await resolveFeedViewerPolicy(authorUserId);
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to edit this post." };
+  }
+
+  const post = await prisma.feedPost.findFirst({
+    where: scopeFeedPostWhere(policy, "interact", {
+      id: postId,
+      authorUserId,
+      streamDeletedAt: null
+    }),
+    select: {
+      id: true,
+      mediaAssetId: true,
+      targetProfileUserId: true
+    }
+  });
+
+  if (!post) {
+    return { ok: false as const, error: "Post not found or you cannot edit it." };
+  }
+
+  const body = parsed.data.body.trim();
+  if (!body && !post.mediaAssetId) {
+    return { ok: false as const, error: "Write something or attach a picture." };
+  }
+
+  try {
+    const mentionedUserIds = await resolveMentionedUserIds(body);
+    await assertConductTargetsAllowed(authorUserId, [
+      ...mentionedUserIds,
+      ...(post.targetProfileUserId ? [post.targetProfileUserId] : [])
+    ]);
+  } catch (error) {
+    if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+    throw error;
+  }
+
+  const updatedPost = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedChildWriteAllowed(tx, {
+      postId,
+      actorUserId: authorUserId,
+      mediaAssetIds: post.mediaAssetId ? [post.mediaAssetId] : []
+    });
+    if (!allowed) return null;
+
+    const updated = await tx.feedPost.updateMany({
+      where: {
+        id: postId,
+        authorUserId,
+        streamDeletedAt: null
+      },
+      data: { body }
+    });
+    if (updated.count === 0) return null;
+
+    await tx.feedPostHashtag.deleteMany({ where: { postId } });
+    await tx.mediaAssetHashtag.deleteMany({
+      where: {
+        sourceType: "FEED_POST",
+        sourceId: postId
+      }
+    });
+    await attachFeedPostHashtags(tx, {
+      actorUserId: authorUserId,
+      body,
+      mediaAssetId: post.mediaAssetId,
+      postId
+    });
+
+    return tx.feedPost.findUnique({
+      where: { id: postId },
+      select: { id: true, body: true, updatedAt: true }
+    });
+  });
+
+  if (!updatedPost) {
+    return { ok: false as const, error: "Post not found or you cannot edit it." };
+  }
+
+  await diagnostics.info(MODULE_KEY, "Feed post edited.", { authorUserId, postId });
+  return {
+    ok: true as const,
+    post: {
+      id: updatedPost.id,
+      body: updatedPost.body,
+      updatedAt: updatedPost.updatedAt.toISOString()
+    }
+  };
+}
+
+export async function updateFeedComment(authorUserId: string, commentId: string, input: unknown) {
+  const parsed = updateFeedCommentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid comment." };
+  }
+
+  const policy = await resolveFeedViewerPolicy(authorUserId);
+  if (!policy.viewerUserId) {
+    return { ok: false as const, error: "You are not authorized to edit this comment." };
+  }
+
+  const comment = await prisma.feedComment.findFirst({
+    where: {
+      id: commentId,
+      authorUserId,
+      deletedAt: null,
+      author: {
+        is: policy.actorWhere
+      },
+      post: {
+        is: scopeFeedPostWhere(policy, "interact", { streamDeletedAt: null })
+      }
+    },
+    select: {
+      id: true,
+      postId: true,
+      mediaAssetId: true,
+      post: {
+        select: {
+          authorUserId: true
+        }
+      },
+      parent: {
+        select: {
+          authorUserId: true
+        }
+      }
+    }
+  });
+
+  if (!comment) {
+    return { ok: false as const, error: "Comment not found or you cannot edit it." };
+  }
+
+  const body = parsed.data.body.trim();
+  if (!body && !comment.mediaAssetId) {
+    return { ok: false as const, error: "Write a comment or attach a picture." };
+  }
+
+  try {
+    const mentionedUserIds = await resolveMentionedUserIds(body);
+    await assertConductTargetsAllowed(authorUserId, [
+      comment.post.authorUserId,
+      ...(comment.parent ? [comment.parent.authorUserId] : []),
+      ...mentionedUserIds
+    ]);
+  } catch (error) {
+    if (error instanceof ConductInteractionRestrictedError) return { ok: false as const, error: error.message };
+    throw error;
+  }
+
+  const updatedComment = await prisma.$transaction(async (tx) => {
+    const allowed = await assertFeedCommentWriteAllowed(tx, {
+      commentId,
+      actorUserId: authorUserId,
+      mediaAssetIds: comment.mediaAssetId ? [comment.mediaAssetId] : []
+    });
+    if (!allowed) return null;
+
+    const updated = await tx.feedComment.updateMany({
+      where: {
+        id: commentId,
+        authorUserId,
+        deletedAt: null
+      },
+      data: { body }
+    });
+    if (updated.count === 0) return null;
+
+    await tx.feedCommentHashtag.deleteMany({ where: { commentId } });
+    await tx.mediaAssetHashtag.deleteMany({
+      where: {
+        sourceType: "FEED_COMMENT",
+        sourceId: commentId
+      }
+    });
+    await attachFeedCommentHashtags(tx, {
+      actorUserId: authorUserId,
+      body,
+      commentId,
+      mediaAssetId: comment.mediaAssetId,
+      postId: comment.postId
+    });
+
+    return tx.feedComment.findUnique({
+      where: { id: commentId },
+      select: { id: true, body: true, updatedAt: true }
+    });
+  });
+
+  if (!updatedComment) {
+    return { ok: false as const, error: "Comment not found or you cannot edit it." };
+  }
+
+  await diagnostics.info(MODULE_KEY, "Feed comment edited.", {
+    authorUserId,
+    postId: comment.postId,
+    commentId
+  });
+  return {
+    ok: true as const,
+    comment: {
+      id: updatedComment.id,
+      body: updatedComment.body,
+      updatedAt: updatedComment.updatedAt.toISOString()
+    }
+  };
 }
 
 export async function reactToFeedPost(userId: string, input: unknown) {

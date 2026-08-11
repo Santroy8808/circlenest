@@ -27,3 +27,17 @@ test("feed post deletion uses authenticated admin authority instead of active di
   assert.match(route, /const deleteActorUserId = isAdminRole\(session\.user\.role\) \? session\.user\.id : actor\.actorUserId;/);
   assert.match(route, /deleteFeedPost\(deleteActorUserId, params\.postId\)/);
 });
+
+test("feed editing uses dedicated author-scoped post and comment routes", () => {
+  const postRoute = readFileSync(resolve("src/app/api/feed/posts/[postId]/route.ts"), "utf8");
+  const commentRoute = readFileSync(resolve("src/app/api/feed/comments/[commentId]/route.ts"), "utf8");
+  const service = readFileSync(resolve("src/modules/feed-stream/feed-stream.service.ts"), "utf8");
+
+  assert.match(postRoute, /export async function PUT/);
+  assert.match(postRoute, /updateFeedPost\(actor\.actorUserId, params\.postId, body\.value\)/);
+  assert.match(commentRoute, /export async function PUT/);
+  assert.match(commentRoute, /updateFeedComment\(actor\.actorUserId, params\.commentId, body\.value\)/);
+  assert.match(service, /authorUserId,/);
+  assert.match(service, /Feed post edited\./);
+  assert.match(service, /Feed comment edited\./);
+});
