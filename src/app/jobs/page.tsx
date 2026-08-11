@@ -1,9 +1,10 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { JobsBoardClient } from "@/components/jobs/jobs-board-client";
 import { AppShell } from "@/components/platform/app-shell";
+import { PublicJobsBoard } from "@/components/public-jobs/public-jobs-board";
 import { getActiveAccountActor } from "@/lib/platform/account-actor";
-import { safeListJobListings, viewerCanCreateJob } from "@/modules/jobs/jobs.service";
+import { safeListJobListings, safeListPublicJobListings, viewerCanCreateJob } from "@/modules/jobs/jobs.service";
 import { getListingViewPreference } from "@/modules/listing-preferences/listing-preferences.service";
 import { canUserAccessFeature } from "@/modules/membership-policy/membership-policy.service";
 
@@ -11,7 +12,7 @@ export default async function JobsPage() {
   const session = await auth();
 
   if (!session?.user || session.user.revoked) {
-    redirect("/login?callbackUrl=/jobs");
+    return <PublicJobsBoard listings={await safeListPublicJobListings()} />;
   }
 
   const browseAccess = await canUserAccessFeature(session.user.id, "jobs.browse");
