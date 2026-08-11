@@ -12,3 +12,8 @@ test("dashboard widget placement uses the themed picker instead of a native sele
   assert.match(styles, /\.dashboard-widget-picker-menu\s*\{[\s\S]*background: var\(--panel\)/);
   assert.match(styles, /\.dashboard-widget-picker-menu button\s*\{[\s\S]*color: var\(--text\)/);
 });
+
+test("dashboard row hover uses theme colors instead of a dark-only background", () => {
+  assert.match(styles, /\.dashboard-widget-row:hover,[\s\S]*background: color-mix\(in srgb, var\(--gold\) 8%, var\(--panel-soft\)\)/);
+  assert.doesNotMatch(styles, /\.dashboard-widget-row:hover,[\s\S]*background: rgba\(23, 33, 51, 0\.9\)/);
+});

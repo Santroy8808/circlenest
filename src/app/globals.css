@@ -13685,7 +13685,7 @@ html.theta-theme-light .pill-alert {
 
 .dashboard-widget-row:hover,
 .dashboard-widget-post:hover {
-  background: rgba(23, 33, 51, 0.9);
+  background: color-mix(in srgb, var(--gold) 8%, var(--panel-soft));
   border-color: rgba(214, 178, 74, 0.48);
 }
 
