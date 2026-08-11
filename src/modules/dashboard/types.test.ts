@@ -4,7 +4,8 @@ import {
   createDefaultDashboardConfiguration,
   dashboardVisibleSlots,
   isStreamDashboardFocus,
-  normalizeDashboardConfiguration
+  normalizeDashboardConfiguration,
+  swapDashboardWidgets
 } from "@/modules/dashboard/types";
 
 test("dashboard default uses four useful starting widgets", () => {
@@ -61,4 +62,12 @@ test("a single stream widget opens the normal Stream experience", () => {
   assert.ok(streamSlot);
   assert.equal(isStreamDashboardFocus({ ...configuration, layout: "single", primarySlot: streamSlot.id }), true);
   assert.equal(isStreamDashboardFocus({ ...configuration, layout: "quad", primarySlot: streamSlot.id }), false);
+});
+
+test("dashboard widget swaps retain the configured slot positions", () => {
+  const configuration = createDefaultDashboardConfiguration();
+  const swapped = swapDashboardWidgets(configuration, "a", "d");
+
+  assert.deepEqual(swapped.slots.map((slot) => slot.widget), ["stream", "jobs", "messages", "market"]);
+  assert.equal(configuration.slots[0]?.widget, "market");
 });

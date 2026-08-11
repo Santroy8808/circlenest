@@ -13609,6 +13609,35 @@ html.theta-theme-light .pill-alert {
   min-height: 0;
   padding: 7px 9px;
 }
+.dashboard-widget-drag-handle {
+  background: transparent;
+  border: 1px dashed rgba(214, 178, 74, 0.42);
+  border-radius: 999px;
+  color: var(--gold);
+  cursor: grab;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 760;
+  min-height: 0;
+  padding: 7px 9px;
+}
+
+.dashboard-widget-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dashboard-widget-drag-handle:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.dashboard-widget.is-drag-source {
+  opacity: 0.55;
+}
+
+.dashboard-widget.is-drag-target {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 24px rgba(214, 178, 74, 0.2);
+}
 
 .dashboard-widget-list {
   display: grid;
@@ -14075,6 +14104,9 @@ html.theta-theme-light .pill-alert {
   .dashboard-grid--stacked .dashboard-widget,
   .dashboard-grid--single .dashboard-widget {
     min-height: 240px;
+  }
+  .dashboard-widget-drag-handle {
+    display: none;
   }
 
   .public-jobs-hero {

@@ -119,3 +119,24 @@ export function isStreamDashboardFocus(configuration: DashboardConfiguration) {
   if (configuration.layout !== "single") return false;
   return configuration.slots.some((slot) => slot.id === configuration.primarySlot && slot.widget === "stream");
 }
+
+export function swapDashboardWidgets(
+  configuration: DashboardConfiguration,
+  sourceSlotId: DashboardSlotId,
+  targetSlotId: DashboardSlotId
+) {
+  if (sourceSlotId === targetSlotId) return configuration;
+
+  const sourceSlot = configuration.slots.find((slot) => slot.id === sourceSlotId);
+  const targetSlot = configuration.slots.find((slot) => slot.id === targetSlotId);
+  if (!sourceSlot || !targetSlot) return configuration;
+
+  return {
+    ...configuration,
+    slots: configuration.slots.map((slot) => {
+      if (slot.id === sourceSlotId) return { ...slot, widget: targetSlot.widget };
+      if (slot.id === targetSlotId) return { ...slot, widget: sourceSlot.widget };
+      return slot;
+    })
+  };
+}

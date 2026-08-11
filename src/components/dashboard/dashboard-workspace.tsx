@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type DragEvent } from "react";
 import type { DashboardWidgetResult } from "@/modules/dashboard/dashboard.service";
 import {
   createDefaultDashboardConfiguration,
   dashboardLayoutModes,
+  dashboardSlotIds,
   dashboardVisibleSlots,
+  swapDashboardWidgets,
   type DashboardConfiguration,
   type DashboardLayoutMode,
   type DashboardSlotId,
@@ -170,6 +172,8 @@ export function DashboardWorkspace({
 }) {
   const router = useRouter();
   const [configuration, setConfiguration] = useState(initialConfiguration);
+  const [draggedSlotId, setDraggedSlotId] = useState<DashboardSlotId | null>(null);
+  const [dropTargetSlotId, setDropTargetSlotId] = useState<DashboardSlotId | null>(null);
   const [error, setError] = useState("");
   const [isSaving, startTransition] = useTransition();
   const visibleSlots = dashboardVisibleSlots(configuration);
@@ -206,12 +210,24 @@ export function DashboardWorkspace({
     const current = configuration.slots.find((slot) => slot.id === slotId);
     if (!current || current.widget === nextWidget) return;
     const occupiedSlot = configuration.slots.find((slot) => slot.widget === nextWidget);
-    const slots = configuration.slots.map((slot) => {
-      if (slot.id === slotId) return { ...slot, widget: nextWidget };
-      if (slot.id === occupiedSlot?.id) return { ...slot, widget: current.widget };
-      return slot;
-    });
-    persist({ ...configuration, slots });
+    if (!occupiedSlot) return;
+    persist(swapDashboardWidgets(configuration, slotId, occupiedSlot.id));
+  }
+
+  function handleWidgetDragStart(event: DragEvent<HTMLButtonElement>, slotId: DashboardSlotId) {
+    if (isSaving) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", slotId);
+    setDraggedSlotId(slotId);
+  }
+
+  function handleWidgetDrop(event: DragEvent<HTMLElement>, targetSlotId: DashboardSlotId) {
+    event.preventDefault();
+    const sourceSlotId = event.dataTransfer.getData("text/plain") as DashboardSlotId;
+    setDraggedSlotId(null);
+    setDropTargetSlotId(null);
+    if (isSaving || !dashboardSlotIds.includes(sourceSlotId) || sourceSlotId === targetSlotId) return;
+    persist(swapDashboardWidgets(configuration, sourceSlotId, targetSlotId));
   }
 
   function restoreDefault() {
@@ -262,7 +278,18 @@ export function DashboardWorkspace({
         {visibleSlots.map((slot) => {
           const detail = widgetDetails[slot.widget];
           return (
-            <article className="dashboard-widget surface" data-dashboard-slot={slot.id} key={slot.id}>
+            <article
+              className={`dashboard-widget surface${draggedSlotId === slot.id ? " is-drag-source" : ""}${dropTargetSlotId === slot.id && draggedSlotId !== slot.id ? " is-drag-target" : ""}`}
+              data-dashboard-slot={slot.id}
+              key={slot.id}
+              onDragOver={(event) => {
+                if (!draggedSlotId || isSaving) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropTargetSlotId(slot.id);
+              }}
+              onDrop={(event) => handleWidgetDrop(event, slot.id)}
+            >
               <header className="dashboard-widget-header">
                 <div>
                   <p>{detail.label}</p>
@@ -271,11 +298,26 @@ export function DashboardWorkspace({
                 <div className="dashboard-widget-actions">
                   <Link className="btn-secondary" href={detail.href}>Open</Link>
                   <button className="btn-secondary" disabled={isSaving} onClick={() => setPrimarySlot(slot.id)} type="button">Expand</button>
+                  <button
+                    aria-label={`Drag ${detail.label} to another dashboard space`}
+                    className="dashboard-widget-drag-handle"
+                    disabled={isSaving}
+                    draggable={!isSaving}
+                    onDragEnd={() => {
+                      setDraggedSlotId(null);
+                      setDropTargetSlotId(null);
+                    }}
+                    onDragStart={(event) => handleWidgetDragStart(event, slot.id)}
+                    title="Drag to move this widget"
+                    type="button"
+                  >
+                    Move
+                  </button>
                 </div>
               </header>
               <WidgetBody result={initialWidgetResults[slot.widget]} />
               <label className="dashboard-widget-replace">
-                <span>Show</span>
+                <span>Place here</span>
                 <select disabled={isSaving} onChange={(event) => replaceWidget(slot.id, event.target.value as DashboardWidgetKey)} value={slot.widget}>
                   {availableWidgets.map((widget) => <option key={widget} value={widget}>{widgetDetails[widget].label}</option>)}
                 </select>
