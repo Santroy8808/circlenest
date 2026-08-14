@@ -254,7 +254,7 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
       title: "Billing And Payments",
       eyebrow: "Billing",
       description: "Stripe connection, webhook readiness, subscriptions, and ad-credit checkout packages.",
-      badge: "1 tool",
+      badge: "2 tools",
       keywords: ["billing", "stripe", "checkout", "payments", "subscription", "webhook"],
       groups: [
         {
@@ -269,6 +269,14 @@ export function buildWorkflowCategories(openFeedbackTicketCount: number): AdminW
               description: "Configure Stripe keys, webhook readiness, subscription price IDs, and ad-credit checkout packages.",
               badge: "stripe",
               keywords: ["stripe", "billing", "checkout", "subscription", "webhook", "price id", "credit package", "payments"]
+            },
+            {
+              href: "/admin/accounting?mode=test",
+              title: "Accounting Report",
+              category: "Billing And Payments",
+              description: "Review test or live subscription invoices, payment receipts, and balanced accounting journal entries.",
+              badge: "ledger",
+              keywords: ["accounting", "invoice", "ledger", "journal", "revenue", "receivables", "stripe", "test payments"]
             }
           ]
         }

@@ -52,6 +52,19 @@ test("Contributor is unavailable without administrator-granted eligibility", () 
   );
 });
 
+test("paid Contributor checkout is available to a Free member without a beta offer", () => {
+  assert.deepEqual(
+    resolveContributorPlanEligibility({
+      currentTier: MembershipTier.FREE,
+      selfServiceEnabled: true,
+      upgradeMode: MembershipUpgradeMode.STRIPE,
+      offerCanAccept: false,
+      stripePriceConfigured: true
+    }),
+    { current: false, eligible: true, checkoutReady: true, canAcceptOffer: false }
+  );
+});
+
 test("Stripe cannot reactivate a suspended or deletion-bound account", () => {
   assert.equal(
     resolveStripeMembershipApplicationState({

@@ -38,7 +38,7 @@ const subscriptionDefaults = [
     monthlyCreditBudget: 10,
     memberVisible: true,
     selfServiceEnabled: true,
-    upgradeMode: MembershipUpgradeMode.BETA_FREE,
+    upgradeMode: MembershipUpgradeMode.STRIPE,
     futurePriceCents: 499,
     populationCreditTiers: [
       { members: 0, credits: 10 },

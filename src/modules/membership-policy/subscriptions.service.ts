@@ -24,6 +24,7 @@ import {
   reusableCheckoutSessionUrl
 } from "@/modules/billing/checkout-intents.service";
 import { processStripeWebhookEventOnce } from "@/modules/billing/stripe-webhook-events.service";
+import { syncStripeSubscriptionInvoice } from "@/modules/billing/subscription-invoices.service";
 import { getTierPolicy, isOperationalMembershipTier, normalizeOperationalMembershipTier } from "@/modules/membership-policy/policy";
 import { ensureLaunchDefaults, stripePriceIdForTier } from "@/modules/membership-policy/launch-access.service";
 import { getContributorUpgradeOfferForUser } from "@/modules/membership-policy/contributor-upgrade.service";
@@ -621,7 +622,10 @@ export function resolveContributorPlanEligibility(input: {
   stripePriceConfigured: boolean;
 }) {
   const current = input.currentTier === MembershipTier.CONTRIBUTOR;
-  const eligible = !current && input.selfServiceEnabled && input.offerCanAccept;
+  const eligible =
+    !current &&
+    input.selfServiceEnabled &&
+    (input.upgradeMode === MembershipUpgradeMode.STRIPE || input.offerCanAccept);
 
   return {
     current,
@@ -681,7 +685,13 @@ export async function listAvailableSubscriptionUpgradePlans(userId: string): Pro
 
   const currentTier = normalizeOperationalMembershipTier(membership?.tier);
   const contributorVisible =
-    currentTier === MembershipTier.CONTRIBUTOR || Boolean(contributorOffer);
+    currentTier === MembershipTier.CONTRIBUTOR ||
+    Boolean(contributorOffer) ||
+    plans.some((plan) =>
+      plan.tier === MembershipTier.CONTRIBUTOR &&
+      plan.selfServiceEnabled &&
+      plan.upgradeMode === MembershipUpgradeMode.STRIPE
+    );
 
   return plans
     .filter((plan) => plan.tier === MembershipTier.CONTRIBUTOR && contributorVisible)
@@ -1363,6 +1373,18 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
   const event = stripe.webhooks.constructEvent(rawBody, signature, await getStripeWebhookSecret());
 
   const processing = await processStripeWebhookEventOnce(event, async () => {
+    if (
+      event.type === "invoice.finalized" ||
+      event.type === "invoice.paid" ||
+      event.type === "invoice.payment_succeeded" ||
+      event.type === "invoice.payment_failed" ||
+      event.type === "invoice.voided" ||
+      event.type === "invoice.marked_uncollectible"
+    ) {
+      await syncStripeSubscriptionInvoice(event.data.object as Stripe.Invoice, event.id);
+      return;
+    }
+
     if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const intent = session.metadata?.checkoutIntentId

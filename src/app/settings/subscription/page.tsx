@@ -4,7 +4,11 @@ import { AppShell } from "@/components/platform/app-shell";
 import { SecureSettingsPanel } from "@/components/settings-secure-areas/secure-settings-panel";
 import { SubscriptionSettingsDetail } from "@/components/settings-secure-areas/subscription-settings-detail";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
-import { getSubscriptionBillingSummary } from "@/modules/membership-policy/subscriptions.service";
+import { listMemberBillingInvoices } from "@/modules/billing/subscription-invoices.service";
+import {
+  getSubscriptionBillingSummary,
+  listAvailableSubscriptionUpgradePlans
+} from "@/modules/membership-policy/subscriptions.service";
 
 export default async function SubscriptionSettingsPage(
   props: {
@@ -18,9 +22,11 @@ export default async function SubscriptionSettingsPage(
     redirect("/login?callbackUrl=/settings/subscription");
   }
 
-  const [policy, billing] = await Promise.all([
+  const [policy, billing, plans, invoices] = await Promise.all([
     getEffectivePolicyForUser(session.user.id),
-    getSubscriptionBillingSummary(session.user.id)
+    getSubscriptionBillingSummary(session.user.id),
+    listAvailableSubscriptionUpgradePlans(session.user.id),
+    listMemberBillingInvoices(session.user.id)
   ]);
 
   if (!policy) {
@@ -33,6 +39,8 @@ export default async function SubscriptionSettingsPage(
         <SubscriptionSettingsDetail
           billing={billing}
           checkoutStatus={searchParams?.checkout}
+          invoices={invoices}
+          plans={plans}
           policy={policy}
           portalStatus={searchParams?.portal}
         />

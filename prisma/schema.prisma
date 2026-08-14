@@ -306,6 +306,19 @@ enum UploadIntentPurpose {
   FEEDBACK_SCREENSHOT
 }
 
+enum BillingInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum BillingJournalEntryType {
+  INVOICE_ISSUED
+  PAYMENT_RECEIVED
+}
+
 enum UploadIntentStatus {
   PENDING
   VERIFYING
@@ -993,6 +1006,8 @@ model User {
   bulkInviteBatches                BulkInviteBatch[]                  @relation("BulkInviteBatchCreator")
   uploadIntents                    UploadIntent[]
   billingCheckoutIntents           BillingCheckoutIntent[]
+  billingInvoices                  BillingInvoice[]
+  billingJournalEntries            BillingJournalEntry[]
 
   @@index([betaReminderEndsAt, betaReminderLastSentAt])
 }
@@ -1024,7 +1039,7 @@ model TermsAcceptance {
 }
 
 model UserDevice {
-  id                        String                      @id @default(cuid())
+  id                        String                  @id @default(cuid())
   userId                    String
   deviceId                  String
   publicKey                 String
@@ -1034,21 +1049,21 @@ model UserDevice {
   commSignedPreKey          String?
   commSignedPreKeySignature String?
   commKeyUpdatedAt          DateTime?
-  commKeyVersion            Int                         @default(1)
-  platform                  String                      @default("android")
+  commKeyVersion            Int                     @default(1)
+  platform                  String                  @default("android")
   appVersion                String?
-  lastSeenAt                DateTime                    @default(now())
+  lastSeenAt                DateTime                @default(now())
   revokedAt                 DateTime?
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
-  user                      User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   sentEncryptedMessages     EncryptedChatMessage[]
   receivedChatEnvelopes     EncryptedChatEnvelope[]
   commPreKeys               ThetaCommPreKey[]
   commKyberPreKeys          ThetaCommKyberPreKey[]
   commTypingStates          ThetaCommTypingState[]
-  commTrustsCreated         ThetaCommDeviceTrust[]      @relation("ThetaCommTrustVerifier")
-  commTrustsReceived        ThetaCommDeviceTrust[]      @relation("ThetaCommTrustSubject")
+  commTrustsCreated         ThetaCommDeviceTrust[]  @relation("ThetaCommTrustVerifier")
+  commTrustsReceived        ThetaCommDeviceTrust[]  @relation("ThetaCommTrustSubject")
   encryptedChatUploads      EncryptedChatUpload[]
 
   @@unique([userId, deviceId])
@@ -2514,13 +2529,73 @@ model MailPreference {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model BillingInvoice {
+  id                   String                @id @default(cuid())
+  stripeInvoiceId      String                @unique
+  stripeCustomerId     String
+  stripeSubscriptionId String?
+  userId               String?
+  invoiceNumber        String?
+  status               BillingInvoiceStatus
+  currency             String
+  subtotalCents        Int
+  totalCents           Int
+  amountDueCents       Int
+  amountPaidCents      Int
+  hostedInvoiceUrl     String?
+  invoicePdfUrl        String?
+  customerEmail        String?
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  paidAt               DateTime?
+  stripeCreatedAt      DateTime
+  livemode             Boolean               @default(false)
+  receiptEmailSentAt   DateTime?
+  receiptEmailError    String?
+  retentionClass       RecordRetentionClass  @default(VITAL)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  user                 User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  journalEntries       BillingJournalEntry[]
+
+  @@index([userId, stripeCreatedAt])
+  @@index([status, stripeCreatedAt])
+  @@index([livemode, stripeCreatedAt])
+  @@index([stripeSubscriptionId, stripeCreatedAt])
+}
+
+model BillingJournalEntry {
+  id             String                  @id @default(cuid())
+  operationId    String                  @unique
+  invoiceId      String
+  userId         String?
+  entryType      BillingJournalEntryType
+  debitAccount   String
+  creditAccount  String
+  amountCents    Int
+  currency       String
+  occurredAt     DateTime
+  livemode       Boolean                 @default(false)
+  metadata       Json?
+  retentionClass RecordRetentionClass    @default(VITAL)
+  createdAt      DateTime                @default(now())
+  invoice        BillingInvoice          @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  user           User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([livemode, occurredAt])
+  @@index([debitAccount, occurredAt])
+  @@index([creditAccount, occurredAt])
+}
+
 model SystemEmailPreference {
-  id                                 String   @id @default(cuid())
-  email                              String   @unique
-  allowOptionalSystemEmails          Boolean  @default(true)
+  id                                 String    @id @default(cuid())
+  email                              String    @unique
+  allowOptionalSystemEmails          Boolean   @default(true)
   optionalSystemEmailsUnsubscribedAt DateTime?
-  createdAt                          DateTime @default(now())
-  updatedAt                          DateTime @updatedAt
+  createdAt                          DateTime  @default(now())
+  updatedAt                          DateTime  @updatedAt
 
   @@index([allowOptionalSystemEmails, createdAt])
 }
@@ -2807,19 +2882,19 @@ model EventRsvp {
 }
 
 model MarketListing {
-  id              String                @id @default(cuid())
-  slug            String                @unique
-  sellerUserId    String
-  title           String
-  description     String
-  category        MarketListingCategory
-  location        String?
-  contactEmail    String?
-  contactPhone    String?
-  contactNotes    String?
-  allowMessages   Boolean               @default(true)
-  carouselEnabled Boolean               @default(false)
-  priceCents      Int?
+  id                 String                @id @default(cuid())
+  slug               String                @unique
+  sellerUserId       String
+  title              String
+  description        String
+  category           MarketListingCategory
+  location           String?
+  contactEmail       String?
+  contactPhone       String?
+  contactNotes       String?
+  allowMessages      Boolean               @default(true)
+  carouselEnabled    Boolean               @default(false)
+  priceCents         Int?
   rentalPropertyType String?
   rentalBedrooms     Int?
   rentalBathrooms    Float?
@@ -2829,14 +2904,14 @@ model MarketListing {
   rentalLeaseTerm    String?
   rentalPetsAllowed  Boolean?
   rentalFurnished    Boolean?
-  currency        String                @default("USD")
-  status          MarketListingStatus   @default(ACTIVE)
-  expiresAt       DateTime?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  seller          User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
-  photos          MarketListingPhoto[]
-  adCampaigns     AdCampaign[]
+  currency           String                @default("USD")
+  status             MarketListingStatus   @default(ACTIVE)
+  expiresAt          DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  seller             User                  @relation("MarketListingSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
+  photos             MarketListingPhoto[]
+  adCampaigns        AdCampaign[]
 
   @@index([status, category, createdAt])
   @@index([category, rentalAvailableAt])
