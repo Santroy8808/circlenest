@@ -1452,7 +1452,15 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
       const userId = await userIdForSubscription(subscription);
       const targetTier = await tierForSubscription(subscription);
 
-      if (!userId) throw new Error("Stripe subscription event could not be matched to a user.");
+      if (!userId) {
+        await diagnostics.warn(MODULE_KEY, "Ignored Stripe subscription event for a missing user.", {
+          eventId: event.id,
+          eventType: event.type,
+          subscriptionId: subscription.id,
+          livemode: event.livemode
+        });
+        return;
+      }
 
       const checkoutIntentId = subscription.metadata?.checkoutIntentId;
       if (checkoutIntentId) {
@@ -1486,7 +1494,15 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
           intent.targetTier !== targetTier ||
           !subscription.items.data.some((item) => item.price.id === intent.stripePriceIdSnapshot)
         ) {
-          throw new Error("Stripe subscription does not match its server checkout intent.");
+          await diagnostics.warn(MODULE_KEY, "Ignored Stripe subscription event with a stale checkout intent.", {
+            eventId: event.id,
+            eventType: event.type,
+            subscriptionId: subscription.id,
+            checkoutIntentId,
+            userId,
+            livemode: event.livemode
+          });
+          return;
         }
       }
 
