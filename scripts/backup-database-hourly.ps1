@@ -163,6 +163,38 @@ function Resolve-Psql {
   throw "psql.exe was not found. Install PostgreSQL client tools or set PSQL_PATH."
 }
 
+function Invoke-CapturedNativeProcess {
+  param(
+    [string]$Executable,
+    [string[]]$Arguments
+  )
+
+  $quotedArguments = @($Arguments | ForEach-Object {
+    '"' + $_.Replace('"', '\"') + '"'
+  }) -join " "
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $Executable
+  $startInfo.Arguments = $quotedArguments
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  if (!$process.Start()) {
+    throw "Could not start $Executable."
+  }
+  $standardOutput = $process.StandardOutput.ReadToEnd()
+  $standardError = $process.StandardError.ReadToEnd()
+  $process.WaitForExit()
+  return [pscustomobject]@{
+    ExitCode = $process.ExitCode
+    StandardOutput = $standardOutput
+    StandardError = $standardError
+  }
+}
+
 function Get-PublicTableNames {
   param(
     [string]$Psql,
@@ -171,14 +203,13 @@ function Get-PublicTableNames {
   )
 
   $query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
-  $output = & $Psql --tuples-only --no-align --quiet --command=$query $ConnectionString 2>&1
-  $exitCode = $LASTEXITCODE
-  if ($exitCode -ne 0) {
-    Add-Content -LiteralPath $LogPath -Value $output
-    throw "psql failed while reading the current table list with exit code $exitCode. See $LogPath."
+  $result = Invoke-CapturedNativeProcess -Executable $Psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--command=$query", $ConnectionString)
+  if ($result.ExitCode -ne 0) {
+    Add-Content -LiteralPath $LogPath -Value $result.StandardError
+    throw "psql failed while reading the current table list with exit code $($result.ExitCode). See $LogPath."
   }
 
-  return @($output | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
+  return @($result.StandardOutput -split "\r?\n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
 
 function Invoke-PgDump {
@@ -188,13 +219,15 @@ function Invoke-PgDump {
     [string]$LogPath
   )
 
-  $output = & $PgDump @Arguments 2>&1
-  $exitCode = $LASTEXITCODE
-  if ($output) {
-    Add-Content -LiteralPath $LogPath -Value $output
+  $result = Invoke-CapturedNativeProcess -Executable $PgDump -Arguments $Arguments
+  if ($result.StandardOutput) {
+    Add-Content -LiteralPath $LogPath -Value $result.StandardOutput
   }
-  if ($exitCode -ne 0) {
-    throw "pg_dump failed with exit code $exitCode. See $LogPath."
+  if ($result.StandardError) {
+    Add-Content -LiteralPath $LogPath -Value $result.StandardError
+  }
+  if ($result.ExitCode -ne 0) {
+    throw "pg_dump failed with exit code $($result.ExitCode). See $LogPath."
   }
 }
 
@@ -209,6 +242,7 @@ function Remove-OldBackups {
   }
 
   Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^[0-9]{8}-[0-9]{6}$' } |
     Sort-Object Name -Descending |
     Select-Object -Skip $Keep |
     ForEach-Object {
@@ -275,7 +309,7 @@ $protectedArgs = @(
 )
 
 foreach ($table in $includedProtectedTables) {
-  $protectedArgs += "--table=public.`"$table`""
+  $protectedArgs += ('--table=public."{0}"' -f $table)
 }
 $protectedArgs += $nativeDatabaseUrl
 
@@ -290,7 +324,7 @@ $manifest = [ordered]@{
   protectedTables = $includedProtectedTables
   skippedProtectedTables = $skippedProtectedTables
   keepBackups = $KeepBackups
-  retentionNote = "Hourly backups; keep only the newest 24 backups by default."
+  retentionNote = "Hourly backups; keep only the newest $KeepBackups timestamped backups."
 }
 
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
