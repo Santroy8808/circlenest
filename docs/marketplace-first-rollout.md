@@ -32,8 +32,9 @@ Create another timestamped backup immediately before deployment. Do not rely onl
 
 ## Data Checks
 
-- Both marketplace migrations are applied.
-- Active official auditor profiles have one corresponding unified listing each; rerunning the bridge does not create duplicates.
+- All marketplace migrations are applied, including the directory-bridge retirement migration.
+- Active official church and auditor profiles remain searchable in `AuditorProfile` and have zero active bridge-generated marketplace listings.
+- Account-created auditor listings remain independent marketplace records and are not tagged `sourceProfileSync`.
 - Legacy `MarketListing` and `JobListing` counts are unchanged.
 - New listing events and waived fee-ledger entries are written during QA publishing.
 - The worker log reports marketplace expiration and saved-search processing without repeated alerts.
