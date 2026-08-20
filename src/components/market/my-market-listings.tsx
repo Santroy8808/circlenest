@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { MarketCreateState, MarketListingCardView } from "@/modules/market/types";
+import styles from "@/components/marketplace/marketplace.module.css";
 
 type MyMarketListingView = "grid" | "compact";
 
@@ -59,11 +60,11 @@ export function MyMarketListings({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link className="btn-secondary" href="/market">
+            <Link className={styles.secondaryButton} href="/market">
               Back to Market
             </Link>
             {createState.viewerCanCreate ? (
-              <Link className="btn-primary" href="/market/create">
+              <Link className={styles.primaryButton} href="/market/create">
                 Create Listing
               </Link>
             ) : null}
@@ -161,7 +162,7 @@ export function MyMarketListings({
           <h2 className="text-2xl font-semibold text-[var(--gold)]">No listings yet</h2>
           <p className="mt-2 text-[var(--muted)]">Create your first listing when you are ready to sell or offer a service.</p>
           {createState.viewerCanCreate ? (
-            <Link className="btn-primary mt-5 inline-flex" href="/market/create">
+            <Link className={`${styles.primaryButton} mt-5 inline-flex`} href="/market/create">
               Create Listing
             </Link>
           ) : null}

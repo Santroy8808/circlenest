@@ -9,6 +9,7 @@ import { ThetaLoading } from "@/components/platform/theta-loading";
 import { MarkdownRichTextEditor } from "@/components/rich-text/markdown-rich-text-editor";
 import { uploadWithResilientFallback } from "@/lib/client/resilient-upload";
 import { isMarketSellingCategory, marketCategoryOptions, type MarketCreateState, type MarketListingDetailView } from "@/modules/market/types";
+import styles from "@/components/marketplace/marketplace.module.css";
 
 type UploadItem = {
   id: string;
@@ -236,7 +237,7 @@ export function CreateMarketListingForm({
       <section className="surface rounded-md p-8 text-center">
         <h1 className="text-3xl font-semibold text-[var(--gold)]">Create Listing</h1>
         <p className="mt-3 text-[var(--muted)]">{error}</p>
-        <Link className="btn-secondary mt-5 inline-block" href="/market">
+        <Link className={`${styles.secondaryButton} mt-5 inline-block`} href="/market">
           Browse The Market
         </Link>
       </section>
@@ -376,7 +377,7 @@ export function CreateMarketListingForm({
               Up to {createState.photoCap} photos. {mode === "edit" ? `${existingPhotoCount} already attached; new photos append.` : "First photo becomes the thumbnail."}
             </p>
           </div>
-          <button className="btn-secondary" disabled={existingPhotoCount + items.length >= createState.photoCap} onClick={() => inputRef.current?.click()} type="button">
+          <button className={styles.secondaryButton} disabled={existingPhotoCount + items.length >= createState.photoCap} onClick={() => inputRef.current?.click()} type="button">
             Choose photos
           </button>
           <input
@@ -445,10 +446,10 @@ export function CreateMarketListingForm({
       {error ? <p className="rounded-md border border-red-400/40 bg-red-950/30 p-3 text-sm text-red-100" role="alert">{error}</p> : null}
 
       <div className="flex justify-end gap-3">
-        <Link className="btn-secondary" href={mode === "edit" && initialListing ? `/market/${initialListing.slug}` : "/market"}>
+        <Link className={styles.secondaryButton} href={mode === "edit" && initialListing ? `/market/${initialListing.slug}` : "/market"}>
           Cancel
         </Link>
-        <button className="btn-primary" disabled={isSubmitting || title.trim().length < 2 || description.trim().length < 5} type="submit">
+        <button className={styles.primaryButton} disabled={isSubmitting || title.trim().length < 2 || description.trim().length < 5} type="submit">
           {isSubmitting ? <ThetaLoading inline label={mode === "edit" ? "Saving" : "Creating"} size="sm" /> : mode === "edit" ? "Save listing" : "Create listing"}
         </button>
       </div>

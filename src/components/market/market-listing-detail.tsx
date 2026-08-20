@@ -6,6 +6,7 @@ import { ImageCarousel } from "@/components/media/image-carousel";
 import { MarketSellerMessageButton } from "@/components/market/market-seller-message-button";
 import { MarkdownRichText } from "@/components/rich-text/markdown-rich-text";
 import type { MarketListingDetailView } from "@/modules/market/types";
+import styles from "@/components/marketplace/marketplace.module.css";
 
 function priceLabel(listing: Pick<MarketListingDetailView, "priceCents" | "currency">) {
   if (listing.priceCents === null || listing.priceCents === undefined) return "Contact seller";
@@ -62,11 +63,11 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
               </div>
               <div className="flex flex-wrap gap-2">
                 {listing.viewerCanManage ? (
-                  <Link className="btn-secondary" href={`/market/${listing.slug}/edit`}>
+                  <Link className={styles.secondaryButton} href={`/market/${listing.slug}/edit`}>
                     Edit listing
                   </Link>
                 ) : null}
-                <Link className="btn-secondary" href={isRental ? "/market/rentals" : "/market"}>
+                <Link className={styles.secondaryButton} href={isRental ? "/market/rentals" : "/market"}>
                   {isRental ? "Back to Rentals" : "Back to Market"}
                 </Link>
               </div>
@@ -131,7 +132,7 @@ export function MarketListingDetail({ isAdmin = false, listing }: { isAdmin?: bo
             Promoting a listing creates a normal ad campaign. Ads do not appear inside this listing page.
           </p>
           <Link
-            className="btn-secondary mt-4 inline-block"
+            className={`${styles.secondaryButton} mt-4 inline-block`}
             href={`/ads/create?destinationKind=${AdDestinationKind.MARKET_LISTING}&marketListingId=${listing.id}&title=${encodeURIComponent(`Promote ${listing.title}`)}&body=${encodeURIComponent(listing.description.slice(0, 220) || `View ${listing.title} in The Market.`)}&targetInterestCategories=${InterestCategory.MARKET}`}
           >
             Create listing ad

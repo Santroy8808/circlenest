@@ -8,6 +8,7 @@ import { MarketSellerMessageButton } from "@/components/market/market-seller-mes
 import type { ListingViewMode } from "@/modules/listing-preferences/types";
 import { marketCategoryOptions, type MarketCreateState, type MarketListingCardView } from "@/modules/market/types";
 import { useRouter } from "next/navigation";
+import styles from "@/components/marketplace/marketplace.module.css";
 
 function priceLabel(listing: Pick<MarketListingCardView, "priceCents" | "currency">) {
   if (listing.priceCents === null || listing.priceCents === undefined) return "Contact";
@@ -63,12 +64,12 @@ export function MarketDirectoryClient({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {!rentalMode ? <Link className="btn-secondary" href="/market/rentals">Rentals</Link> : <Link className="btn-secondary" href="/market">All Market Listings</Link>}
-            <Link className="btn-secondary" href="/market/my-listings">
+            {!rentalMode ? <Link className={styles.secondaryButton} href="/market/rentals">Rentals</Link> : <Link className={styles.secondaryButton} href="/market">All Market Listings</Link>}
+            <Link className={styles.secondaryButton} href="/market/my-listings">
               My Listings
             </Link>
             {createState.viewerCanCreate ? (
-              <Link className="btn-primary" href={rentalMode ? "/market/rentals/create" : "/market/create"}>
+              <Link className={styles.primaryButton} href={rentalMode ? "/market/rentals/create" : "/market/create"}>
                 {rentalMode ? "List a Rental" : "Create Listing"}
               </Link>
             ) : null}

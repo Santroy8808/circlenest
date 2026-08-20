@@ -72,8 +72,13 @@
 
 .primaryButton {
   border-color: var(--gold);
-  background: color-mix(in srgb, var(--panel-soft) 35%, var(--gold));
+  background: var(--gold);
   color: var(--on-gold);
+}
+
+.primaryButton:visited,
+.secondaryButton:visited {
+  color: currentColor;
 }
 
 .secondaryButton {
