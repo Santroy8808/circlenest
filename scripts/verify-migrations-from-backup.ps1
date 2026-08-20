@@ -121,7 +121,9 @@ SELECT count(*) FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typ
 SELECT count(*) FROM "FeatureFlag" WHERE "key" = 'marketplace.focused_rollout' AND "enabled" = false;
 SELECT count(*) FROM "_prisma_migrations" WHERE migration_name IN ('20260820120000_marketplace_first', '20260820143000_marketplace_auditor_directory_bridge', '20260820150000_marketplace_cost_rules') AND finished_at IS NOT NULL AND rolled_back_at IS NULL;
 '@
-  $verificationOutput = @(Invoke-Checked -Executable $psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--set=ON_ERROR_STOP=1", "--command=$verificationSql", $nativeDatabaseUrl) -Operation "Inspect migrated production copy")
+  $verificationSqlPath = Join-Path $verificationRoot "verify.sql"
+  $verificationSql | Set-Content -LiteralPath $verificationSqlPath -Encoding ASCII
+  $verificationOutput = @(Invoke-Checked -Executable $psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--set=ON_ERROR_STOP=1", "--file=$verificationSqlPath", $nativeDatabaseUrl) -Operation "Inspect migrated production copy")
   $values = @($verificationOutput | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
   if ($values.Count -ne 5) {
     throw "Migration verification returned an unexpected result set."
