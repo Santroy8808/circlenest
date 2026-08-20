@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bookmark, Grid3X3, List, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Bookmark, Building2, Grid3X3, List, Plus, Search, SlidersHorizontal } from "lucide-react";
 
 import type { MarketplacePage } from "@/modules/marketplace/marketplace.contracts";
 import type { MarketplaceListingCardView } from "@/modules/marketplace/marketplace-view";
@@ -38,9 +38,10 @@ export function MarketplaceDirectory({
         <div>
           <p className={styles.eyebrow}>Theta-Space Marketplace</p>
           <h1>Find it. Offer it. Ask for it.</h1>
-          <p className={styles.subhead}>Items, vehicles, rentals, services, jobs, and auditing resources in one searchable place.</p>
+          <p className={styles.subhead}>Member-posted items, vehicles, rentals, services, jobs, and wanted requests in one searchable place.</p>
         </div>
         <div className={styles.headerActions}>
+          <Link className={styles.secondaryButton} href="/auditors"><Building2 aria-hidden="true" />Church &amp; Auditor Directory</Link>
           {signedIn ? <Link className={styles.secondaryButton} href="/marketplace/saved"><Bookmark aria-hidden="true" />Saved</Link> : null}
           <Link className={styles.primaryButton} href={signedIn ? "/marketplace/new" : "/login?callbackUrl=/marketplace/new"}><Plus aria-hidden="true" />Post a listing</Link>
         </div>

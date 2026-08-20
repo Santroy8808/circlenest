@@ -42,7 +42,7 @@ export function AuditorsDirectoryClient({
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Auditor Directory</p>
             <h1 className="mt-3 text-3xl font-semibold">Find an Auditor</h1>
             <p className="mt-3 max-w-2xl leading-7 text-[var(--muted)]">
-              Search official organizations, field auditors, and field groups by name, location, or service. Official cards are sourced from published organization contact pages.
+              Search churches, advanced organizations, field auditors, and field groups by name, location, or service. Directory cards are reference records, not marketplace listings.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
