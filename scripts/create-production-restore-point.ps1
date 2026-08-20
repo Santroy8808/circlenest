@@ -3,7 +3,9 @@ param(
   [string]$BackupRoot = "C:\Backups",
   [string]$Label = "predeploy",
   [string]$DatabaseUrl = "",
-  [int]$MinimumPublicTables = 1
+  [int]$MinimumPublicTables = 1,
+  [switch]$UseTemporaryCluster,
+  [int]$VerificationPort = 55432
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,6 +104,33 @@ function Invoke-Checked {
   return $output
 }
 
+function Invoke-CheckedProcess {
+  param(
+    [string]$Executable,
+    [string[]]$Arguments,
+    [string]$Operation
+  )
+
+  $quotedArguments = @($Arguments | ForEach-Object {
+    '"' + $_.Replace('"', '\"') + '"'
+  }) -join " "
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $Executable
+  $startInfo.Arguments = $quotedArguments
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  if (!$process.Start()) {
+    throw "$Operation could not be started."
+  }
+  $process.WaitForExit()
+  if ($process.ExitCode -ne 0) {
+    throw "$Operation failed with exit code $($process.ExitCode)."
+  }
+}
+
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 if ($Label -notmatch '^[a-zA-Z0-9-]+$') {
   throw "Label may contain only letters, numbers, and hyphens."
@@ -131,9 +160,21 @@ $pgRestore = Join-Path $pgBin "pg_restore.exe"
 $psql = Join-Path $pgBin "psql.exe"
 $createDb = Join-Path $pgBin "createdb.exe"
 $dropDb = Join-Path $pgBin "dropdb.exe"
+$initDb = Join-Path $pgBin "initdb.exe"
+$pgCtl = Join-Path $pgBin "pg_ctl.exe"
 foreach ($tool in @($pgDump, $pgRestore, $psql, $createDb, $dropDb)) {
   if (!(Test-Path -LiteralPath $tool)) {
     throw "Required PostgreSQL tool was not found: $tool"
+  }
+}
+if ($UseTemporaryCluster) {
+  foreach ($tool in @($initDb, $pgCtl)) {
+    if (!(Test-Path -LiteralPath $tool)) {
+      throw "Required PostgreSQL verification tool was not found: $tool"
+    }
+  }
+  if ($VerificationPort -lt 1024 -or $VerificationPort -gt 65535) {
+    throw "VerificationPort must be between 1024 and 65535."
   }
 }
 
@@ -156,27 +197,62 @@ try {
   Invoke-Checked -Executable $pgDump -Arguments @("--format=custom", "--blobs", "--no-owner", "--no-privileges", "--file=$databaseDump", $nativeDatabaseUrl) -Operation "PostgreSQL full dump" | Out-Null
   Invoke-Checked -Executable $pgRestore -Arguments @("--list", $databaseDump) -Operation "PostgreSQL dump catalog validation" | Out-Null
 
-  $restoreDatabase = "theta_space_restore_$($timestamp -replace '-', '_')"
-  if ($restoreDatabase -notmatch '^theta_space_restore_[0-9_]+$') {
-    throw "Unsafe restore database name."
-  }
-  $restoreBuilder = [System.UriBuilder]::new($databaseUri)
-  $restoreBuilder.Path = "/$restoreDatabase"
-  $restoreUrl = $restoreBuilder.Uri.AbsoluteUri
-  $restoreCreated = $false
-
-  try {
-    Invoke-Checked -Executable $createDb -Arguments @("--maintenance-db=$maintenanceUrl", "--template=template0", $restoreDatabase) -Operation "Create isolated restore database" | Out-Null
-    $restoreCreated = $true
-    Invoke-Checked -Executable $pgRestore -Arguments @("--no-owner", "--no-privileges", "--dbname=$restoreUrl", $databaseDump) -Operation "Restore database backup" | Out-Null
-    $tableOutput = Invoke-Checked -Executable $psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--set=ON_ERROR_STOP=1", "--command=SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = 'public';", $restoreUrl) -Operation "Count restored tables"
-    $restoredTableCount = [int]($tableOutput | Select-Object -Last 1).Trim()
-    if ($restoredTableCount -lt $MinimumPublicTables) {
-      throw "Restore verification found only $restoredTableCount public tables; expected at least $MinimumPublicTables."
+  if ($UseTemporaryCluster) {
+    $clusterRoot = Join-Path $backupDirectory "_restore-verification"
+    $clusterData = Join-Path $clusterRoot "data"
+    $clusterLog = Join-Path $backupDirectory "restore-verification.log"
+    New-Item -ItemType Directory -Path $clusterRoot -Force | Out-Null
+    $clusterStarted = $false
+    $clusterVerified = $false
+    try {
+      Invoke-Checked -Executable $initDb -Arguments @("--pgdata=$clusterData", "--username=postgres", "--auth=trust", "--encoding=UTF8", "--no-locale") -Operation "Initialize temporary PostgreSQL verification cluster" | Out-Null
+      Invoke-CheckedProcess -Executable $pgCtl -Arguments @("--pgdata=$clusterData", "--log=$clusterLog", "--options=-p $VerificationPort -h 127.0.0.1", "--wait", "start") -Operation "Start temporary PostgreSQL verification cluster"
+      $clusterStarted = $true
+      $restoreUrl = "postgresql://postgres@127.0.0.1:$VerificationPort/postgres"
+      Invoke-Checked -Executable $pgRestore -Arguments @("--no-owner", "--no-privileges", "--dbname=$restoreUrl", $databaseDump) -Operation "Restore database backup" | Out-Null
+      $tableOutput = Invoke-Checked -Executable $psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--set=ON_ERROR_STOP=1", "--command=SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = 'public';", $restoreUrl) -Operation "Count restored tables"
+      $restoredTableCount = [int]($tableOutput | Select-Object -Last 1).Trim()
+      if ($restoredTableCount -lt $MinimumPublicTables) {
+        throw "Restore verification found only $restoredTableCount public tables; expected at least $MinimumPublicTables."
+      }
+      $clusterVerified = $true
+      $verificationMethod = "temporary-postgresql-cluster"
+    } finally {
+      if ($clusterStarted) {
+        Invoke-Checked -Executable $pgCtl -Arguments @("--pgdata=$clusterData", "--mode=fast", "--wait", "stop") -Operation "Stop temporary PostgreSQL verification cluster" | Out-Null
+      }
+      if ($clusterVerified) {
+        $resolvedBackup = [IO.Path]::GetFullPath($backupDirectory).TrimEnd("\") + "\"
+        $resolvedCluster = [IO.Path]::GetFullPath($clusterRoot)
+        if (!$resolvedCluster.StartsWith($resolvedBackup, [StringComparison]::OrdinalIgnoreCase)) {
+          throw "Temporary verification directory escaped the backup directory."
+        }
+        Remove-Item -LiteralPath $resolvedCluster -Recurse -Force
+      }
     }
-  } finally {
-    if ($restoreCreated) {
-      Invoke-Checked -Executable $dropDb -Arguments @("--maintenance-db=$maintenanceUrl", "--if-exists", "--force", $restoreDatabase) -Operation "Remove isolated restore database" | Out-Null
+  } else {
+    $restoreDatabase = "theta_space_restore_$($timestamp -replace '-', '_')"
+    if ($restoreDatabase -notmatch '^theta_space_restore_[0-9_]+$') {
+      throw "Unsafe restore database name."
+    }
+    $restoreBuilder = [System.UriBuilder]::new($databaseUri)
+    $restoreBuilder.Path = "/$restoreDatabase"
+    $restoreUrl = $restoreBuilder.Uri.AbsoluteUri
+    $restoreCreated = $false
+    try {
+      Invoke-Checked -Executable $createDb -Arguments @("--maintenance-db=$maintenanceUrl", "--template=template0", $restoreDatabase) -Operation "Create isolated restore database" | Out-Null
+      $restoreCreated = $true
+      Invoke-Checked -Executable $pgRestore -Arguments @("--no-owner", "--no-privileges", "--dbname=$restoreUrl", $databaseDump) -Operation "Restore database backup" | Out-Null
+      $tableOutput = Invoke-Checked -Executable $psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--set=ON_ERROR_STOP=1", "--command=SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = 'public';", $restoreUrl) -Operation "Count restored tables"
+      $restoredTableCount = [int]($tableOutput | Select-Object -Last 1).Trim()
+      if ($restoredTableCount -lt $MinimumPublicTables) {
+        throw "Restore verification found only $restoredTableCount public tables; expected at least $MinimumPublicTables."
+      }
+      $verificationMethod = "isolated-database"
+    } finally {
+      if ($restoreCreated) {
+        Invoke-Checked -Executable $dropDb -Arguments @("--maintenance-db=$maintenanceUrl", "--if-exists", "--force", $restoreDatabase) -Operation "Remove isolated restore database" | Out-Null
+      }
     }
   }
 
@@ -193,6 +269,7 @@ try {
     branch = $branch
     head = $head
     restoreVerified = $true
+    verificationMethod = $verificationMethod
     restoredPublicTableCount = $restoredTableCount
     files = $checksums
   }
