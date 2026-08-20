@@ -16,6 +16,8 @@ import { allocateContributorMonthlyCredits } from "@/modules/membership-policy/m
 import { runBetaActivityReminderSweep } from "@/modules/membership-policy/beta-activity-reminders.service";
 import { expireThetaCommUploads } from "@/modules/theta-comm/upload.service";
 import { expireMembershipStorageArchiveTemporaryFiles } from "@/modules/membership-policy/membership-storage-archive.service";
+import { expireMarketplaceListings } from "@/modules/marketplace/marketplace-listings.service";
+import { processDueMarketplaceSavedSearches } from "@/modules/marketplace/marketplace-saved-search.service";
 
 const workerId = process.env.PLATFORM_WORKER_ID ?? `worker-${randomUUID()}`;
 const once = process.argv.includes("--once");
@@ -38,6 +40,7 @@ let lastConductScheduleCheckAt = 0;
 let lastMonthlyCreditCheckAt = 0;
 let lastBetaReminderCheckAt = 0;
 let lastStorageArchiveMaintenanceAt = 0;
+let lastMarketplaceMaintenanceAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -107,6 +110,21 @@ async function runStorageArchiveMaintenance(force = false) {
   }
 }
 
+async function runMarketplaceMaintenance(force = false) {
+  const now = Date.now();
+  if (!force && now - lastMarketplaceMaintenanceAt < 5 * 60_000) return;
+  lastMarketplaceMaintenanceAt = now;
+  const [expired, searches] = await Promise.all([
+    expireMarketplaceListings(new Date(now)),
+    processDueMarketplaceSavedSearches(new Date(now), 100)
+  ]);
+  if (expired > 0 || searches.processed > 0) {
+    console.log(
+      `[platform-worker] marketplace expired=${expired} searches=${searches.processed} alerts=${searches.notified}`
+    );
+  }
+}
+
 async function main() {
   console.log(`[platform-worker] started ${workerId}`);
 
@@ -116,6 +134,7 @@ async function main() {
     await runMonthlyCreditCheck(lastMonthlyCreditCheckAt === 0);
     await runBetaReminderCheck(lastBetaReminderCheckAt === 0);
     await runStorageArchiveMaintenance(lastStorageArchiveMaintenanceAt === 0);
+    await runMarketplaceMaintenance(lastMarketplaceMaintenanceAt === 0);
     const announcement = await runOneAnnouncementDelivery(workerId);
     const result = await runOnePlatformJob(workerId, undefined, {
       leaseDurationMs: platformJobLeaseMs,
