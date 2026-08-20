@@ -43,6 +43,23 @@ const jobsMarketSection: NavSection = {
   ]
 };
 
+const focusedMarketplaceSection: NavSection = {
+  href: "/marketplace",
+  label: "Marketplace",
+  items: [
+    { label: "Browse All", href: "/marketplace" },
+    { label: "Offers", href: "/marketplace?intent=OFFER" },
+    { label: "Wanted", href: "/marketplace?intent=WANTED" },
+    { label: "Jobs", href: "/marketplace?kind=JOB" },
+    { label: "Rentals", href: "/marketplace?kind=RENTAL" },
+    { label: "Services", href: "/marketplace?kind=SERVICE" },
+    { label: "Find an Auditor", href: "/marketplace?kind=AUDITOR" },
+    { label: "Saved", href: "/marketplace/saved" },
+    { label: "My Listings", href: "/marketplace/manage" },
+    { label: "Create Listing", href: "/marketplace/new" }
+  ]
+};
+
 const auditorSection: NavSection = {
   href: "/auditors",
   label: "Find an Auditor",
@@ -86,7 +103,14 @@ const tutorialSection: NavSection = {
 };
 
 export function buildMemberNavigation(input: MemberNavigationInput): NavSection[] {
+  const marketplaceFocused = input.platformFeatures["marketplace.focused_rollout"] === true;
   if (!input.isSignedIn) {
+    if (marketplaceFocused) {
+      return [
+        { label: "Marketplace", href: "/marketplace", items: [{ label: "Browse Listings", href: "/marketplace" }] },
+        { label: "Account", href: "/login", items: [{ label: "Login", href: "/login" }, { label: "Sign Up", href: "/signup" }] }
+      ];
+    }
     return [
       { label: "Home", href: "/membership", items: [{ label: "Membership", href: "/membership" }] },
       { label: "Account", href: "/login", items: [{ label: "Login", href: "/login" }] }
@@ -162,6 +186,28 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
   };
 
   const memberSections: NavSection[] = [home, communications];
+  if (marketplaceFocused) {
+    const community = {
+      ...home,
+      label: "Community",
+      href: "/home",
+      items: home.items.filter((item) => item.action !== "logout")
+    };
+    const focusedSections: NavSection[] = [focusedMarketplaceSection, communications, community];
+    if (toolItems.length > 0) {
+      focusedSections.push({ ...toolsSection, href: toolItems[0]?.href, items: toolItems });
+    }
+    focusedSections.push(tutorialSection, settings);
+    if (input.isAdmin) {
+      focusedSections.push(
+        { label: "Admin", href: "/admin", items: [{ label: "Admin Portal", href: "/admin" }] },
+        { label: "Account", href: "/settings", items: [{ label: "Logout", action: "logout" }] }
+      );
+    } else {
+      focusedSections.push({ label: "Account", href: "/settings", items: [{ label: "Logout", action: "logout" }] });
+    }
+    return focusedSections.filter((section) => section.items.length > 0);
+  }
   if (jobsMarketItems.length > 0) {
     memberSections.push({ ...jobsMarketSection, href: jobsMarketItems[0]?.href ?? "/market", items: jobsMarketItems });
   }

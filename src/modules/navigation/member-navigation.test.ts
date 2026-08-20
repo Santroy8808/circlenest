@@ -144,3 +144,21 @@ test("administrator role adds administration without leaking disabled member too
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);
 });
+
+test("focused rollout makes the unified marketplace primary and keeps community secondary", () => {
+  const sections = buildMemberNavigation({
+    features: getTierPolicy(MembershipTier.FREE).features,
+    isAdmin: false,
+    isSignedIn: true,
+    mailEnabled: false,
+    platformFeatures: { ...platformFeatures, "marketplace.focused_rollout": true }
+  });
+  assert.equal(sections[0]?.label, "Marketplace");
+  assert.equal(sections[0]?.href, "/marketplace");
+  assert.deepEqual(
+    sections[0]?.items.slice(0, 7).map((item) => item.label),
+    ["Browse All", "Offers", "Wanted", "Jobs", "Rentals", "Services", "Find an Auditor"]
+  );
+  assert.equal(sections.some((section) => section.label === "Jobs & Market"), false);
+  assert.equal(sections.some((section) => section.label === "Community"), true);
+});

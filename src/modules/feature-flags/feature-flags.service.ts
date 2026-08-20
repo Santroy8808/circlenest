@@ -77,6 +77,17 @@ export const FEATURE_FLAG_DEFINITIONS = [
     defaultEnabled: true
   },
   {
+    key: "marketplace.focused_rollout",
+    title: "Marketplace-first Experience",
+    categoryKey: "market-discovery",
+    area: "Marketplace",
+    description: "Makes the unified offers, wants, jobs, rentals, services, and auditor marketplace the primary Theta-Space experience.",
+    effectWhenDisabled: "The unified marketplace routes remain unavailable and the existing Theta-Space home, Market, and Jobs experiences continue unchanged.",
+    enforcement: "Root route, marketplace navigation, unified Marketplace pages, and Marketplace v2 APIs",
+    risk: "high",
+    defaultEnabled: false
+  },
+  {
     key: "directory.auditor_directory",
     title: "Auditor Directory",
     categoryKey: "market-discovery",

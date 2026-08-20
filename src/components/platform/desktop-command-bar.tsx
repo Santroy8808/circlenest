@@ -190,13 +190,19 @@ export function DesktopCommandBar({
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const liveCounts = useShellCounts(counts);
   const commCount = chatBadgeCount(liveCounts);
-  const navItems = primaryNavItems.map((item) => item.key === "home"
-    ? {
+  const navItems = primaryNavItems.map((item) => {
+    if (item.key === "home") {
+      return {
         ...item,
         href: defaultHomeHref,
         tooltip: defaultHomeHref === "/home" ? "Home stream." : "Open your default home page."
-      }
-    : item);
+      };
+    }
+    if (item.key === "market" && platformFeatures["marketplace.focused_rollout"] === true) {
+      return { ...item, href: "/marketplace", label: "Marketplace", tooltip: "Browse offers, wants, jobs, rentals, services, and auditors." };
+    }
+    return item;
+  });
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("theta-theme");
