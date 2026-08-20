@@ -10,7 +10,7 @@
     "worker:once": "tsx scripts/platform-worker.ts --once",
     "invites:send-pending-beta-notices": "tsx scripts/send-beta-desktop-notice.ts --confirm-send",
     "invites:send-pending-orientation": "tsx scripts/send-pending-invite-orientation.ts --confirm-send",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

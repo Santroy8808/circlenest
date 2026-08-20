@@ -42,8 +42,8 @@ export const tutorialIconDefinitions: TutorialIconDefinition[] = [
   {
     id: "market",
     category: "NAVIGATION",
-    label: "Market",
-    description: "Opens The Market from the top shortcut bar.",
+    label: "Marketplace",
+    description: "Opens the unified Marketplace from the top shortcut bar.",
     iconSrc: "/assets/nav/nav-market.png"
   },
   {
@@ -231,26 +231,26 @@ export const tutorialSteps: TutorialStep[] = [
   {
     id: "market",
     section: "market",
-    title: "Jobs And Market",
-    description: "Jobs & Market on the control panel opens The Market and Jobs. Use it when you want to browse or create listings from the left menu.",
-    page: "/market",
-    target: "control-jobs-market"
+    title: "Marketplace",
+    description: "Marketplace is the main place to find or publish offers and wanted requests for goods, vehicles, rentals, services, jobs, and auditors.",
+    page: "/marketplace",
+    target: "control-marketplace"
   },
   {
     id: "listing-guides",
     section: "market",
-    title: "Create Listings",
-    description: "Use Create Listing for member-market posts, Create Job for openings, and Find an Auditor for the directory. If your account allows auditor profile creation, the Find an Auditor area gives you the path to build it.",
-    page: "/home",
-    target: "control-jobs-market"
+    title: "Create Offers And Wanted Requests",
+    description: "Choose Create Listing, select Offer or Wanted, then select the listing type. The wizard shows the fields needed for that exact kind of exchange.",
+    page: "/marketplace",
+    target: "control-marketplace"
   },
   {
     id: "auditors",
     section: "market",
-    title: "Find An Auditor",
-    description: "Find an Auditor has its own control-panel button so directory browsing stays separate from The Market and Jobs.",
-    page: "/home",
-    target: "control-find-an-auditor"
+    title: "Find Jobs And Auditors",
+    description: "Jobs and auditor services are Marketplace listing types. Choose the matching type filter to narrow the same searchable directory.",
+    page: "/marketplace",
+    target: "control-marketplace"
   },
   {
     id: "gallery",
@@ -305,8 +305,8 @@ export const tutorialSections: TutorialSection[] = [
   },
   {
     id: "market",
-    title: "Jobs, Market, and Auditor Directory",
-    description: "Member listings, job posts, auditor discovery, and the create flows for each.",
+    title: "Marketplace",
+    description: "Offers, wanted requests, jobs, rentals, services, goods, vehicles, auditor discovery, and listing management.",
     stepIds: ["market", "listing-guides", "auditors"]
   },
   {

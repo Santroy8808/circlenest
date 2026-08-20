@@ -138,7 +138,7 @@ export function classifyStripeSubscriptionSyncReplay(input: {
   const transitionedFromTier = receiptRecord?.transitionedFromTier;
   const validReceipt =
     validTier &&
-    (transitionedFromTier === null || Object.values(MembershipTier).includes(transitionedFromTier as MembershipTier)) &&
+    (transitionedFromTier == null || Object.values(MembershipTier).includes(transitionedFromTier as MembershipTier)) &&
     typeof receiptRecord?.accountBlocked === "boolean" &&
     (deletionRequestId === null || typeof deletionRequestId === "string");
 
@@ -155,7 +155,7 @@ export function classifyStripeSubscriptionSyncReplay(input: {
       state: "replay" as const,
       receipt: {
         activeTier: activeTier as OperationalTier,
-        transitionedFromTier: transitionedFromTier as MembershipTier | null,
+        transitionedFromTier: transitionedFromTier == null ? null : transitionedFromTier as MembershipTier,
         accountBlocked: receiptRecord.accountBlocked as boolean,
         deletionRequestId: deletionRequestId as string | null
       }

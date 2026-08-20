@@ -14,22 +14,22 @@ function startTutorial(detail?: { sectionId?: string; stepId?: string }) {
 export function TutorialSettingsClient() {
   const listingGuides = [
     {
-      title: "Create a Market listing",
-      description: "Post something for sale or service in The Market, with price, location, and photos.",
-      guideHref: "/settings/users-manual#feature-create-listing",
-      openHref: "/market/create"
+      title: "Create an offer or wanted request",
+      description: "Choose what you have or need, then use the listing-type fields for goods, vehicles, rentals, services, jobs, or auditors.",
+      guideHref: "/settings/users-manual#feature-create-an-offer-or-wanted-request",
+      openHref: "/marketplace/new"
     },
     {
-      title: "Create a Job",
-      description: "Post a role with company, pay, location, contact details, and the full job description.",
-      guideHref: "/settings/users-manual#feature-create-job",
-      openHref: "/jobs/create"
+      title: "Search and save",
+      description: "Filter all Marketplace listings by intent, type, category, price, location, or remote availability and save useful searches.",
+      guideHref: "/settings/users-manual#feature-browse-the-marketplace",
+      openHref: "/marketplace"
     },
     {
-      title: "Create an auditor profile",
-      description: "Use the auditor directory flow to publish your practice profile when your account includes that access.",
-      guideHref: "/settings/users-manual#feature-create-auditor-profile",
-      openHref: "/auditors"
+      title: "Manage listings and exchanges",
+      description: "Edit, pause, renew, reserve, fulfill, or archive your listings, then track conversations and completed exchanges.",
+      guideHref: "/settings/users-manual#feature-manage-my-listings",
+      openHref: "/marketplace/manage"
     }
   ] as const;
 
@@ -52,9 +52,9 @@ export function TutorialSettingsClient() {
       </section>
       <section className="surface rounded-md p-5">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--gold)]">Quick Start Guides</p>
-        <h2 className="mt-2 text-2xl font-semibold">Create listings and profiles</h2>
+        <h2 className="mt-2 text-2xl font-semibold">Use the Marketplace</h2>
         <p className="mt-3 max-w-2xl leading-6 text-[var(--muted)]">
-          These guides cover the three creation flows members ask for most often. Open the walkthrough for orientation, then use the manual for the exact fields and limits.
+          These guides cover publishing, searching, and managing exchanges. Open the walkthrough for orientation, then use the manual for exact fields and limits.
         </p>
         <div className="tutorial-settings-grid mt-5">
           {listingGuides.map((guide) => (

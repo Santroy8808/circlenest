@@ -8,6 +8,18 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function optionalBoolean(value: string | undefined) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+}
+
+function optionalCurrencyCents(value: string | undefined) {
+  if (!value) return undefined;
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) : undefined;
+}
+
 export default async function MarketplacePage({ searchParams }: { searchParams: SearchParams }) {
   const [session, params] = await Promise.all([auth(), searchParams]);
   const query = {
@@ -18,9 +30,9 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     countryCode: first(params.country),
     region: first(params.region),
     city: first(params.city),
-    remote: first(params.remote) === "true" ? true : undefined,
-    minPriceCents: first(params.min) ? Math.round(Number(first(params.min)) * 100) : undefined,
-    maxPriceCents: first(params.max) ? Math.round(Number(first(params.max)) * 100) : undefined,
+    remote: optionalBoolean(first(params.remote)),
+    minPriceCents: optionalCurrencyCents(first(params.min)),
+    maxPriceCents: optionalCurrencyCents(first(params.max)),
     sort: first(params.sort),
     cursor: first(params.cursor),
     limit: 24,

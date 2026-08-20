@@ -217,6 +217,7 @@ test("a crash after atomic Stripe persistence recovers the exact durable audit r
     state: "replay",
     receipt: {
       activeTier: MembershipTier.CONTRIBUTOR,
+      transitionedFromTier: null,
       accountBlocked: false,
       deletionRequestId: null
     }

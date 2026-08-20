@@ -3,7 +3,8 @@ param(
   [string]$BackupRoot = "C:\Backups",
   [int]$KeepBackups = 24,
   [string]$DatabaseUrl = "",
-  [string]$PgDumpPath = ""
+  [string]$PgDumpPath = "",
+  [string]$PsqlPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -114,6 +115,72 @@ function Resolve-PgDump {
   throw "pg_dump.exe was not found. Install PostgreSQL client tools or set PG_DUMP_PATH."
 }
 
+function ConvertTo-NativePostgresUrl {
+  param([string]$ConnectionString)
+
+  $parts = $ConnectionString.Split("?", 2)
+  if ($parts.Count -eq 1) {
+    return $ConnectionString
+  }
+
+  $prismaOnlyParameters = @("schema", "connection_limit", "pool_timeout", "pgbouncer")
+  $nativeParameters = @($parts[1].Split("&") | Where-Object {
+    $key = ([uri]::UnescapeDataString(($_.Split("=", 2)[0]))).ToLowerInvariant()
+    $prismaOnlyParameters -notcontains $key
+  })
+
+  if (!$nativeParameters.Count) {
+    return $parts[0]
+  }
+
+  return "$($parts[0])?$($nativeParameters -join '&')"
+}
+
+function Resolve-Psql {
+  param(
+    [string]$ExplicitPath,
+    [string]$PgDump
+  )
+
+  if ($ExplicitPath -and (Test-Path -LiteralPath $ExplicitPath)) {
+    return (Resolve-Path -LiteralPath $ExplicitPath).Path
+  }
+
+  if ($env:PSQL_PATH -and (Test-Path -LiteralPath $env:PSQL_PATH)) {
+    return (Resolve-Path -LiteralPath $env:PSQL_PATH).Path
+  }
+
+  $nextToPgDump = Join-Path (Split-Path -Parent $PgDump) "psql.exe"
+  if (Test-Path -LiteralPath $nextToPgDump) {
+    return (Resolve-Path -LiteralPath $nextToPgDump).Path
+  }
+
+  $command = Get-Command psql -ErrorAction SilentlyContinue
+  if ($command) {
+    return $command.Source
+  }
+
+  throw "psql.exe was not found. Install PostgreSQL client tools or set PSQL_PATH."
+}
+
+function Get-PublicTableNames {
+  param(
+    [string]$Psql,
+    [string]$ConnectionString,
+    [string]$LogPath
+  )
+
+  $query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
+  $output = & $Psql --tuples-only --no-align --quiet --command=$query $ConnectionString 2>&1
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0) {
+    Add-Content -LiteralPath $LogPath -Value $output
+    throw "psql failed while reading the current table list with exit code $exitCode. See $LogPath."
+  }
+
+  return @($output | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
+}
+
 function Invoke-PgDump {
   param(
     [string]$PgDump,
@@ -162,6 +229,8 @@ if (!$DatabaseUrl) {
 }
 
 $pgDump = Resolve-PgDump -ExplicitPath $PgDumpPath
+$psql = Resolve-Psql -ExplicitPath $PsqlPath -PgDump $pgDump
+$nativeDatabaseUrl = ConvertTo-NativePostgresUrl -ConnectionString $DatabaseUrl
 $backupHome = Join-Path $BackupRoot "theta-space"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $backupDir = Join-Path $backupHome $timestamp
@@ -182,8 +251,20 @@ Invoke-PgDump -PgDump $pgDump -LogPath $logPath -Arguments @(
   "--no-owner",
   "--no-privileges",
   "--file=$fullDumpPath",
-  $DatabaseUrl
+  $nativeDatabaseUrl
 )
+
+$availableTables = Get-PublicTableNames -Psql $psql -ConnectionString $nativeDatabaseUrl -LogPath $logPath
+$includedProtectedTables = @($protectedTables | Where-Object { $availableTables -contains $_ })
+$skippedProtectedTables = @($protectedTables | Where-Object { $availableTables -notcontains $_ })
+
+if (!$includedProtectedTables.Count) {
+  throw "None of the protected-retention tables exist in the current public schema."
+}
+
+if ($skippedProtectedTables.Count) {
+  Add-Content -LiteralPath $logPath -Value "Skipped protected tables not present in this schema: $($skippedProtectedTables -join ', ')"
+}
 
 $protectedArgs = @(
   "--format=custom",
@@ -193,10 +274,10 @@ $protectedArgs = @(
   "--file=$protectedDumpPath"
 )
 
-foreach ($table in $protectedTables) {
+foreach ($table in $includedProtectedTables) {
   $protectedArgs += "--table=public.`"$table`""
 }
-$protectedArgs += $DatabaseUrl
+$protectedArgs += $nativeDatabaseUrl
 
 Invoke-PgDump -PgDump $pgDump -LogPath $logPath -Arguments $protectedArgs
 
@@ -206,7 +287,8 @@ $manifest = [ordered]@{
   backupDirectory = $backupDir
   fullDump = (Split-Path -Leaf $fullDumpPath)
   protectedRetentionDump = (Split-Path -Leaf $protectedDumpPath)
-  protectedTables = $protectedTables
+  protectedTables = $includedProtectedTables
+  skippedProtectedTables = $skippedProtectedTables
   keepBackups = $KeepBackups
   retentionNote = "Hourly backups; keep only the newest 24 backups by default."
 }

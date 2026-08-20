@@ -39,11 +39,11 @@ export type UsersManual = {
 export const usersManualDefinitions: UsersManualDefinition[] = [
   {
     term: "Free Tier",
-    definition: "The basic Theta-Space membership level. It gives access to core social use: profile, stream, people, groups, pictures, messages, market browsing, and limited personal listings."
+    definition: "The basic Theta-Space membership level. It includes marketplace browsing and limited listing creation, plus profile, stream, contacts, groups, pictures, and messages."
   },
   {
     term: "Contributor Tier",
-    definition: "A community membership level with expanded storage and access to approved Contributor tools, including Market listing creation, Market Jobs, Groups, and Writers Corner. Business Center, Events, Fundraisers, general ad creation, and auditor-profile creation are not Contributor functions."
+    definition: "A community membership level with expanded storage and approved Contributor tools. Contributors use the same unified Marketplace for offers, wanted requests, jobs, rentals, services, goods, vehicles, and eligible auditor listings."
   },
   {
     term: "Stream",
@@ -115,7 +115,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   },
   {
     term: "Market Listing",
-    definition: "A personal marketplace entry created by a member. Free Tier listings are limited and are not the same as a business storefront."
+    definition: "An offer or wanted request published in the unified Marketplace. A listing can describe goods, a vehicle, a rental, a service, a job, or an auditor practice."
   },
   {
     term: "Auditor Directory",
@@ -140,9 +140,9 @@ export const freeTierBasics = [
   "If a Contributor downgrade leaves more than 200 MB stored, Theta-Space archives and compresses the oldest excess files. Gallery keeps small previews; request one temporary full-file view at a time or a ZIP download from Subscription.",
   "Text-only posts do not count against the 200 MB personal file-storage limit.",
   "Public Stream posts from Communicate may have images compressed after 48 hours without a view, archived after 1 week, and permanently deleted after 3 months. These limits may change.",
-  "Free Tier marketplace creation is limited to 3 listings per 14-day period.",
-  "Each Free Tier marketplace listing can have up to 3 photos.",
-  "Free and Contributor accounts can browse and create job listings during beta.",
+  "Free Tier marketplace creation is limited to 3 new listings per 14-day period, including offers and wanted requests of every listing type.",
+  "Each Free Tier marketplace listing can have up to 3 photos or videos.",
+  "Marketplace publishing is free during the current rollout. A future fee system is reserved but is not active.",
   "Business profiles, storefronts, business identity switching, ads, Writers Corner, fundraiser creation, and business tools are not Free Tier functions.",
   "Events are not yet available for Free Tier use.",
   "Internal mail is currently hidden/unavailable; use Messages in Comm Center instead.",
@@ -151,9 +151,9 @@ export const freeTierBasics = [
 ];
 
 export const contributorTierBasics = [
-  "Contributor accounts keep the core social tools: Stream, People, Groups, My Pics, Messages, Market, and Settings.",
+  "Contributor accounts keep the core tools: Marketplace, Stream, Contacts, Groups, My Pics, Messages, and Settings.",
   "Contributor personal file storage is currently 2 GB. Cancelling changes the account to Free at the end of the paid period. If storage exceeds 200 MB then, Theta-Space archives and compresses the oldest excess files instead of silently deleting them.",
-  "Contributor accounts can create and edit personal Market listings, browse and create job listings during beta, promote their own Market listings with the approved listing-ad flow, and use Writers Corner manuscripts.",
+  "Contributor accounts can browse, create, edit, renew, and manage unified Marketplace listings and use Writers Corner manuscripts.",
   "Contributor accounts do not receive Business Center, storefront administration, business identity switching, Events, Fundraisers, or general ad creation.",
   "When a Contributor capability is unavailable, its menu item, page, upgrade prompt, and direct feature controls are hidden rather than shown as a gate.",
   "Use the current Subscription page and the visible menus as the source of truth for limits; a manual entry never grants access."
@@ -171,8 +171,8 @@ export const usersManualSections: UsersManualSection[] = [
         purpose: "Use Home as the starting point for the Stream and daily site activity.",
         howToUse: [
           "Open Home to read the latest Stream activity.",
-          "Use the top icon bar for fast access to Home, My Pics, Market, Search, and Comm Center. People and Groups are under Comm Center.",
-          "Use Jobs & Market on the control panel for The Market and Jobs. Use Find an Auditor as its own control-panel button.",
+          "Use the top icon bar for fast access to Home, My Pics, Marketplace, Search, and Comm Center. Contacts and Groups are under Comm Center.",
+          "Use Marketplace on the control panel for offers, wanted requests, goods, vehicles, rentals, services, jobs, and auditor listings.",
           "Use the left Control Panel for section menus and related actions.",
           "Use Logout from the Home section when you are done on a shared computer."
         ],
@@ -550,165 +550,143 @@ export const usersManualSections: UsersManualSection[] = [
   },
   {
     key: "market-auditors",
-    title: "Jobs, Market, and Auditor Directory",
-    summary: "Browse public listings, create market and job entries, and use the auditor directory or auditor profile flow when it is available to your account.",
+    title: "Marketplace",
+    summary: "Find or publish offers and wanted requests for goods, vehicles, rentals, services, jobs, and auditor services from one searchable workspace.",
     features: [
       {
-        title: "The Market",
-        href: "/market",
-        purpose: "Browse member listings and open listings for details and seller contact options.",
-        howToUse: ["Open Market.", "Search or filter by category.", "Click a listing to open details.", "Use contact options shown on the listing."],
-        limits: ["Listings are member-created and should be reviewed carefully.", "Contact details may be visible only according to listing settings.", "Business storefront features are not part of Free Tier."],
+        title: "Browse the Marketplace",
+        href: "/marketplace",
+        purpose: "Search all current offers and wanted requests in one directory.",
+        howToUse: ["Open Marketplace.", "Choose Offers, Wanted, or All.", "Choose a listing type or enter keywords.", "Filter by category, location, remote availability, or price.", "Choose newest, price, or relevance sorting, then open a card for complete details."],
+        limits: ["Listings are created by members or synchronized from approved directory records.", "Theta-Space does not inspect every item or process buyer-to-seller payments.", "Only information the publisher chose to show appears publicly."],
         faq: [
           {
-            question: "How do I contact a seller?",
-            answer: "Open the listing and use the contact or message seller options shown on that listing."
+            question: "What is the difference between Offer and Wanted?",
+            answer: "Offer means the publisher has something available. Wanted means the publisher is looking for that item, place, service, job, or help."
           },
           {
-            question: "Are listings verified by Theta-Space?",
-            answer: "Treat listings as member-created content. Use judgment before buying, selling, or sharing personal information."
+            question: "How do I contact a publisher?",
+            answer: "Open the listing and choose Message when it is available. Public email, phone, website, or contact instructions appear only when the publisher enabled them."
+          },
+          {
+            question: "Does Theta-Space collect payment for an exchange?",
+            answer: "No. Arrange payment or delivery directly and carefully. Do not send money or sensitive information until you have verified the other party and the listing."
           }
         ],
         visual: {
-          title: "Market reference",
-          caption: "The Market lists available member listings and lets you open details.",
-          callouts: ["Search listings.", "Open a listing.", "Use contact options."]
+          title: "Marketplace reference",
+          caption: "The Marketplace brings every listing type into one filterable directory.",
+          callouts: ["Choose Offer or Wanted.", "Filter the results.", "Open a listing for full details."]
         }
       },
       {
-        title: "My Listings",
-        href: "/market/my-listings",
-        purpose: "Review and edit the listings you created.",
-        howToUse: ["Open Market.", "Choose My Listings.", "Open or edit your listing.", "Update details, pictures, category, location, and contact information as needed."],
-        limits: ["Free Tier can create 3 listings per 14-day period.", "Free Tier listings allow up to 3 photos per listing.", "Listing location should be city-level, not a private address."],
+        title: "Create an Offer or Wanted Request",
+        href: "/marketplace/new",
+        purpose: "Publish a complete listing using fields tailored to what you are offering or seeking.",
+        howToUse: ["Choose Post a Listing.", "Select Offer or Wanted, then select Goods, Vehicle, Rental, Service, Job, or Auditor.", "Choose a category and complete the fields shown for that listing type.", "Add price and location details, then choose the publishing identity and contact methods.", "Drag photos into the upload area or choose files from your device.", "Save a draft or review and publish the listing."],
+        limits: ["Free Tier can create 3 new listings per 14-day period and attach up to 3 photos or videos to each listing.", "The screen shows the actual media cap for the signed-in account.", "Exact addresses, phone numbers, email addresses, and websites remain private unless you explicitly show them.", "Jobs and rentals cannot include religious preferences. Regulated goods and auditor offers require the displayed attestations."],
         faq: [
           {
-            question: "How many listings can I create?",
-            answer: "Free Tier can create 3 listings per 14-day period."
+            question: "What details should I include?",
+            answer: "Complete every field that would help the other person make a decision. Vehicle listings include details such as year, make, model, mileage, title, and condition; rentals include rent, deposit, rooms, term, amenities, and availability; jobs include pay, schedule, requirements, and application instructions."
           },
           {
-            question: "How many photos can one listing have?",
-            answer: "Free Tier listings can have up to 3 photos."
+            question: "Can I publish without finishing?",
+            answer: "Use Save Draft. Drafts remain private until you publish them from My Listings."
           },
           {
-            question: "Can I edit a listing later?",
-            answer: "Yes. Use My Listings, then choose Edit for the listing you created."
+            question: "Does publishing cost money?",
+            answer: "No. Marketplace publishing is free during the current rollout. A future charging system may be enabled later, but it is not active now."
+          }
+        ],
+        visual: {
+          title: "Listing wizard reference",
+          caption: "The wizard changes its fields to match the listing type you choose.",
+          callouts: ["Choose intent and type.", "Complete relevant details.", "Review privacy and publish."]
+        }
+      },
+      {
+        title: "Manage My Listings",
+        href: "/marketplace/manage",
+        purpose: "Review the status and activity of every listing you published or saved as a draft.",
+        howToUse: ["Open My Listings.", "Switch between current listings and all statuses.", "Use grid or compact view.", "Open Edit to change details or media.", "Pause, publish, reserve, fulfill, renew, or archive a listing with the matching action."],
+        limits: ["Listings normally expire after the configured listing period and can be renewed.", "Official directory listings are maintained from their approved directory record.", "Archived listings do not appear in public search."],
+        faq: [
+          {
+            question: "What should I do when an item is no longer available?",
+            answer: "Mark it Reserved while an exchange is pending, Fulfilled when completed, or Archive it when it should no longer appear."
+          },
+          {
+            question: "Can I edit a live listing?",
+            answer: "Yes. Open My Listings, choose Edit, make the changes, and save."
           }
         ],
         visual: {
           title: "My Listings reference",
-          caption: "My Listings separates your editable listings from the public market browsing view.",
-          callouts: ["Open My Listings.", "Choose your listing.", "Edit details or photos."]
+          caption: "My Listings combines editing, status control, renewal, and activity counts.",
+          callouts: ["Filter by status.", "Edit or renew.", "Close completed listings."]
         }
       },
       {
-        title: "Create Listing",
-        href: "/market/create",
-        purpose: "Create a personal Free Tier marketplace listing.",
-        howToUse: ["Open Jobs & Market, then The Market.", "Choose Create Listing.", "Choose the correct category.", "Enter a clear title, description, price, city-level location, and contact options.", "Upload up to 3 photos.", "Submit and review the listing."],
-        limits: ["Free Tier limit: 3 listings per 14-day period.", "Free Tier photo limit: 3 photos per listing.", "This is for personal member listings, not business storefronts."],
+        title: "Saved Listings and Searches",
+        href: "/marketplace/saved",
+        purpose: "Keep useful listings and repeat searches without rebuilding the same filters.",
+        howToUse: ["Use Save on a listing you want to revisit.", "Use Save Search after choosing useful marketplace filters.", "Open Saved to switch between saved listings and saved searches.", "Run a saved search again, turn alerts on or off, or remove it."],
+        limits: ["Saving requires a signed-in account.", "A saved listing can still expire, be fulfilled, or be removed by its publisher.", "Alerts contain listing information permitted by the listing visibility settings."],
         faq: [
           {
-            question: "Should I include my full address?",
-            answer: "No. Use city-level location only. Share exact meeting or delivery details privately and carefully."
-          },
-          {
-            question: "Can I make a business storefront from Free Tier?",
-            answer: "No. Business storefronts and business identity features are not Free Tier functions."
+            question: "Will a saved search notify me?",
+            answer: "Turn on alerts for that saved search. The marketplace worker checks for new matching listings and records which results have already been sent."
           }
         ],
         visual: {
-          title: "Create Listing reference",
-          caption: "Create Listing is for limited personal marketplace entries.",
-          callouts: ["Enter listing basics.", "Add up to 3 photos.", "Review before submitting."]
+          title: "Saved workspace reference",
+          caption: "Saved keeps favorite listings and reusable searches together.",
+          callouts: ["Save a listing.", "Save a filtered search.", "Control search alerts."]
         }
       },
       {
-        title: "Find a Job",
-        href: "/jobs",
-        purpose: "Browse or create available job-related listings under Market.",
-        howToUse: ["Open Jobs & Market, then Jobs.", "Browse or search visible opportunities.", "Open a listing to read details and contact instructions.", "Use Create Job when your account needs to post an opening."],
-        limits: ["Free and Contributor accounts can browse and create job listings during beta.", "Only active visible opportunities are shown.", "Do not share sensitive personal information until you trust the contact path."],
+        title: "Marketplace Exchanges and Reviews",
+        href: "/marketplace/interactions",
+        purpose: "Track conversations that began from a listing and confirm completed exchanges.",
+        howToUse: ["Choose Contact on a listing to begin an exchange and message the publisher.", "Open My Exchanges to return to the listing or conversation.", "After the exchange, each participant confirms completion independently.", "When both participants confirm, leave one factual review about that exchange."],
+        limits: ["Delivered messages and payments are not the same as a completed exchange.", "A review becomes available only after both participants confirm completion.", "Reviews are tied to a real recorded exchange and cannot be created for your own listing."],
         faq: [
           {
-            question: "Can I apply inside Theta-Space?",
-            answer: "Use the contact or instructions shown on the job item. If no application path is shown, the item may only be informational."
+            question: "Why can I not review yet?",
+            answer: "Both participants must confirm that the exchange was completed before the review control appears."
           },
           {
-            question: "Can I create job posts as Free Tier?",
-            answer: "Yes. Free and Contributor accounts can create job listings during beta. Future paid posting can be enabled later."
+            question: "What if the exchange was cancelled?",
+            answer: "Cancel the exchange from My Exchanges. A cancelled exchange cannot be reviewed as completed."
           }
         ],
         visual: {
-          title: "Jobs reference",
-          caption: "Find a Job is for browsing visible job-related opportunities.",
-          callouts: ["Browse jobs.", "Open details.", "Follow listed contact instructions."]
+          title: "Exchange reference",
+          caption: "My Exchanges links each listing conversation to its confirmation and review state.",
+          callouts: ["Open the conversation.", "Confirm independently.", "Review after both confirm."]
         }
       },
       {
-        title: "Create Job",
-        href: "/jobs/create",
-        purpose: "Create a job listing with the same general flow style as a Market listing.",
-        howToUse: ["Open Jobs & Market, then Jobs.", "Choose Create Job.", "Enter the role title, company, salary range, location, contact details, summary, and full description.", "Add the image and brief overlay summary where needed.", "Submit and review the listing card and detail page."],
-        limits: ["Free and Contributor accounts can create job listings during beta.", "Only publish information you are prepared to keep current.", "Use city, state, or region details that help people understand the location clearly."],
+        title: "Auditor Listings and Legacy Archive",
+        href: "/marketplace/legacy",
+        purpose: "Understand how approved auditor directory records and listings from the earlier Market and Jobs tools are preserved.",
+        howToUse: ["Search Marketplace and choose Auditors to find approved practices and member auditor listings.", "Official active directory profiles are synchronized into Marketplace without deleting the original record.", "Open Legacy Listings when you need to view an older Market or Job entry.", "Create all new offers and wanted requests in Marketplace."],
+        limits: ["Official auditor listings are maintained from their approved directory source.", "Member-created auditor offers require a qualification attestation.", "Legacy entries are read-only in the archive and are not silently discarded."],
         faq: [
           {
-            question: "Can I create a job as Free Tier?",
-            answer: "Yes. Free and Contributor accounts can create job listings during beta."
+            question: "Why is an old listing not in My Listings?",
+            answer: "Listings created before the unified Marketplace remain in Legacy Listings. The archive preserves them while all new publishing uses Marketplace."
           },
           {
-            question: "What should I include before I publish?",
-            answer: "Include the role title, company, summary, salary range, location, contact information, description, and the main needs or wants so the listing is complete."
+            question: "Can I publish an auditor wanted request?",
+            answer: "Yes. Choose Wanted and Auditor when you are seeking auditing services. Do not use the qualification attestation unless you are publishing an auditor offer."
           }
         ],
         visual: {
-          title: "Create Job reference",
-          caption: "Create Job uses a listing flow that stays close to The Market format.",
-          callouts: ["Enter job basics.", "Add salary and location.", "Review before publishing."]
-        }
-      },
-      {
-        title: "Find an Auditor",
-        href: "/auditors",
-        purpose: "Browse the auditor directory and open auditor profiles.",
-        howToUse: ["Open Find an Auditor.", "Search or filter available auditors.", "Open a profile to read details and contact information where shown."],
-        limits: ["Only visible auditor information is shown.", "Auditor profile creation appears only for accounts that have that membership access.", "Use judgment before contacting or arranging services."],
-        faq: [
-          {
-            question: "Can I create an auditor profile?",
-            answer: "Only accounts with auditor-profile creation access can do that. When available, use the I'm an Auditor path from the directory."
-          },
-          {
-            question: "Can I browse auditors as Free Tier?",
-            answer: "Yes, use Find an Auditor when it is visible."
-          }
-        ],
-        visual: {
-          title: "Auditor directory reference",
-          caption: "The directory helps users browse auditors and open profiles.",
-          callouts: ["Search auditors.", "Open profile.", "Use visible contact details."]
-        }
-      },
-      {
-        title: "Create Auditor Profile",
-        href: "/auditors/im-an-auditor",
-        purpose: "Create or update the directory profile that represents your auditor practice.",
-        howToUse: ["Open Find an Auditor.", "Choose I'm an Auditor when your account shows it.", "Enter your practice name, location, offerings, and bio.", "Add optional phone or website details.", "Choose whether you are willing to travel and whether the profile should stay published."],
-        limits: ["This appears only when your account has auditor-profile creation access.", "Directory profiles describe your practice and are separate from your member profile.", "Only publish contact information you want other members to see."],
-        faq: [
-          {
-            question: "Why do I only see the directory and not the profile form?",
-            answer: "Your current membership or permissions do not include auditor-profile creation, so the directory remains browse-only."
-          },
-          {
-            question: "Can I hide my profile later?",
-            answer: "Yes. Open the profile again and turn off Publish in directory."
-          }
-        ],
-        visual: {
-          title: "Create auditor profile reference",
-          caption: "The auditor profile flow publishes your practice into the directory when your account allows it.",
-          callouts: ["Enter practice details.", "Choose visibility.", "Save the directory profile."]
+          title: "Directory and archive reference",
+          caption: "Current auditor discovery is part of Marketplace; earlier Market and Job records remain available in a read-only archive.",
+          callouts: ["Filter for Auditors.", "Use current Marketplace listings.", "Open Legacy Listings for history."]
         }
       }
     ]
@@ -929,15 +907,14 @@ export const usersManualSections: UsersManualSection[] = [
         title: "Not available in Free Tier",
         href: "/settings/subscription",
         purpose: "Understand which visible or known areas are not part of Free Tier use right now.",
-        howToUse: ["If an area is hidden, disabled, marked Coming Soon, or marked Not yet available, do not rely on it for Free Tier use.", "Use core features instead: Stream, People, Groups, My Pics, Messages, Market, Jobs browsing, Auditor directory, and Settings."],
+        howToUse: ["If an area is hidden, disabled, marked Coming Soon, or marked Not yet available, do not rely on it for Free Tier use.", "Use core features instead: Marketplace, Stream, Contacts, Groups, My Pics, Messages, and Settings."],
         limits: [
           "Business Center, storefronts, business profiles, and business identity switching are not Free Tier functions.",
           "Ads and paid promotion tools are not Free Tier functions.",
           "Writers Corner is not Free Tier access.",
           "Fundraiser creation is not Free Tier access.",
           "Events are not yet available.",
-          "Internal mail is currently hidden/unavailable.",
-          "Auditor profile creation is Coming Soon."
+          "Internal mail is currently hidden/unavailable."
         ],
         faq: [
           {

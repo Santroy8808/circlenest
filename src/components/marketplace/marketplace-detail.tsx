@@ -93,6 +93,8 @@ export function MarketplaceDetail({
                 : <img alt={selectedMedia.altText ?? listing.title} src={selectedMedia.url} />
             ) : <div className={styles.detailMediaEmpty}>{marketplaceKindLabels[listing.kind]}</div>}
           </div>
+          {/* Private media URLs are already authorized and should bypass the public image optimizer. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           {listing.media.length > 1 ? <div className={styles.thumbnailStrip}>{listing.media.map((media) => <button aria-label="Show media" className={media.id === selectedMedia?.id ? styles.thumbnailActive : ""} key={media.id} onClick={() => setSelectedMediaId(media.id)} type="button">{media.url && media.mimeType.startsWith("image/") ? <img alt="" src={media.url} /> : <span>Video</span>}</button>)}</div> : null}
 
           <header className={styles.detailHeader}>
