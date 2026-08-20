@@ -10,13 +10,14 @@ import {
 import { prisma } from "@/lib/platform/db";
 import { findOrCreateDirectChatThread, sendChatMessage } from "@/modules/chat-messages/chat-messages.service";
 import { marketplaceInquiryInputSchema, marketplaceReviewInputSchema } from "./marketplace.contracts";
-import { requireMarketplaceActor } from "./marketplace-policy";
+import { isMarketplaceDirectoryBridgeRecord, requireMarketplaceActor } from "./marketplace-policy";
 import { marketplaceListingInclude, toMarketplaceCardView } from "./marketplace-view";
 
-function listingIsAvailable(listing: { status: MarketplaceListingStatus; expiresAt: Date | null }) {
+function listingIsAvailable(listing: { status: MarketplaceListingStatus; expiresAt: Date | null; attributes: Prisma.JsonValue }) {
   return (
     ([MarketplaceListingStatus.ACTIVE, MarketplaceListingStatus.RESERVED] as MarketplaceListingStatus[]).includes(listing.status) &&
-    (!listing.expiresAt || listing.expiresAt.getTime() > Date.now())
+    (!listing.expiresAt || listing.expiresAt.getTime() > Date.now()) &&
+    !isMarketplaceDirectoryBridgeRecord(listing.attributes)
   );
 }
 
@@ -30,7 +31,7 @@ export async function setMarketplaceListingSaved(userId: string, listingId: stri
   return prisma.$transaction(async (transaction) => {
     const listing = await transaction.marketplaceListing.findUnique({
       where: { id: listingId },
-      select: { id: true, status: true, expiresAt: true },
+      select: { id: true, status: true, expiresAt: true, attributes: true },
     });
     if (!listing || !listingIsAvailable(listing)) return { ok: false as const, error: "Listing not found." };
     const existing = await transaction.marketplaceSavedListing.findUnique({
@@ -62,7 +63,12 @@ export async function listSavedMarketplaceListings(userId: string) {
     include: { listing: { include: marketplaceListingInclude } },
     orderBy: { createdAt: "desc" },
   });
-  return { ok: true as const, items: saved.map((item) => toMarketplaceCardView(item.listing)) };
+  return {
+    ok: true as const,
+    items: saved
+      .filter((item) => !isMarketplaceDirectoryBridgeRecord(item.listing.attributes))
+      .map((item) => toMarketplaceCardView(item.listing)),
+  };
 }
 
 export async function isMarketplaceListingSaved(userId: string, listingId: string) {
@@ -97,6 +103,7 @@ export async function createMarketplaceInquiry(userId: string, listingId: string
       countryCode: true,
       status: true,
       expiresAt: true,
+      attributes: true,
       allowInAppMessages: true,
     },
   });

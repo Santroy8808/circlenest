@@ -8,6 +8,15 @@ import type { MarketplaceListingInput, MarketplacePublisherKind } from "./market
 export const MARKETPLACE_PUBLIC_REVIEW_THRESHOLD = 3;
 export const MARKETPLACE_LISTING_LIFETIME_DAYS = 30;
 
+export function isMarketplaceDirectoryBridgeRecord(attributes: Prisma.JsonValue | null) {
+  return Boolean(
+    attributes &&
+    typeof attributes === "object" &&
+    !Array.isArray(attributes) &&
+    (attributes as Record<string, unknown>).sourceProfileSync === true,
+  );
+}
+
 type MarketplaceDatabase = typeof prisma | Prisma.TransactionClient;
 
 export async function requireMarketplaceActor(userId: string, capability: "browse" | "create" | "interact" = "interact") {

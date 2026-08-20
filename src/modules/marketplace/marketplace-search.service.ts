@@ -4,7 +4,7 @@ import { prisma } from "@/lib/platform/db";
 import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { marketplaceSearchSchema, type MarketplacePage, type MarketplaceSearchInput } from "./marketplace.contracts";
-import { decodeMarketplaceCursor, encodeMarketplaceCursor } from "./marketplace-policy";
+import { decodeMarketplaceCursor, encodeMarketplaceCursor, isMarketplaceDirectoryBridgeRecord } from "./marketplace-policy";
 import {
   marketplaceListingInclude,
   toMarketplaceCardView,
@@ -62,6 +62,7 @@ export function buildMarketplaceSearchSql(input: MarketplaceSearchInput, offset:
     Prisma.sql`listing."status" = 'ACTIVE'::"MarketplaceListingStatus"`,
     Prisma.sql`listing."publishedAt" IS NOT NULL`,
     Prisma.sql`(listing."expiresAt" IS NULL OR listing."expiresAt" > CURRENT_TIMESTAMP)`,
+    Prisma.sql`(listing."attributes" ->> 'sourceProfileSync') IS DISTINCT FROM 'true'`,
   ];
   if (input.kind) conditions.push(Prisma.sql`listing."kind" = ${input.kind}::"MarketplaceListingKind"`);
   if (input.intent) conditions.push(Prisma.sql`listing."intent" = ${input.intent}::"MarketplaceIntent"`);
@@ -169,6 +170,7 @@ export async function getMarketplaceListingDetail(
       : Promise.resolve(null),
   ]);
   if (!listing) return null;
+  if (isMarketplaceDirectoryBridgeRecord(listing.attributes)) return null;
   const canManage = Boolean(viewerUserId && (listing.ownerUserId === viewerUserId || isAdminRole(viewer?.role ?? UserRole.MEMBER)));
   const publicNow =
     listing.status === MarketplaceListingStatus.ACTIVE &&
@@ -188,7 +190,9 @@ export async function listOwnedMarketplaceListings(userId: string, status?: Mark
     include: marketplaceListingInclude,
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
   });
-  return listings.map((listing) => toMarketplaceDetailView(listing, true));
+  return listings
+    .filter((listing) => !isMarketplaceDirectoryBridgeRecord(listing.attributes))
+    .map((listing) => toMarketplaceDetailView(listing, true));
 }
 
 export async function listLegacyMarketplaceArchive(userId: string, viewerRole: UserRole) {

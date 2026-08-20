@@ -19,6 +19,7 @@ import { marketplaceListingInputSchema, type MarketplaceListingInput } from "./m
 import {
   MARKETPLACE_LISTING_LIFETIME_DAYS,
   canManageMarketplaceListing,
+  isMarketplaceDirectoryBridgeRecord,
   requireMarketplaceActor,
   resolveMarketplacePublisher,
   validateMarketplacePublicationPolicy,
@@ -327,8 +328,10 @@ export async function updateMarketplaceListing(viewerUserId: string, listingId: 
   if (!normalized.ok) return normalized;
   const actor = await requireMarketplaceActor(viewerUserId, "create");
   if (!actor.ok) return actor;
-  const existing = await prisma.marketplaceListing.findUnique({ where: { id: listingId }, select: { ownerUserId: true, status: true } });
-  if (!existing || !MANAGEABLE_STATUSES.has(existing.status)) return { ok: false as const, error: "Listing not found." };
+  const existing = await prisma.marketplaceListing.findUnique({ where: { id: listingId }, select: { ownerUserId: true, status: true, attributes: true } });
+  if (!existing || isMarketplaceDirectoryBridgeRecord(existing.attributes) || !MANAGEABLE_STATUSES.has(existing.status)) {
+    return { ok: false as const, error: "Listing not found." };
+  }
   if (!canManageMarketplaceListing({ viewerUserId, ownerUserId: existing.ownerUserId, viewerRole: actor.user.role })) {
     return { ok: false as const, error: "You cannot edit this listing." };
   }
@@ -377,7 +380,7 @@ export async function publishMarketplaceListing(userId: string, listingId: strin
   if (!actor.ok) return actor;
   return prisma.$transaction(async (transaction) => {
     const listing = await transaction.marketplaceListing.findUnique({ where: { id: listingId } });
-    if (!listing || !canManageMarketplaceListing({ viewerUserId: userId, ownerUserId: listing.ownerUserId, viewerRole: actor.user.role })) {
+    if (!listing || isMarketplaceDirectoryBridgeRecord(listing.attributes) || !canManageMarketplaceListing({ viewerUserId: userId, ownerUserId: listing.ownerUserId, viewerRole: actor.user.role })) {
       return { ok: false as const, error: "Listing not found." };
     }
     const publishableStatuses: MarketplaceListingStatus[] = [MarketplaceListingStatus.DRAFT, MarketplaceListingStatus.PAUSED, MarketplaceListingStatus.EXPIRED];
@@ -446,7 +449,7 @@ export async function setMarketplaceListingStatus(
   const actor = await requireMarketplaceActor(userId, "interact");
   if (!actor.ok) return actor;
   const listing = await prisma.marketplaceListing.findUnique({ where: { id: listingId } });
-  if (!listing || !canManageMarketplaceListing({ viewerUserId: userId, ownerUserId: listing.ownerUserId, viewerRole: actor.user.role })) {
+  if (!listing || isMarketplaceDirectoryBridgeRecord(listing.attributes) || !canManageMarketplaceListing({ viewerUserId: userId, ownerUserId: listing.ownerUserId, viewerRole: actor.user.role })) {
     return { ok: false as const, error: "Listing not found." };
   }
   if (status === MarketplaceListingStatus.REMOVED && !isAdminRole(actor.user.role)) {
@@ -474,7 +477,7 @@ export async function renewMarketplaceListing(userId: string, listingId: string)
   if (!actor.ok) return actor;
   return prisma.$transaction(async (transaction) => {
     const listing = await transaction.marketplaceListing.findUnique({ where: { id: listingId } });
-    if (!listing || !canManageMarketplaceListing({ viewerUserId: userId, ownerUserId: listing.ownerUserId, viewerRole: actor.user.role })) {
+    if (!listing || isMarketplaceDirectoryBridgeRecord(listing.attributes) || !canManageMarketplaceListing({ viewerUserId: userId, ownerUserId: listing.ownerUserId, viewerRole: actor.user.role })) {
       return { ok: false as const, error: "Listing not found." };
     }
     if (([MarketplaceListingStatus.ARCHIVED, MarketplaceListingStatus.REMOVED] as MarketplaceListingStatus[]).includes(listing.status)) {

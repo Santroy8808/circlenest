@@ -6,6 +6,7 @@ import {
   canManageMarketplaceListing,
   decodeMarketplaceCursor,
   encodeMarketplaceCursor,
+  isMarketplaceDirectoryBridgeRecord,
   publicMarketplaceReviewSummary,
   redactMarketplaceContact,
   validateMarketplacePublicationPolicy,
@@ -97,4 +98,11 @@ test("listing manager and cursor policies are stable", () => {
   assert.equal(canManageMarketplaceListing({ viewerUserId: "a", ownerUserId: "b", viewerRole: UserRole.MEMBER }), false);
   assert.equal(decodeMarketplaceCursor(encodeMarketplaceCursor(48)), 48);
   assert.equal(decodeMarketplaceCursor("invalid"), 0);
+});
+
+test("directory imports are not marketplace records", () => {
+  assert.equal(isMarketplaceDirectoryBridgeRecord({ sourceProfileSync: true, directoryOnly: true }), true);
+  assert.equal(isMarketplaceDirectoryBridgeRecord({ sourceProfileSync: false }), false);
+  assert.equal(isMarketplaceDirectoryBridgeRecord({ qualificationsAttested: true }), false);
+  assert.equal(isMarketplaceDirectoryBridgeRecord(null), false);
 });
