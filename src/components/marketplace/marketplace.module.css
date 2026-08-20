@@ -133,6 +133,16 @@
   border-bottom: 1px solid var(--line);
 }
 
+.locationQuickFilter { align-items: center; display: flex; gap: 8px; margin-top: 10px; max-width: 620px; position: relative; }
+.locationQuickFilter > svg { color: var(--gold); flex: 0 0 auto; }
+.locationQuickInput { flex: 1 1 260px; min-width: 0; position: relative; }
+.locationQuickInput .field { width: 100%; }
+.locationSuggestions { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 12px 24px color-mix(in srgb, var(--ink) 18%, transparent); display: grid; left: 0; overflow: hidden; position: absolute; right: 0; top: calc(100% + 5px); z-index: 12; }
+.locationSuggestions button { align-items: baseline; background: transparent; border: 0; color: var(--text); cursor: pointer; display: flex; gap: 8px; padding: 9px 11px; text-align: left; }
+.locationSuggestions button:hover, .locationSuggestions button:focus-visible { background: var(--surface-hover); outline: none; }
+.locationSuggestions span { color: var(--muted); font-size: .82rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srOnly { clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; }
+
 .directoryLayout {
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr);

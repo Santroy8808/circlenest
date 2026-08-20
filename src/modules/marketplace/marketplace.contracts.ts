@@ -62,18 +62,13 @@ export const marketplacePublisherSchema = z
 
 export const marketplaceLocationSchema = z
   .object({
-    countryCode: z.string().trim().length(2).transform((value) => value.toUpperCase()).optional().nullable(),
+    countryCode: z.string().trim().length(2, "Choose the country where this listing is available.").transform((value) => value.toUpperCase()),
     region: optionalTrimmed(100),
     city: optionalTrimmed(100),
     postalArea: optionalTrimmed(24),
     exactAddress: optionalTrimmed(300),
     remote: z.boolean().default(false),
     deliveryAvailable: z.boolean().default(false),
-  })
-  .superRefine((location, context) => {
-    if (!location.remote && !location.countryCode) {
-      context.addIssue({ code: "custom", path: ["countryCode"], message: "Choose a country or mark the listing remote." });
-    }
   });
 
 export const marketplaceContactSchema = z

@@ -6,6 +6,7 @@ import type { MarketplaceListingCardView } from "@/modules/marketplace/marketpla
 import { MARKETPLACE_TEMPLATES } from "@/modules/marketplace/marketplace-templates";
 import { MarketplaceCard } from "./marketplace-card";
 import { MarketplaceCategoryTree } from "./marketplace-category-tree";
+import { MarketplaceLocationFilter } from "./marketplace-location-filter";
 import styles from "./marketplace.module.css";
 
 type DirectoryQuery = Record<string, string | undefined>;
@@ -65,6 +66,7 @@ export function MarketplaceDirectory({
                 </select>
                 <button className={styles.primaryButton} type="submit"><Search aria-hidden="true" />Search</button>
               </div>
+              <MarketplaceLocationFilter query={query} />
               {query.kind ? <input name="kind" type="hidden" value={query.kind} /> : null}
               {query.view ? <input name="view" type="hidden" value={query.view} /> : null}
               <details className={styles.filterDetails}>

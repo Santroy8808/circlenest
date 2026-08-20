@@ -41,6 +41,14 @@ test("listing contracts reject an incomplete public disclosure and invalid price
   assert.equal(result.success, false);
 });
 
+test("listing contracts require a country even when a listing is remote", () => {
+  const result = marketplaceListingInputSchema.safeParse({
+    ...baseListing,
+    location: { remote: true },
+  });
+  assert.equal(result.success, false);
+});
+
 test("every listing kind has a versioned template and attribute validator", () => {
   assert.deepEqual(Object.keys(MARKETPLACE_TEMPLATES).sort(), ["AUDITOR", "GOODS", "JOB", "RENTAL", "SERVICE", "VEHICLE"]);
   assert.equal(MARKETPLACE_ATTRIBUTE_SCHEMAS.VEHICLE.parse({ year: 2022, make: "Ford", model: "F-150", mileage: 20_000 }).year, 2022);

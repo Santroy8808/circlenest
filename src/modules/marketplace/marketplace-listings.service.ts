@@ -404,12 +404,14 @@ export async function publishMarketplaceListing(userId: string, listingId: strin
       priceMaxCents: listing.priceMaxCents,
       currency: listing.currency,
       publisher: { kind: listing.publisherKind, businessProfileId: listing.businessProfileId, auditorProfileId: listing.auditorProfileId },
-      location: { countryCode: listing.countryCode, region: listing.region, city: listing.city, postalArea: listing.postalArea, exactAddress: listing.exactAddress, remote: listing.remote, deliveryAvailable: listing.deliveryAvailable },
+      location: { countryCode: listing.countryCode ?? "", region: listing.region, city: listing.city, postalArea: listing.postalArea, exactAddress: listing.exactAddress, remote: listing.remote, deliveryAvailable: listing.deliveryAvailable },
       contact: { email: listing.contactEmail, phone: listing.contactPhone, website: listing.contactWebsite, instructions: listing.contactInstructions, showEmail: listing.showEmail, showPhone: listing.showPhone, showWebsite: listing.showWebsite, showExactAddress: listing.showExactAddress, allowInAppMessages: listing.allowInAppMessages },
       mediaAssetIds: [],
       primaryMediaAssetId: null,
     };
-    const policyError = validateMarketplacePublicationPolicy(publicationInput);
+    const normalized = normalizeListingInput(publicationInput);
+    if (!normalized.ok) return normalized;
+    const policyError = validateMarketplacePublicationPolicy(normalized.listing);
     if (policyError) return { ok: false as const, error: policyError };
     const limit = await assertMarketplacePublishLimit(transaction, listing.ownerUserId, actor.user.role, listing.id);
     if (!limit.ok) return limit;
