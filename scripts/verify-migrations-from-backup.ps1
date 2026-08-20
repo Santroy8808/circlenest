@@ -118,24 +118,28 @@ try {
 SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = 'public';
 SELECT count(*) FROM "PlatformCostRule" WHERE "key" LIKE 'marketplace.%';
 SELECT count(*) FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'PlatformCostSubject' AND e.enumlabel LIKE 'MARKETPLACE_%';
-SELECT count(*) FROM "FeatureFlag" WHERE "key" = 'marketplace.focused_rollout' AND "enabled" = false;
-SELECT count(*) FROM "_prisma_migrations" WHERE migration_name IN ('20260820120000_marketplace_first', '20260820143000_marketplace_auditor_directory_bridge', '20260820150000_marketplace_cost_rules') AND finished_at IS NOT NULL AND rolled_back_at IS NULL;
+SELECT count(*) FROM "FeatureFlag" WHERE "key" = 'marketplace.focused_rollout';
+SELECT count(*) FROM "_prisma_migrations" WHERE migration_name IN ('20260820120000_marketplace_first', '20260820143000_marketplace_auditor_directory_bridge', '20260820150000_marketplace_cost_rules', '20260820160000_retire_directory_bridge_listings') AND finished_at IS NOT NULL AND rolled_back_at IS NULL;
+SELECT count(*) FROM "MarketplaceListing" WHERE "status" = 'ACTIVE' AND "attributes" ->> 'sourceProfileSync' = 'true';
+SELECT count(*) FROM "AuditorProfile" WHERE "active" = true AND "isOfficial" = true;
 '@
   $verificationSqlPath = Join-Path $verificationRoot "verify.sql"
   $verificationSql | Set-Content -LiteralPath $verificationSqlPath -Encoding ASCII
   $verificationOutput = @(Invoke-Checked -Executable $psql -Arguments @("--tuples-only", "--no-align", "--quiet", "--set=ON_ERROR_STOP=1", "--file=$verificationSqlPath", $nativeDatabaseUrl) -Operation "Inspect migrated production copy")
   $values = @($verificationOutput | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
-  if ($values.Count -ne 5) {
+  if ($values.Count -ne 7) {
     throw "Migration verification returned an unexpected result set."
   }
 
   $publicTables = [int]$values[0]
   $costRules = [int]$values[1]
   $costSubjects = [int]$values[2]
-  $disabledFlag = [int]$values[3]
+  $rolloutFlag = [int]$values[3]
   $completedMigrations = [int]$values[4]
-  if ($publicTables -lt 160 -or $costRules -ne 4 -or $costSubjects -ne 4 -or $disabledFlag -ne 1 -or $completedMigrations -ne 3) {
-    throw "Migration assertions failed: tables=$publicTables costRules=$costRules costSubjects=$costSubjects disabledFlag=$disabledFlag completedMigrations=$completedMigrations."
+  $activeDirectoryBridgeListings = [int]$values[5]
+  $activeOfficialDirectoryProfiles = [int]$values[6]
+  if ($publicTables -lt 160 -or $costRules -ne 4 -or $costSubjects -ne 4 -or $rolloutFlag -ne 1 -or $completedMigrations -ne 4 -or $activeDirectoryBridgeListings -ne 0 -or $activeOfficialDirectoryProfiles -lt 1) {
+    throw "Migration assertions failed: tables=$publicTables costRules=$costRules costSubjects=$costSubjects rolloutFlag=$rolloutFlag completedMigrations=$completedMigrations activeDirectoryBridgeListings=$activeDirectoryBridgeListings activeOfficialDirectoryProfiles=$activeOfficialDirectoryProfiles."
   }
   $verificationPassed = $true
 
@@ -145,8 +149,10 @@ SELECT count(*) FROM "_prisma_migrations" WHERE migration_name IN ('202608201200
     publicTables = $publicTables
     marketplaceCostRules = $costRules
     marketplaceCostSubjects = $costSubjects
-    rolloutFlagDisabled = ($disabledFlag -eq 1)
+    rolloutFlagPresent = ($rolloutFlag -eq 1)
     completedMarketplaceMigrations = $completedMigrations
+    activeDirectoryBridgeListings = $activeDirectoryBridgeListings
+    activeOfficialDirectoryProfiles = $activeOfficialDirectoryProfiles
   } | ConvertTo-Json -Compress
 } finally {
   if ($clusterStarted) {

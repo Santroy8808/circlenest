@@ -232,7 +232,7 @@ export const tutorialSteps: TutorialStep[] = [
     id: "market",
     section: "market",
     title: "Marketplace",
-    description: "Marketplace is the main place to find or publish offers and wanted requests for goods, vehicles, rentals, services, jobs, and auditors.",
+    description: "Marketplace is the main place to find or publish account-created offers and wanted requests for goods, vehicles, rentals, services, jobs, and auditing services.",
     page: "/marketplace",
     target: "control-marketplace"
   },
@@ -247,9 +247,9 @@ export const tutorialSteps: TutorialStep[] = [
   {
     id: "auditors",
     section: "market",
-    title: "Find Jobs And Auditors",
-    description: "Jobs and auditor services are Marketplace listing types. Choose the matching type filter to narrow the same searchable directory.",
-    page: "/marketplace",
+    title: "Find Churches And Auditors",
+    description: "Use the dedicated directory to search churches, advanced organizations, field auditors, and field groups. These reference records are separate from Marketplace listings.",
+    page: "/auditors",
     target: "control-marketplace"
   },
   {

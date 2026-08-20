@@ -119,7 +119,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   },
   {
     term: "Auditor Directory",
-    definition: "A directory for finding auditors. Members can browse visible auditor profiles, and accounts with auditor-profile access can create or update their own directory profile."
+    definition: "A searchable reference directory for churches, advanced organizations, field auditors, and field groups. Directory records are separate from member-created Marketplace listings."
   },
   {
     term: "Storage",
@@ -558,7 +558,7 @@ export const usersManualSections: UsersManualSection[] = [
         href: "/marketplace",
         purpose: "Search all current offers and wanted requests in one directory.",
         howToUse: ["Open Marketplace.", "Choose Offers, Wanted, or All.", "Choose a listing type or enter keywords.", "Filter by category, location, remote availability, or price.", "Choose newest, price, or relevance sorting, then open a card for complete details."],
-        limits: ["Listings are created by members or synchronized from approved directory records.", "Theta-Space does not inspect every item or process buyer-to-seller payments.", "Only information the publisher chose to show appears publicly."],
+        limits: ["Marketplace listings are intentionally created by account holders; church and auditor reference records remain in the separate Auditor Directory.", "Theta-Space does not inspect every item or process buyer-to-seller payments.", "Only information the publisher chose to show appears publicly."],
         faq: [
           {
             question: "What is the difference between Offer and Wanted?",
@@ -610,7 +610,7 @@ export const usersManualSections: UsersManualSection[] = [
         href: "/marketplace/manage",
         purpose: "Review the status and activity of every listing you published or saved as a draft.",
         howToUse: ["Open My Listings.", "Switch between current listings and all statuses.", "Use grid or compact view.", "Open Edit to change details or media.", "Pause, publish, reserve, fulfill, renew, or archive a listing with the matching action."],
-        limits: ["Listings normally expire after the configured listing period and can be renewed.", "Official directory listings are maintained from their approved directory record.", "Archived listings do not appear in public search."],
+        limits: ["Listings normally expire after the configured listing period and can be renewed.", "Directory records do not appear in My Listings because they are not marketplace posts.", "Archived listings do not appear in public search."],
         faq: [
           {
             question: "What should I do when an item is no longer available?",
@@ -668,11 +668,11 @@ export const usersManualSections: UsersManualSection[] = [
         }
       },
       {
-        title: "Auditor Listings and Legacy Archive",
+        title: "Auditor Directory and Legacy Archive",
         href: "/marketplace/legacy",
-        purpose: "Understand how approved auditor directory records and listings from the earlier Market and Jobs tools are preserved.",
-        howToUse: ["Search Marketplace and choose Auditors to find approved practices and member auditor listings.", "Official active directory profiles are synchronized into Marketplace without deleting the original record.", "Open Legacy Listings when you need to view an older Market or Job entry.", "Create all new offers and wanted requests in Marketplace."],
-        limits: ["Official auditor listings are maintained from their approved directory source.", "Member-created auditor offers require a qualification attestation.", "Legacy entries are read-only in the archive and are not silently discarded."],
+        purpose: "Understand the separation between directory reference records, member-created auditor offers, and listings from the earlier Market and Jobs tools.",
+        howToUse: ["Open Find an Auditor to search churches, advanced organizations, field auditors, and field groups.", "Use the Auditing Marketplace filter only for offers or wanted requests intentionally posted by account holders.", "Open Legacy Listings when you need to view an older Market or Job entry.", "Create all new offers and wanted requests in Marketplace."],
+        limits: ["Directory records are not marketplace listings and never appear in the marketplace grid by default.", "A church or auditor can create an account and intentionally publish its own listing.", "Member-created auditor offers require a qualification attestation.", "Legacy entries are read-only in the archive and are not silently discarded."],
         faq: [
           {
             question: "Why is an old listing not in My Listings?",
@@ -685,8 +685,8 @@ export const usersManualSections: UsersManualSection[] = [
         ],
         visual: {
           title: "Directory and archive reference",
-          caption: "Current auditor discovery is part of Marketplace; earlier Market and Job records remain available in a read-only archive.",
-          callouts: ["Filter for Auditors.", "Use current Marketplace listings.", "Open Legacy Listings for history."]
+          caption: "The Auditor Directory handles reference searches; account-created offers belong in Marketplace; earlier Market and Job records remain in a read-only archive.",
+          callouts: ["Search the Auditor Directory.", "Use Marketplace for account-created listings.", "Open Legacy Listings for history."]
         }
       }
     ]
