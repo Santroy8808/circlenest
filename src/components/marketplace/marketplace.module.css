@@ -26,7 +26,7 @@
 .cardEyebrow,
 .sectionLabel {
   margin: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: .74rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -84,7 +84,7 @@
 .secondaryButton {
   background: color-mix(in srgb, var(--panel) 82%, transparent);
   border-color: color-mix(in srgb, var(--gold) 36%, var(--control-border));
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .primaryButton:hover,
@@ -287,7 +287,7 @@
   width: 100%;
   height: 100%;
   place-items: center;
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .cardPlaceholder svg {
@@ -381,7 +381,7 @@
 }
 
 .cardFooter strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: .9rem;
 }
 
@@ -428,7 +428,7 @@
   width: 38px;
   height: 38px;
   margin: 0 auto 12px;
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .loadMore {
@@ -484,7 +484,7 @@
 }
 
 .detailMediaEmpty {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.1rem;
   font-weight: 800;
 }
@@ -534,7 +534,7 @@
   border-bottom: 1px solid var(--line);
 }
 
-.detailMeta strong { color: var(--gold); font-size: 1.18rem; }
+.detailMeta strong { color: var(--gold-text); font-size: 1.18rem; }
 .detailMeta span { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .detailMeta svg { width: 17px; height: 17px; }
 
@@ -591,8 +591,8 @@
 
 .publisherPanel p,
 .actionPanel p { margin: 0; color: var(--muted); line-height: 1.45; }
-.actionPanel > strong { color: var(--gold); font-size: 1.18rem; }
-.rating { display: flex; align-items: center; gap: 6px; color: var(--gold) !important; }
+.actionPanel > strong { color: var(--gold-text); font-size: 1.18rem; }
+.rating { display: flex; align-items: center; gap: 6px; color: var(--gold-text) !important; }
 .rating svg { width: 16px; height: 16px; }
 
 .contactLink,
@@ -607,7 +607,7 @@
 }
 
 .contactLink svg,
-.reportLink svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--gold); }
+.reportLink svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--gold-text); }
 .reportLink { padding: 7px 2px; color: var(--muted); font-size: .82rem; }
 .safetyNote { margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
 
@@ -786,7 +786,7 @@
 }
 
 .intentChoices svg,
-.kindChoices svg { width: 30px; height: 30px; grid-row: 1 / span 2; color: var(--gold); stroke-width: 1.5; }
+.kindChoices svg { width: 30px; height: 30px; grid-row: 1 / span 2; color: var(--gold-text); stroke-width: 1.5; }
 .intentChoices strong,
 .kindChoices strong { font-size: .98rem; }
 .intentChoices span,
@@ -855,7 +855,7 @@
 }
 
 .dropzoneActive { border-style: solid; background: color-mix(in srgb, var(--gold) 12%, var(--panel)); }
-.dropzone svg { width: 30px; height: 30px; color: var(--gold); }
+.dropzone svg { width: 30px; height: 30px; color: var(--gold-text); }
 .dropzone span { color: var(--muted); font-size: .8rem; }
 .dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
@@ -926,7 +926,7 @@
 }
 
 .statsStrip div:not(:last-child) { border-right: 1px solid var(--line); }
-.statsStrip strong { color: var(--gold); font-size: 1.25rem; }
+.statsStrip strong { color: var(--gold-text); font-size: 1.25rem; }
 .statsStrip span { color: var(--muted); font-size: .78rem; }
 
 .managerToolbar {
@@ -962,7 +962,7 @@
   place-items: center;
   border-radius: 4px;
   background: var(--panel-soft);
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: .7rem;
   font-weight: 800;
 }
@@ -999,7 +999,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 50%;
   background: var(--panel-soft);
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 800;
 }
 
@@ -1027,7 +1027,7 @@
 }
 
 .confirmationStatus svg, .reviewedBadge svg { width: 14px; height: 14px; }
-.confirmationStatus .confirmed, .reviewedBadge { color: var(--gold); }
+.confirmationStatus .confirmed, .reviewedBadge { color: var(--gold-text); }
 
 .reviewForm {
   display: grid;
@@ -1055,7 +1055,7 @@
 }
 
 .savedSectionHeader h2 { margin: 4px 0 0; font-size: 1.2rem; letter-spacing: 0; }
-.savedSectionHeader > span { display: grid; min-width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--gold); font-size: .78rem; font-weight: 800; }
+.savedSectionHeader > span { display: grid; min-width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--gold-text); font-size: .78rem; font-weight: 800; }
 
 .savedSearchForm {
   display: grid;
@@ -1078,7 +1078,7 @@
   background: var(--panel);
 }
 
-.savedSearchIcon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: var(--panel-soft); color: var(--gold); }
+.savedSearchIcon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: var(--panel-soft); color: var(--gold-text); }
 .savedSearchIcon svg { width: 17px; height: 17px; }
 .savedSearchList h3 { margin: 0; font-size: .9rem; letter-spacing: 0; }
 .savedSearchList p, .savedEmpty { margin: 3px 0 0; color: var(--muted); font-size: .76rem; }
@@ -1098,7 +1098,7 @@
   background: var(--panel);
 }
 
-.archiveList article > svg { width: 20px; height: 20px; justify-self: center; color: var(--gold); }
+.archiveList article > svg { width: 20px; height: 20px; justify-self: center; color: var(--gold-text); }
 .archiveList h3 { margin: 2px 0; font-size: .9rem; letter-spacing: 0; }
 .archiveList h3 a { color: var(--text); text-decoration: none; }
 .archiveList p:last-child { overflow: hidden; margin: 0; color: var(--muted); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }

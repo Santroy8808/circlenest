@@ -14,6 +14,7 @@
   --text: #dbe2ee;
   --muted: #aab4c3;
   --gold: #ffd85f;
+  --gold-text: #ffd85f;
   --blue: #3f73ff;
   --green: #56d98b;
   --red: #ff7474;
@@ -34,6 +35,7 @@ html.theta-theme-light {
   --text: #18202b;
   --muted: #526070;
   --gold: #805e15;
+  --gold-text: #9a7120;
   --blue: #2957d8;
   --green: #167348;
   --red: #b4232d;
@@ -174,7 +176,7 @@ a {
 }
 
 .theta-loading-symbol {
-  color: var(--gold);
+  color: var(--gold-text);
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 800;
   line-height: 1;
@@ -216,7 +218,7 @@ a {
 }
 
 .theta-loading-label {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 800;
   line-height: 1.1;
 }
@@ -373,7 +375,7 @@ a {
   background: rgba(17, 24, 36, 0.92);
   border: 1px solid rgba(214, 178, 74, 0.26);
   border-radius: 16px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-weight: 900;
@@ -390,7 +392,7 @@ a {
   background: rgba(17, 24, 36, 0.92);
   border: 1px solid rgba(214, 178, 74, 0.26);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 0.78rem;
@@ -438,7 +440,7 @@ a {
   background: rgba(17, 24, 36, 0.92);
   border: 1px solid var(--control-border);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font: inherit;
   font-weight: 900;
@@ -465,7 +467,7 @@ a {
   background: color-mix(in srgb, var(--panel-soft) 84%, transparent);
   border: 1px solid color-mix(in srgb, var(--gold) 10%, var(--control-border));
   border-radius: 14px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   font-size: 0.78rem;
   font-weight: 900;
@@ -502,7 +504,7 @@ a {
   box-shadow:
     inset 0 0 0 2px rgba(255, 216, 95, 0.08),
     0 0 7px rgba(255, 216, 95, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   filter: drop-shadow(0 0 4px rgba(255, 216, 95, 0.22));
   height: 50px;
@@ -598,7 +600,7 @@ a {
 .desktop-command-summary strong {
   background: transparent;
   border-radius: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   font-size: 0.72rem;
   font-weight: 800;
@@ -638,7 +640,7 @@ a {
 .desktop-command-login {
   border: 1px solid rgba(214, 178, 74, 0.3);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   background: color-mix(in srgb, var(--panel-soft) 82%, transparent);
   font-weight: 900;
   padding: 10px 16px;
@@ -676,7 +678,7 @@ a {
     #172133;
   border: 1px solid rgba(214, 178, 74, 0.34);
   border-radius: 20px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   flex: 0 0 auto;
   font-weight: 900;
@@ -745,7 +747,7 @@ a {
   border: 1px solid rgba(214, 178, 74, 0.14);
   border-radius: 16px;
   background: rgba(17, 24, 36, 0.38);
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   display: flex;
   font-size: 0.78rem;
@@ -1046,7 +1048,7 @@ a {
   background: rgba(63, 115, 255, 0.18);
   border: 1px solid rgba(214, 178, 74, 0.24);
   border-radius: 14px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 0.9rem;
@@ -1130,7 +1132,7 @@ a {
 }
 
 .home-login-alert > span:first-child {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.9rem;
   font-weight: 950;
   letter-spacing: 0.26em;
@@ -1267,7 +1269,7 @@ a {
 }
 
 .home-comm-kicker {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 950;
   letter-spacing: 0.2em;
@@ -1319,7 +1321,7 @@ a {
 }
 
 .home-comm-close {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .home-comm-list-panel {
@@ -1415,7 +1417,7 @@ a {
 }
 
 .home-comm-result-heading {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.75rem;
   font-weight: 900;
   margin: 0;
@@ -1540,7 +1542,7 @@ a {
 }
 
 .home-comm-message.is-notice .home-comm-message-author {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.74rem;
   font-weight: 950;
   letter-spacing: 0.12em;
@@ -1625,7 +1627,7 @@ a {
   align-items: center;
   border: 1px solid rgba(214, 178, 74, 0.32);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 0.78rem;
@@ -1703,7 +1705,7 @@ a {
 .pill {
   border: 1px solid rgba(214, 178, 74, 0.26);
   background: rgba(214, 178, 74, 0.08);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .auth-layout {
@@ -1771,7 +1773,7 @@ a {
 }
 
 .signup-theme-option-head strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1rem;
 }
 
@@ -1786,7 +1788,7 @@ a {
 
 .signup-theme-option.is-selected .signup-theme-option-head span {
   background: rgba(255, 216, 95, 0.18);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .signup-theme-preview {
@@ -1838,7 +1840,7 @@ a {
 }
 
 .signup-theme-preview-brand {
-  color: var(--gold);
+  color: var(--gold-text);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1rem;
   font-weight: 800;
@@ -1997,7 +1999,7 @@ a {
 }
 
 .form-label {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2165,7 +2167,7 @@ a {
 .progression-eyebrow,
 .progression-node-type,
 .progression-details > div > p {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -2228,7 +2230,7 @@ a {
 
 .progression-status-testing,
 .progression-dot-testing {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .progression-status-in-progress,
@@ -2300,7 +2302,7 @@ a {
 
 .progression-toolbar button[aria-pressed="true"] {
   background: color-mix(in srgb, var(--gold) 17%, var(--panel-soft));
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .progression-zoom button:not(.progression-fit) {
@@ -2443,7 +2445,7 @@ a {
 }
 
 .progression-node-tier strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.42rem;
 }
 
@@ -2511,7 +2513,7 @@ a {
 }
 
 .progression-details li::before {
-  color: var(--gold);
+  color: var(--gold-text);
   content: "θ";
   font-family: Georgia, serif;
   left: 0;
@@ -2661,7 +2663,7 @@ html.theta-theme-light .progression-dot-in-progress {
 
 .conduct-commend-button:hover,
 .conduct-commend-button:focus-visible {
-  color: var(--gold);
+  color: var(--gold-text);
   outline: 1px solid rgba(214, 178, 74, 0.5);
 }
 
@@ -2784,7 +2786,7 @@ html.theta-theme-light .progression-dot-in-progress {
 }
 
 .send-logo-icon::before {
-  color: var(--gold);
+  color: var(--gold-text);
   content: "θ";
   font-size: 1.56rem;
   font-weight: 900;
@@ -2872,7 +2874,7 @@ html.theta-theme-light .progression-dot-in-progress {
 }
 
 .icon-glyph-button span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.25rem;
   line-height: 1;
 }
@@ -2886,7 +2888,7 @@ html.theta-theme-light .progression-dot-in-progress {
   border-radius: 999px;
   background: rgba(17, 24, 36, 0.94);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.88rem;
   font-weight: 800;
   padding: 10px 14px;
@@ -2912,7 +2914,7 @@ html.theta-theme-light .progression-dot-in-progress {
 .background-upload-status {
   border-radius: 999px;
   bottom: 70px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.88rem;
   font-weight: 800;
   padding: 10px 14px;
@@ -3144,7 +3146,7 @@ html.theta-theme-light .progression-dot-in-progress {
   background: rgba(17, 24, 36, 0.82);
   border: 1px solid rgba(214, 178, 74, 0.28);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   display: flex;
   font-weight: 900;
@@ -3195,7 +3197,7 @@ html.theta-theme-light .progression-dot-in-progress {
   appearance: none;
   background: transparent;
   border: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 0.84rem;
@@ -3212,7 +3214,7 @@ html.theta-theme-light .progression-dot-in-progress {
 }
 
 .profile-inline-link {
-  color: var(--gold);
+  color: var(--gold-text);
   text-decoration: none;
 }
 
@@ -3268,7 +3270,7 @@ html.theta-theme-light .progression-dot-in-progress {
 .profile-family-options button:hover,
 .family-choice-popover button:hover {
   background: rgba(214, 178, 74, 0.1);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .profile-relationship-pill,
@@ -3276,7 +3278,7 @@ html.theta-theme-light .progression-dot-in-progress {
   border: 1px solid rgba(214, 178, 74, 0.22);
   border-radius: 999px;
   background: rgba(214, 178, 74, 0.08);
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 700;
   padding: 7px 10px;
@@ -3311,7 +3313,7 @@ html.theta-theme-light .progression-dot-in-progress {
 .profile-header-link {
   border: 1px solid rgba(214, 178, 74, 0.28);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 750;
   padding: 6px 10px;
@@ -3392,7 +3394,7 @@ html.theta-theme-light .progression-dot-in-progress {
 }
 
 .resume-upload-status a {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 750;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4018,7 +4020,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .gallery-comment strong {
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   font-size: 0.9rem;
 }
@@ -4139,7 +4141,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .ad-cost-estimate strong,
 .pricing-rule-card strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.1rem;
 }
 
@@ -4178,7 +4180,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .ad-render-preview-meta strong {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .ad-render-preview-meta small {
@@ -4281,7 +4283,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .ad-wizard-credit-pill strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.2rem;
 }
 
@@ -4312,7 +4314,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .ad-wizard-step span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -4396,7 +4398,7 @@ html.theta-theme-light .gallery-feedback--error {
 .ad-wizard-tip h3,
 .ad-wizard-ab-panel h3,
 .ad-wizard-review-panel h3 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.94rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -4531,7 +4533,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .ad-wizard-edit-grid strong {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .ad-wizard-blockers,
@@ -4657,7 +4659,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .ab-testing-tabs strong {
   background: rgba(214, 178, 74, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .destination-choice-card {
@@ -4710,7 +4712,7 @@ html.theta-theme-light .gallery-feedback--error {
   border: 1px solid rgba(214, 178, 74, 0.24);
   border-radius: 999px;
   background: rgba(214, 178, 74, 0.08);
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   font-size: 0.82rem;
   font-weight: 800;
@@ -4754,7 +4756,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .ad-wizard-selected-tags button {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .ad-wizard-selected-tags span {
@@ -4783,7 +4785,7 @@ html.theta-theme-light .gallery-feedback--error {
 .interest-chip.is-active {
   border-color: rgba(255, 216, 95, 0.72);
   background: rgba(255, 216, 95, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-2px);
 }
 
@@ -4860,7 +4862,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reaction-button:hover {
   border-color: rgba(255, 216, 95, 0.58);
   background: rgba(23, 33, 51, 0.92);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-2px);
 }
 
@@ -4868,7 +4870,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-format-tools button[aria-pressed="true"] {
   border-color: rgba(255, 216, 95, 0.72);
   background: rgba(214, 178, 74, 0.18);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-format-tools button:disabled,
@@ -4910,7 +4912,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-rich-composer-input a {
-  color: var(--gold);
+  color: var(--gold-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -4923,7 +4925,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-picture-glyph {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.25rem;
   line-height: 1;
 }
@@ -5032,7 +5034,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .tier-mark-auditor {
   background: rgba(255, 216, 95, 0.14);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-rich-text {
@@ -5048,11 +5050,11 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-rich-text strong {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-rich-link {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -5064,7 +5066,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-rich-list-line::before {
-  color: var(--gold);
+  color: var(--gold-text);
   content: "•";
   font-weight: 900;
   left: 0.25rem;
@@ -5170,7 +5172,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-thread-more {
   border: 0;
   background: transparent;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-size: 0.88rem;
   font-weight: 800;
@@ -5206,7 +5208,7 @@ html.theta-theme-light .gallery-feedback--error {
   background: rgba(63, 115, 255, 0.18);
   border: 1px solid rgba(214, 178, 74, 0.2);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   flex: 0 0 auto;
   font-size: 0.75rem;
@@ -5232,13 +5234,13 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .comment-inline-meta strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.88rem;
 }
 
 .feed-author-name-link,
 .comment-inline-meta .feed-author-name-link {
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   font-size: 0.94rem;
   font-weight: 700;
@@ -5280,7 +5282,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-author-name-link:hover,
 .feed-author-handle-link:hover {
   border-color: rgba(214, 178, 74, 0.72);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .comment-inline-meta span,
@@ -5297,7 +5299,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .comment-inline-meta button:hover {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .comment-replies {
@@ -5352,7 +5354,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-loop-copy strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.9rem;
 }
 
@@ -5385,7 +5387,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-mode-tab.is-active {
   border-color: rgba(255, 216, 95, 0.52);
   background: rgba(23, 33, 51, 0.9);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
@@ -5455,7 +5457,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-composer-visibility-chip {
   border-color: rgba(255, 216, 95, 0.28);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-post-header-actions {
@@ -5606,7 +5608,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-reserved-ad-body strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.98rem;
   line-height: 1.25;
 }
@@ -5627,7 +5629,7 @@ html.theta-theme-light .gallery-feedback--error {
   border: 1px solid rgba(214, 178, 74, 0.22);
   border-radius: 999px;
   background: rgba(8, 11, 16, 0.28);
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-size: 0.72rem;
   font-weight: 900;
@@ -5647,7 +5649,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-author-line strong {
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   font-size: 1rem;
   line-height: 1.2;
@@ -5665,7 +5667,7 @@ html.theta-theme-light .gallery-feedback--error {
   background: rgba(63, 115, 255, 0.18);
   border: 1px solid rgba(214, 178, 74, 0.2);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 0.78rem;
@@ -5750,7 +5752,7 @@ html.theta-theme-light .gallery-feedback--error {
   align-self: flex-start;
   background: transparent;
   border: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-size: 0.88rem;
   font-weight: 900;
@@ -5836,7 +5838,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-engagement-reaction-chip:hover,
 .feed-engagement-reaction-chip:focus-visible {
-  color: var(--gold);
+  color: var(--gold-text);
   outline: none;
 }
 
@@ -5867,7 +5869,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-engagement-comment-count:hover {
-  color: var(--gold);
+  color: var(--gold-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -5917,7 +5919,7 @@ html.theta-theme-light .gallery-feedback--error {
 .comment-reply-link:hover,
 .comment-share-link:hover {
   background: rgba(23, 33, 51, 0.92);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
@@ -5989,13 +5991,13 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reply-button:hover,
 .feed-share-button:hover {
   background: rgba(255, 216, 95, 0.09);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
 .feed-share-button,
 .comment-share-link {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-reaction-choice {
@@ -6115,7 +6117,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-reaction-trigger.has-user-reaction {
   border-color: rgba(214, 178, 74, 0.18);
   background: rgba(8, 11, 16, 0.24);
-  color: var(--gold);
+  color: var(--gold-text);
   box-shadow: none;
 }
 
@@ -6133,7 +6135,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-reaction-count-trigger:hover {
-  color: var(--gold);
+  color: var(--gold-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -6147,7 +6149,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-reaction-choice.is-selected {
   background: transparent;
-  color: var(--gold);
+  color: var(--gold-text);
   transform: none;
 }
 
@@ -6167,7 +6169,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-reaction-choice-count:hover {
   background: rgba(255, 216, 95, 0.18);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-reaction-details-popover {
@@ -6189,7 +6191,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-reaction-details-popover strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -6256,7 +6258,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .feed-share-popover button:hover {
   background: rgba(255, 216, 95, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-reaction-menu.is-open .feed-reaction-popover {
@@ -6301,7 +6303,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-trust-menu[open] summary,
 .feed-trust-menu summary:hover {
   border-color: rgba(255, 216, 95, 0.52);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-trust-popover {
@@ -6334,7 +6336,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-trust-popover a:hover,
 .feed-trust-popover button:hover {
   background: rgba(23, 33, 51, 0.92);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-comment-preview {
@@ -6419,7 +6421,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-quick-reply-topline span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.8rem;
   font-weight: 900;
 }
@@ -6434,7 +6436,7 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-quick-reply-topline button:hover {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-post.is-stream-card .feed-post-header {
@@ -6468,7 +6470,7 @@ html.theta-theme-light .gallery-feedback--error {
 .feed-post.is-stream-card .feed-reaction-trigger .theta-like-triangle,
 .feed-post.is-stream-card .feed-reply-button,
 .feed-post.is-stream-card .feed-share-button {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-post.is-stream-card .feed-comment-preview {
@@ -6798,12 +6800,12 @@ html.theta-theme-light .gallery-feedback--error {
 }
 
 .feed-reaction-count-chip:hover {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-reaction-count-chip.is-user-reaction {
   background: rgba(214, 178, 74, 0.14);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feed-reaction-count-chip .theta-like-triangle {
@@ -6821,7 +6823,7 @@ html.theta-theme-light .gallery-feedback--error {
   background: rgba(17, 24, 36, 0.46);
   border: 1px solid rgba(214, 178, 74, 0.18);
   border-radius: 16px;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   display: flex;
   font-size: 0.84rem;
@@ -7138,7 +7140,7 @@ html.theta-theme-light .gallery-feedback--error {
 
 .notice-center-tabs button.is-active {
   background: rgba(214, 178, 74, 0.14);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 html.theta-theme-light .notice-center-tabs {
@@ -7191,7 +7193,7 @@ html.theta-theme-light .notice-center-tabs button.is-active {
 .notice-kind-badge {
   border: 1px solid rgba(214, 178, 74, 0.28);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   flex: 0 0 auto;
   font-size: 0.68rem;
   font-weight: 900;
@@ -7410,7 +7412,7 @@ html.theta-theme-light .feedback-fab {
     linear-gradient(135deg, rgba(255, 253, 247, 0.96), rgba(244, 232, 204, 0.92));
   border-color: rgba(156, 118, 34, 0.3);
   box-shadow: 0 12px 28px rgba(104, 76, 22, 0.14);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 html.theta-theme-light .desktop-command-search-button {
@@ -7484,7 +7486,7 @@ html.theta-theme-light .comment-share-link:hover,
 html.theta-theme-light .ad-rail-create-link:hover {
   background: rgba(244, 232, 204, 0.96);
   border-color: rgba(156, 118, 34, 0.5);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 html.theta-theme-light .feed-loop-panel.surface,
@@ -7565,7 +7567,7 @@ html.theta-theme-light .mail-avatar {
     radial-gradient(circle at 35% 25%, rgba(156, 118, 34, 0.18), transparent 4rem),
     linear-gradient(145deg, rgba(255, 253, 247, 0.96), rgba(235, 226, 205, 0.9));
   border-color: rgba(156, 118, 34, 0.32);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 html.theta-theme-light .profile-banner {
@@ -7605,7 +7607,7 @@ html.theta-theme-light .chat-window-avatar {
     radial-gradient(circle at 35% 25%, rgba(156, 118, 34, 0.18), transparent 4rem),
     linear-gradient(145deg, rgba(255, 253, 247, 0.96), rgba(235, 226, 205, 0.9));
   border-color: rgba(156, 118, 34, 0.32);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 html.theta-theme-light .profile-avatar {
@@ -7709,7 +7711,7 @@ html.theta-theme-light .home-login-alert span:last-child {
 
 .android-download-brand {
   align-items: center;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   font-size: 1rem;
   font-weight: 900;
@@ -7737,7 +7739,7 @@ html.theta-theme-light .home-login-alert span:last-child {
 }
 
 .android-download-kicker {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 950;
   letter-spacing: 0.18em;
@@ -7891,7 +7893,7 @@ html.theta-theme-light .home-login-alert span:last-child {
 }
 
 .android-app-summary {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1rem;
   line-height: 1.45;
   margin-top: 22px;
@@ -7958,7 +7960,7 @@ html.theta-theme-light .home-login-alert span:last-child {
   background: color-mix(in srgb, var(--panel) 85%, transparent);
   border: 2px dashed var(--gold);
   border-radius: 8px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   font-weight: 800;
   inset: -6px;
@@ -8061,7 +8063,7 @@ html.theta-theme-light .home-login-alert span:last-child {
 }
 
 .android-download-notes h2 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1rem;
   margin: 0 0 8px;
 }
@@ -8086,7 +8088,7 @@ html.theta-theme-light .home-login-alert span:last-child {
 }
 
 .android-download-footer a {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 800;
 }
 
@@ -8408,7 +8410,7 @@ html.theta-theme-light .chat-message::before {
     linear-gradient(145deg, rgba(35, 52, 82, 0.94), rgba(20, 30, 48, 0.94));
   border: 1px solid rgba(214, 178, 74, 0.25);
   border-radius: 16px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   flex: 0 0 48px;
   font-size: 0.9rem;
@@ -8463,7 +8465,7 @@ html.theta-theme-light .chat-message::before {
 }
 
 .chat-message-reference strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.72rem;
 }
 
@@ -8613,7 +8615,7 @@ html.theta-theme-light .chat-message::before {
 }
 
 .chat-message-action-button.is-quote > span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-family: Georgia, serif;
   font-size: 1.25rem;
   font-weight: 900;
@@ -8680,7 +8682,7 @@ html.theta-theme-light .chat-message::before {
 .chat-message-reaction-chip.is-selected {
   background: rgba(255, 216, 95, 0.16);
   border-color: rgba(255, 216, 95, 0.64);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .chat-media-meta {
@@ -8783,7 +8785,7 @@ html.theta-theme-light .chat-message::before {
 .chat-start-toggle button:hover,
 .chat-group-selected button {
   background: rgba(255, 216, 95, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .chat-group-selected {
@@ -8868,7 +8870,7 @@ html.theta-theme-light .chat-message::before {
     border: 1px solid rgba(214, 178, 74, 0.28);
     border-radius: 999px;
     background: rgba(8, 11, 16, 0.26);
-    color: var(--gold);
+    color: var(--gold-text);
     cursor: pointer;
     display: inline-flex;
     flex: 0 0 auto;
@@ -8881,7 +8883,7 @@ html.theta-theme-light .chat-message::before {
 html.theta-theme-light .chat-window-back {
   background: rgba(255, 250, 240, 0.94);
   border-color: var(--control-border);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .chat-file-message,
@@ -8918,7 +8920,7 @@ html.theta-theme-light .chat-window-back {
 .chat-file-icon {
   border: 1px solid rgba(214, 178, 74, 0.24);
   border-radius: 10px;
-  color: var(--gold);
+  color: var(--gold-text);
   flex: 0 0 auto;
   font-size: 0.72rem;
   font-weight: 800;
@@ -9145,7 +9147,7 @@ html.theta-theme-light .chat-window-back {
 .mail-file-icon {
   border: 1px solid rgba(214, 178, 74, 0.24);
   border-radius: 10px;
-  color: var(--gold);
+  color: var(--gold-text);
   flex: 0 0 auto;
   font-size: 0.72rem;
   font-weight: 800;
@@ -9464,13 +9466,13 @@ html.theta-theme-light .event-card:hover {
 
 .listing-view-option:hover {
   background: rgba(214, 178, 74, 0.1);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
 .listing-view-option.is-active {
   background: rgba(214, 178, 74, 0.18);
-  color: var(--gold);
+  color: var(--gold-text);
   box-shadow: inset 0 0 0 1px rgba(214, 178, 74, 0.38);
 }
 
@@ -9571,7 +9573,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .listing-square-fallback {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: clamp(1.1rem, 3vw, 2rem);
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -9586,7 +9588,7 @@ html.theta-theme-light .listing-view-switcher {
   border: 1px solid rgba(214, 178, 74, 0.35);
   border-radius: 999px;
   background: rgba(8, 11, 16, 0.76);
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 900;
   max-width: calc(100% - 24px);
@@ -9646,7 +9648,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .chat-composer-reply-context strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.76rem;
 }
 
@@ -9660,7 +9662,7 @@ html.theta-theme-light .listing-view-switcher {
 .chat-composer-reply-context > button {
   border: 0;
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-size: 1.35rem;
   height: 36px;
@@ -9723,7 +9725,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .market-management-row-action {
-  color: var(--gold);
+  color: var(--gold-text);
   flex: 0 0 auto;
   font-size: 0.8rem;
   font-weight: 800;
@@ -9752,7 +9754,7 @@ html.theta-theme-light .listing-view-switcher {
     #172133;
   border: 1px solid rgba(214, 178, 74, 0.2);
   border-radius: 10px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   font-size: 0.68rem;
   font-weight: 900;
@@ -9787,7 +9789,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .market-management-row-data span:first-child {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 900;
 }
 
@@ -9819,7 +9821,7 @@ html.theta-theme-light .listing-view-switcher {
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 216, 95, 0.18), transparent 8rem),
     #172133;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   font-size: 0.82rem;
   font-weight: 900;
@@ -9853,7 +9855,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .market-management-card-heading strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.84rem;
 }
 
@@ -9950,7 +9952,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .listing-square-kicker {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.16em;
@@ -10011,7 +10013,7 @@ html.theta-theme-light .listing-view-switcher {
 }
 
 .listing-square-facts strong {
-  color: var(--gold);
+  color: var(--gold-text);
   flex: 0 0 auto;
 }
 
@@ -10218,7 +10220,7 @@ html.theta-theme-light .listing-square-facts {
 }
 
 .market-photo-dropzone strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1rem;
 }
 
@@ -10475,7 +10477,7 @@ html.theta-theme-light .listing-square-facts {
 }
 
 .storefront-forum-post-meta strong {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .storefront-forum-post-body {
@@ -10588,7 +10590,7 @@ html.theta-theme-light .listing-square-facts {
 }
 
 .business-center-nav-card span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -10607,7 +10609,7 @@ html.theta-theme-light .listing-square-facts {
 .business-center-nav-card small {
   align-self: end;
   border-top: 1px solid rgba(214, 178, 74, 0.14);
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 700;
   padding-top: 12px;
 }
@@ -10651,7 +10653,7 @@ html.theta-theme-light .listing-square-facts {
 }
 
 .business-metrics-summary strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.5rem;
 }
 
@@ -10674,7 +10676,7 @@ html.theta-theme-light .listing-square-facts {
 
 .business-metrics-row.is-head {
   background: rgba(214, 178, 74, 0.08);
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 800;
 }
 
@@ -10927,14 +10929,14 @@ html.theta-theme-light .listing-square-facts {
 .rich-text-toolbar button:hover,
 .rich-text-color-control:hover {
   background: rgba(214, 178, 74, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
 .rich-text-toolbar button.is-active {
   background: rgba(214, 178, 74, 0.16);
   border-color: rgba(214, 178, 74, 0.7);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .rich-text-toolbar-icon {
@@ -10961,7 +10963,7 @@ html.theta-theme-light .listing-square-facts {
 .rich-text-toolbar select:hover,
 .rich-text-toolbar select:focus-visible {
   background: rgba(214, 178, 74, 0.1);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .rich-text-toolbar select option {
@@ -11060,7 +11062,7 @@ html.theta-theme-light .listing-square-facts {
 .rich-text-content h3,
 .rich-text-area h2,
 .rich-text-area h3 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 700;
   margin-top: 12px;
 }
@@ -11100,7 +11102,7 @@ html.theta-theme-light .listing-square-facts {
 
 .rich-text-content a,
 .rich-text-area a {
-  color: var(--gold);
+  color: var(--gold-text);
   text-decoration: underline;
 }
 
@@ -11488,7 +11490,7 @@ html.theta-theme-light .auditor-card:hover {
 }
 
 .gethelp-credentials strong {
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   font-size: 1.2rem;
   margin-top: 4px;
@@ -11634,7 +11636,7 @@ html.theta-theme-light .auditor-card:hover {
 }
 
 .admin-hat-titlebar p {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -11694,7 +11696,7 @@ html.theta-theme-light .auditor-card:hover {
 
 .admin-hat-toc-title,
 .admin-hat-eyebrow {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.22em;
@@ -11767,7 +11769,7 @@ html.theta-theme-light .auditor-card:hover {
 .admin-feed-retention-flags b {
   border: 1px solid rgba(255, 216, 95, 0.22);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.72rem;
   padding: 0.22rem 0.5rem;
 }
@@ -11790,7 +11792,7 @@ html.theta-theme-light .auditor-card:hover {
 }
 
 .admin-feed-retention-status dt {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -11837,7 +11839,7 @@ html.theta-theme-light .auditor-card:hover {
 .admin-hat-content h3,
 .admin-hat-content h4,
 .admin-hat-content h5 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 900;
   margin: 0;
 }
@@ -11964,7 +11966,7 @@ html.theta-theme-light .auditor-card:hover {
 
 .users-manual-faq summary:hover,
 .users-manual-faq summary:focus-visible {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .users-manual-faq p {
@@ -12013,7 +12015,7 @@ html.theta-theme-light .auditor-card:hover {
 }
 
 .admin-hat-figure-heading {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 900;
 }
 
@@ -12210,7 +12212,7 @@ html.theta-theme-light .admin-hat-figure {
     #20304a;
   border: 1px solid rgba(214, 178, 74, 0.24);
   border-radius: 18px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   font-size: 1.35rem;
   font-weight: 900;
@@ -12645,7 +12647,7 @@ html.theta-android-app.theta-menu-open .side-nav {
   border-radius: 999px;
   background: rgba(17, 24, 36, 0.94);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.34);
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font: inherit;
   font-size: 0.78rem;
@@ -12847,7 +12849,7 @@ body.theta-android-app .feedback-fab,
   border: 1px solid rgba(214, 178, 74, 0.28);
   border-radius: 999px;
   background: rgba(8, 11, 16, 0.26);
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   display: inline-flex;
   font-weight: 900;
@@ -12933,7 +12935,7 @@ html.theta-theme-light .chat-window-avatar {
     radial-gradient(circle at 35% 25%, rgba(156, 118, 34, 0.18), transparent 4rem),
     linear-gradient(145deg, rgba(255, 253, 247, 0.96), rgba(235, 226, 205, 0.9));
   border-color: rgba(156, 118, 34, 0.32);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 html.theta-theme-light .chat-message {
@@ -13045,7 +13047,7 @@ html.theta-theme-light .global-tooltip::after {
 
 html.theta-theme-light .desktop-command-summary strong {
   background: transparent;
-  color: var(--gold);
+  color: var(--gold-text);
   text-shadow: none;
 }
 
@@ -13170,7 +13172,7 @@ html.theta-theme-light .pill-alert {
 .android-shortcut-card:hover,
 .android-full-drawer-button:hover {
   background: rgba(255, 216, 95, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
@@ -13241,7 +13243,7 @@ html.theta-theme-light .pill-alert {
   background: rgba(255, 216, 95, 0.08);
   border: 1px solid rgba(255, 216, 95, 0.34);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   font-family: var(--font-mono), "Courier New", monospace;
   font-size: 0.68rem;
@@ -13294,7 +13296,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .admin-object-result code {
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-block;
   font-size: 0.78rem;
   margin-top: 8px;
@@ -13428,7 +13430,7 @@ html.theta-theme-light .pill-alert {
 
 .dashboard-kicker,
 .dashboard-widget-header > div > p {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.76rem;
   font-weight: 850;
   letter-spacing: 0.18em;
@@ -13481,14 +13483,14 @@ html.theta-theme-light .pill-alert {
 .dashboard-layout-picker button:hover,
 .dashboard-layout-picker button:focus-visible {
   background: rgba(214, 178, 74, 0.12);
-  color: var(--gold);
+  color: var(--gold-text);
   outline: none;
 }
 
 .dashboard-layout-picker button.is-selected {
   background: rgba(214, 178, 74, 0.2);
   box-shadow: inset 0 0 0 1px rgba(214, 178, 74, 0.42);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .dashboard-status {
@@ -13570,7 +13572,7 @@ html.theta-theme-light .pill-alert {
   background: transparent;
   border: 1px dashed rgba(214, 178, 74, 0.42);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: grab;
   font: inherit;
   font-size: 0.76rem;
@@ -13623,7 +13625,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .dashboard-widget-row > b {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.74rem;
   margin-left: auto;
   max-width: 92px;
@@ -13652,7 +13654,7 @@ html.theta-theme-light .pill-alert {
 
 .dashboard-widget-thumb span,
 .dashboard-widget-thread-mark {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.72rem;
   font-weight: 850;
 }
@@ -13749,7 +13751,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .dashboard-business-summary strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.2rem;
 }
 
@@ -13759,7 +13761,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .dashboard-business-summary a {
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 800;
   width: fit-content;
 }
@@ -13787,7 +13789,7 @@ html.theta-theme-light .pill-alert {
   background: var(--panel-soft);
   border: 1px solid var(--line-strong);
   border-radius: 5px;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -13834,7 +13836,7 @@ html.theta-theme-light .pill-alert {
 .dashboard-widget-picker-menu button:focus-visible,
 .dashboard-widget-picker-menu button.is-selected {
   background: color-mix(in srgb, var(--gold) 18%, var(--panel-soft));
-  color: var(--gold);
+  color: var(--gold-text);
   outline: none;
 }
 
@@ -13859,7 +13861,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .public-jobs-brand {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.02rem;
   font-weight: 900;
   letter-spacing: 0.09em;
@@ -13875,7 +13877,7 @@ html.theta-theme-light .pill-alert {
 
 .public-jobs-hero > p,
 .public-job-detail-main > p:first-child {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.82rem;
   font-weight: 850;
   letter-spacing: 0.18em;
@@ -13944,7 +13946,7 @@ html.theta-theme-light .pill-alert {
 
 .public-job-card-image > span,
 .public-job-detail-image > span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.86rem;
   font-weight: 850;
   letter-spacing: 0.15em;
@@ -13971,7 +13973,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .public-job-card-content > p {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.74rem;
   font-weight: 850;
   letter-spacing: 0.12em;
@@ -13986,7 +13988,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .public-job-card-content h2 a:hover {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .public-job-card-content > span,
@@ -14007,7 +14009,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .public-job-card-content footer b {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.8rem;
 }
 
@@ -14052,7 +14054,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .public-job-detail-main > strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1.4rem;
 }
 
@@ -14075,7 +14077,7 @@ html.theta-theme-light .pill-alert {
 
 .public-job-detail-sections h2,
 .public-job-contact h2 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1rem;
   margin: 0;
 }
@@ -14095,7 +14097,7 @@ html.theta-theme-light .pill-alert {
 }
 
 .public-job-contact a {
-  color: var(--gold);
+  color: var(--gold-text);
   overflow-wrap: anywhere;
 }
 
@@ -14357,7 +14359,7 @@ html.theta-theme-light .pill-alert {
 .in-app-image-viewer-close:hover,
 .in-app-image-viewer-close:focus-visible {
   border-color: var(--gold);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .in-app-image-viewer-caption {
@@ -14616,7 +14618,7 @@ body,
 }
 
 .gallery-photo-options-kicker {
-  color: var(--gold);
+  color: var(--gold-text);
   display: block;
   font-size: 0.82rem;
   font-weight: 800;
@@ -14636,7 +14638,7 @@ body,
   align-items: center;
   border: 1px solid rgba(214, 178, 74, 0.38);
   border-radius: 999px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 1.25rem;
@@ -14744,14 +14746,14 @@ body,
 .gallery-reaction-button:focus-visible {
   background: rgba(255, 216, 95, 0.1);
   border-color: rgba(255, 216, 95, 0.58);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
 .gallery-reaction-button.is-selected {
   background: linear-gradient(135deg, rgba(255, 216, 95, 0.18), rgba(63, 115, 255, 0.14));
   border-color: rgba(255, 216, 95, 0.64);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .gallery-reaction-button strong {
@@ -14816,12 +14818,12 @@ body,
 .gallery-comment-action-button:focus-visible {
   background: rgba(255, 216, 95, 0.1);
   border-color: rgba(255, 216, 95, 0.56);
-  color: var(--gold);
+  color: var(--gold-text);
   transform: translateY(-1px);
 }
 
 .gallery-comment-action-button.is-share {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .gallery-comment-replies {
@@ -14852,13 +14854,13 @@ body,
 }
 
 .gallery-reply-context strong {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .gallery-reply-context button {
   background: transparent;
   border: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 900;
@@ -15123,7 +15125,7 @@ body,
 }
 
 .carousel-guidance h3 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 1rem;
   font-weight: 800;
 }
@@ -15157,7 +15159,7 @@ body,
   border: 1px solid var(--gold);
   border-radius: 999px;
   background: rgba(7, 12, 20, 0.82);
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 2rem;
   line-height: 1;
 }
@@ -15193,7 +15195,7 @@ body,
   border-radius: 999px;
   background: rgba(7, 12, 20, 0.78);
   padding: 0.3rem 0.55rem;
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -15241,7 +15243,7 @@ body,
 
 .tutorial-kicker,
 .tutorial-panel-topline span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.18em;
@@ -15250,7 +15252,7 @@ body,
 
 .tutorial-welcome-card h2,
 .tutorial-panel h2 {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: clamp(1.55rem, 3vw, 2.15rem);
   font-weight: 850;
   line-height: 1.12;
@@ -15325,7 +15327,7 @@ body,
 .tutorial-contents-section button {
   background: transparent;
   border: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-weight: 850;
   padding: 0;
@@ -15442,7 +15444,7 @@ body,
 }
 
 .tutorial-icon-definitions dt {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -15495,7 +15497,7 @@ body,
   background: rgba(17, 24, 36, 0.86);
   border: 1px solid rgba(214, 178, 74, 0.26);
   border-radius: 6px;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   font-size: 0.68rem;
   font-weight: 900;
@@ -15651,7 +15653,7 @@ html.theta-theme-light .tutorial-panel {
 .feedback-modal-header p,
 .admin-tickets-eyebrow,
 .user-feedback-header p {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -15678,7 +15680,7 @@ html.theta-theme-light .tutorial-panel {
 .feedback-modal-close:hover,
 .feedback-context-refresh:hover {
   border-color: var(--line-strong);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .feedback-modal-body {
@@ -15720,7 +15722,7 @@ html.theta-theme-light .tutorial-panel {
 .feedback-context-refresh {
   background: transparent;
   border: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 700;
@@ -16053,7 +16055,7 @@ html.theta-theme-light .tutorial-panel {
 .ticket-open-button {
   background: transparent;
   border: 0;
-  color: var(--gold);
+  color: var(--gold-text);
   cursor: pointer;
   font: inherit;
   font-weight: 850;
@@ -16094,7 +16096,7 @@ html.theta-theme-light .tutorial-panel {
 .ticket-signal {
   border: 1px solid rgba(214, 178, 74, 0.45);
   border-radius: 4px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.65rem;
   font-weight: 800;
   padding: 2px 4px;
@@ -16147,7 +16149,7 @@ html.theta-theme-light .tutorial-panel {
 }
 
 .ticket-drawer-header p {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.76rem;
   font-weight: 850;
   margin: 0 0 4px;
@@ -16335,7 +16337,7 @@ html.theta-theme-light .tutorial-panel {
 }
 
 .ticket-message--internal header span {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .ticket-message time {
@@ -16481,7 +16483,7 @@ html.theta-theme-light .tutorial-panel {
 }
 
 .user-ticket-header a {
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-block;
   font-size: 0.82rem;
   font-weight: 750;
@@ -16505,7 +16507,7 @@ html.theta-theme-light .tutorial-panel {
 }
 
 .user-ticket-screenshot span {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.8rem;
   font-weight: 700;
 }
