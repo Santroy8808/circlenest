@@ -28,6 +28,7 @@ type FeatureOverrideMap = Partial<Record<MembershipFeatureKey, boolean>>;
 export type EffectivePolicy = ReturnType<typeof getTierPolicy> & {
   role: UserRole;
   actualTier: MembershipTier;
+  tierActivatedAt?: Date | null;
   promotionalAccess?: {
     tier: MembershipTier;
     label: string;
@@ -181,6 +182,7 @@ export async function getEffectivePolicyForUser(userId: string) {
   return {
     ...policy,
     actualTier,
+    tierActivatedAt: user.membership?.tierActivatedAt ?? null,
     contributorOffer: contributorOffer ?? undefined
   };
 }

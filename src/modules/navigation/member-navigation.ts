@@ -10,6 +10,7 @@ type MemberNavigationInput = {
   mailEnabled: boolean;
   platformFeatures: Record<string, boolean>;
   defaultHomeHref?: string;
+  showNewUpgradeItems?: boolean;
 };
 
 const homeSection: NavSection = {
@@ -144,7 +145,10 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     }
     if (item.href === "/fundraisers") return input.features["fundraisers.create"] === true;
     return false;
-  });
+  }).map((item) => ({
+    ...item,
+    isNewlyUnlocked: Boolean(input.showNewUpgradeItems && item.href === "/writers-corner")
+  }));
   const singleInvitesEnabled = input.platformFeatures["membership.single_invites"] !== false;
   const bulkInvitesEnabled = input.platformFeatures["membership.bulk_invites"] !== false;
   const settings = {
@@ -165,7 +169,12 @@ export function buildMemberNavigation(input: MemberNavigationInput): NavSection[
     memberSections.push(auditorSection);
   }
   if (toolItems.length > 0) {
-    memberSections.push({ ...toolsSection, href: toolItems[0]?.href, items: toolItems });
+    memberSections.push({
+      ...toolsSection,
+      href: toolItems[0]?.href,
+      isNewlyUnlocked: toolItems.some((item) => item.isNewlyUnlocked),
+      items: toolItems
+    });
   }
   memberSections.push(tutorialSection, settings);
 

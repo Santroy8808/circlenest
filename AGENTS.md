@@ -65,6 +65,11 @@ Use [docs/feature-completion-standard.md](docs/feature-completion-standard.md) a
 
 - Send actions must use the standard Theta-Space send glyph: `public/assets/theta-send-logo.png`, rendered through `.send-logo-button` with a `.send-logo-icon` child. Do not draw substitute theta/arrow glyphs in CSS, text, emoji, or alternate icons.
 
+## Microsoft 365 Administration
+
+- `admin@santroy8808.onmicrosoft.com` is the tenant administrator and must be used for tenant, Exchange, Graph, and shared-mailbox administration.
+- `theta@theta-space.net` is not an administrator. It may access shared mailboxes only through explicitly granted mailbox permissions such as Full Access and Send As; never use it for tenant administration.
+
 Before coding any feature:
 
 1. Inspect the existing codebase and related active repos.

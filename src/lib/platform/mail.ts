@@ -10,6 +10,7 @@ export type SendPlatformMailInput = {
   html?: string;
   from?: string;
   replyTo?: string;
+  bcc?: string;
   messageId?: string;
   attachments?: Array<{
     filename: string;
@@ -111,6 +112,9 @@ async function sendMicrosoftGraphMail(input: SendPlatformMailInput) {
             content: input.html ?? input.text
           },
           toRecipients: [{ emailAddress: { address: input.to } }],
+          ...(input.bcc
+            ? { bccRecipients: [{ emailAddress: { address: input.bcc } }] }
+            : {}),
           ...(input.replyTo
             ? { replyTo: [{ emailAddress: { address: input.replyTo } }] }
             : {}),

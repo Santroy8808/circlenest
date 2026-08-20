@@ -187,8 +187,9 @@ async function sendInvoiceReceiptIfNeeded(invoice: BillingInvoice) {
     const mailboxes = readPlatformMailboxes();
     await sendPlatformMail({
       to: recipient,
-      from: mailboxes.system,
-      replyTo: mailboxes.support,
+      from: mailboxes.billing,
+      replyTo: mailboxes.billing,
+      bcc: mailboxes.billing,
       ...buildSubscriptionInvoiceEmail(invoice)
     });
     await prisma.billingInvoice.update({

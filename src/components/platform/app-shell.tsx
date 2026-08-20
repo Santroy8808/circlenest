@@ -18,6 +18,7 @@ import { getOnboardingState } from "@/modules/onboarding/onboarding.service";
 import { isInternalMailEnabled } from "@/modules/mail/mail.service";
 import { getUnreadCounts } from "@/modules/notifications-alerts/notifications-alerts.service";
 import { getEffectivePolicyForUser } from "@/modules/membership-policy/membership-policy.service";
+import { hasActiveMembershipUpgradeHighlight } from "@/modules/membership-policy/membership-upgrade-highlights";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav } from "@/components/platform/control-panel-nav";
 import { avatarImageStyle } from "@/modules/profile-identity/avatar-frame";
@@ -159,7 +160,19 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     ? await timeServerStep("shell.tutorial", getWelcomeTutorialState(session.user.id), { path: currentPath })
     : { shouldPrompt: false };
   const counts = isSignedIn ? await timeServerStep("shell.counts", getUnreadCounts(session?.user?.id), { path: currentPath }) : zeroCounts;
-  const navSections = buildMemberNavigation({ accountPurpose: session?.user?.accountPurpose, defaultHomeHref, features: tierFeatures, isAdmin, isSignedIn, mailEnabled, platformFeatures });
+  const navSections = buildMemberNavigation({
+    accountPurpose: session?.user?.accountPurpose,
+    defaultHomeHref,
+    features: tierFeatures,
+    isAdmin,
+    isSignedIn,
+    mailEnabled,
+    platformFeatures,
+    showNewUpgradeItems: Boolean(effectivePolicy && hasActiveMembershipUpgradeHighlight({
+      tier: effectivePolicy.tier,
+      tierActivatedAt: effectivePolicy.tierActivatedAt
+    }))
+  });
   const displayName = shellProfile?.profile?.displayName ?? session?.user?.name ?? session?.user?.username ?? "Theta-Space";
   const memberSinceLabel = isSignedIn ? formatMemberSince(shellProfile?.createdAt) : "Private membership platform";
   const preferredThemeMode = getPreferredThemeMode(shellProfile?.profile?.theme);

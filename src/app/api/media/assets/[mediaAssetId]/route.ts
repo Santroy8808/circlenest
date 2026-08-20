@@ -273,7 +273,15 @@ export async function GET(request: NextRequest, props: { params: Promise<{ media
       mimeType: true,
       sizeBytes: true,
       originalName: true,
-      visibility: true
+      visibility: true,
+      membershipStorageArchiveItem: {
+        select: {
+          status: true,
+          thumbnailStorageKey: true,
+          thumbnailMimeType: true,
+          thumbnailSizeBytes: true
+        }
+      }
     }
   }));
 
@@ -302,11 +310,16 @@ export async function GET(request: NextRequest, props: { params: Promise<{ media
       : NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
+  const archived = asset.membershipStorageArchiveItem;
+  const servesArchiveThumbnail = archived?.status === "READY" && Boolean(archived.thumbnailStorageKey && archived.thumbnailMimeType);
+  const storageKey = servesArchiveThumbnail ? archived.thumbnailStorageKey as string : asset.storageKey;
+  const mimeTypeForDelivery = servesArchiveThumbnail ? archived.thumbnailMimeType as string : asset.mimeType;
+  const sizeForDelivery = servesArchiveThumbnail ? archived.thumbnailSizeBytes ?? asset.sizeBytes : asset.sizeBytes;
   const range = parseByteRange(request.headers.get("range"));
   if (!range.ok) {
     return new NextResponse(null, {
       status: 416,
-      headers: { "Accept-Ranges": "bytes", "Content-Range": `bytes */${asset.sizeBytes}` }
+      headers: { "Accept-Ranges": "bytes", "Content-Range": `bytes */${sizeForDelivery}` }
     });
   }
 
@@ -322,18 +335,18 @@ export async function GET(request: NextRequest, props: { params: Promise<{ media
       getR2Client().send(
         new GetObjectCommand({
           Bucket: bucket,
-          Key: asset.storageKey,
+          Key: storageKey,
           Range: range.value
         })
       ),
-      { mimeType: asset.mimeType }
+      { mimeType: mimeTypeForDelivery }
     );
     if (!object.Body) throw new Error("Storage returned an empty media body.");
 
-    const mimeType = safeContentType(asset.mimeType);
+    const mimeType = safeContentType(mimeTypeForDelivery);
     const headers = new Headers({
       "Accept-Ranges": "bytes",
-      "Cache-Control": asset.visibility === MediaVisibility.PUBLIC ? "public, max-age=300" : "private, no-store",
+      "Cache-Control": servesArchiveThumbnail ? "private, no-store" : asset.visibility === MediaVisibility.PUBLIC ? "public, max-age=300" : "private, no-store",
       "Content-Disposition": contentDisposition(asset.originalName, mimeType),
       "Content-Type": mimeType,
       "X-Content-Type-Options": "nosniff"
@@ -353,7 +366,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ media
     if (isRangeError(error)) {
       return new NextResponse(null, {
         status: 416,
-        headers: { "Accept-Ranges": "bytes", "Content-Range": `bytes */${asset.sizeBytes}` }
+        headers: { "Accept-Ranges": "bytes", "Content-Range": `bytes */${sizeForDelivery}` }
       });
     }
 

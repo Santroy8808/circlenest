@@ -290,6 +290,20 @@ enum MediaAssetStatus {
   FAILED
 }
 
+enum MembershipStorageArchiveStatus {
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum MembershipStorageArchiveItemStatus {
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
 enum UploadIntentPurpose {
   GALLERY
   STREAM_POST
@@ -870,6 +884,7 @@ model User {
   scientologyProfile               ScientologyProfile?
   membership                       Membership?
   mediaAssets                      MediaAsset[]
+  membershipStorageArchives        MembershipStorageArchive[]
   mediaAssetHashtags               MediaAssetHashtag[]
   mediaCollections                 MediaCollection[]
   feedPosts                        FeedPost[]                         @relation("FeedPostAuthor")
@@ -1158,6 +1173,7 @@ model Membership {
   id                            String                       @id @default(cuid())
   userId                        String                       @unique
   tier                          MembershipTier               @default(FREE)
+  tierActivatedAt               DateTime?
   inviteEligibleAt              DateTime?
   storageLimitBytes             BigInt                       @default(209715200)
   platformCredits               Int                          @default(0)
@@ -1757,9 +1773,73 @@ model MediaAsset {
   jobListingImages         JobListing[]             @relation("JobListingImage")
   scientologyCommendation  ScientologyCommendation?
   feedbackTicketScreenshot FeedbackTicket?          @relation("FeedbackTicketScreenshot")
+  membershipStorageArchiveItem MembershipStorageArchiveItem?
 
   @@index([ownerUserId, createdAt])
   @@index([status, updatedAt])
+}
+
+model MembershipStorageArchive {
+  id                   String                        @id @default(cuid())
+  userId               String
+  status               MembershipStorageArchiveStatus @default(QUEUED)
+  sourceTier           MembershipTier
+  targetTier           MembershipTier                @default(FREE)
+  quotaBytes           BigInt
+  originalBytes        BigInt                        @default(0)
+  archivedBytes        BigInt                        @default(0)
+  selectedAssetCount   Int                           @default(0)
+  archiveJobId         String?                       @unique
+  downloadStatus       MembershipStorageArchiveStatus @default(QUEUED)
+  downloadJobId        String?                       @unique
+  downloadStorageKey   String?                       @unique
+  downloadSizeBytes    BigInt?
+  downloadExpiresAt    DateTime?
+  downloadReadyAt      DateTime?
+  downloadNotifiedAt   DateTime?
+  error                String?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+  user                 User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items                MembershipStorageArchiveItem[]
+
+  @@index([userId, status, createdAt])
+  @@index([downloadExpiresAt])
+}
+
+model MembershipStorageArchiveItem {
+  id                   String                            @id @default(cuid())
+  archiveId            String
+  mediaAssetId         String                            @unique
+  status               MembershipStorageArchiveItemStatus @default(QUEUED)
+  position             Int
+  sourceStorageKey     String
+  sourceVisibility     MediaVisibility
+  originalMimeType     String
+  originalName         String?
+  originalSizeBytes    BigInt
+  archiveStorageKey    String?
+  archiveMimeType      String?
+  archiveCodec         String?
+  archiveSizeBytes     BigInt?
+  thumbnailStorageKey  String?
+  thumbnailMimeType    String?
+  thumbnailSizeBytes   BigInt?
+  viewStatus           MembershipStorageArchiveItemStatus @default(QUEUED)
+  viewJobId            String?                           @unique
+  viewStorageKey       String?
+  viewMimeType         String?
+  viewExpiresAt        DateTime?
+  error                String?
+  archivedAt           DateTime?
+  createdAt            DateTime                          @default(now())
+  updatedAt            DateTime                          @updatedAt
+  archive              MembershipStorageArchive          @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  mediaAsset           MediaAsset                        @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([archiveId, position])
+  @@index([archiveId, status, position])
+  @@index([viewExpiresAt])
 }
 
 model UploadIntent {

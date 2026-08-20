@@ -16,12 +16,14 @@ export type NavItem = {
   href?: string;
   countKey?: NavCountKey;
   action?: "logout";
+  isNewlyUnlocked?: boolean;
 };
 
 export type NavSection = {
   href?: string;
   label: string;
   items: NavItem[];
+  isNewlyUnlocked?: boolean;
 };
 
 type ControlPanelNavProps = {
@@ -155,7 +157,8 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                 aria-haspopup="menu"
                 className={[
                   "control-panel-main-link",
-                  section.isActive ? "is-active" : ""
+                  section.isActive ? "is-active" : "",
+                  section.isNewlyUnlocked ? "control-panel-main-link--new" : ""
                 ].filter(Boolean).join(" ")}
                 data-tooltip={`Open ${section.label} menu.`}
                 data-tutorial-target={tutorialTarget}
@@ -167,6 +170,7 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
               >
                 <span>{section.label}</span>
                 <span className="control-panel-header-meta">
+                  {section.isNewlyUnlocked ? <span className="control-panel-new-badge">New</span> : null}
                   {section.totalCount > 0 ? <span className="control-panel-section-count">{section.totalCount}</span> : null}
                   <span aria-hidden="true" className="control-panel-menu-caret">{">"}</span>
                 </span>
@@ -184,7 +188,10 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
                       }}
                       role="menuitem"
                     >
-                      <span>{item.label}</span>
+                      <span className="control-panel-popup-link-label">
+                        <span>{item.label}</span>
+                        {item.isNewlyUnlocked ? <span className="control-panel-new-badge">New</span> : null}
+                      </span>
                       {item.countKey && liveCounts[item.countKey] > 0 ? <span className="control-panel-link-count">{liveCounts[item.countKey]}</span> : null}
                     </Link>
                   ))}
@@ -201,7 +208,8 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
               "control-panel-main-link",
               section.isActive ? "is-active" : "",
               section.label === "Tutorial" ? "control-panel-main-link--tutorial" : "",
-              section.label === "Tutorial" && tutorialShimmering ? "control-panel-main-link--shimmer" : ""
+              section.label === "Tutorial" && tutorialShimmering ? "control-panel-main-link--shimmer" : "",
+              section.isNewlyUnlocked ? "control-panel-main-link--new" : ""
             ].filter(Boolean).join(" ")}
             data-tooltip={`Open ${section.label}.`}
             data-tutorial-target={sectionTutorialTarget(section.label)}
@@ -210,7 +218,10 @@ export function ControlPanelNav({ counts, sections }: ControlPanelNavProps) {
             onClick={(event) => handleItemClick(event, { href: section.targetHref, label: section.label })}
           >
             <span>{section.label}</span>
-            {section.totalCount > 0 ? <span className="control-panel-section-count">{section.totalCount}</span> : null}
+            <span className="control-panel-header-meta">
+              {section.isNewlyUnlocked ? <span className="control-panel-new-badge">New</span> : null}
+              {section.totalCount > 0 ? <span className="control-panel-section-count">{section.totalCount}</span> : null}
+            </span>
           </Link>
         );
       })}

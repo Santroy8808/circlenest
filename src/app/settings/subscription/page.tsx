@@ -9,6 +9,7 @@ import {
   getSubscriptionBillingSummary,
   listAvailableSubscriptionUpgradePlans
 } from "@/modules/membership-policy/subscriptions.service";
+import { getStorageArchiveView } from "@/modules/membership-policy/membership-storage-archive.service";
 
 export default async function SubscriptionSettingsPage(
   props: {
@@ -22,11 +23,12 @@ export default async function SubscriptionSettingsPage(
     redirect("/login?callbackUrl=/settings/subscription");
   }
 
-  const [policy, billing, plans, invoices] = await Promise.all([
+  const [policy, billing, plans, invoices, storageArchive] = await Promise.all([
     getEffectivePolicyForUser(session.user.id),
     getSubscriptionBillingSummary(session.user.id),
     listAvailableSubscriptionUpgradePlans(session.user.id),
-    listMemberBillingInvoices(session.user.id)
+    listMemberBillingInvoices(session.user.id),
+    getStorageArchiveView(session.user.id)
   ]);
 
   if (!policy) {
@@ -43,6 +45,7 @@ export default async function SubscriptionSettingsPage(
           plans={plans}
           policy={policy}
           portalStatus={searchParams?.portal}
+          storageArchive={storageArchive}
         />
       </SecureSettingsPanel>
     </AppShell>

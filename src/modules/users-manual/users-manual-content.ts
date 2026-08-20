@@ -123,7 +123,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
   },
   {
     term: "Storage",
-    definition: "The amount of personal uploaded media your account can hold. Free Tier storage is currently 200 MB for gallery files, group uploads, and message images. Text posts do not count toward this file-storage limit."
+    definition: "The amount of personal uploaded media your account can hold. Free Tier storage is currently 200 MB and Contributor storage is currently 2 GB for gallery files, group uploads, and message images. Text posts do not count toward this file-storage limit. If cancellation leaves an account over the Free limit, Theta-Space archives and compresses the oldest excess files. Small previews remain available, and the archived files can be prepared one at a time for viewing or requested as a ZIP download."
   },
   {
     term: "Stream retention",
@@ -137,6 +137,7 @@ export const usersManualDefinitions: UsersManualDefinition[] = [
 
 export const freeTierBasics = [
   "Free Tier personal file storage is currently 200 MB for Gallery, group uploads, and message images.",
+  "If a Contributor downgrade leaves more than 200 MB stored, Theta-Space archives and compresses the oldest excess files. Gallery keeps small previews; request one temporary full-file view at a time or a ZIP download from Subscription.",
   "Text-only posts do not count against the 200 MB personal file-storage limit.",
   "Public Stream posts from Communicate may have images compressed after 48 hours without a view, archived after 1 week, and permanently deleted after 3 months. These limits may change.",
   "Free Tier marketplace creation is limited to 3 listings per 14-day period.",
@@ -151,6 +152,7 @@ export const freeTierBasics = [
 
 export const contributorTierBasics = [
   "Contributor accounts keep the core social tools: Stream, People, Groups, My Pics, Messages, Market, and Settings.",
+  "Contributor personal file storage is currently 2 GB. Cancelling changes the account to Free at the end of the paid period. If storage exceeds 200 MB then, Theta-Space archives and compresses the oldest excess files instead of silently deleting them.",
   "Contributor accounts can create and edit personal Market listings, browse and create job listings during beta, promote their own Market listings with the approved listing-ad flow, and use Writers Corner manuscripts.",
   "Contributor accounts do not receive Business Center, storefront administration, business identity switching, Events, Fundraisers, or general ad creation.",
   "When a Contributor capability is unavailable, its menu item, page, upgrade prompt, and direct feature controls are hidden rather than shown as a gate.",
@@ -845,12 +847,16 @@ export const usersManualSections: UsersManualSection[] = [
         title: "Subscription and Free Tier limits",
         href: "/settings/subscription",
         purpose: "Review your current membership and limits.",
-        howToUse: ["Open Subscription from Settings.", "Review the current membership shown.", "Use the limits in this manual to understand current Free Tier use."],
+        howToUse: ["Open Subscription from Settings.", "Review the current membership shown.", "If you choose Manage billing, read the cancellation warning and choose Continue to billing only when you are ready to review cancellation in Stripe.", "If a storage archive appears, request a ZIP file or prepare one archived file at a time for a temporary full-file view.", "Use the limits in this manual to understand current Free Tier use."],
         limits: ["Free Tier personal file storage: 200 MB.", "Free Tier marketplace: 3 listings per 14-day period.", "Free Tier listing photos: 3 per listing.", "Membership upgrade choices should not appear unless they are actually available."],
         faq: [
           {
             question: "What storage do I have?",
-            answer: "Free Tier currently has 200 MB of personal file storage for Gallery, group uploads, and message images. Text-only posts do not count toward that file-storage limit."
+            answer: "Free Tier currently has 200 MB and Contributor currently has 2 GB of personal file storage for Gallery, group uploads, and message images. Text-only posts do not count toward that file-storage limit."
+          },
+          {
+            question: "What happens to my files if I cancel Contributor?",
+            answer: "Cancellation takes effect at the end of the paid billing period. If your files exceed the 200 MB Free limit then, Theta-Space archives and compresses the oldest excess files instead of silently deleting them. Gallery keeps small previews. In Subscription, you can prepare one full-file view at a time or request a ZIP download; Theta-Space sends a notification when that ZIP is ready. Account deletion is different and permanently removes account media."
           },
           {
             question: "Can I access business tools?",

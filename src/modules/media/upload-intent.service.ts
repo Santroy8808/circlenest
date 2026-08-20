@@ -349,7 +349,11 @@ export async function createUploadIntent(ownerUserId: string, input: unknown) {
       where: {
         ownerUserId: cleanOwnerUserId,
         status: "READY",
-        feedbackTicketScreenshot: { is: null }
+        feedbackTicketScreenshot: { is: null },
+        OR: [
+          { membershipStorageArchiveItem: null },
+          { membershipStorageArchiveItem: { status: { not: "READY" } } }
+        ]
       },
       _sum: { sizeBytes: true }
     }),
@@ -716,7 +720,11 @@ export async function consumeVerifiedUploadIntent<T>(input: {
         where: {
           ownerUserId: input.ownerUserId,
           status: "READY",
-          feedbackTicketScreenshot: { is: null }
+          feedbackTicketScreenshot: { is: null },
+          OR: [
+            { membershipStorageArchiveItem: null },
+            { membershipStorageArchiveItem: { status: { not: "READY" } } }
+          ]
         },
         _sum: { sizeBytes: true }
       });

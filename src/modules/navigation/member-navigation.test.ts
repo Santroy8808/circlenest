@@ -18,14 +18,21 @@ const platformFeatures = {
   "support.feedback_center": true
 };
 
-function navigation(tier: MembershipTier, isAdmin = false, featureOverrides: Record<string, boolean> = {}, defaultHomeHref?: string) {
+function navigation(
+  tier: MembershipTier,
+  isAdmin = false,
+  featureOverrides: Record<string, boolean> = {},
+  defaultHomeHref?: string,
+  showNewUpgradeItems = false
+) {
   return buildMemberNavigation({
     defaultHomeHref,
     features: { ...getTierPolicy(tier).features, ...featureOverrides },
     isAdmin,
     isSignedIn: true,
     mailEnabled: false,
-    platformFeatures
+    platformFeatures,
+    showNewUpgradeItems
   });
 }
 
@@ -52,6 +59,17 @@ test("Contributor navigation exposes Writers but keeps Feedback submission in th
   assert.equal(hrefs.includes("/ads"), false);
   assert.equal(hrefs.includes("/fundraisers"), false);
   assert.equal(hrefs.includes("/jobs"), true);
+});
+
+test("recent upgrades highlight only newly unlocked Contributor navigation", () => {
+  const contributorTools = navigation(MembershipTier.CONTRIBUTOR, false, {}, undefined, true)
+    .find((section) => section.label === "Tools");
+  const freeTools = navigation(MembershipTier.FREE, false, {}, undefined, true)
+    .find((section) => section.label === "Tools");
+
+  assert.equal(contributorTools?.isNewlyUnlocked, true);
+  assert.equal(contributorTools?.items.find((item) => item.href === "/writers-corner")?.isNewlyUnlocked, true);
+  assert.equal(freeTools, undefined);
 });
 
 test("Comm Center keeps Chat, People, and Groups as submenu items while Jobs & Market and Find an Auditor stay separate in the control panel", () => {

@@ -98,16 +98,19 @@ export async function transitionOperationalMembershipInTransaction(
   }
 
   const contract = getOperationalTierContract(input.targetTier);
+  const tierChanged = before.tier !== input.targetTier;
   await transaction.membership.upsert({
     where: { userId: input.userId },
     update: {
       tier: input.targetTier,
-      storageLimitBytes: BigInt(contract.quotas.personalStorageBytes)
+      storageLimitBytes: BigInt(contract.quotas.personalStorageBytes),
+      ...(tierChanged ? { tierActivatedAt: now } : {})
     },
     create: {
       userId: input.userId,
       tier: input.targetTier,
-      storageLimitBytes: BigInt(contract.quotas.personalStorageBytes)
+      storageLimitBytes: BigInt(contract.quotas.personalStorageBytes),
+      tierActivatedAt: now
     }
   });
 
@@ -185,7 +188,7 @@ export async function transitionOperationalMembershipInTransaction(
       platformCredits: current.platformCredits,
       updatedAt: current.updatedAt
     },
-    tierChanged: before.tier !== current.tier,
+    tierChanged,
     revokedContributorOfferCount: revokedOffers.count,
     terminatedAcceptedContributorOfferCount: terminatedAcceptedOffers.count,
     deactivatedContributorEligibilityCount: deactivatedEligibility.count,

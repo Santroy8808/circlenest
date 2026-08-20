@@ -386,7 +386,7 @@ async function loadAccountDeletionStorageCandidates(
   tx: Prisma.TransactionClient,
   targetUserId: string
 ) {
-  const [assets, uploadIntents, directChatAttachments, directMailAttachments] = await Promise.all([
+  const [assets, uploadIntents, directChatAttachments, directMailAttachments, storageArchives] = await Promise.all([
     tx.mediaAsset.findMany({
       where: { ownerUserId: targetUserId },
       select: {
@@ -413,6 +413,9 @@ async function loadAccountDeletionStorageCandidates(
           },
           select: { id: true },
           take: 1
+        },
+        membershipStorageArchiveItem: {
+          select: { archiveStorageKey: true, thumbnailStorageKey: true, viewStorageKey: true }
         }
       }
     }),
@@ -439,6 +442,10 @@ async function loadAccountDeletionStorageCandidates(
         message: { senderUserId: targetUserId }
       },
       select: { id: true, storageKey: true }
+    }),
+    tx.membershipStorageArchive.findMany({
+      where: { userId: targetUserId },
+      select: { id: true, downloadStorageKey: true }
     })
   ]);
 
@@ -457,6 +464,16 @@ async function loadAccountDeletionStorageCandidates(
       action,
       reason
     }));
+    const archived = asset.membershipStorageArchiveItem;
+    for (const storageKey of [archived?.archiveStorageKey, archived?.thumbnailStorageKey, archived?.viewStorageKey]) {
+      if (!storageKey) continue;
+      candidates.push(...buildMediaAssetStorageCandidates({
+        mediaAssetId: asset.id,
+        storageKey,
+        action,
+        reason: `${reason}_STORAGE_ARCHIVE`
+      }));
+    }
   }
   for (const intent of uploadIntents) {
     candidates.push({
@@ -490,6 +507,17 @@ async function loadAccountDeletionStorageCandidates(
       access: DestructiveStorageAccess.PRIVATE,
       action: DestructiveStorageAction.PRESERVE,
       reason: "RETAINED_MAIL_DIRECT_ATTACHMENT"
+    });
+  }
+  for (const archive of storageArchives) {
+    if (!archive.downloadStorageKey) continue;
+    candidates.push({
+      sourceType: "MembershipStorageArchive.download",
+      sourceId: archive.id,
+      storageKey: archive.downloadStorageKey,
+      access: DestructiveStorageAccess.PRIVATE,
+      action: DestructiveStorageAction.DELETE,
+      reason: "OWNED_STORAGE_ARCHIVE_DOWNLOAD"
     });
   }
 

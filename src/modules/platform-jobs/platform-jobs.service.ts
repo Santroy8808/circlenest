@@ -399,6 +399,24 @@ export const platformJobHandlers: Record<string, PlatformJobHandler> = {
       "@/modules/gallery-media-storage/gallery-media-deletion.service"
     );
     return runGalleryMediaDeletionPlatformJob(job, context);
+  },
+  "membership.storage-archive.v1": async (job, context) => {
+    const { runMembershipStorageArchiveJob } = await import(
+      "@/modules/membership-policy/membership-storage-archive.service"
+    );
+    return runMembershipStorageArchiveJob(job, context);
+  },
+  "membership.storage-archive.prepare-view.v1": async (job, context) => {
+    const { runStorageArchiveViewJob } = await import(
+      "@/modules/membership-policy/membership-storage-archive.service"
+    );
+    return runStorageArchiveViewJob(job, context);
+  },
+  "membership.storage-archive.zip.v1": async (job, context) => {
+    const { runStorageArchiveDownloadJob } = await import(
+      "@/modules/membership-policy/membership-storage-archive.service"
+    );
+    return runStorageArchiveDownloadJob(job, context);
   }
 };
 

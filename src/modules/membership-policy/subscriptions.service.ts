@@ -33,6 +33,7 @@ import {
   runSerializableOperationalMembershipTransaction,
   transitionOperationalMembershipInTransaction
 } from "@/modules/membership-policy/operational-membership-transition.service";
+import { queueMembershipStorageArchiveForDowngrade } from "@/modules/membership-policy/membership-storage-archive.service";
 
 const MODULE_KEY = "membership-subscriptions";
 const STRIPE_SUBSCRIPTION_SYNC_ACTION = "stripe.subscription.synced";
@@ -45,6 +46,7 @@ export type StripeSubscriptionSyncIdentity = {
 
 type StripeSubscriptionSyncReceipt = {
   activeTier: OperationalTier;
+  transitionedFromTier: MembershipTier | null;
   accountBlocked: boolean;
   deletionRequestId: string | null;
 };
@@ -133,8 +135,10 @@ export function classifyStripeSubscriptionSyncReplay(input: {
   const activeTier = receiptRecord?.activeTier;
   const validTier = activeTier === MembershipTier.FREE || activeTier === MembershipTier.CONTRIBUTOR;
   const deletionRequestId = receiptRecord?.deletionRequestId;
+  const transitionedFromTier = receiptRecord?.transitionedFromTier;
   const validReceipt =
     validTier &&
+    (transitionedFromTier === null || Object.values(MembershipTier).includes(transitionedFromTier as MembershipTier)) &&
     typeof receiptRecord?.accountBlocked === "boolean" &&
     (deletionRequestId === null || typeof deletionRequestId === "string");
 
@@ -151,6 +155,7 @@ export function classifyStripeSubscriptionSyncReplay(input: {
       state: "replay" as const,
       receipt: {
         activeTier: activeTier as OperationalTier,
+        transitionedFromTier: transitionedFromTier as MembershipTier | null,
         accountBlocked: receiptRecord.accountBlocked as boolean,
         deletionRequestId: deletionRequestId as string | null
       }
@@ -1247,6 +1252,7 @@ async function persistStripeSubscription(input: {
     const deletionRequestId = deletionRequest?.id ?? null;
     const syncReceipt = {
       activeTier: activeTier as OperationalTier,
+      transitionedFromTier: membershipTransition?.before.tier ?? null,
       accountBlocked,
       deletionRequestId
     } satisfies StripeSubscriptionSyncReceipt;
@@ -1293,6 +1299,7 @@ async function persistStripeSubscription(input: {
     return {
       updatedMembership,
       activeTier,
+      transitionedFromTier: membershipTransition?.before.tier ?? null,
       accountBlocked,
       deletionRequestId,
       replayed: false as const
@@ -1319,6 +1326,18 @@ async function applyStripeSubscription(input: {
 }) {
   let subscription = input.subscription;
   const membership = await persistStripeSubscription(input);
+
+  if (
+    !membership.deletionRequestId &&
+    membership.transitionedFromTier === MembershipTier.CONTRIBUTOR &&
+    membership.activeTier === MembershipTier.FREE
+  ) {
+    await queueMembershipStorageArchiveForDowngrade({
+      userId: input.userId,
+      sourceTier: MembershipTier.CONTRIBUTOR,
+      quotaBytes: BigInt(getTierPolicy(MembershipTier.FREE).limits.storageLimitBytes)
+    });
+  }
 
   if (membership.deletionRequestId) {
     const cancellation = await cancelStripeSubscriptionForAccountDeletion({

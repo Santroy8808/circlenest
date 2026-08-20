@@ -2,6 +2,7 @@ import type { BillingInvoice } from "@prisma/client";
 import { BillingPortalButton } from "@/components/settings-secure-areas/billing-portal-button";
 import { ContributorBetaUpgradeCard } from "@/components/settings-secure-areas/contributor-beta-upgrade-card";
 import { SubscriptionCheckoutButton } from "@/components/settings-secure-areas/subscription-checkout-button";
+import { MembershipStorageArchivePanel, type MembershipStorageArchivePanelView } from "@/components/settings-secure-areas/membership-storage-archive-panel";
 import type { EffectivePolicy } from "@/modules/membership-policy/membership-policy.service";
 import type {
   SubscriptionBillingSummary,
@@ -38,7 +39,8 @@ export function SubscriptionSettingsDetail({
   invoices,
   plans,
   policy,
-  portalStatus
+  portalStatus,
+  storageArchive
 }: {
   billing: SubscriptionBillingSummary;
   checkoutStatus?: string;
@@ -46,6 +48,7 @@ export function SubscriptionSettingsDetail({
   plans: SubscriptionUpgradePlanView[];
   policy: EffectivePolicy;
   portalStatus?: string;
+  storageArchive: MembershipStorageArchivePanelView | null;
 }) {
   const contributorOffer = visibleContributorUpgradeOffer({
     currentTier: policy.tier,
@@ -90,6 +93,7 @@ export function SubscriptionSettingsDetail({
           ) : null}
         </section>
       ) : contributorOffer ? <ContributorBetaUpgradeCard offer={contributorOffer} /> : null}
+      <MembershipStorageArchivePanel archive={storageArchive} />
       <section className="rounded-md border border-[var(--line)] bg-black/10 p-5">
         <h2 className="text-2xl font-semibold text-[var(--gold)]">Current membership</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">

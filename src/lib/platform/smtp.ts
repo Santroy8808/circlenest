@@ -8,6 +8,7 @@ export type SendSmtpMailInput = {
   html?: string;
   from?: string;
   replyTo?: string;
+  bcc?: string;
   messageId?: string;
   attachments?: Array<{
     filename: string;
@@ -63,6 +64,7 @@ export async function sendSmtpMail(input: SendSmtpMailInput) {
   return transporter.sendMail({
     from: input.from ?? env.SMTP_FROM,
     replyTo: input.replyTo,
+    bcc: input.bcc,
     to: input.to,
     subject: input.subject,
     text: input.text,

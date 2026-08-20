@@ -15,6 +15,7 @@ import { runOneAnnouncementDelivery } from "@/modules/admin-moderation/delivery-
 import { allocateContributorMonthlyCredits } from "@/modules/membership-policy/monthly-credits.service";
 import { runBetaActivityReminderSweep } from "@/modules/membership-policy/beta-activity-reminders.service";
 import { expireThetaCommUploads } from "@/modules/theta-comm/upload.service";
+import { expireMembershipStorageArchiveTemporaryFiles } from "@/modules/membership-policy/membership-storage-archive.service";
 
 const workerId = process.env.PLATFORM_WORKER_ID ?? `worker-${randomUUID()}`;
 const once = process.argv.includes("--once");
@@ -36,6 +37,7 @@ let lastUploadMaintenanceAt = 0;
 let lastConductScheduleCheckAt = 0;
 let lastMonthlyCreditCheckAt = 0;
 let lastBetaReminderCheckAt = 0;
+let lastStorageArchiveMaintenanceAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -95,6 +97,16 @@ async function runBetaReminderCheck(force = false) {
   }
 }
 
+async function runStorageArchiveMaintenance(force = false) {
+  const now = Date.now();
+  if (!force && now - lastStorageArchiveMaintenanceAt < 60 * 60_000) return;
+  lastStorageArchiveMaintenanceAt = now;
+  const result = await expireMembershipStorageArchiveTemporaryFiles(25, new Date(now));
+  if (result.expiredViews > 0 || result.expiredDownloads > 0) {
+    console.log(`[platform-worker] storage archive cleanup views=${result.expiredViews} downloads=${result.expiredDownloads}`);
+  }
+}
+
 async function main() {
   console.log(`[platform-worker] started ${workerId}`);
 
@@ -103,6 +115,7 @@ async function main() {
     await runConductScheduleCheck(lastConductScheduleCheckAt === 0);
     await runMonthlyCreditCheck(lastMonthlyCreditCheckAt === 0);
     await runBetaReminderCheck(lastBetaReminderCheckAt === 0);
+    await runStorageArchiveMaintenance(lastStorageArchiveMaintenanceAt === 0);
     const announcement = await runOneAnnouncementDelivery(workerId);
     const result = await runOnePlatformJob(workerId, undefined, {
       leaseDurationMs: platformJobLeaseMs,

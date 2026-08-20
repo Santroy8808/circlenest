@@ -11,6 +11,7 @@ import {
   UploadPartCommand
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "node:stream";
 import { readPlatformEnv } from "@/lib/platform/env";
 
 type R2Config = ReturnType<typeof readR2Config>;
@@ -29,6 +30,14 @@ type R2PutInput = {
 type R2DirectPutInput = {
   storageKey: string;
   body: Buffer | Uint8Array | string;
+  mimeType: string;
+  access?: R2ObjectAccess;
+  metadata?: Record<string, string | undefined>;
+};
+
+type R2StreamPutInput = {
+  storageKey: string;
+  body: Readable;
   mimeType: string;
   access?: R2ObjectAccess;
   metadata?: Record<string, string | undefined>;
@@ -294,6 +303,22 @@ export async function putR2Object(input: R2DirectPutInput) {
       Body: body,
       ContentType: input.mimeType,
       ContentLength: body.length,
+      Metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+    })
+  );
+}
+
+export async function putR2Stream(input: R2StreamPutInput) {
+  const r2 = readR2Config();
+  const bucket = bucketForAccess(r2, input.access ?? "private");
+  const metadata = normalizeR2Metadata(input.metadata);
+
+  return getR2Client().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: input.storageKey,
+      Body: input.body,
+      ContentType: input.mimeType,
       Metadata: Object.keys(metadata).length > 0 ? metadata : undefined
     })
   );
