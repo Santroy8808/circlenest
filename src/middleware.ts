@@ -49,6 +49,12 @@ export function middleware(request: NextRequest) {
   const rejected = rejectUnsafeCrossOriginRequest(request);
   if (rejected) return rejected;
 
+  if (request.nextUrl.pathname === "/") {
+    const marketplaceUrl = request.nextUrl.clone();
+    marketplaceUrl.pathname = "/marketplace";
+    return NextResponse.redirect(marketplaceUrl);
+  }
+
   const headers = new Headers(request.headers);
   headers.set("x-current-path", request.nextUrl.pathname);
 
