@@ -81,7 +81,7 @@ function unitForFacet(attributes: Record<string, unknown>, key: string) {
 export function marketplaceFacetsFromAttributes(attributes: Record<string, unknown>): FacetCreate[] {
   const facets: FacetCreate[] = [];
   for (const [key, value] of Object.entries(attributes)) {
-    if (value == null || key.endsWith("Unit")) continue;
+    if (value == null || key.endsWith("Unit") || ["vin", "showVin", "legalComplianceAttested", "licenseAttested", "qualificationsAttested", "resumeMediaAssetId"].includes(key)) continue;
     if (typeof value === "string" && value.length > 0 && value.length <= 240) {
       facets.push({ key, valueText: value, unit: unitForFacet(attributes, key) });
     } else if (typeof value === "number" && Number.isFinite(value)) {

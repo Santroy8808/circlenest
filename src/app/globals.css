@@ -918,6 +918,7 @@ a {
   gap: var(--panel-gutter);
   margin-inline: auto;
   max-width: var(--theta-content-width);
+  min-width: 0;
   width: 100%;
 }
 

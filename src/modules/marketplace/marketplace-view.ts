@@ -143,6 +143,16 @@ function mediaView(media: MarketplaceListingPayload["media"][number]): Marketpla
   };
 }
 
+export function publicMarketplaceAttributes(value: Prisma.JsonValue, canManage = false) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const attributes = { ...(value as Record<string, Prisma.JsonValue>) };
+  if (!canManage && attributes.showVin !== true) delete attributes.vin;
+  for (const privateKey of ["showVin", "legalComplianceAttested", "licenseAttested", "qualificationsAttested", "resumeMediaAssetId"]) {
+    delete attributes[privateKey];
+  }
+  return attributes;
+}
+
 export function toMarketplaceCardView(listing: MarketplaceListingPayload): MarketplaceListingCardView {
   const media = listing.media.map(mediaView);
   return {
@@ -166,7 +176,7 @@ export function toMarketplaceCardView(listing: MarketplaceListingPayload): Marke
     city: listing.city,
     remote: listing.remote,
     deliveryAvailable: listing.deliveryAvailable,
-    attributes: listing.attributes,
+    attributes: publicMarketplaceAttributes(listing.attributes),
     primaryMedia: media.find((item) => item.isPrimary) ?? media[0] ?? null,
     publisher: publisherView(listing),
     publishedAt: listing.publishedAt?.toISOString() ?? null,
@@ -185,6 +195,7 @@ export function toMarketplaceDetailView(listing: MarketplaceListingPayload, canM
   return {
     ...card,
     description: listing.description,
+    attributes: publicMarketplaceAttributes(listing.attributes, canManage),
     postalArea: listing.postalArea,
     exactAddress: contact.exactAddress,
     contactEmail: contact.email,

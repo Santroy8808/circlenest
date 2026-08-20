@@ -45,6 +45,10 @@ test("every listing kind has a versioned template and attribute validator", () =
   assert.deepEqual(Object.keys(MARKETPLACE_TEMPLATES).sort(), ["AUDITOR", "GOODS", "JOB", "RENTAL", "SERVICE", "VEHICLE"]);
   assert.equal(MARKETPLACE_ATTRIBUTE_SCHEMAS.VEHICLE.parse({ year: 2022, make: "Ford", model: "F-150", mileage: 20_000 }).year, 2022);
   assert.throws(() => parseMarketplaceAttributes("RENTAL", { bedrooms: 2 }));
+  assert.ok(MARKETPLACE_TEMPLATES.VEHICLE.fields.some((field) => field.key === "vin"));
+  assert.ok(MARKETPLACE_TEMPLATES.RENTAL.fields.some((field) => field.key === "depositCents"));
+  assert.ok(MARKETPLACE_TEMPLATES.JOB.fields.some((field) => field.key === "applicationMethod"));
+  assert.ok(MARKETPLACE_TEMPLATES.AUDITOR.fields.some((field) => field.key === "qualificationsAttested"));
 });
 
 test("search contracts cap page size and validate price bounds", () => {

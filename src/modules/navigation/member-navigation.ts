@@ -55,6 +55,7 @@ const focusedMarketplaceSection: NavSection = {
     { label: "Services", href: "/marketplace?kind=SERVICE" },
     { label: "Find an Auditor", href: "/marketplace?kind=AUDITOR" },
     { label: "Saved", href: "/marketplace/saved" },
+    { label: "My Exchanges", href: "/marketplace/interactions" },
     { label: "My Listings", href: "/marketplace/manage" },
     { label: "Create Listing", href: "/marketplace/new" }
   ]

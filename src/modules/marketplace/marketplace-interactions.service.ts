@@ -65,6 +65,13 @@ export async function listSavedMarketplaceListings(userId: string) {
   return { ok: true as const, items: saved.map((item) => toMarketplaceCardView(item.listing)) };
 }
 
+export async function isMarketplaceListingSaved(userId: string, listingId: string) {
+  return Boolean(await prisma.marketplaceSavedListing.findUnique({
+    where: { userId_listingId: { userId, listingId } },
+    select: { id: true },
+  }));
+}
+
 export async function createMarketplaceInquiry(userId: string, listingId: string, input: unknown) {
   const parsed = marketplaceInquiryInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Write a message." };
@@ -276,10 +283,37 @@ export async function listMarketplaceInteractions(userId: string) {
     where: { OR: [{ ownerUserId: userId }, { requesterUserId: userId }] },
     include: {
       listing: { select: { id: true, slug: true, title: true, kind: true, status: true } },
+      inquiry: { select: { threadId: true } },
+      requester: { select: { id: true, username: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+      owner: { select: { id: true, username: true, profile: { select: { displayName: true, avatarUrl: true } } } },
       reviews: { where: { authorUserId: userId }, select: { id: true, rating: true } },
     },
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
-  return { ok: true as const, interactions };
+  return {
+    ok: true as const,
+    interactions: interactions.map((interaction) => {
+      const isOwner = interaction.ownerUserId === userId;
+      const counterparty = isOwner ? interaction.requester : interaction.owner;
+      return {
+        id: interaction.id,
+        role: isOwner ? "publisher" as const : "responder" as const,
+        status: interaction.status,
+        listing: interaction.listing,
+        threadId: interaction.inquiry?.threadId ?? null,
+        counterparty: {
+          id: counterparty.id,
+          username: counterparty.username,
+          displayName: counterparty.profile?.displayName ?? counterparty.username,
+          avatarUrl: counterparty.profile?.avatarUrl ?? null,
+        },
+        myConfirmed: Boolean(isOwner ? interaction.ownerConfirmedAt : interaction.requesterConfirmedAt),
+        theirConfirmed: Boolean(isOwner ? interaction.requesterConfirmedAt : interaction.ownerConfirmedAt),
+        completedAt: interaction.completedAt?.toISOString() ?? null,
+        updatedAt: interaction.updatedAt.toISOString(),
+        review: interaction.reviews[0] ?? null,
+      };
+    }),
+  };
 }

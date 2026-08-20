@@ -121,6 +121,9 @@ export function validateMarketplacePublicationPolicy(input: MarketplaceListingIn
       return "Confirm that this regulated listing complies with all applicable laws.";
     }
   }
+  if (input.kind === "AUDITOR" && input.intent === "OFFER" && input.attributes.qualificationsAttested !== true) {
+    return "Confirm that the auditing qualifications in this listing are accurate.";
+  }
   return null;
 }
 

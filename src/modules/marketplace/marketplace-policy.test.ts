@@ -46,6 +46,26 @@ test("regulated goods require a legal compliance attestation", () => {
   assert.match(validateMarketplacePublicationPolicy(goods) ?? "", /Confirm/);
 });
 
+test("auditor offers require an accurate-qualification attestation", () => {
+  const auditor = listing({
+    kind: "AUDITOR",
+    title: "Independent auditing appointments",
+    description: "Appointments are available during weekdays and on Saturday by arrangement.",
+    category: "Field Auditors",
+    priceType: "CONTACT",
+    priceMinCents: null,
+    priceMaxCents: null,
+    attributes: {
+      directoryKind: "field-auditor",
+      services: ["Dianetics"],
+      qualifications: "Current qualifications listed on request.",
+      qualificationsAttested: false,
+    },
+  });
+  assert.match(validateMarketplacePublicationPolicy(auditor) ?? "", /qualifications/i);
+  assert.equal(validateMarketplacePublicationPolicy({ ...auditor, attributes: { ...auditor.attributes, qualificationsAttested: true } }), null);
+});
+
 test("public contact redaction is explicit per field", () => {
   const source = {
     contactEmail: "seller@example.com",
