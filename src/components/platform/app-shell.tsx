@@ -21,6 +21,7 @@ import { getEffectivePolicyForUser } from "@/modules/membership-policy/membershi
 import { hasActiveMembershipUpgradeHighlight } from "@/modules/membership-policy/membership-upgrade-highlights";
 import { ActivityTracker } from "@/components/platform/activity-tracker";
 import { ControlPanelNav } from "@/components/platform/control-panel-nav";
+import { PublicMarketplaceShell } from "@/components/platform/public-marketplace-shell";
 import { avatarImageStyle } from "@/modules/profile-identity/avatar-frame";
 import { getWelcomeTutorialState } from "@/modules/tutorial/tutorial.service";
 import { listRegisteredFeatureFlags } from "@/modules/feature-flags/feature-flags.service";
@@ -39,6 +40,10 @@ function isAllowedAuditorSeekerPath(currentPath: string) {
   return ["/auditors", "/profile", "/settings/profile", "/api/profile"].some(
     (path) => currentPath === path || currentPath.startsWith(`${path}/`)
   );
+}
+
+function isPublicMarketplacePath(currentPath: string) {
+  return currentPath === "/marketplace" || currentPath.startsWith("/marketplace/");
 }
 
 async function getShellProfile(userId?: string) {
@@ -115,6 +120,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await timeServerStep("shell.auth", auth());
   const isSignedIn = Boolean(session?.user && !session.user.revoked);
   const currentPath = (await headers()).get("x-current-path") ?? "";
+
+  if (!isSignedIn && isPublicMarketplacePath(currentPath)) {
+    return <PublicMarketplaceShell>{children}</PublicMarketplaceShell>;
+  }
+
   const isOnboardingPath = currentPath.startsWith("/onboarding");
   const isAuditorSeeker = session?.user?.accountPurpose === AccountPurpose.AUDITOR_SEEKER;
 
