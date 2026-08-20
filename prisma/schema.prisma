@@ -46,6 +46,7 @@ enum StripeIntegrationMode {
 enum StripeCheckoutKind {
   SUBSCRIPTION
   CREDIT_PURCHASE
+  MARKETPLACE_FEE
 }
 
 enum StripeWebhookEventStatus {
@@ -186,6 +187,9 @@ enum ConductLocationType {
   GROUP_FORUM_POST
   GROUP_ASSET_COMMENT
   DISPUTE_STATEMENT
+  MARKETPLACE_LISTING
+  MARKETPLACE_INQUIRY
+  MARKETPLACE_REVIEW
 }
 
 enum ConductIncidentStatus {
@@ -595,6 +599,113 @@ enum JobListingStatus {
   ARCHIVED
 }
 
+enum MarketplaceListingKind {
+  GOODS
+  VEHICLE
+  RENTAL
+  SERVICE
+  JOB
+  AUDITOR
+}
+
+enum MarketplaceIntent {
+  OFFER
+  WANTED
+}
+
+enum MarketplaceListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  RESERVED
+  FULFILLED
+  EXPIRED
+  ARCHIVED
+  REMOVED
+}
+
+enum MarketplacePriceType {
+  FIXED
+  NEGOTIABLE
+  RANGE
+  FREE
+  TRADE
+  QUOTE
+  CONTACT
+}
+
+enum MarketplacePublisherKind {
+  PERSONAL
+  BUSINESS
+  AUDITOR
+  ORGANIZATION
+}
+
+enum MarketplaceInquiryKind {
+  GENERAL
+  OFFER
+  APPLICATION
+  QUOTE_REQUEST
+  TOUR_REQUEST
+}
+
+enum MarketplaceInquiryStatus {
+  OPEN
+  RESPONDED
+  CLOSED
+  BLOCKED
+}
+
+enum MarketplaceInteractionStatus {
+  OPEN
+  COMPLETED
+  CANCELED
+  DISPUTED
+}
+
+enum MarketplaceReviewStatus {
+  PUBLISHED
+  HIDDEN
+  REMOVED
+}
+
+enum MarketplaceSavedSearchFrequency {
+  NONE
+  IMMEDIATE
+  DAILY
+  WEEKLY
+}
+
+enum MarketplaceListingEventType {
+  CREATED
+  UPDATED
+  PUBLISHED
+  PAUSED
+  RESERVED
+  FULFILLED
+  EXPIRED
+  ARCHIVED
+  REMOVED
+  RENEWED
+  PROMOTED
+  REPORTED
+}
+
+enum MarketplaceFeeAction {
+  PUBLISH
+  RENEW
+  PROMOTE
+  ADVERTISE
+}
+
+enum MarketplaceFeeStatus {
+  WAIVED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 enum BusinessInquiryStatus {
   NEW
   READ
@@ -618,6 +729,7 @@ enum AdPlacement {
 enum AdDestinationKind {
   STOREFRONT
   MARKET_LISTING
+  MARKETPLACE_LISTING
   BUSINESS_ARTICLE
   EXTERNAL_URL
 }
@@ -715,6 +827,10 @@ enum PlatformCostSubject {
   POST_BOOST
   EVENT_BOOST
   STOREFRONT_SPOTLIGHT
+  MARKETPLACE_PUBLISH
+  MARKETPLACE_RENEW
+  MARKETPLACE_PROMOTE
+  MARKETPLACE_ADVERTISE
 }
 
 enum FundraiserCategory {
@@ -949,6 +1065,17 @@ model User {
   eventRsvps                       EventRsvp[]
   marketListings                   MarketListing[]                    @relation("MarketListingSeller")
   jobListings                      JobListing[]                       @relation("JobListingEmployer")
+  marketplaceListings              MarketplaceListing[]               @relation("MarketplaceListingOwner")
+  marketplaceModeratedListings     MarketplaceListing[]               @relation("MarketplaceListingModerator")
+  marketplaceInquiries             MarketplaceInquiry[]               @relation("MarketplaceInquiryRequester")
+  marketplaceSavedListings         MarketplaceSavedListing[]
+  marketplaceSavedSearches         MarketplaceSavedSearch[]
+  marketplaceInteractionsRequested MarketplaceInteraction[]           @relation("MarketplaceInteractionRequester")
+  marketplaceInteractionsOwned     MarketplaceInteraction[]           @relation("MarketplaceInteractionOwner")
+  marketplaceReviewsAuthored       MarketplaceReview[]                @relation("MarketplaceReviewAuthor")
+  marketplaceReviewsReceived       MarketplaceReview[]                @relation("MarketplaceReviewSubject")
+  marketplaceListingEvents         MarketplaceListingEvent[]          @relation("MarketplaceListingEventActor")
+  marketplaceFeeLedgerEntries      MarketplaceFeeLedgerEntry[]        @relation("MarketplaceFeeLedgerUser")
   auditorProfile                   AuditorProfile?
   auditorSeekerProfile             AuditorSeekerProfile?
   auditorSuccessStories            AuditorSuccessStory[]              @relation("AuditorSuccessStoryAuthor")
@@ -1416,29 +1543,30 @@ model StripeWebhookEvent {
 }
 
 model BillingCheckoutIntent {
-  id                      String                      @id @default(cuid())
-  idempotencyKey          String                      @unique
-  userId                  String?
-  kind                    StripeCheckoutKind
-  targetTier              MembershipTier?
-  creditPackageKey        String?
-  creditAmountSnapshot    Int?
-  stripePriceIdSnapshot   String
-  amountCentsSnapshot     Int
-  currencySnapshot        String
-  stripeCheckoutSessionId String?                     @unique
-  stripeSubscriptionId    String?                     @unique
-  status                  BillingCheckoutIntentStatus @default(PENDING)
-  expiresAt               DateTime
-  sessionCreatedAt        DateTime?
-  completedAt             DateTime?
-  canceledAt              DateTime?
-  failedAt                DateTime?
-  errorMessage            String?
-  retentionClass          RecordRetentionClass        @default(VITAL)
-  createdAt               DateTime                    @default(now())
-  updatedAt               DateTime                    @updatedAt
-  user                    User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id                        String                      @id @default(cuid())
+  idempotencyKey            String                      @unique
+  userId                    String?
+  kind                      StripeCheckoutKind
+  targetTier                MembershipTier?
+  creditPackageKey          String?
+  creditAmountSnapshot      Int?
+  stripePriceIdSnapshot     String
+  amountCentsSnapshot       Int
+  currencySnapshot          String
+  stripeCheckoutSessionId   String?                     @unique
+  stripeSubscriptionId      String?                     @unique
+  status                    BillingCheckoutIntentStatus @default(PENDING)
+  expiresAt                 DateTime
+  sessionCreatedAt          DateTime?
+  completedAt               DateTime?
+  canceledAt                DateTime?
+  failedAt                  DateTime?
+  errorMessage              String?
+  retentionClass            RecordRetentionClass        @default(VITAL)
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  user                      User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  marketplaceFeeLedgerEntry MarketplaceFeeLedgerEntry?
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
@@ -1743,36 +1871,37 @@ model DeliveryOutbox {
 }
 
 model MediaAsset {
-  id                       String                   @id @default(cuid())
-  ownerUserId              String
-  storageKey               String                   @unique
-  publicUrl                String?
-  mimeType                 String
-  sizeBytes                BigInt
-  originalName             String?
-  status                   MediaAssetStatus         @default(READY)
-  visibility               MediaVisibility          @default(PRIVATE)
-  metadata                 Json?
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  owner                    User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  hashtags                 MediaAssetHashtag[]
-  collections              MediaCollectionAsset[]
-  feedPosts                FeedPost[]
-  feedComments             FeedComment[]
-  galleryComments          GalleryAssetComment[]
-  galleryReactions         GalleryAssetReaction[]
-  adCampaignImages         AdCampaign[]             @relation("AdCampaignImage")
-  adCarouselItems          AdCampaignCreative[]     @relation("AdCampaignCreativeImage")
-  businessArticleCovers    BusinessArticle[]        @relation("BusinessArticleCover")
-  chatAttachments          ChatAttachment[]
-  mailAttachments          MailAttachment[]
-  groupForumPosts          GroupForumPost[]
-  groupAssets              GroupAsset[]
-  marketListingPhotos      MarketListingPhoto[]
-  jobListingImages         JobListing[]             @relation("JobListingImage")
-  scientologyCommendation  ScientologyCommendation?
-  feedbackTicketScreenshot FeedbackTicket?          @relation("FeedbackTicketScreenshot")
+  id                           String                        @id @default(cuid())
+  ownerUserId                  String
+  storageKey                   String                        @unique
+  publicUrl                    String?
+  mimeType                     String
+  sizeBytes                    BigInt
+  originalName                 String?
+  status                       MediaAssetStatus              @default(READY)
+  visibility                   MediaVisibility               @default(PRIVATE)
+  metadata                     Json?
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+  owner                        User                          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  hashtags                     MediaAssetHashtag[]
+  collections                  MediaCollectionAsset[]
+  feedPosts                    FeedPost[]
+  feedComments                 FeedComment[]
+  galleryComments              GalleryAssetComment[]
+  galleryReactions             GalleryAssetReaction[]
+  adCampaignImages             AdCampaign[]                  @relation("AdCampaignImage")
+  adCarouselItems              AdCampaignCreative[]          @relation("AdCampaignCreativeImage")
+  businessArticleCovers        BusinessArticle[]             @relation("BusinessArticleCover")
+  chatAttachments              ChatAttachment[]
+  mailAttachments              MailAttachment[]
+  groupForumPosts              GroupForumPost[]
+  groupAssets                  GroupAsset[]
+  marketListingPhotos          MarketListingPhoto[]
+  jobListingImages             JobListing[]                  @relation("JobListingImage")
+  marketplaceListingMedia      MarketplaceListingMedia[]
+  scientologyCommendation      ScientologyCommendation?
+  feedbackTicketScreenshot     FeedbackTicket?               @relation("FeedbackTicketScreenshot")
   membershipStorageArchiveItem MembershipStorageArchiveItem?
 
   @@index([ownerUserId, createdAt])
@@ -1780,62 +1909,62 @@ model MediaAsset {
 }
 
 model MembershipStorageArchive {
-  id                   String                        @id @default(cuid())
-  userId               String
-  status               MembershipStorageArchiveStatus @default(QUEUED)
-  sourceTier           MembershipTier
-  targetTier           MembershipTier                @default(FREE)
-  quotaBytes           BigInt
-  originalBytes        BigInt                        @default(0)
-  archivedBytes        BigInt                        @default(0)
-  selectedAssetCount   Int                           @default(0)
-  archiveJobId         String?                       @unique
-  downloadStatus       MembershipStorageArchiveStatus @default(QUEUED)
-  downloadJobId        String?                       @unique
-  downloadStorageKey   String?                       @unique
-  downloadSizeBytes    BigInt?
-  downloadExpiresAt    DateTime?
-  downloadReadyAt      DateTime?
-  downloadNotifiedAt   DateTime?
-  error                String?
-  createdAt            DateTime                      @default(now())
-  updatedAt            DateTime                      @updatedAt
-  user                 User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items                MembershipStorageArchiveItem[]
+  id                 String                         @id @default(cuid())
+  userId             String
+  status             MembershipStorageArchiveStatus @default(QUEUED)
+  sourceTier         MembershipTier
+  targetTier         MembershipTier                 @default(FREE)
+  quotaBytes         BigInt
+  originalBytes      BigInt                         @default(0)
+  archivedBytes      BigInt                         @default(0)
+  selectedAssetCount Int                            @default(0)
+  archiveJobId       String?                        @unique
+  downloadStatus     MembershipStorageArchiveStatus @default(QUEUED)
+  downloadJobId      String?                        @unique
+  downloadStorageKey String?                        @unique
+  downloadSizeBytes  BigInt?
+  downloadExpiresAt  DateTime?
+  downloadReadyAt    DateTime?
+  downloadNotifiedAt DateTime?
+  error              String?
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  user               User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items              MembershipStorageArchiveItem[]
 
   @@index([userId, status, createdAt])
   @@index([downloadExpiresAt])
 }
 
 model MembershipStorageArchiveItem {
-  id                   String                            @id @default(cuid())
-  archiveId            String
-  mediaAssetId         String                            @unique
-  status               MembershipStorageArchiveItemStatus @default(QUEUED)
-  position             Int
-  sourceStorageKey     String
-  sourceVisibility     MediaVisibility
-  originalMimeType     String
-  originalName         String?
-  originalSizeBytes    BigInt
-  archiveStorageKey    String?
-  archiveMimeType      String?
-  archiveCodec         String?
-  archiveSizeBytes     BigInt?
-  thumbnailStorageKey  String?
-  thumbnailMimeType    String?
-  thumbnailSizeBytes   BigInt?
-  viewStatus           MembershipStorageArchiveItemStatus @default(QUEUED)
-  viewJobId            String?                           @unique
-  viewStorageKey       String?
-  viewMimeType         String?
-  viewExpiresAt        DateTime?
-  error                String?
-  archivedAt           DateTime?
-  createdAt            DateTime                          @default(now())
-  updatedAt            DateTime                          @updatedAt
-  archive              MembershipStorageArchive          @relation(fields: [archiveId], references: [id], onDelete: Cascade)
-  mediaAsset           MediaAsset                        @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  id                  String                             @id @default(cuid())
+  archiveId           String
+  mediaAssetId        String                             @unique
+  status              MembershipStorageArchiveItemStatus @default(QUEUED)
+  position            Int
+  sourceStorageKey    String
+  sourceVisibility    MediaVisibility
+  originalMimeType    String
+  originalName        String?
+  originalSizeBytes   BigInt
+  archiveStorageKey   String?
+  archiveMimeType     String?
+  archiveCodec        String?
+  archiveSizeBytes    BigInt?
+  thumbnailStorageKey String?
+  thumbnailMimeType   String?
+  thumbnailSizeBytes  BigInt?
+  viewStatus          MembershipStorageArchiveItemStatus @default(QUEUED)
+  viewJobId           String?                            @unique
+  viewStorageKey      String?
+  viewMimeType        String?
+  viewExpiresAt       DateTime?
+  error               String?
+  archivedAt          DateTime?
+  createdAt           DateTime                           @default(now())
+  updatedAt           DateTime                           @updatedAt
+  archive             MembershipStorageArchive           @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  mediaAsset          MediaAsset                         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
 
   @@unique([archiveId, position])
   @@index([archiveId, status, position])
@@ -2191,17 +2320,18 @@ model FriendRelationshipRequest {
 }
 
 model ChatThread {
-  id              String               @id @default(cuid())
-  type            ChatThreadType
-  title           String?
-  createdByUserId String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  lastMessageAt   DateTime?
-  retentionClass  RecordRetentionClass @default(STANDARD)
-  createdBy       User?                @relation("ChatThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  participants    ChatParticipant[]
-  messages        ChatMessage[]
+  id                   String               @id @default(cuid())
+  type                 ChatThreadType
+  title                String?
+  createdByUserId      String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  lastMessageAt        DateTime?
+  retentionClass       RecordRetentionClass @default(STANDARD)
+  createdBy            User?                @relation("ChatThreadCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  participants         ChatParticipant[]
+  messages             ChatMessage[]
+  marketplaceInquiries MarketplaceInquiry[]
 
   @@index([type, lastMessageAt])
   @@index([createdByUserId, createdAt])
@@ -3044,27 +3174,274 @@ model JobListing {
   @@index([imageMediaAssetId])
 }
 
+model MarketplaceListing {
+  id                  String                      @id @default(cuid())
+  slug                String                      @unique
+  ownerUserId         String
+  publisherKind       MarketplacePublisherKind    @default(PERSONAL)
+  businessProfileId   String?
+  auditorProfileId    String?
+  kind                MarketplaceListingKind
+  intent              MarketplaceIntent
+  status              MarketplaceListingStatus    @default(DRAFT)
+  title               String
+  summary             String?
+  description         String
+  category            String
+  subcategory         String?
+  condition           String?
+  templateVersion     Int                         @default(1)
+  attributes          Json                        @default("{}")
+  priceType           MarketplacePriceType        @default(CONTACT)
+  priceCents          Int?
+  priceMinCents       Int?
+  priceMaxCents       Int?
+  currency            String                      @default("USD")
+  countryCode         String?
+  region              String?
+  city                String?
+  postalArea          String?
+  remote              Boolean                     @default(false)
+  deliveryAvailable   Boolean                     @default(false)
+  exactAddress        String?
+  contactEmail        String?
+  contactPhone        String?
+  contactWebsite      String?
+  contactInstructions String?
+  showEmail           Boolean                     @default(false)
+  showPhone           Boolean                     @default(false)
+  showWebsite         Boolean                     @default(false)
+  showExactAddress    Boolean                     @default(false)
+  allowInAppMessages  Boolean                     @default(true)
+  publishedAt         DateTime?
+  expiresAt           DateTime?
+  closedAt            DateTime?
+  archivedAt          DateTime?
+  moderatedAt         DateTime?
+  moderatedByUserId   String?
+  moderationReason    String?
+  viewCount           Int                         @default(0)
+  saveCount           Int                         @default(0)
+  inquiryCount        Int                         @default(0)
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  owner               User                        @relation("MarketplaceListingOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  businessProfile     BusinessProfile?            @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  auditorProfile      AuditorProfile?             @relation(fields: [auditorProfileId], references: [id], onDelete: SetNull)
+  moderatedBy         User?                       @relation("MarketplaceListingModerator", fields: [moderatedByUserId], references: [id], onDelete: SetNull)
+  media               MarketplaceListingMedia[]
+  facets              MarketplaceListingFacet[]
+  inquiries           MarketplaceInquiry[]
+  savedBy             MarketplaceSavedListing[]
+  interactions        MarketplaceInteraction[]
+  reviews             MarketplaceReview[]
+  events              MarketplaceListingEvent[]
+  feeLedgerEntries    MarketplaceFeeLedgerEntry[]
+  adCampaigns         AdCampaign[]
+
+  @@index([status, kind, intent, publishedAt])
+  @@index([kind, category, subcategory, status])
+  @@index([countryCode, region, city, status])
+  @@index([ownerUserId, status, updatedAt])
+  @@index([businessProfileId, status, updatedAt])
+  @@index([auditorProfileId, status, updatedAt])
+  @@index([expiresAt, status])
+  @@index([priceType, priceCents])
+  @@index([moderatedByUserId, moderatedAt])
+}
+
+model MarketplaceListingMedia {
+  id           String             @id @default(cuid())
+  listingId    String
+  mediaAssetId String
+  sortOrder    Int                @default(0)
+  altText      String?
+  isPrimary    Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  listing      MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, mediaAssetId])
+  @@index([listingId, sortOrder])
+  @@index([mediaAssetId, createdAt])
+}
+
+model MarketplaceListingFacet {
+  id           String             @id @default(cuid())
+  listingId    String
+  key          String
+  valueText    String?
+  valueNumber  Float?
+  valueBoolean Boolean?
+  unit         String?
+  createdAt    DateTime           @default(now())
+  listing      MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([key, valueText, listingId])
+  @@index([key, valueNumber, listingId])
+  @@index([key, valueBoolean, listingId])
+  @@index([listingId, key])
+}
+
+model MarketplaceInquiry {
+  id              String                   @id @default(cuid())
+  listingId       String
+  requesterUserId String
+  threadId        String?                  @unique
+  kind            MarketplaceInquiryKind   @default(GENERAL)
+  status          MarketplaceInquiryStatus @default(OPEN)
+  initialMessage  String?
+  listingSnapshot Json
+  respondedAt     DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  listing         MarketplaceListing       @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  requester       User                     @relation("MarketplaceInquiryRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  thread          ChatThread?              @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  interaction     MarketplaceInteraction?
+
+  @@unique([listingId, requesterUserId, kind])
+  @@index([listingId, status, createdAt])
+  @@index([requesterUserId, status, createdAt])
+}
+
+model MarketplaceSavedListing {
+  id        String             @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime           @default(now())
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([listingId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model MarketplaceSavedSearch {
+  id             String                          @id @default(cuid())
+  userId         String
+  name           String
+  query          Json
+  frequency      MarketplaceSavedSearchFrequency @default(NONE)
+  enabled        Boolean                         @default(true)
+  lastRunAt      DateTime?
+  lastNotifiedAt DateTime?
+  createdAt      DateTime                        @default(now())
+  updatedAt      DateTime                        @updatedAt
+  user           User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled, updatedAt])
+  @@index([frequency, enabled, lastRunAt])
+}
+
+model MarketplaceInteraction {
+  id                   String                       @id @default(cuid())
+  listingId            String
+  inquiryId            String?                      @unique
+  requesterUserId      String
+  ownerUserId          String
+  status               MarketplaceInteractionStatus @default(OPEN)
+  requesterConfirmedAt DateTime?
+  ownerConfirmedAt     DateTime?
+  completedAt          DateTime?
+  canceledAt           DateTime?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  listing              MarketplaceListing           @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  inquiry              MarketplaceInquiry?          @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  requester            User                         @relation("MarketplaceInteractionRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  owner                User                         @relation("MarketplaceInteractionOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  reviews              MarketplaceReview[]
+
+  @@unique([listingId, requesterUserId])
+  @@index([requesterUserId, status, updatedAt])
+  @@index([ownerUserId, status, updatedAt])
+  @@index([listingId, status])
+}
+
+model MarketplaceReview {
+  id            String                  @id @default(cuid())
+  interactionId String
+  listingId     String
+  authorUserId  String
+  subjectUserId String
+  rating        Int
+  body          String?
+  status        MarketplaceReviewStatus @default(PUBLISHED)
+  moderatedAt   DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  interaction   MarketplaceInteraction  @relation(fields: [interactionId], references: [id], onDelete: Restrict)
+  listing       MarketplaceListing      @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  author        User                    @relation("MarketplaceReviewAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  subject       User                    @relation("MarketplaceReviewSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+
+  @@unique([interactionId, authorUserId])
+  @@index([subjectUserId, status, createdAt])
+  @@index([listingId, status, createdAt])
+}
+
+model MarketplaceListingEvent {
+  id          String                      @id @default(cuid())
+  listingId   String
+  actorUserId String?
+  type        MarketplaceListingEventType
+  metadata    Json?
+  createdAt   DateTime                    @default(now())
+  listing     MarketplaceListing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  actor       User?                       @relation("MarketplaceListingEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([listingId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([type, createdAt])
+}
+
+model MarketplaceFeeLedgerEntry {
+  id               String                 @id @default(cuid())
+  operationId      String                 @unique @default(cuid())
+  listingId        String
+  userId           String?
+  checkoutIntentId String?                @unique
+  action           MarketplaceFeeAction
+  status           MarketplaceFeeStatus   @default(WAIVED)
+  amountCents      Int                    @default(0)
+  currency         String                 @default("USD")
+  metadata         Json?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  listing          MarketplaceListing     @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  user             User?                  @relation("MarketplaceFeeLedgerUser", fields: [userId], references: [id], onDelete: SetNull)
+  checkoutIntent   BillingCheckoutIntent? @relation(fields: [checkoutIntentId], references: [id], onDelete: SetNull)
+
+  @@index([listingId, action, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
 model AuditorProfile {
-  id              String                @id @default(cuid())
-  userId          String?               @unique
-  slug            String                @unique
-  directoryKind   AuditorDirectoryKind  @default(FIELD_AUDITOR)
-  practiceName    String
-  location        String?
-  address         String?
-  willingToTravel Boolean               @default(false)
-  bio             String?
-  offerings       String?
-  contactEmail    String?
-  phone           String?
-  website         String?
-  sourceUrl       String?
-  isOfficial      Boolean               @default(false)
-  active          Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  user            User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  successStories  AuditorSuccessStory[]
+  id                  String                @id @default(cuid())
+  userId              String?               @unique
+  slug                String                @unique
+  directoryKind       AuditorDirectoryKind  @default(FIELD_AUDITOR)
+  practiceName        String
+  location            String?
+  address             String?
+  willingToTravel     Boolean               @default(false)
+  bio                 String?
+  offerings           String?
+  contactEmail        String?
+  phone               String?
+  website             String?
+  sourceUrl           String?
+  isOfficial          Boolean               @default(false)
+  active              Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  user                User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  successStories      AuditorSuccessStory[]
+  marketplaceListings MarketplaceListing[]
 
   @@index([active, directoryKind, updatedAt])
   @@index([location])
@@ -3152,6 +3529,7 @@ model BusinessProfile {
   adCampaigns              AdCampaign[]
   articles                 BusinessArticle[]
   forumTopics              StorefrontForumTopic[]
+  marketplaceListings      MarketplaceListing[]
 
   @@index([publicStorefrontEnabled, updatedAt])
 }
@@ -3281,6 +3659,7 @@ model AdCampaign {
   ownerUserId                  String
   businessProfileId            String?
   marketListingId              String?
+  marketplaceListingId         String?
   businessArticleId            String?
   subscriberTargetManuscriptId String?
   imageMediaAssetId            String?
@@ -3308,6 +3687,7 @@ model AdCampaign {
   owner                        User                       @relation("AdCampaignOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   businessProfile              BusinessProfile?           @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
   marketListing                MarketListing?             @relation(fields: [marketListingId], references: [id], onDelete: SetNull)
+  marketplaceListing           MarketplaceListing?        @relation(fields: [marketplaceListingId], references: [id], onDelete: SetNull)
   businessArticle              BusinessArticle?           @relation(fields: [businessArticleId], references: [id], onDelete: SetNull)
   subscriberTargetManuscript   WriterManuscript?          @relation("AdSubscriberTargetManuscript", fields: [subscriberTargetManuscriptId], references: [id], onDelete: SetNull)
   imageMediaAsset              MediaAsset?                @relation("AdCampaignImage", fields: [imageMediaAssetId], references: [id], onDelete: SetNull)
@@ -3320,6 +3700,7 @@ model AdCampaign {
   @@index([ownerUserId, createdAt])
   @@index([businessProfileId, createdAt])
   @@index([marketListingId, createdAt])
+  @@index([marketplaceListingId, createdAt])
   @@index([businessArticleId, createdAt])
   @@index([subscriberTargetManuscriptId, createdAt])
   @@index([imageMediaAssetId])

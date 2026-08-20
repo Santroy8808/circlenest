@@ -120,6 +120,7 @@ export const createAdCampaignSchema = z.object({
   carouselEnabled: z.boolean().default(false),
   destinationKind: z.nativeEnum(AdDestinationKind).default(AdDestinationKind.STOREFRONT),
   marketListingId: optionalEntityIdSchema,
+  marketplaceListingId: optionalEntityIdSchema,
   businessArticleId: optionalEntityIdSchema,
   customDestinationUrl: optionalHttpsUrlSchema,
   subscriberTargetManuscriptId: optionalEntityIdSchema,
@@ -170,6 +171,7 @@ export const createAdCampaignSchema = z.object({
   const destinationRequirements: Record<AdDestinationKind, { field?: keyof typeof value; message?: string }> = {
     [AdDestinationKind.STOREFRONT]: {},
     [AdDestinationKind.MARKET_LISTING]: { field: "marketListingId", message: "Choose a Market listing." },
+    [AdDestinationKind.MARKETPLACE_LISTING]: { field: "marketplaceListingId", message: "Choose a marketplace listing." },
     [AdDestinationKind.BUSINESS_ARTICLE]: { field: "businessArticleId", message: "Choose a storefront article." },
     [AdDestinationKind.EXTERNAL_URL]: { field: "customDestinationUrl", message: "Enter the HTTPS destination URL." }
   };

@@ -18,7 +18,11 @@ export const platformCostSubjectLabels: Record<PlatformCostSubject, string> = {
   AD_RESERVED_STREAM: "Reserved stream ad",
   POST_BOOST: "Boost post",
   EVENT_BOOST: "Boost event",
-  STOREFRONT_SPOTLIGHT: "Storefront spotlight"
+  STOREFRONT_SPOTLIGHT: "Storefront spotlight",
+  MARKETPLACE_PUBLISH: "Publish marketplace listing",
+  MARKETPLACE_RENEW: "Renew marketplace listing",
+  MARKETPLACE_PROMOTE: "Promote marketplace listing",
+  MARKETPLACE_ADVERTISE: "Advertise marketplace listing"
 };
 
 export const adPlacementCostSubjects: Record<AdPlacement, PlatformCostSubject[]> = {
