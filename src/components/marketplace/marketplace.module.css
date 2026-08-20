@@ -72,8 +72,30 @@
 
 .primaryButton {
   border-color: var(--gold);
-  background: var(--gold);
-  color: #111318;
+  background: color-mix(in srgb, var(--panel-soft) 35%, var(--gold));
+  color: var(--on-gold);
+}
+
+.secondaryButton {
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 36%, var(--control-border));
+  color: var(--gold);
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.iconButton:hover,
+.filterButton:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.iconButton:focus-visible,
+.filterButton:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 26%, transparent);
+  outline: none;
 }
 
 .primaryButton:disabled,

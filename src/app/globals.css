@@ -462,9 +462,10 @@ a {
 
 .desktop-command-link {
   align-items: center;
-  border: 0;
+  background: color-mix(in srgb, var(--panel-soft) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 10%, var(--control-border));
   border-radius: 14px;
-  color: var(--muted);
+  color: var(--gold);
   display: inline-flex;
   font-size: 0.78rem;
   font-weight: 900;
@@ -515,6 +516,8 @@ a {
 
 .desktop-command-link:hover,
 .desktop-command-link.is-active {
+  background: color-mix(in srgb, var(--panel-soft) 68%, transparent);
+  border-color: var(--gold);
   color: var(--text);
   filter: brightness(1.12);
   transform: translateY(-1px);
@@ -636,6 +639,7 @@ a {
   border: 1px solid rgba(214, 178, 74, 0.3);
   border-radius: 999px;
   color: var(--gold);
+  background: color-mix(in srgb, var(--panel-soft) 82%, transparent);
   font-weight: 900;
   padding: 10px 16px;
 }
@@ -7330,6 +7334,26 @@ html.theta-theme-light .desktop-command-icon:hover {
 html.theta-theme-light .desktop-command-icon strong,
 html.theta-theme-light .desktop-command-link strong {
   display: none;
+}
+
+html.theta-theme-light .desktop-command-link {
+  background: rgba(255, 250, 240, 0.86);
+  border: 1px solid rgba(156, 118, 34, 0.3);
+  color: var(--text);
+}
+
+html.theta-theme-light .desktop-command-link:hover,
+html.theta-theme-light .desktop-command-link.is-active {
+  background: rgba(244, 232, 204, 0.96);
+  border-color: rgba(156, 118, 34, 0.6);
+}
+
+html.theta-theme-light .desktop-command-link.is-active::after {
+  background: var(--gold);
+}
+
+html.theta-theme-light .desktop-command-login {
+  background: rgba(255, 250, 240, 0.9);
 }
 
 html.theta-theme-light .main-surface {
