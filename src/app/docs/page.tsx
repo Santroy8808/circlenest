@@ -14,7 +14,9 @@ const rootDocs = [
   { title: "Cutover Runbook", href: "/docs/cutover-runbook" },
   { title: "Browser Smoke Checklist", href: "/docs/browser-smoke-checklist" },
   { title: "Promotion Dry Run", href: "/docs/promotion-dry-run" },
-  { title: "External Services Readiness", href: "/docs/external-services-readiness" }
+  { title: "External Services Readiness", href: "/docs/external-services-readiness" },
+  { title: "Brand And Interface System", href: "/docs/design-system" },
+  { title: "Developer Design System", href: "/docs/developer-design-system" }
 ];
 
 export default async function DocsPage() {

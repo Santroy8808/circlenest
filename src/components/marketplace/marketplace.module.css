@@ -2,7 +2,7 @@
   width: min(100%, 1120px);
   min-width: 0;
   margin: 0 auto;
-  color: var(--text);
+  color: var(--content-primary);
 }
 
 .pageHeader {
@@ -26,7 +26,7 @@
 .cardEyebrow,
 .sectionLabel {
   margin: 0;
-  color: var(--gold-text);
+  color: var(--content-accent);
   font-size: .74rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -60,7 +60,7 @@
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 9px 14px;
   background: var(--panel);
   color: var(--text);
@@ -71,9 +71,9 @@
 }
 
 .primaryButton {
-  border-color: var(--gold);
-  background: var(--gold);
-  color: var(--on-gold);
+  border-color: var(--action-primary);
+  background: var(--action-primary);
+  color: var(--action-primary-fg);
 }
 
 .primaryButton:visited,
@@ -82,24 +82,34 @@
 }
 
 .secondaryButton {
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
-  border-color: color-mix(in srgb, var(--gold) 36%, var(--control-border));
-  color: var(--gold-text);
+  background: var(--action-secondary-surface);
+  border-color: var(--action-secondary-border);
+  color: var(--action-secondary-fg);
 }
 
 .primaryButton:hover,
 .secondaryButton:hover,
 .iconButton:hover,
 .filterButton:hover {
-  filter: brightness(1.1);
   transform: translateY(-1px);
+}
+
+.primaryButton:hover {
+  background: var(--action-primary-hover);
+  border-color: var(--action-primary-hover);
+}
+
+.secondaryButton:hover {
+  background: var(--action-secondary-hover);
+  border-color: var(--border-accent);
+  color: var(--content-accent);
 }
 
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
 .iconButton:focus-visible,
 .filterButton:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 26%, transparent);
+  box-shadow: var(--shadow-focus);
   outline: none;
 }
 

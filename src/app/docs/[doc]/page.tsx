@@ -16,7 +16,9 @@ const docFiles: Record<string, string> = {
   "cutover-runbook": "docs/cutover-runbook.md",
   "browser-smoke-checklist": "docs/browser-smoke-checklist.md",
   "promotion-dry-run": "docs/promotion-dry-run.md",
-  "external-services-readiness": "docs/external-services-readiness.md"
+  "external-services-readiness": "docs/external-services-readiness.md",
+  "design-system": "docs/design-system.md",
+  "developer-design-system": "docs/developer-design-system.md"
 };
 
 export default async function RootDocPage(props: { params: Promise<{ doc: string }> }) {
