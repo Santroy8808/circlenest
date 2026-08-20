@@ -24,16 +24,16 @@ Every interface has a dark and light version. Dark is a deep navy workspace. Lig
 | Primary text | Pale cool white | Ink navy | Main content |
 | Secondary text | Blue-grey | Slate | Supporting content |
 | Accent text | Soft gold | Warm gold | Eyebrows, links, metadata, quiet actions |
-| Primary action | Warm gold | Dark bronze | Publish, send, save, confirm, continue |
+| Primary action | Warm gold | Rich Theta gold | Publish, send, save, confirm, continue |
 | Success | Green | Green | Completed or healthy state |
 | Danger | Red | Red | Destructive or failed state |
 
 The light theme deliberately separates two gold roles:
 
-- **Bronze fill** is for a committed primary action.
-- **Lighter warm-gold text** is for headings, icons, links, and buttons that do not have a bronze fill.
+- **Rich Theta-gold fill** is for a committed primary action. It always uses deep ink text for contrast.
+- **Readable warm-gold text** is for headings, icons, links, and buttons that do not have a filled action treatment.
 
-Do not put dark bronze text on a light cream surface when the lighter warm-gold text role is intended. Do not use gold as ordinary paragraph text.
+Do not use the filled-action gold as foreground text on a cream surface. Do not use gold as ordinary paragraph text.
 
 ## Content Hierarchy
 
@@ -51,7 +51,7 @@ Avoid multiple competing banners, duplicate page titles, or repeated primary act
 
 | Control | Meaning | Visual treatment |
 | --- | --- | --- |
-| Primary | A meaningful commit: publish, send, save, submit, create | Filled warm gold or bronze with high-contrast text |
+| Primary | A meaningful commit: publish, send, save, submit, create | Filled rich Theta gold with deep ink text |
 | Secondary | A reversible or alternate task: back, manage, view, filter | Surface-colored control with warm-gold text and border |
 | Icon action | A compact, familiar single-purpose action | Icon with tooltip, fixed square control |
 | Destructive | Delete, revoke, end, remove | Red fill or explicit danger treatment |

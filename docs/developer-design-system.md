@@ -37,7 +37,7 @@ Allowed theme-specific CSS is limited to a genuine visual difference that cannot
 - `--action-primary` is the solid fill of the one action that commits work.
 - `--content-accent` is the readable foreground accent on open surfaces.
 
-This prevents the light theme from using dark bronze text where a lighter, less aggressive accent belongs.
+This prevents the light theme from using the filled-action gold as foreground text where the readable accent role belongs.
 
 ## Component Baselines
 
