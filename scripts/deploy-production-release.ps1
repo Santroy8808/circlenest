@@ -46,6 +46,18 @@ function Wait-ServiceState {
   (Get-Service -Name $Name).WaitForStatus($Status, [TimeSpan]::FromSeconds(45))
 }
 
+function Start-OrResumeService {
+  param([string]$Name)
+
+  $service = Get-Service -Name $Name
+  if ($service.Status -eq "Paused") {
+    Resume-Service -Name $Name
+  } elseif ($service.Status -ne "Running") {
+    Start-Service -Name $Name
+  }
+  Wait-ServiceState -Name $Name -Status Running
+}
+
 try {
   Set-Location (Resolve-Path -LiteralPath $RepoRoot).Path
   $workingTree = @(& git status --porcelain)
@@ -84,8 +96,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\backup-database-hourly.ps1") -Destination $BackupScriptDestination -Force
 
   foreach ($serviceName in $applicationServices) {
-    Start-Service -Name $serviceName
-    Wait-ServiceState -Name $serviceName -Status Running
+    Start-OrResumeService -Name $serviceName
   }
   Start-Sleep -Seconds 5
   $servicesStopped = $false
@@ -108,9 +119,7 @@ try {
   if ($servicesStopped) {
     foreach ($serviceName in $applicationServices) {
       try {
-        if ((Get-Service -Name $serviceName).Status -ne "Running") {
-          Start-Service -Name $serviceName
-        }
+        Start-OrResumeService -Name $serviceName
       } catch {
         $_ | Out-String | Add-Content -LiteralPath $logPath
       }
