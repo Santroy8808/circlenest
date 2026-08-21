@@ -1,9 +1,11 @@
 import type { MarketplaceListingKind } from "./marketplace.contracts";
+import { MARKETPLACE_TAXONOMY, type MarketplaceTaxonomyCategory } from "./marketplace-taxonomy";
 
 export type MarketplaceNavigationQuery = {
   category?: string;
   kind?: MarketplaceListingKind;
   q?: string;
+  subcategory?: string;
 };
 
 export type MarketplaceNavigationItem = {
@@ -14,77 +16,46 @@ export type MarketplaceNavigationItem = {
   query?: MarketplaceNavigationQuery;
 };
 
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function categoryItem(kind: MarketplaceListingKind, category: MarketplaceTaxonomyCategory, prefix = kind.toLowerCase()): MarketplaceNavigationItem {
+  const query = { kind, category: category.label } as const;
+  return {
+    id: `${prefix}-${slugify(category.label)}`,
+    label: category.label,
+    query,
+    children: category.subcategories.map((subcategory) => ({
+      id: `${prefix}-${slugify(category.label)}-${slugify(subcategory)}`,
+      label: subcategory,
+      query: { ...query, subcategory },
+    })),
+  };
+}
+
+function categoryItems(kind: MarketplaceListingKind, prefix?: string) {
+  return MARKETPLACE_TAXONOMY[kind].map((category) => categoryItem(kind, category, prefix));
+}
+
 export const MARKETPLACE_NAVIGATION: readonly MarketplaceNavigationItem[] = [
   {
     id: "buy",
     label: "Buy",
     children: [
-      {
-        id: "furniture",
-        label: "Furniture",
-        query: { kind: "GOODS", category: "Furniture & Equipment" },
-        children: [
-          { id: "office-furniture", label: "Office", query: { kind: "GOODS", category: "Furniture & Equipment", q: "office" } },
-          { id: "bedroom-furniture", label: "Bedroom", query: { kind: "GOODS", category: "Furniture & Equipment", q: "bedroom" } },
-          { id: "living-furniture", label: "Living & dining", query: { kind: "GOODS", category: "Furniture & Equipment", q: "living dining" } },
-          { id: "custom-furniture", label: "Custom", query: { kind: "GOODS", category: "Furniture & Equipment", q: "custom" } },
-        ],
-      },
-      {
-        id: "vehicles",
-        label: "Vehicles",
-        query: { kind: "VEHICLE" },
-        children: [
-          { id: "cars", label: "Cars", query: { kind: "VEHICLE", category: "Cars & Trucks", q: "car" } },
-          { id: "trucks", label: "Trucks", query: { kind: "VEHICLE", category: "Cars & Trucks", q: "truck" } },
-          { id: "motorcycles", label: "Motorcycles", query: { kind: "VEHICLE", category: "Motorcycles" } },
-          { id: "bicycles", label: "Bicycles", query: { kind: "VEHICLE", q: "bicycle" } },
-        ],
-      },
-      {
-        id: "clothing",
-        label: "Clothing",
-        query: { kind: "GOODS", category: "Clothing" },
-        children: [
-          { id: "womens-clothing", label: "Women", query: { kind: "GOODS", category: "Clothing", q: "women" } },
-          { id: "mens-clothing", label: "Men", query: { kind: "GOODS", category: "Clothing", q: "men" } },
-          { id: "kids-clothing", label: "Children", query: { kind: "GOODS", category: "Clothing", q: "children" } },
-        ],
-      },
-      {
-        id: "electronics",
-        label: "Electronics",
-        query: { kind: "GOODS", category: "Electronics & Appliances" },
-        children: [
-          { id: "computers", label: "Computers", query: { kind: "GOODS", category: "Electronics & Appliances", q: "computer" } },
-          { id: "phones", label: "Phones", query: { kind: "GOODS", category: "Electronics & Appliances", q: "phone" } },
-          { id: "appliances", label: "Appliances", query: { kind: "GOODS", category: "Electronics & Appliances", q: "appliance" } },
-        ],
-      },
+      ...categoryItems("GOODS", "goods"),
+      { id: "vehicles", label: "Vehicles", query: { kind: "VEHICLE" }, children: categoryItems("VEHICLE", "vehicle") },
     ],
   },
   {
     id: "services",
     label: "Services",
     children: [
-      { id: "home-services", label: "Home & construction", query: { kind: "SERVICE", category: "Home Services" } },
-      { id: "technology", label: "Technology", query: { kind: "SERVICE", category: "Technology" } },
-      { id: "consulting", label: "Consulting", query: { kind: "SERVICE", category: "Professional Services" } },
-      { id: "marketing", label: "Marketing", query: { kind: "SERVICE", category: "Business Services", q: "marketing" } },
-      { id: "auditors", label: "Auditors", query: { kind: "AUDITOR" } },
+      ...categoryItems("SERVICE", "service"),
+      { id: "auditors", label: "Auditors & field groups", query: { kind: "AUDITOR" }, children: categoryItems("AUDITOR", "auditor") },
     ],
   },
-  {
-    id: "rentals",
-    label: "Rentals",
-    children: [
-      { id: "apartments", label: "Apartments", query: { kind: "RENTAL", category: "Apartments" } },
-      { id: "houses", label: "Houses", query: { kind: "RENTAL", category: "Houses" } },
-      { id: "rooms", label: "Rooms", query: { kind: "RENTAL", category: "Rooms" } },
-      { id: "short-term", label: "Short-term stays", query: { kind: "RENTAL", category: "Short-term" } },
-      { id: "vehicle-rentals", label: "Vehicle rentals", query: { kind: "VEHICLE", q: "rental" } },
-    ],
-  },
+  { id: "rentals", label: "Rentals", children: categoryItems("RENTAL", "rental") },
   {
     id: "find",
     label: "Find",
@@ -99,8 +70,10 @@ export const MARKETPLACE_NAVIGATION: readonly MarketplaceNavigationItem[] = [
     id: "business",
     label: "Business",
     children: [
-      { id: "find-job", label: "Find a job", query: { kind: "JOB" } },
-      { id: "b2b", label: "B2B listings", query: { kind: "SERVICE", category: "Business Services" } },
+      { id: "find-job", label: "Jobs", query: { kind: "JOB" }, children: categoryItems("JOB", "job") },
+      { id: "b2b", label: "B2B services", query: { kind: "SERVICE", category: "Business Services" } },
+      { id: "office-business-goods", label: "Business equipment", query: { kind: "GOODS", category: "Office & Business" } },
+      { id: "commercial-rentals", label: "Commercial property", query: { kind: "RENTAL", category: "Commercial Property" } },
     ],
   },
 ];

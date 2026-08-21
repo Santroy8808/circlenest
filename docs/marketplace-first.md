@@ -22,7 +22,7 @@ Community features remain available, but the Marketplace is the primary signed-i
 - `/marketplace/interactions` tracks listing conversations, two-party completion, and verified-exchange reviews.
 - `/marketplace/legacy` is the read-only archive for records from the previous Market and Jobs systems.
 
-The publishing wizard adapts to the listing type. For example, vehicles include year, make, model, mileage, title, accident, service, and feature fields; rentals include rent, deposit, rooms, area, availability, lease, utility, amenity, and accessibility fields; jobs include company, arrangement, employment type, compensation, schedule, responsibilities, requirements, benefits, dates, application instructions, and skills.
+The publishing wizard adapts to the listing type. It uses the shared taxonomy in `src/modules/marketplace/marketplace-taxonomy.ts`, so browsing and publishing use the same primary categories and subcategories. For example, vehicles include year, make, model, mileage, title, accident, service, and feature fields; rentals include rent, deposit, rooms, area, availability, lease, utility, amenity, and accessibility fields; jobs include company, arrangement, employment type, compensation, schedule, responsibilities, requirements, benefits, dates, application instructions, and skills.
 
 ## Safety And Privacy
 
@@ -55,7 +55,7 @@ The existing platform worker:
 
 ## Directory And Legacy Data
 
-Migration `20260820143000_marketplace_auditor_directory_bridge` creates unified, evergreen auditor listings from active official `AuditorProfile` records. The directory profile remains authoritative and is not deleted. Re-running the migration is idempotent.
+Official church and auditor directory profiles remain searchable through the dedicated directory. They are not shown as member-created Marketplace inventory. A church, group, auditor, or business may create its own account and publish independent listings.
 
 Existing legacy Market and Job records remain untouched and visible through `/marketplace/legacy`. New records are created only in the unified Marketplace.
 
@@ -78,3 +78,9 @@ All new endpoints are under `/api/v2/marketplace`:
 - Read-only legacy listing access
 
 API handlers use the existing authentication, feature-flag, membership-policy, media, diagnostics, notification, and chat services.
+
+## Beta Inventory
+
+`npm run db:seed:marketplace-beta -- --confirm` creates deterministic sample inventory for every primary category. The default is 72 listings per category, equal to three 24-card result pages. Re-running the command is idempotent because listing, media, facet, and event identifiers are deterministic.
+
+All generated records use the internal `beta_test` marker. Marker fields are removed from public API views. `npm run db:cleanup:marketplace-beta` is count-only; add `-- --confirm` to delete only records that have both the beta identifier prefix and the `beta_test` marker. Always take a database backup before running confirmed cleanup in production.

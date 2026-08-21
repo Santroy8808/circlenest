@@ -147,7 +147,7 @@ export function publicMarketplaceAttributes(value: Prisma.JsonValue, canManage =
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const attributes = { ...(value as Record<string, Prisma.JsonValue>) };
   if (!canManage && attributes.showVin !== true) delete attributes.vin;
-  for (const privateKey of ["showVin", "legalComplianceAttested", "licenseAttested", "qualificationsAttested", "resumeMediaAssetId"]) {
+  for (const privateKey of ["showVin", "legalComplianceAttested", "licenseAttested", "qualificationsAttested", "resumeMediaAssetId", "seedTag", "fixtureVersion", "betaTest"]) {
     delete attributes[privateKey];
   }
   return attributes;

@@ -27,6 +27,8 @@
     "db:seed:local-qa:verify": "tsx scripts/verify-local-qa-seed.ts --confirm-local",
     "db:seed:ads10": "tsx scripts/seed-ten-ads.ts",
     "db:seed:listing-ads": "tsx scripts/seed-listing-destination-ads.ts",
+    "db:seed:marketplace-beta": "tsx scripts/seed-marketplace-beta.ts",
+    "db:cleanup:marketplace-beta": "tsx scripts/seed-marketplace-beta.ts --cleanup",
     "directory:sync-official": "tsx scripts/sync-official-service-directory.ts",
     "env:check": "tsx scripts/validate-env.ts",
     "cutover:check": "tsx scripts/cutover-readiness.ts",

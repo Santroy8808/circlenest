@@ -27,6 +27,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     kind: first(params.kind),
     intent: first(params.intent),
     category: first(params.category),
+    subcategory: first(params.subcategory),
     countryCode: first(params.country),
     region: first(params.region),
     city: first(params.city),
@@ -39,6 +40,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   };
   const results = await safeSearchMarketplaceListings(query);
   return <MarketplaceDirectory initialPage={results} query={{
-    q: first(params.q), kind: first(params.kind), intent: first(params.intent), category: first(params.category), country: first(params.country), region: first(params.region), city: first(params.city), remote: first(params.remote), min: first(params.min), max: first(params.max), sort: first(params.sort) ?? "newest", cursor: first(params.cursor), view: first(params.view),
+    q: first(params.q), kind: first(params.kind), intent: first(params.intent), category: first(params.category), subcategory: first(params.subcategory), country: first(params.country), region: first(params.region), city: first(params.city), remote: first(params.remote), min: first(params.min), max: first(params.max), sort: first(params.sort) ?? "newest", cursor: first(params.cursor), view: first(params.view),
   }} signedIn={Boolean(session?.user && !session.user.revoked)} />;
 }

@@ -31,7 +31,7 @@ function hrefFor(query: DirectoryQuery, item: MarketplaceNavigationItem) {
   if (item.href) return item.href;
   const params = new URLSearchParams();
   const patch: MarketplaceNavigationQuery = item.query ?? {};
-  const nextQuery = { ...query, q: patch.q, kind: patch.kind, category: patch.category, ...patch, cursor: undefined };
+  const nextQuery = { ...query, q: patch.q, kind: patch.kind, category: patch.category, subcategory: patch.subcategory, ...patch, cursor: undefined };
   for (const [key, value] of Object.entries(nextQuery)) {
     if (value) params.set(key, value);
   }

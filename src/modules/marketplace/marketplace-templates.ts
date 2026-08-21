@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { MarketplaceIntent, MarketplaceListingKind } from "./marketplace.contracts";
+import { marketplaceCategoryLabels } from "./marketplace-taxonomy";
 
 export type MarketplaceTemplateFieldType =
   | "text"
@@ -156,7 +157,7 @@ export const MARKETPLACE_TEMPLATES: Record<MarketplaceListingKind, MarketplaceTe
     version: 1,
     kind: "GOODS",
     label: "Items",
-    categories: ["General", "Furniture & Equipment", "Electronics & Appliances", "Books & Media", "Clothing", "Home & Garden", "Event Supplies", "Other"],
+    categories: marketplaceCategoryLabels("GOODS"),
     fields: [
       { key: "brand", label: "Brand", type: "text" },
       { key: "model", label: "Model", type: "text" },
@@ -181,7 +182,7 @@ export const MARKETPLACE_TEMPLATES: Record<MarketplaceListingKind, MarketplaceTe
     version: 1,
     kind: "VEHICLE",
     label: "Vehicles",
-    categories: ["Cars & Trucks", "Motorcycles", "Recreational", "Commercial", "Parts", "Other"],
+    categories: marketplaceCategoryLabels("VEHICLE"),
     fields: [
       { key: "year", label: "Year", type: "number", requiredFor: ["OFFER"] },
       { key: "make", label: "Make", type: "text", requiredFor: ["OFFER"] },
@@ -210,9 +211,9 @@ export const MARKETPLACE_TEMPLATES: Record<MarketplaceListingKind, MarketplaceTe
     version: 1,
     kind: "RENTAL",
     label: "Rentals",
-    categories: ["Apartments", "Houses", "Rooms", "Short-term", "Commercial", "Land", "Housing wanted"],
+    categories: marketplaceCategoryLabels("RENTAL"),
     fields: [
-      { key: "propertyType", label: "Property type", type: "select", requiredFor: ["OFFER", "WANTED"], options: ["apartment", "house", "room", "short-term", "commercial", "land", "other"] },
+      { key: "propertyType", label: "Property type", type: "select", requiredFor: ["OFFER", "WANTED"], options: ["apartment", "house", "room", "short-term", "commercial", "land", "storage", "parking", "other"] },
       { key: "rentCadence", label: "Rent period", type: "select", options: ["week", "month", "term"] },
       { key: "depositCents", label: "Deposit", type: "number", help: "Enter the amount in the listing currency." },
       { key: "bedrooms", label: "Bedrooms", type: "number" },
@@ -234,7 +235,7 @@ export const MARKETPLACE_TEMPLATES: Record<MarketplaceListingKind, MarketplaceTe
     version: 1,
     kind: "SERVICE",
     label: "Services",
-    categories: ["Home Services", "Professional Services", "Business Services", "Technology", "Creative", "Transport", "Education", "Events", "Other"],
+    categories: marketplaceCategoryLabels("SERVICE"),
     fields: [
       { key: "serviceArea", label: "Service area", type: "text" },
       { key: "deliveryMode", label: "Delivery mode", type: "select", options: ["remote", "on-site", "both"] },
@@ -251,7 +252,7 @@ export const MARKETPLACE_TEMPLATES: Record<MarketplaceListingKind, MarketplaceTe
     version: 1,
     kind: "JOB",
     label: "Jobs",
-    categories: ["Administration", "Technical", "Sales", "Delivery", "Creative", "Professional Services", "Hospitality", "Construction", "Other"],
+    categories: marketplaceCategoryLabels("JOB"),
     fields: [
       { key: "companyName", label: "Company", type: "text", requiredFor: ["OFFER"] },
       { key: "workArrangement", label: "Work arrangement", type: "select", options: ["on-site", "hybrid", "remote"] },
@@ -274,7 +275,7 @@ export const MARKETPLACE_TEMPLATES: Record<MarketplaceListingKind, MarketplaceTe
     version: 1,
     kind: "AUDITOR",
     label: "Auditing",
-    categories: ["Field Auditors", "Field Groups", "Class V Orgs", "SH/AO", "FLAG", "Auditing wanted"],
+    categories: marketplaceCategoryLabels("AUDITOR"),
     fields: [
       { key: "directoryKind", label: "Provider type", type: "select", requiredFor: ["OFFER", "WANTED"], options: ["field-auditor", "field-group", "class-v", "sh-ao", "flag", "other"] },
       { key: "services", label: "Services", type: "multiselect", requiredFor: ["OFFER", "WANTED"] },
