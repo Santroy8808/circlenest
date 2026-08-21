@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bookmark, Building2, Grid3X3, List, Plus, Search, SlidersHorizontal } from "lucide-react";
 
 import type { MarketplacePage } from "@/modules/marketplace/marketplace.contracts";
+import type { MarketplaceAvailableCategory } from "@/modules/marketplace/marketplace-navigation";
 import type { MarketplaceListingCardView } from "@/modules/marketplace/marketplace-view";
 import { MARKETPLACE_TEMPLATES } from "@/modules/marketplace/marketplace-templates";
 import { MarketplaceCard } from "./marketplace-card";
@@ -20,10 +21,12 @@ function queryHref(query: DirectoryQuery, patch: DirectoryQuery) {
 }
 
 export function MarketplaceDirectory({
+  availableCategories,
   initialPage,
   query,
   signedIn,
 }: {
+  availableCategories: MarketplaceAvailableCategory[];
   initialPage: MarketplacePage<MarketplaceListingCardView>;
   query: DirectoryQuery;
   signedIn: boolean;
@@ -75,7 +78,7 @@ export function MarketplaceDirectory({
       </section>
 
       <div className={styles.directoryLayout}>
-        <MarketplaceCategoryTree query={query} />
+        <MarketplaceCategoryTree availableCategories={availableCategories} query={query} />
         <div className={styles.directoryContent}>
           <div className={styles.resultsHeader}>
             <p>{resultsLabel}</p>

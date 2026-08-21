@@ -5,6 +5,7 @@ import { diagnostics } from "@/lib/platform/logging";
 import { isAdminRole } from "@/lib/platform/roles";
 import { marketplaceSearchSchema, type MarketplacePage, type MarketplaceSearchInput } from "./marketplace.contracts";
 import { decodeMarketplaceCursor, encodeMarketplaceCursor, isMarketplaceDirectoryBridgeRecord } from "./marketplace-policy";
+import type { MarketplaceAvailableCategory } from "./marketplace-navigation";
 import {
   marketplaceListingInclude,
   toMarketplaceCardView,
@@ -17,6 +18,7 @@ const MODULE_KEY = "marketplace";
 const MARKETPLACE_QUERY_TIMEOUT_MS = 4_000;
 
 type SearchRow = { id: string; score: number };
+type AvailableCategoryRow = { category: string; kind: MarketplaceAvailableCategory["kind"]; subcategory: string | null };
 
 function withMarketplaceTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
   return Promise.race([
@@ -193,6 +195,28 @@ export async function listOwnedMarketplaceListings(userId: string, status?: Mark
   return listings
     .filter((listing) => !isMarketplaceDirectoryBridgeRecord(listing.attributes))
     .map((listing) => toMarketplaceDetailView(listing, true));
+}
+
+export async function getAvailableMarketplaceCategories(): Promise<MarketplaceAvailableCategory[]> {
+  return withMarketplaceTimeout(prisma.$queryRaw<AvailableCategoryRow[]>(Prisma.sql`
+    SELECT DISTINCT listing."kind", listing."category", listing."subcategory"
+    FROM "MarketplaceListing" listing
+    WHERE listing."status" = 'ACTIVE'::"MarketplaceListingStatus"
+      AND listing."publishedAt" IS NOT NULL
+      AND listing."publishedAt" <= CURRENT_TIMESTAMP
+      AND (listing."expiresAt" IS NULL OR listing."expiresAt" > CURRENT_TIMESTAMP)
+      AND (listing."attributes" ->> 'sourceProfileSync') IS DISTINCT FROM 'true'
+    ORDER BY listing."kind", listing."category", listing."subcategory"
+  `), "marketplace category availability");
+}
+
+export async function safeGetAvailableMarketplaceCategories(): Promise<MarketplaceAvailableCategory[]> {
+  try {
+    return await getAvailableMarketplaceCategories();
+  } catch (error) {
+    await diagnostics.error(MODULE_KEY, "Marketplace category availability failed.", { error: error instanceof Error ? error.message : "unknown" });
+    return [];
+  }
 }
 
 export async function listLegacyMarketplaceArchive(userId: string, viewerRole: UserRole) {

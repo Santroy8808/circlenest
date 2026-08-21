@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { BriefcaseBusiness, ChevronRight, FolderSearch2, Search, ShoppingBag, Wrench } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  filterMarketplaceNavigation,
   MARKETPLACE_NAVIGATION,
+  type MarketplaceAvailableCategory,
   type MarketplaceNavigationItem,
   type MarketplaceNavigationQuery,
 } from "@/modules/marketplace/marketplace-navigation";
@@ -38,16 +43,25 @@ function hrefFor(query: DirectoryQuery, item: MarketplaceNavigationItem) {
   return `/marketplace${params.size ? `?${params.toString()}` : ""}`;
 }
 
-function TreeItems({ items, query, depth = 0 }: { items: readonly MarketplaceNavigationItem[]; query: DirectoryQuery; depth?: number }) {
+type FolderControls = {
+  close: (id: string) => void;
+  hovered: ReadonlySet<string>;
+  manual: ReadonlySet<string>;
+  open: (id: string) => void;
+  toggle: (id: string) => void;
+};
+
+function TreeItems({ controls, items, query, depth = 0 }: { controls: FolderControls; items: readonly MarketplaceNavigationItem[]; query: DirectoryQuery; depth?: number }) {
   return (
     <ul className={depth === 0 ? styles.categoryTreeRoot : styles.categoryTreeChildren}>
       {items.map((item) => {
         const active = matches(item, query);
         if (item.children?.length) {
+          const folderOpen = hasActiveChild(item, query) || controls.hovered.has(item.id) || controls.manual.has(item.id);
           return (
             <li key={item.id}>
-              <details className={styles.categoryFolder} open={hasActiveChild(item, query)}>
-                <summary>
+              <details className={styles.categoryFolder} onMouseEnter={() => controls.open(item.id)} onMouseLeave={() => controls.close(item.id)} open={folderOpen}>
+                <summary onClick={(event) => { event.preventDefault(); controls.toggle(item.id); }}>
                   {depth === 0 && item.id in sectionIcons ? (() => {
                     const Icon = sectionIcons[item.id as keyof typeof sectionIcons];
                     return <Icon aria-hidden="true" />;
@@ -57,7 +71,7 @@ function TreeItems({ items, query, depth = 0 }: { items: readonly MarketplaceNav
                 </summary>
                 <div className={styles.categoryFolderContent}>
                   {item.query ? <Link className={styles.categoryAllLink} href={hrefFor(query, item)}>View all {item.label.toLowerCase()}</Link> : null}
-                  <TreeItems depth={depth + 1} items={item.children} query={query} />
+                  <TreeItems controls={controls} depth={depth + 1} items={item.children} query={query} />
                 </div>
               </details>
             </li>
@@ -76,14 +90,55 @@ function TreeItems({ items, query, depth = 0 }: { items: readonly MarketplaceNav
   );
 }
 
-export function MarketplaceCategoryTree({ query }: { query: DirectoryQuery }) {
+export function MarketplaceCategoryTree({ availableCategories, query }: { availableCategories: MarketplaceAvailableCategory[]; query: DirectoryQuery }) {
+  const [hovered, setHovered] = useState<Set<string>>(() => new Set());
+  const [manual, setManual] = useState<Set<string>>(() => new Set());
+  const closeTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const items = useMemo(() => filterMarketplaceNavigation(MARKETPLACE_NAVIGATION, availableCategories), [availableCategories]);
+
+  useEffect(() => () => {
+    for (const timer of closeTimers.current.values()) clearTimeout(timer);
+    closeTimers.current.clear();
+  }, []);
+
+  const controls: FolderControls = {
+    hovered,
+    manual,
+    open(id) {
+      const timer = closeTimers.current.get(id);
+      if (timer) clearTimeout(timer);
+      closeTimers.current.delete(id);
+      setHovered((current) => new Set(current).add(id));
+    },
+    close(id) {
+      const timer = closeTimers.current.get(id);
+      if (timer) clearTimeout(timer);
+      closeTimers.current.set(id, setTimeout(() => {
+        setHovered((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+        closeTimers.current.delete(id);
+      }, 180));
+    },
+    toggle(id) {
+      setManual((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    },
+  };
+
   return (
     <aside className={styles.categorySidebar} aria-label="Marketplace categories">
       <div className={styles.categorySidebarHeading}>
         <span>Browse categories</span>
         <Link href="/marketplace">All listings</Link>
       </div>
-      <TreeItems items={MARKETPLACE_NAVIGATION} query={query} />
+      <TreeItems controls={controls} items={items} query={query} />
     </aside>
   );
 }

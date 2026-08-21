@@ -16,6 +16,12 @@ export type MarketplaceNavigationItem = {
   query?: MarketplaceNavigationQuery;
 };
 
+export type MarketplaceAvailableCategory = {
+  category: string;
+  kind: MarketplaceListingKind;
+  subcategory: string | null;
+};
+
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -77,3 +83,23 @@ export const MARKETPLACE_NAVIGATION: readonly MarketplaceNavigationItem[] = [
     ],
   },
 ];
+
+function queryHasListings(query: MarketplaceNavigationQuery | undefined, available: readonly MarketplaceAvailableCategory[]) {
+  if (!query?.kind) return false;
+  return available.some((path) =>
+    path.kind === query.kind &&
+    (!query.category || path.category === query.category) &&
+    (!query.subcategory || path.subcategory === query.subcategory),
+  );
+}
+
+export function filterMarketplaceNavigation(
+  items: readonly MarketplaceNavigationItem[],
+  available: readonly MarketplaceAvailableCategory[],
+): MarketplaceNavigationItem[] {
+  return items.flatMap((item) => {
+    const children = item.children ? filterMarketplaceNavigation(item.children, available) : [];
+    const keep = Boolean(item.href) || queryHasListings(item.query, available) || children.length > 0;
+    return keep ? [{ ...item, children: children.length ? children : undefined }] : [];
+  });
+}
