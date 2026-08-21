@@ -91,10 +91,18 @@ const GOODS_NOUNS: Record<string, readonly string[]> = {
   Other: ["specialty equipment set", "unique household item", "useful project bundle", "hard-to-find accessory", "quality miscellaneous lot", "compact utility set"],
 };
 
-const VEHICLES = [
-  ["Toyota", "Corolla"], ["Honda", "CR-V"], ["Ford", "F-150"], ["Volkswagen", "Golf"], ["Subaru", "Outback"], ["Mazda", "CX-5"],
-  ["Hyundai", "Tucson"], ["Kia", "Sportage"], ["Chevrolet", "Silverado"], ["Nissan", "Frontier"], ["BMW", "R 1250"], ["Yamaha", "MT-07"],
-] as const;
+const VEHICLES_BY_CATEGORY: Record<string, readonly (readonly [string, string])[]> = {
+  Cars: [["Toyota", "Corolla"], ["Honda", "Civic"], ["Volkswagen", "Golf"], ["Mazda", "Mazda3"], ["Hyundai", "Elantra"], ["Subaru", "Legacy"]],
+  Trucks: [["Ford", "F-150"], ["Chevrolet", "Silverado"], ["Toyota", "Tacoma"], ["Nissan", "Frontier"], ["Ram", "1500"], ["GMC", "Sierra"]],
+  "SUVs & Crossovers": [["Honda", "CR-V"], ["Subaru", "Outback"], ["Mazda", "CX-5"], ["Hyundai", "Tucson"], ["Kia", "Sportage"], ["Toyota", "RAV4"]],
+  Vans: [["Ford", "Transit"], ["Mercedes-Benz", "Sprinter"], ["Honda", "Odyssey"], ["Toyota", "Sienna"], ["Ram", "ProMaster"], ["Volkswagen", "Transporter"]],
+  Motorcycles: [["Yamaha", "MT-07"], ["Honda", "Rebel 500"], ["BMW", "R 1250 GS"], ["Kawasaki", "Ninja 650"], ["Suzuki", "V-Strom 650"], ["Triumph", "Bonneville"]],
+  "Commercial Vehicles": [["Isuzu", "NPR"], ["Ford", "E-450"], ["Freightliner", "M2"], ["Hino", "195"], ["Ram", "ProMaster 3500"], ["Mercedes-Benz", "Sprinter 3500"]],
+};
+
+function vehicleForCategory(category: string, index: number) {
+  return pick(VEHICLES_BY_CATEGORY[category] ?? VEHICLES_BY_CATEGORY.Cars, index);
+}
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -128,13 +136,13 @@ function goodsTitle(category: string, subcategory: string | null, index: number)
 }
 
 function vehicleTitle(category: string, index: number) {
-  const [make, model] = pick(VEHICLES, index);
+  const [make, model] = vehicleForCategory(category, index);
   const year = 2013 + (index % 13);
   if (category === "Bicycles") return `${year} ${pick(["Trek", "Specialized", "Giant", "Cannondale"], index)} ${pick(["road bike", "mountain bike", "commuter bike", "electric bike"], index)}`;
   if (category === "Boats & Watercraft") return `${year} ${pick(["Bayliner", "Yamaha", "Sea Ray", "Hobie"], index)} ${pick(["runabout", "sailboat", "personal watercraft", "kayak package"], index)}`;
   if (category === "RVs & Campers") return `${year} ${pick(["Winnebago", "Airstream", "Jayco", "Forest River"], index)} ${pick(["travel trailer", "motorhome", "camper", "fifth wheel"], index)}`;
   if (category === "Parts & Accessories") return `${pick(QUALIFIERS, index)} ${pick(["wheel and tire set", "roof rack system", "towing package", "replacement engine", "seat set", "diagnostic tool"], index)}`;
-  return `${year} ${make} ${model} ${category.replace(" & Crossovers", "")}`;
+  return `${year} ${make} ${model}`;
 }
 
 function rentalTitle(category: string, subcategory: string | null, location: BetaLocation, index: number) {
@@ -172,7 +180,7 @@ function titleFor(kind: MarketplaceListingKind, category: string, subcategory: s
 function attributesFor(kind: MarketplaceListingKind, category: string, subcategory: string | null, location: BetaLocation, index: number) {
   const common = { seedTag: MARKETPLACE_BETA_TAG, fixtureVersion: 1, betaTest: true };
   if (kind === "VEHICLE") {
-    const [make, model] = pick(VEHICLES, index);
+    const [make, model] = vehicleForCategory(category, index);
     return { ...common, year: 2013 + (index % 13), make, model, mileage: 18_000 + (index % 12) * 8_450, mileageUnit: location.countryCode === "US" || location.countryCode === "GB" ? "mi" : "km", transmission: index % 3 === 0 ? "Manual" : "Automatic", fuelType: index % 7 === 0 ? "Electric" : "Gasoline", titleStatus: "Clear", sellerType: "private", showVin: false };
   }
   if (kind === "RENTAL") return { ...common, propertyType: category === "Housing Wanted" ? "other" : category === "Storage & Parking" ? "storage" : category.toLowerCase().includes("apartment") ? "apartment" : category.toLowerCase().includes("house") ? "house" : category.toLowerCase().includes("room") ? "room" : category.toLowerCase().includes("short") ? "short-term" : category.toLowerCase().includes("commercial") ? "commercial" : category === "Land" ? "land" : "other", rentCadence: category === "Short-term Stays" ? "week" : "month", bedrooms: category === "Storage & Parking" ? null : 1 + (index % 4), bathrooms: 1 + (index % 3), area: 520 + (index % 10) * 115, areaUnit: location.countryCode === "US" ? "sqft" : "sqm", furnished: index % 2 === 0, pets: index % 3 === 0 ? "Pets considered" : "Ask about pets", parking: "One space available", amenities: ["Laundry", "Internet ready", "Natural light"], listerType: category === "Housing Wanted" ? "wanted" : "owner" };
@@ -194,9 +202,10 @@ export function buildMarketplaceBetaFixtures(listingsPerCategory = MARKETPLACE_B
       for (let index = 0; index < listingsPerCategory; index += 1) {
         const location = pick(LOCATIONS, fixtures.length + index);
         const subcategory = category.subcategories.length ? pick(category.subcategories, index) : null;
-        const title = titleFor(kind, category.label, subcategory, location, index);
+        const baseTitle = titleFor(kind, category.label, subcategory, location, index);
         const slug = `beta-market-${slugify(kind)}-${slugify(category.label)}-${String(index + 1).padStart(3, "0")}`;
         const wanted = category.label.includes("Wanted") || index % 11 === 0;
+        const title = wanted && !baseTitle.toLowerCase().startsWith("seeking") && !baseTitle.toLowerCase().startsWith("looking for") && !baseTitle.toLowerCase().startsWith("need ") ? `Wanted: ${baseTitle}` : baseTitle;
         const publishedAt = new Date(now.getTime() - ((fixtures.length * 37 + index * 17) % (45 * 24 * 60)) * 60_000);
         const price = listingPrice(kind, location, index, category.label);
         const company = kind === "JOB" ? pick(COMPANIES, index) : null;
@@ -228,4 +237,3 @@ export function buildMarketplaceBetaFixtures(listingsPerCategory = MARKETPLACE_B
   }
   return fixtures;
 }
-

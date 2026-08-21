@@ -27,3 +27,13 @@ test("beta fixtures distribute inventory across listing kinds, intents, location
   assert.ok(new Set(fixtures.map((fixture) => fixture.countryCode)).size >= 5);
   assert.ok(fixtures.some((fixture) => fixture.subcategory));
 });
+
+test("vehicle fixtures keep model details consistent with their category", () => {
+  const fixtures = buildMarketplaceBetaFixtures(8, new Date("2026-08-21T12:00:00Z"));
+  const truck = fixtures.find((fixture) => fixture.kind === "VEHICLE" && fixture.category === "Trucks" && fixture.intent === "OFFER");
+  const suv = fixtures.find((fixture) => fixture.kind === "VEHICLE" && fixture.category === "SUVs & Crossovers" && fixture.intent === "OFFER");
+  assert.ok(truck && suv);
+  assert.match(truck.title, /Ford F-150|Chevrolet Silverado|Toyota Tacoma|Nissan Frontier|Ram 1500|GMC Sierra/);
+  assert.match(suv.title, /Honda CR-V|Subaru Outback|Mazda CX-5|Hyundai Tucson|Kia Sportage|Toyota RAV4/);
+  assert.equal(truck.attributes.make, truck.title.split(" ")[1]);
+});
